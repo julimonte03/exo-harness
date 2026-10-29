@@ -13,7 +13,9 @@ Cada persona del equipo puede usar un agente distinto: Claude Code, Copilot, Cur
 - Reglas, skills, subagentes, contratos y plantillas se escriben **una sola vez** en `content/`, en formatos abiertos: `AGENTS.md`, `SKILL.md` del estándar Agent Skills y subagentes en Markdown con frontmatter estilo Claude Code.
 - El runtime tiene **un adaptador por agente**. Es **puro**: recibe el bundle canónico y devuelve operaciones (`WriteFile`, `MergeBlock`, `MergeKey`, `MirrorDir`, `Remove`), nunca escribe. Un motor común aplica esas operaciones con snapshot, escritura atómica y lock con hashes.
 - Ningún archivo específico de un agente se edita a mano en los proyectos; si el humano lo modifica, el lock lo detecta como conflicto.
-- Lo que es propio de cada agente vive solo en su adaptador. El adaptador genérico (`AGENTS.md` + `.agents/skills/`) siempre se instala.
+- Lo que es propio de cada agente vive solo en su adaptador.
+- El bloque `exo:core` en `AGENTS.md` siempre se instala.
+- Qué directorios de skills se escriben (`.agents/skills/`, `.claude/skills/` o los dos) depende de los agentes destino, evitando duplicados innecesarios. Lo deciden D-05 y D-06 en F2 a partir de `docs/agent-matrix.md`.
 
 ## Alternativas
 
@@ -26,4 +28,6 @@ Cada persona del equipo puede usar un agente distinto: Claude Code, Copilot, Cur
 - Hace falta un instalador (F2), aunque es delgado: el genérico más lo que le falta a cada agente.
 - Los golden tests por adaptador y por fixture son obligatorios, y regenerarlos es explícito (`pytest --update-golden`).
 - Cuando cambian las convenciones de un agente, se toca solo su adaptador y `docs/agent-matrix.md`, que lleva fecha de verificación.
-- Claude Code necesita el espejo `.claude/skills/` y el bloque `@AGENTS.md` en `CLAUDE.md`. Ambos están confirmados empíricamente.
+- Claude Code necesita `.claude/skills/`. Está confirmado empíricamente: no lee `.agents/skills/`.
+- Para las reglas, Claude Code lee `AGENTS.md` de forma nativa si no hay ningún `CLAUDE.md`. Las condiciones de versión y de sesión están en `docs/agent-matrix.md`.
+- Si existe un `CLAUDE.md`, hace falta el import `@AGENTS.md`. También está confirmado empíricamente.

@@ -14,7 +14,7 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
     "Operating System :: OS Independent",
 ]
-# Núcleo solo con biblioteca estándar (invariante 4, ADR-0002).
+# Núcleo solo con biblioteca estándar (invariante 4 de 02-ARQUITECTURA §2.13, ADR-0002).
 dependencies = []
 
 [project.optional-dependencies]

@@ -15,7 +15,7 @@ Licencias verificadas el 2026-10-29:
 | gentle-ai | https://github.com/Gentleman-Programming/gentle-ai | MIT | `Copyright (c) 2025 Gentleman Programming` | https://github.com/Gentleman-Programming/gentle-ai/blob/main/LICENSE |
 | Engram | https://github.com/Gentleman-Programming/engram | MIT | `Copyright (c) 2026 Alan Buscaglia` | https://github.com/Gentleman-Programming/engram/blob/main/LICENSE |
 
-**Marcas:** según el README de gentle-ai, "Gentle AI™" y "Engram™" son marcas de Alan Buscaglia. La licencia MIT cubre el código, pero no habilita a sugerir aval ni afiliación (ver `TRADEMARKS.md` del repo).
+**Marcas:** según el README de gentle-ai, "Gentle AI™" y "Engram™" son marcas de Alan Buscaglia. La licencia MIT cubre el código, pero no habilita a sugerir aval ni afiliación: https://github.com/Gentleman-Programming/gentle-ai/blob/main/TRADEMARKS.md. Son marcas ™, no registradas.
 
 ## Decisión
 

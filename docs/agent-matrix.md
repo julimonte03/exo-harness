@@ -12,7 +12,7 @@ Columnas: **1** reglas y precedencia · **2** directorios de skills · **3** ski
 - **Windsurf ahora es Devin Desktop** (2026-06-02). Cascade se eliminó en la v3.9.19 (2026-09-08) y el único agente es **Devin Local**, que usa el mismo motor y la misma config que **Devin CLI**: https://docs.devin.ai/desktop/devin-desktop-faq.md, https://docs.devin.ai/desktop/changelog.md
 - **Gemini CLI fue reemplazado por Antigravity CLI** para el tier gratuito y Google One (2026-06-18). Sigue disponible con API key paga y Code Assist Standard/Enterprise. El banner está en todas las páginas de https://geminicli.com/docs/
 - **VS Code tiene dos "harness".** El default es el **Copilot harness**, que comparte el runtime de Copilot CLI (`chat.defaultToCopilotHarness`); el comportamiento anterior quedó en el **Local harness**: https://code.visualstudio.com/docs/agents/concepts/agent-harnesses
-- **GitHub renombró "coding agent" a "Copilot cloud agent".**
+- **GitHub ahora llama "Copilot cloud agent" al antes llamado "coding agent".** Así figura en las rutas y títulos de su documentación, por ejemplo https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/create-custom-agents. No encontré un anuncio del cambio: `[No verificado]`.
 - **El estándar Agent Skills pasó a la Agentic AI Foundation (Linux Foundation)** el 2026-10-22, sin cambios de formato: https://www.anthropic.com/news/donating-agent-skills-to-the-agentic-ai-foundation. `name` tiene de 1 a 64 caracteres `a-z0-9-` e igual a la carpeta; `description` de 1 a 1024. Los campos opcionales son `license`, `compatibility`, `metadata` (mapa string→string) y `allowed-tools`: https://agentskills.io/specification
 - **AGENTS.md** también está bajo la AAIF. "The closest AGENTS.md to the edited file wins": https://agents.md
 
@@ -20,8 +20,8 @@ Columnas: **1** reglas y precedencia · **2** directorios de skills · **3** ski
 
 | Agente | 1 Reglas | 2 Skills (proyecto) | 4 Subagentes | 5 MCP (proyecto) | 8 Detección |
 |---|---|---|---|---|---|
-| Claude Code | `CLAUDE.md`; `AGENTS.md` solo si no hay `CLAUDE.md` (≥ 2.1.277) | `.claude/skills/` | `.claude/agents/*.md` | `.mcp.json` · `mcpServers` | `CLAUDECODE=1` |
-| Copilot CLI / VS Code (Copilot harness) | Fusiona `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `copilot-instructions.md`, `.github/instructions/` | `.github/skills/` > `.agents/skills/` > `.claude/skills/` | `.github/agents/` > `.claude/agents/` | `.mcp.json` · `mcpServers` | `COPILOT_CLI=1` / `AI_AGENT` |
+| Claude Code | `CLAUDE.md`; `AGENTS.md` solo si no hay `CLAUDE.md` (≥ 2.1.277, con salvedades) | `.claude/skills/` | `.claude/agents/*.md` | `.mcp.json` · `mcpServers` | `CLAUDECODE=1` |
+| Copilot CLI / VS Code (Copilot harness) | Fusiona `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `copilot-instructions.md`, `.github/instructions/` | `.github/skills/` > `.agents/skills/` > `.claude/skills/` | `.github/agents/` > `.claude/agents/` | `.mcp.json` · `mcpServers` | `COPILOT_CLI=1` (CLI); `AI_AGENT` en VS Code, verificación parcial |
 | Copilot cloud agent | `copilot-instructions.md`, `instructions/`, `AGENTS.md`, `CLAUDE.md` o `GEMINI.md` | `.github/` · `.claude/` · `.agents/skills/` | `.github/agents/*.agent.md` | Settings del repo (no archivo) | `COPILOT_AGENT_PROMPT` |
 | Cursor | `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/*.mdc` | `.agents/` · `.cursor/` · `.claude/` · `.codex/skills/` | `.cursor/agents/` > `.claude/agents/` | `.cursor/mcp.json` · `mcpServers` | `CURSOR_AGENT` |
 | Codex CLI | `AGENTS.md` (+ `AGENTS.override.md`) | `.agents/skills/` | `.codex/agents/*.toml` | `.codex/config.toml` · `[mcp_servers.x]` (confiable) | `[No verificado]` |
@@ -38,7 +38,7 @@ Versión instalada en esta máquina: 2.1.312. Docs: https://code.claude.com/docs
 
 | # | Verificado | Fuente |
 |---|---|---|
-| 1 | <ul><li>Carga `CLAUDE.md`, `.claude/CLAUDE.md` y `CLAUDE.local.md` del cwd y de cada padre, concatenados; los de subdirectorios, bajo demanda.</li><li>**`AGENTS.md` nativo desde v2.1.277**, solo si no existe ningún `CLAUDE.md`, `.claude/CLAUDE.md` ni `CLAUDE.local.md` en el cwd o más arriba (setting por defecto `claude-md-or-agents-md`; `claude-md-and-agents-md` lee los dos).</li><li>`@AGENTS.md` dentro de `CLAUDE.md` lo importa sin duplicar.</li><li>No lee `GEMINI.md` ni `.github/copilot-instructions.md`.</li><li>**Empírico:** con `CLAUDE.md` sin import, `AGENTS.md` no se carga; con `@AGENTS.md`, se cargan los dos.</li></ul> | https://code.claude.com/docs/en/memory (§"How CLAUDE.md files load", §"When Claude Code reads AGENTS.md", §"Choose which instruction files load"); `docs/spikes/agent-probe.md` |
+| 1 | <ul><li>Carga `CLAUDE.md`, `.claude/CLAUDE.md` y `CLAUDE.local.md` del cwd y de cada padre, concatenados; los de subdirectorios, bajo demanda.</li><li>**`AGENTS.md` nativo desde v2.1.277**, solo si no existe ningún `CLAUDE.md`, `.claude/CLAUDE.md` ni `CLAUDE.local.md` en el cwd o más arriba (setting por defecto `claude-md-or-agents-md`; `claude-md-and-agents-md` lee los dos).</li><li>**Salvedades:** no lee `AGENTS.md` si el plugin incorporado está desactivado (`cc-plugin-agents-md@builtin`; antes de v2.1.285, `agents-md@builtin`), ni a veces en la primera sesión después de actualizar desde ≤ 2.1.276. Antes de v2.1.281, algunas sesiones (Bedrock, telemetría desactivada) leen solo `CLAUDE.md`.</li><li>`@AGENTS.md` dentro de `CLAUDE.md` lo importa sin duplicar, y funciona en todos esos casos.</li><li>No lee `GEMINI.md` ni `.github/copilot-instructions.md`.</li><li>**Empírico:** con `CLAUDE.md` sin import, `AGENTS.md` no se carga; con `@AGENTS.md`, se cargan los dos.</li></ul> | https://code.claude.com/docs/en/memory (§"How CLAUDE.md files load", §"When Claude Code reads AGENTS.md", §"Choose which instruction files load"); `docs/spikes/agent-probe.md` |
 | 2 | <ul><li>Proyecto: `.claude/skills/` (del cwd a la raíz del repo; los `<subdir>/.claude/skills` anidados, bajo demanda).</li><li>Usuario: `~/.claude/skills/`; además managed y plugins.</li><li>**No lee `.agents/skills/` ni `.github/skills/`.** Confirmado empíricamente.</li></ul> | https://code.claude.com/docs/en/skills (§"Choose where skills load"); spike |
 | 3 | <ul><li>Enterprise > personal > proyecto.</li><li>Una skill le gana a un `.claude/commands` con el mismo nombre.</li><li>Raíz y anidado conviven con namespace (`/apps/web:deploy`).</li></ul> | https://code.claude.com/docs/en/skills (§"Resolve skills that share a name") |
 | 4 | <ul><li>`.claude/agents/**/*.md` (recursivo) y `~/.claude/agents/`.</li><li>Frontmatter obligatorio: `name` y `description`; opcionales `tools`, `model`, `skills`, `mcpServers`, `hooks`, etc.</li><li>Prioridad: managed > `--agents` > proyecto > usuario > plugin.</li><li>Empírico: OK.</li></ul> | https://code.claude.com/docs/en/sub-agents; spike |
@@ -112,13 +112,13 @@ La extensión IDE y la app de escritorio comparten la config. Las URLs `develope
 | # | Verificado | Fuente |
 |---|---|---|
 | 1 | <ul><li>Global: `~/.codex/AGENTS.override.md` o `AGENTS.md`.</li><li>Proyecto: recorre de la raíz del repo al cwd; en cada directorio toma el primero entre `AGENTS.override.md`, `AGENTS.md` y los nombres de `project_doc_fallback_filenames`. Concatena hasta un tope de **32 KiB**.</li><li>`CLAUDE.md` no se lee por defecto.</li></ul> | https://learn.chatgpt.com/docs/agent-configuration/agents-md |
-| 2 | <ul><li>`.agents/skills/` (del cwd a la raíz), `~/.agents/skills/`, `/etc/codex/skills`.</li><li>`~/.codex/skills` está deprecado y solo aparece en el código.</li></ul> | https://learn.chatgpt.com/docs/build-skills |
+| 2 | <ul><li>`.agents/skills/` (del cwd a la raíz), `~/.agents/skills/`, `/etc/codex/skills`.</li><li>`~/.codex/skills` está deprecado; solo aparece en el código (`codex-rs/ext/skills/src/host_roots.rs`, commit `184c9c5`): `[No verificado]`.</li></ul> | https://learn.chatgpt.com/docs/build-skills; https://github.com/openai/codex |
 | 3 | "If two skills share the same `name`, Codex doesn't merge them; both can appear in skill selectors" | https://learn.chatgpt.com/docs/build-skills |
 | 4 | <ul><li>**TOML**: `.codex/agents/*.toml` y `~/.codex/agents/`, con `name`, `description` y `developer_instructions` obligatorios.</li><li>No lee `.claude/agents/`.</li></ul> | https://learn.chatgpt.com/docs/agent-configuration/subagents |
 | 5 | <ul><li>`[mcp_servers.<nombre>]` en `.codex/config.toml`, **solo en proyectos confiables** (`projects."<ruta>".trust_level`), o en `~/.codex/config.toml`.</li><li>stdio: `command`, `args`, `env`, `cwd`; sin clave `type`.</li></ul> | https://learn.chatgpt.com/docs/extend/mcp; https://learn.chatgpt.com/docs/config-file/config-basic |
 | 6 | <ul><li>`.codex/hooks.json` o `[hooks]` en `config.toml`.</li><li>Eventos `SessionStart`, `PreToolUse`, `PostToolUse`, `PreCompact`, `Stop`…</li><li>Confianza por hash de contenido (`/hooks`); solo en proyectos confiables.</li></ul> | https://learn.chatgpt.com/docs/hooks |
 | 7 | Los custom prompts están **deprecados** y solo existen a nivel usuario (`~/.codex/prompts/`). El reemplazo son las skills (`$skill`, `/skills`) | https://learn.chatgpt.com/docs/custom-prompts |
-| 8 | `[No verificado]`. El código fuente define `CODEX_THREAD_ID`, `CODEX_SESSION_ID`, `CODEX_VERSION` y `CODEX_SANDBOX`, pero no están documentadas | https://learn.chatgpt.com/docs/config-file/environment-variables |
+| 8 | `[No verificado]`. El código fuente define `CODEX_THREAD_ID`, `CODEX_SESSION_ID`, `CODEX_VERSION` y `CODEX_SANDBOX` (commit `184c9c5`: `core/src/exec_env.rs`, `core/src/spawn.rs`), pero no están documentadas | https://learn.chatgpt.com/docs/config-file/environment-variables; https://github.com/openai/codex |
 
 ## Gemini CLI
 
@@ -130,7 +130,7 @@ Para el tier gratuito y Google One fue reemplazado por Antigravity CLI. Docs: ht
 | 2 | <ul><li>`.gemini/skills/` o el alias **`.agents/skills/`**.</li><li>Usuario: `~/.gemini/skills/` o `~/.agents/skills/`.</li></ul> | https://geminicli.com/docs/cli/skills/ |
 | 3 | <ul><li>workspace > user > extension > built-in.</li><li>En el mismo nivel, `.agents/skills/` le gana a `.gemini/skills/`.</li></ul> | https://geminicli.com/docs/cli/skills/ (§"Precedence and aliases") |
 | 4 | `.gemini/agents/*.md` con YAML: `name` y `description` obligatorios; opcionales `tools`, `mcpServers`, `model`… | https://geminicli.com/docs/core/subagents/ |
-| 5 | <ul><li>`.gemini/settings.json`, clave `mcpServers` (`command`, `args`, `env`, `cwd`, `trust`…).</li><li>**En una carpeta no confiable ignora los settings del workspace y no conecta MCP.**</li><li>La confianza viene activada por defecto según el schema, aunque una página dice lo contrario.</li></ul> | https://geminicli.com/docs/tools/mcp-server/; https://geminicli.com/docs/cli/trusted-folders/ |
+| 5 | <ul><li>`.gemini/settings.json`, clave `mcpServers` (`command`, `args`, `env`, `cwd`, `trust`…).</li><li>**En una carpeta no confiable ignora los settings del workspace y no conecta MCP.**</li><li>La confianza de carpetas viene activada por defecto (`security.folderTrust.enabled`, `default: true`) según la referencia de configuración y el schema, aunque la página de trusted folders dice "disabled by default".</li></ul> | https://geminicli.com/docs/tools/mcp-server/; https://geminicli.com/docs/cli/trusted-folders/; https://geminicli.com/docs/reference/configuration/; https://github.com/google-gemini/gemini-cli/blob/main/packages/cli/src/config/settingsSchema.ts |
 | 6 | `hooks` en `settings.json`; eventos `SessionStart`, `BeforeTool`, `AfterTool`, `PreCompress`, `SessionEnd`…; timeout en ms | https://geminicli.com/docs/hooks/ |
 | 7 | `.gemini/commands/*.toml` (`prompt`, `description`), con namespaces por subcarpeta. No se cargan en carpetas no confiables | https://geminicli.com/docs/cli/custom-commands/ |
 | 8 | `GEMINI_CLI=1` | https://geminicli.com/docs/tools/shell/ |
@@ -186,9 +186,9 @@ Son **propuestas**: se deciden en F2 con D-04, D-05 y D-06.
 
 - **Reglas.**
   - `AGENTS.md` es la fuente única.
-  - Para Claude Code ≥ 2.1.277, **no crear `CLAUDE.md` si no existe**, porque Claude ya lee `AGENTS.md` y Copilot, Cursor y Devin cargarían los dos.
+  - Para Claude Code ≥ 2.1.281 con el plugin de `AGENTS.md` activo, **no crear `CLAUDE.md` si no existe**, porque Claude ya lee `AGENTS.md` y Copilot, Cursor y Devin cargarían los dos. Si `doctor` no puede confirmar esas condiciones, usar `CLAUDE.md` con `@AGENTS.md`.
   - Si el humano ya tiene `CLAUDE.md`, inyectar el bloque con `@AGENTS.md`, porque sin el import Claude no lo lee.
-  - `exo doctor` verifica la versión de Claude Code.
+  - `exo doctor` verifica que Claude Code sea ≥ 2.1.281 y que el plugin `cc-plugin-agents-md@builtin` esté activo.
 - **Skills.**
   - Si los destinos son solo Claude Code y Copilot, **una única copia en `.claude/skills/`** llega a los dos.
   - Con Codex o Gemini como destino, hace falta `.agents/skills/`. Si además está Claude Code, también `.claude/skills/`. Como las copias son idénticas, la sombra en Copilot no hace daño.
@@ -196,7 +196,7 @@ Son **propuestas**: se deciden en F2 con D-04, D-05 y D-06.
 - **MCP.**
   - `.mcp.json` con `mcpServers` es común a Claude Code, Copilot CLI, el Copilot harness de VS Code y Devin (que lo importa). Copilot exige `tools`; que Claude Code tolere esa clave es `[No verificado]` (probar en F2).
   - Cursor usa `.cursor/mcp.json` (incluir `"type":"stdio"`).
-  - Codex usa un bloque marcado en `.codex/config.toml`. **Sin `tomlkit`: invariante 4.**
+  - Codex usa un bloque marcado en `.codex/config.toml`. **Sin `tomlkit`: invariante 4 de 02-ARQUITECTURA §2.13 (solo stdlib).**
   - Gemini usa `.gemini/settings.json`.
   - Avisar que Codex y Gemini cargan el MCP de proyecto solo en carpetas confiables.
   - Ver también D-23 (bloqueo por política).

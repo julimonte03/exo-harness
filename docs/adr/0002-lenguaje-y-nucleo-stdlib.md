@@ -10,13 +10,13 @@ El runtime del sistema original era Python solo stdlib, con 11 invariantes pensa
 
 ## Decisión
 
-1. **Python ≥ 3.10.** El paquete `src/exo` usa solo biblioteca estándar, salvo `memory/backends/` y `memory/embeddings/`, que importan sus dependencias de forma diferida y fallan con un mensaje claro (invariante 4). Las dependencias opcionales van como extras (`[vector]`, más adelante `[qdrant]`) y las de desarrollo en `[dev]`.
+1. **Python ≥ 3.10.** El paquete `src/exo` usa solo biblioteca estándar, salvo `memory/backends/` y `memory/embeddings/`, que importan sus dependencias de forma diferida y fallan con un mensaje claro (invariante 4 de `docs/plan/02-ARQUITECTURA.md` §2.13; 1 en `AGENTS.md`). Las dependencias opcionales van como extras (`[vector]`, más adelante `[qdrant]`) y las de desarrollo en `[dev]`.
 2. **Sistemas (D-15): mixto, con Windows como prioridad local.** La CI corre en Ubuntu, macOS y Windows con Python 3.10 y 3.13 (F8 amplía a 3.10–3.13). Las pruebas manuales se hacen primero en Windows, y en F2 `install.ps1` es prioridad 1.
 
 ## Alternativas
 
 - **Go con binario único (D-02 b).** Instala sin ningún prerrequisito, pero corta la continuidad con el reporte y complica los embeddings locales. Conviene solo si la instalación sin Python fuera crítica para usuarios no técnicos, y no es el caso del equipo.
-- **Python con dependencias en el núcleo** (PyYAML, click, etc.). Rompe la invariante 4 y complica la instalación en entornos corporativos con proxy.
+- **Python con dependencias en el núcleo** (PyYAML, click, etc.). Rompe esa invariante y complica la instalación en entornos corporativos con proxy.
 
 ## Consecuencias
 

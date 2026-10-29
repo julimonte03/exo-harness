@@ -6,7 +6,7 @@
 
 Casi. `AGENTS.md` resuelve las **reglas** en todos los agentes de la matriz, salvo Gemini CLI, que necesita configuración. La carpeta `.agents/skills/` resuelve las **skills** en Copilot, Cursor, Codex, Gemini y Devin. El estándar Agent Skills pasó el 2026-10-22 a la Agentic AI Foundation, bajo la Linux Foundation, sin cambios de formato. Pero siguen siendo específicas de cada agente estas cosas:
 
-1. **Claude Code** lee `AGENTS.md` de forma nativa desde v2.1.277, pero solo si no hay ningún `CLAUDE.md`. Si lo hay, hay que importarlo con `@AGENTS.md`. Además, Claude Code no escanea `.agents/skills/`: necesita `.claude/skills/`.
+1. **Claude Code** lee `AGENTS.md` de forma nativa desde v2.1.277, pero solo si no hay ningún `CLAUDE.md`, con salvedades: plugin incorporado activo, y antes de v2.1.281 no en Bedrock ni con telemetría desactivada. Si lo hay, hay que importarlo con `@AGENTS.md`. Además, Claude Code no escanea `.agents/skills/`: necesita `.claude/skills/`.
 2. **La configuración MCP** cambia de ruta y formato según el agente, y varios agentes la cargan solo en carpetas confiables.
 3. **Subagentes, hooks y comandos** tienen formatos distintos en cada agente.
 4. **Hay lecturas cruzadas.** Copilot, Cursor y Devin también leen `CLAUDE.md`, `.claude/skills/`, `.claude/agents/` y los hooks de `.claude/settings.json`. Generar el mismo contenido en dos lugares puede duplicarlo o hacerlo correr dos veces.
@@ -33,7 +33,7 @@ Son propuestas para F2 y se deciden ahí con D-04, D-05 y D-06.
 
 **Reglas.**
 - La fuente es `AGENTS.md` (bloque `exo:core`).
-- **Claude Code:** si el proyecto no tiene `CLAUDE.md`, no se crea. Claude ≥ 2.1.277 ya lee `AGENTS.md`, y un `CLAUDE.md` adicional duplicaría el contexto en Copilot, Cursor y Devin, que leen los dos. Si el humano ya tiene `CLAUDE.md`, se le inyecta un bloque con `@AGENTS.md`. `exo doctor` verifica la versión de Claude Code.
+- **Claude Code:** si el proyecto no tiene `CLAUDE.md`, no se crea, siempre que `exo doctor` confirme Claude Code ≥ 2.1.281 con el plugin `cc-plugin-agents-md@builtin` activo; si no puede confirmarlo, se usa `CLAUDE.md` con `@AGENTS.md`. Claude ya lee `AGENTS.md`, y un `CLAUDE.md` adicional duplicaría el contexto en Copilot, Cursor y Devin, que leen los dos. Si el humano ya tiene `CLAUDE.md`, se le inyecta un bloque con `@AGENTS.md`.
 - **Gemini:** se configura `context.fileName: ["AGENTS.md", "GEMINI.md"]` en `.gemini/settings.json`; solo rige en carpetas confiables, y si no, se agrega un bloque puntero en `GEMINI.md`.
 - **Copilot:** no hace falta un bloque en `.github/copilot-instructions.md`, porque todas sus superficies leen `AGENTS.md`.
 
@@ -81,7 +81,7 @@ Son propuestas para F2 y se deciden ahí con D-04, D-05 y D-06.
 | 2 | Cursor, Codex CLI, Gemini CLI, Devin Local/CLI (ex Windsurf) | Reglas, skills, MCP; subagentes cuando el formato es compatible; golden tests |
 | 3 | Cualquier otro compatible con AGENTS.md | Adaptador genérico + snippet MCP impreso |
 
-Candidato a evaluar en D-04: Antigravity CLI, sucesor de Gemini CLI para el tier gratuito. Lee `.agents/skills/` y `AGENTS.md`, y su MCP de workspace está en `.agents/mcp_config.json`.
+Candidato a evaluar en D-04: Antigravity CLI, sucesor de Gemini CLI para el tier gratuito. Según su guía de migración, lee `GEMINI.md` y `AGENTS.md`, sus skills de workspace van en `.agents/skills/` y su MCP de workspace en `.agents/mcp_config.json`: https://antigravity.google/docs/cli/gcli-migration. Hay que verificarlo a fondo antes de decidir.
 
 ## Señales de detección
 
