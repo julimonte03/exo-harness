@@ -1,5 +1,7 @@
 # Plan de construcción del motor `arnes` — Leeme primero
 
+> **Nombre definitivo: `exo`** (D-01 → `docs/adr/0001-nombre-y-layout.md`, 2026-10-29). El plan conserva el texto original. Donde dice `arnes`, `.arnes/`, `ARNES_` o `arnes-`, leé `exo`, `.exo/`, `EXO_` y `exo-`. El código toma todos esos nombres de `src/exo/_meta.py`.
+
 Este plan describe cómo construir, en un repositorio nuevo, un **motor de desarrollo gobernado por proyecto**, agnóstico del agente de IA, tomando como base el reporte transcripto *"ARNÉS — Reporte técnico del sistema de referencia"* y sumando tres mejoras: agnosticismo con instalación de un comando, ingeniería inversa de proyectos existentes y memoria híbrida (léxica + vectorial).
 
 `arnes` es un **nombre de trabajo** (ver D-01 en `04-DECISIONES.md`). Todo nombre visible (CLI, carpeta `.arnes/`, prefijo de variables `ARNES_`) sale de una única constante en el código, así que renombrar después es barato.
