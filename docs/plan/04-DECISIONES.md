@@ -37,6 +37,10 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 
 ### D-04 — Agentes de la v1
 - **Default:** Tier 1 = Claude Code y GitHub Copilot (VS Code y CLI). Tier 2 = Cursor, Codex CLI, Gemini CLI, Windsurf/Devin. Tier 3 = genérico.
+- **Hallazgos de F0** (`docs/agent-matrix.md`, 2026-10-29) a considerar al decidir:
+  - Windsurf ahora es Devin Desktop: Cascade se eliminó y el agente es Devin Local/CLI. El adaptador pasa a llamarse `devin`.
+  - Gemini CLI fue reemplazado por Antigravity CLI para el tier gratuito, que es candidato a Tier 2.
+  - VS Code tiene dos harness: Copilot (default, mismo runtime que Copilot CLI) y Local (legacy).
 - **Estado:** Abierta.
 
 ### D-05 — Dónde viven las skills de un proyecto
