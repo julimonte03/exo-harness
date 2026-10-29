@@ -1,7 +1,8 @@
 """Los nombres visibles del motor salen solo de `_meta.py` (invariante 17, ADR-0001).
 
 Falla si algún módulo de `src/exo` distinto de `_meta.py` contiene como
-literal de string el directorio del proyecto o el prefijo de variables.
+literal de string el directorio del proyecto, el prefijo de variables o el
+nombre de la carpeta de datos de usuario.
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ from pathlib import Path
 from exo import _meta
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "exo"
-FORBIDDEN = (_meta.PROJECT_DIR, _meta.ENV_PREFIX)
+FORBIDDEN = (_meta.PROJECT_DIR, _meta.ENV_PREFIX, _meta.USER_DIR_NAME)
 
 
 def _string_literals(path: Path) -> Iterator[tuple[int, str]]:
