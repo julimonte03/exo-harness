@@ -1,5 +1,7 @@
-* text=auto
-*.sh text eol=lf
+# LF en el repo y en la copia de trabajo, en todos los sistemas.
+* text=auto eol=lf
 *.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
 # Transcripción de referencia: se versiona byte a byte, sin normalizar.
 docs/referencia/** -text
