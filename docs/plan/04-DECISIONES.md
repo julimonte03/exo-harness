@@ -41,22 +41,22 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
   - Windsurf ahora es Devin Desktop: Cascade se eliminó y el agente es Devin Local/CLI. El adaptador pasa a llamarse `devin`.
   - Gemini CLI fue reemplazado por Antigravity CLI para el tier gratuito, que es candidato a Tier 2.
   - VS Code tiene dos harness: Copilot (default, mismo runtime que Copilot CLI) y Local (legacy).
-- **Estado:** Abierta.
+- **Estado:** Decidida (ADR-0006), 2026-10-30: base agnóstica para cualquier agente que lea `AGENTS.md`, con detección al instalar. Adaptadores específicos solo para Claude Code y GitHub Copilot (VS Code y CLI). Cursor, Codex, Gemini y Devin se detectan y quedan cubiertos por la base; sus adaptadores propios salen de la v1.
 
 ### D-05 — Dónde viven las skills de un proyecto
 - **Opciones:** (a) copia en el repo, versionada · (b) instalación global por usuario.
 - **Default:** (a). Todo el equipo usa la misma versión, el lock la registra y la CI puede validarla. Global queda como opción (`--scope user`).
-- **Estado:** Abierta.
+- **Estado:** Decidida (ADR-0007), 2026-10-30: opción (a), por proyecto, copiadas y versionadas en el repo.
 
 ### D-06 — Espejo `.claude/skills/`
 - **Opciones:** (a) copia gestionada por el lock · (b) symlink/junction.
 - **Default:** (a). Funciona igual en Windows y en todos los agentes; el lock evita que diverja. Symlinks quedan como opción en sistemas POSIX.
-- **Estado:** Abierta.
+- **Estado:** Decidida (ADR-0007), 2026-10-30: copias gestionadas por el lock, solo las necesarias. Con Claude Code y/o Copilot alcanza `.claude/skills/`; con otros agentes se suma `.agents/skills/`.
 
 ### D-16 — Hosting de git y CI de los proyectos
 - **Opciones:** GitHub · GitLab · Azure DevOps · Bitbucket.
 - **Default:** GitHub para el repo del motor; plantillas de CI para GitHub Actions y GitLab CI en los proyectos; el resto vía `arnes check` en un script genérico.
-- **Estado:** Abierta.
+- **Estado:** Decidida (ADR-0008), 2026-10-30: Azure DevOps (Azure Repos + Azure Pipelines con un pipeline propio). La CI del motor pasa a `azure-pipelines.yml`; los proyectos invocan `exo check` desde su pipeline.
 
 ## Bloquean F3
 
