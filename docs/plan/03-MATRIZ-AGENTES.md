@@ -77,9 +77,10 @@ Son propuestas para F2 y se deciden ahí con D-04, D-05 y D-06.
 
 | Tier | Agentes | Qué incluye |
 |---|---|---|
-| 1 | Claude Code, GitHub Copilot (CLI, VS Code Copilot harness y cloud agent) | Reglas, skills, subagentes, MCP, hooks, golden tests, checklist manual de verificación |
-| 2 | Cursor, Codex CLI, Gemini CLI, Devin Local/CLI (ex Windsurf) | Reglas, skills, MCP; subagentes cuando el formato es compatible; golden tests |
-| 3 | Cualquier otro compatible con AGENTS.md | Adaptador genérico + snippet MCP impreso |
+| 1 | Claude Code, GitHub Copilot (VS Code y CLI) | Adaptador propio: reglas, skills, subagentes, hooks, permisos y MCP opcional; golden tests y checklist manual con agentes reales |
+| Genérico | Cualquier agente compatible con `AGENTS.md`, incluidos Cursor, Codex, Gemini/Antigravity y Devin | Base agnóstica: reglas en `AGENTS.md` y skills en `.agents/skills/`; se detectan al instalar y el instalador imprime los pasos manuales que falten |
+
+> **Decidido en ADR-0006 (D-04), 2026-10-30:** la v1 no tiene adaptadores Tier 2 propios. El cloud agent de Copilot queda fuera porque los repos van a estar en Azure DevOps (ADR-0008).
 
 Candidato a evaluar en D-04: Antigravity CLI, sucesor de Gemini CLI para el tier gratuito. Según su guía de migración, lee `GEMINI.md` y `AGENTS.md`, sus skills de workspace van en `.agents/skills/` y su MCP de workspace en `.agents/mcp_config.json`: https://antigravity.google/docs/cli/gcli-migration. Hay que verificarlo a fondo antes de decidir.
 
