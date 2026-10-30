@@ -48,8 +48,8 @@ source = ["exo"]
 branch = true
 
 [tool.coverage.report]
-# 80 % en F0; sube a 85 % en F1.
-fail_under = 80
+# 80 % en F0; 85 % desde F1.
+fail_under = 85
 show_missing = true
 
 [tool.ruff]

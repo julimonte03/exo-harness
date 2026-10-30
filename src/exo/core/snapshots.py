@@ -121,7 +121,8 @@ def _member(name: str, data: bytes, mode: int) -> tarfile.TarInfo:
 
 def _tar_bytes(project: Path, paths: list[str]) -> bytes:
     roots = sorted({str(fsutil.safe_relpath(p)) for p in paths})
-    manifest, files = _collect(Path(project), roots)
+    # Resuelto: las rutas internas salen de resolve_within (nombres largos, sin symlinks).
+    manifest, files = _collect(Path(project).resolve(), roots)
     raw = io.BytesIO()
     with tarfile.open(fileobj=raw, mode="w", format=tarfile.GNU_FORMAT) as tar:
         payload = json.dumps(manifest, sort_keys=True).encode("utf-8")
@@ -289,7 +290,7 @@ def _remove_tree(project: Path, target: Path, removed: list[str]) -> None:
 
 def restore(project: Path, name: str) -> RestoreResult:
     """Vuelve las raíces del snapshot a su estado. Antes snapshotea el estado actual."""
-    project = Path(project)
+    project = Path(project).resolve()
     archive = read_archive(fsutil.read_bytes(_existing(project, name)))
     manifest = archive.manifest
     before = snapshot(project, manifest["roots"]) if manifest["roots"] else None
