@@ -203,8 +203,8 @@ def test_backup_no_se_crea_si_no_hay_cambios(tmp_path: Path) -> None:
 
 def test_bom_se_conserva(tmp_path: Path) -> None:
     target = tmp_path / "AGENTS.md"
-    target.write_bytes("﻿# Humano\n".encode())
+    target.write_bytes("\ufeff# Humano\n".encode())
     filemerge.inject(target, "core", "x")
-    assert target.read_bytes().startswith("﻿# Humano\n".encode())
+    assert target.read_bytes().startswith("\ufeff# Humano\n".encode())
     filemerge.remove(target, "core")
-    assert target.read_bytes() == "﻿# Humano\n".encode()
+    assert target.read_bytes() == "\ufeff# Humano\n".encode()

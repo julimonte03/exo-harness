@@ -21,6 +21,8 @@ _DELIMITER = "---"
 _KEY = re.compile(r"^([A-Za-z0-9_][A-Za-z0-9_.-]*):(?: +(.*))?$")
 _INT = re.compile(r"^[-+]?\d+$")
 _BLOCK_INDICATORS = ("|", "|-", ">", ">-")
+# Un escalar sin comillas no puede empezar con estos indicadores de YAML.
+_PLAIN_FORBIDDEN_START = set(",%@`")
 _ESCAPES = {"\\": "\\", '"': '"', "n": "\n", "t": "\t", "/": "/"}
 _UNSUPPORTED_START = {
     "&": "no soportado: anclas",
@@ -43,7 +45,7 @@ class _Skip(Exception):
 
 def parse(text: str, *, strict: bool = False) -> tuple[dict[str, Any], str]:
     """Devuelve `(datos, cuerpo)`. Sin frontmatter, en modo tolerante: `({}, text)`."""
-    source = text[1:] if text.startswith("﻿") else text
+    source = text[1:] if text.startswith("\ufeff") else text
     lines = source.splitlines(keepends=True)
     if not lines or lines[0].rstrip("\r\n") != _DELIMITER:
         if strict:
@@ -51,9 +53,7 @@ def parse(text: str, *, strict: bool = False) -> tuple[dict[str, Any], str]:
                 "falta el frontmatter: el archivo tiene que empezar con '---'", 1
             )
         return {}, text
-    close = next(
-        (i for i in range(1, len(lines)) if lines[i].rstrip("\r\n") == _DELIMITER), None
-    )
+    close = next((i for i in range(1, len(lines)) if lines[i].rstrip("\r\n") == _DELIMITER), None)
     if close is None:
         if strict:
             raise FrontmatterError("el frontmatter no se cierra con una línea '---'", 1)
@@ -141,6 +141,27 @@ class _Parser:
             if rest.strip() and not rest.strip().startswith("#"):
                 self.fail("texto inesperado después de la comilla de cierre", lineno)
             return text
+        return self.plain(raw, lineno)
+
+    def plain(self, raw: str, lineno: int) -> Any:
+        """Escalar sin comillas. En modo estricto rechaza lo que un YAML real no acepta."""
+        if self.strict:
+            text = _strip_comment(raw)
+            if (
+                text[:1] in _PLAIN_FORBIDDEN_START
+                or text[:2] in ("- ", "? ", ": ")
+                or text in "-?:"
+            ):
+                self.fail(
+                    f"no soportado: un valor sin comillas no puede empezar con {text[:1]!r}; "
+                    "ponelo entre comillas",
+                    lineno,
+                )
+            if ": " in text or text.endswith(":"):
+                self.fail(
+                    "valor con ':' sin comillas: YAML lo rechaza; ponelo entre comillas o usá >-",
+                    lineno,
+                )
         return _plain(raw)
 
     def quoted(self, raw: str, lineno: int) -> tuple[str, str]:
@@ -193,7 +214,7 @@ class _Parser:
                 end = i
                 while end < len(raw) and raw[end] not in ",]":
                     end += 1
-                items.append(_plain(raw[i:end].strip()))
+                items.append(self.plain(raw[i:end].strip(), lineno))
                 i = end
             if i >= len(raw):
                 self.fail("corchete sin cerrar en la lista", lineno)
@@ -326,9 +347,13 @@ class _Parser:
         return result
 
 
-def _plain(raw: str) -> Any:
+def _strip_comment(raw: str) -> str:
     comment = raw.find(" #")
-    text = (raw[:comment] if comment >= 0 else raw).strip()
+    return (raw[:comment] if comment >= 0 else raw).strip()
+
+
+def _plain(raw: str) -> Any:
+    text = _strip_comment(raw)
     lowered = text.lower()
     if lowered in ("true", "false"):
         return lowered == "true"
