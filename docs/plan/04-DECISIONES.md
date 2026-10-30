@@ -10,13 +10,13 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 - **Opciones:** mantener `arnes` · otro nombre.
 - **Default:** `arnes` como nombre de trabajo (CLI `arnes`, carpeta `.arnes/`, variables `ARNES_`). Todo nombre visible sale de `_meta.py`, así que cambiarlo después cuesta poco.
 - **Nota:** evitar `.harness/`, que ya usa la plataforma Harness para sus pipelines.
-- **Estado:** Abierta.
+- **Estado:** Decidida (ADR-0001), 2026-10-29: el motor se llama **`exo`** (CLI `exo`, `.exo/`, `EXO_`, bloques `exo`, metadata `exo-`); la distribución se llama `exo-harness`. En el resto del plan, `arnes` se lee como `exo`.
 
 ### D-02 — Lenguaje del runtime
 - **Opciones:** (a) Python ≥ 3.10 con núcleo stdlib y extras opcionales · (b) Go con binario único.
 - **Default:** (a). Da continuidad con el reporte (runtime Python, 729 tests diseñados, invariantes pensadas para stdlib), facilita el ecosistema de embeddings locales y es un lenguaje en el que Claude Code itera rápido. El costo es que la máquina necesita Python: el instalador lo resuelve usando `uv` si está, o un venv propio.
 - **Cuándo elegir (b):** si la instalación sin ningún prerequisito es crítica para usuarios no técnicos.
-- **Estado:** Abierta.
+- **Estado:** Decidida (ADR-0002), 2026-10-29: opción (a).
 
 ### D-03 — Relación con gentle-ai y Engram (upstream)
 - **Contexto:** el reporte dice que el arnés original es una réplica en Python de `gentleman-programming/gentle-ai` (Go). gentle-ai ya es agnóstico: detecta los agentes instalados, instala skills, configura MCP, inyecta un orquestador SDD y usa Engram como memoria, con soporte para más de diez agentes. Engram usa SQLite + FTS5 (búsqueda léxica).
@@ -26,17 +26,21 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
   - (c) **Híbrido:** usar el binario de Engram como memoria y construir el resto.
 - **Default:** (a). La capa de adaptadores es una parte chica del trabajo total; el valor diferencial está en el gobierno (fitness, gates, AI Usage Record, DPA, jueces), la ingeniería inversa y la memoria híbrida, que no existen upstream o existen distinto. Mantener un fork en otro lenguaje con un upstream muy activo genera divergencia constante. (c) no sirve porque la memoria vectorial es justamente una de las mejoras.
 - **Antes de reusar cualquier texto o código upstream:** verificar licencia (F0, tarea 0.5).
-- **Estado:** Abierta.
+- **Estado:** Decidida (ADR-0004), 2026-10-29: opción (a). Licencias verificadas en el ADR.
 
 ### D-15 — Sistema operativo de esta computadora y del equipo
 - **Opciones:** Windows · macOS · Linux · mixto.
 - **Default:** mixto (los tres en CI). Si esta computadora es Windows, `install.ps1` pasa a prioridad 1 en F2 y las pruebas manuales se hacen ahí primero.
-- **Estado:** Abierta.
+- **Estado:** Decidida (ADR-0002), 2026-10-29: mixto. Esta computadora es Windows 11, así que `install.ps1` es prioridad 1 en F2 y las pruebas manuales se hacen primero en Windows.
 
 ## Bloquean F2
 
 ### D-04 — Agentes de la v1
 - **Default:** Tier 1 = Claude Code y GitHub Copilot (VS Code y CLI). Tier 2 = Cursor, Codex CLI, Gemini CLI, Windsurf/Devin. Tier 3 = genérico.
+- **Hallazgos de F0** (`docs/agent-matrix.md`, 2026-10-29) a considerar al decidir:
+  - Windsurf ahora es Devin Desktop: Cascade se eliminó y el agente es Devin Local/CLI. El adaptador pasa a llamarse `devin`.
+  - Gemini CLI fue reemplazado por Antigravity CLI para el tier gratuito, que es candidato a Tier 2.
+  - VS Code tiene dos harness: Copilot (default, mismo runtime que Copilot CLI) y Local (legacy).
 - **Estado:** Abierta.
 
 ### D-05 — Dónde viven las skills de un proyecto
@@ -120,3 +124,15 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 
 ### D-22 — Distribución pública
 - **Default:** repo privado hasta M2; después instaladores por `curl`/`irm` y `uvx`. PyPI y marketplaces de agentes, opcionales en F8.
+
+## Surgidas durante la construcción
+
+### D-23 — Servidor MCP bloqueado por política de la organización
+- **Contexto:** en la prueba empírica de F0 (`docs/spikes/agent-probe.md`), Claude Code respondió `MCP server blocked by enterprise policy` para un server MCP de proyecto. La organización solo permite servidores de una lista, mediante settings administrados. Si `exo mcp` no está en esa lista, el agente no carga las tools de skills, observabilidad, memoria ni discovery.
+- **Opciones:**
+  - (a) **Paridad CLI:** cada tool MCP tiene un subcomando equivalente (`exo … --json`); las skills usan MCP si está disponible y, si no, el CLI por shell, declarando la degradación. `exo doctor` detecta y explica el bloqueo.
+  - (b) Pedir que la organización agregue `exo` a la lista permitida y depender solo de MCP.
+  - (c) Las dos: (a) como base y (b) como gestión paralela.
+- **Default:** (c). (a) no depende de terceros y suma poco costo, porque el plan ya prevé CLI para casi todo (`exo mem`, `exo change status`, `exo discover`). (b) mejora la experiencia donde se consiga.
+- **Bloquea:** F1 (diseño de `mcp/tools/` con su par en el CLI) y F2 (chequeo de doctor y checklist manual).
+- **Estado:** Abierta.

@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+# Distribución "exo-harness" para no chocar con otros proyectos llamados "exo"
+# (ADR-0001). El paquete importable y el CLI se llaman `exo`.
+name = "exo-harness"
+dynamic = ["version"]
+description = "Motor de desarrollo gobernado por proyecto, agnóstico del agente de IA."
+requires-python = ">=3.10"
+authors = [{ name = "Julian Monte" }]
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "Operating System :: OS Independent",
+]
+# Núcleo solo con biblioteca estándar (invariante 4 de 02-ARQUITECTURA §2.13, ADR-0002).
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6"]
+# Memoria vectorial (F3). Vacío hasta entonces.
+vector = []
+
+[project.scripts]
+exo = "exo.cli:main"
+
+[tool.hatch.version]
+path = "src/exo/_meta.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/exo"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+# `pytest` mide cobertura y aplica el umbral de [tool.coverage.report].
+# Para correr un archivo suelto sin umbral: `pytest --no-cov tests/test_x.py`.
+addopts = ["-ra", "--strict-markers", "-m", "not agent_e2e", "--cov", "--cov-report=term-missing"]
+markers = ["agent_e2e: usa agentes reales o red; excluido de la suite normal"]
+
+[tool.coverage.run]
+source = ["exo"]
+branch = true
+
+[tool.coverage.report]
+# 80 % en F0; sube a 85 % en F1.
+fail_under = 80
+show_missing = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
