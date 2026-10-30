@@ -1,6 +1,15 @@
 """Subcomandos del CLI. Cada módulo expone `register(subparsers)`."""
 
-from exo.commands import backups, fitness, inject, registry, speclint, validate, version
+from exo.commands import (
+    backups,
+    fitness,
+    inject,
+    registry,
+    speclint,
+    tools,
+    validate,
+    version,
+)
 
 COMMANDS = [
     version.register,
@@ -10,4 +19,5 @@ COMMANDS = [
     fitness.register,
     speclint.register,
     validate.register,
+    tools.register,
 ]
