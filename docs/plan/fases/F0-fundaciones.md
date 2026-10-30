@@ -33,6 +33,8 @@ No entra: ninguna lógica de dominio (eso es F1).
 | `docs/agent-matrix.md` | Matriz verificada (ver tarea 0.4) |
 | `.github/pull_request_template.md` | Resumen, fase, tareas cubiertas, criterios de aceptación corridos, riesgos |
 
+> **Actualizado por ADR-0008 (D-16), 2026-10-30:** los repos van a estar en Azure DevOps. La CI es `azure-pipelines.yml` y la plantilla de PR está en `.azuredevops/pull_request_template.md`.
+
 ## Tareas (en orden)
 
 **0.1 Esqueleto y empaquetado.** Crear la estructura `src/arnes/`, `pyproject.toml`, `_meta.py`, CLI con `argparse` y `--version`. Test de que `python -m arnes --version` imprime `VERSION`.

@@ -4,13 +4,13 @@
 
 Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron con el comando exacto, la CI está verde en los tres sistemas operativos y el PR de la fase está mergeado.
 
-**Mientras no haya repo remoto** (decisión del dueño, 2026-10-30): la fase se cierra en local. La suite y el lint se corren en Windows y en Linux (Ubuntu en WSL, sobre un clon limpio), y la rama se mergea a `main` con `git merge --no-ff`, sin push. La CI de GitHub Actions (incluido macOS) y el PR quedan diferidos. Cuando exista el remoto, se suben `main` y las ramas, y se verifica la CI de cada fase cerrada así.
+**Mientras no haya repo remoto** (decisión del dueño, 2026-10-30): la fase se cierra en local. La suite y el lint se corren en Windows y en Linux (Ubuntu en WSL, sobre un clon limpio), y la rama se mergea a `main` con `git merge --no-ff`, sin push. La CI (Azure Pipelines, `azure-pipelines.yml`, incluido macOS) y el PR quedan diferidos (ADR-0008). Cuando exista el remoto, se suben `main` y las ramas, y se verifica la CI de cada fase cerrada así.
 
 ## Estado por fase
 
 | Fase | Estado | Rama / PR | Inicio | Cierre | Notas |
 |---|---|---|---|---|---|
-| F0 Fundaciones | Terminada (local; CI diferida) | `feat/F0-fundaciones`, mergeada a `main` en local, sin PR | 2026-10-29 | 2026-10-30 | Criterios 1, 2, 4–7 OK. Criterio 3: Windows y Linux en local OK; macOS y GitHub Actions diferidos hasta tener remoto |
+| F0 Fundaciones | Terminada (local; CI diferida) | `feat/F0-fundaciones`, mergeada a `main` en local, sin PR | 2026-10-29 | 2026-10-30 | Criterios 1, 2, 4–7 OK. Criterio 3: Windows y Linux en local OK; macOS y Azure Pipelines diferidos hasta tener remoto (ADR-0008) |
 | F1 Núcleo | Terminada (local; CI diferida) | `feat/F1-nucleo`, mergeada a `main` en local, sin PR | 2026-10-30 | 2026-10-30 | Criterios 1–8 OK en Windows (3.14 y 3.10) y Linux (WSL). D-23 → ADR-0005 |
 | F2 Adaptadores + instalador | Pendiente | | | | |
 | F3 Memoria v2 | Pendiente | | | | |
