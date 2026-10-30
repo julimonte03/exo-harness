@@ -27,7 +27,7 @@ def register(sub: argparse._SubParsersAction) -> None:
 def run(args: argparse.Namespace) -> int:
     try:
         report = speclint.lint_path(args.path, args.kind)
-    except speclint.SpeclintError as exc:
+    except (ValueError, OSError) as exc:  # SpeclintError, UTF-8 inválido, disco
         return error(str(exc))
     if args.json:
         emit_json(

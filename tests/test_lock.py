@@ -144,3 +144,32 @@ def test_lock_invalido(tmp_path: Path, payload: str, fragment: str) -> None:
     path.write_text(payload, encoding="utf-8")
     with pytest.raises(LockError, match=fragment):
         lock.read(tmp_path)
+
+
+def test_bloque_con_estilo_forzado_no_da_drift_falso(tmp_path: Path) -> None:
+    target = tmp_path / "notas.txt"
+    filemerge.inject(target, "core", "x", style="hash")
+    entry = LockEntry("notas.txt", "block", "engine", lock.hash_block_content("x"), block_id="core", style="hash")
+    data = Lock("0.0.1", files=[entry])
+    assert lock.drift(tmp_path, data) == []
+    lock.write(tmp_path, data)
+    assert lock.read(tmp_path).files == [entry]
+
+
+def test_entrada_ilegible_se_reporta_sin_explotar(tmp_path: Path, make_dir_link) -> None:
+    outside = tmp_path.parent / f"{tmp_path.name}-afuera"
+    outside.mkdir()
+    (outside / "x.md").write_text("x", encoding="utf-8")
+    project = tmp_path / "proyecto"
+    project.mkdir()
+    make_dir_link(project / "link", outside)
+    entry = LockEntry("link/x.md", "file", "engine", "abc")
+    assert [d.status for d in lock.drift(project, Lock("0.0.1", files=[entry]))] == ["unreadable"]
+
+
+def test_style_invalido_en_el_lock(tmp_path: Path) -> None:
+    path = tmp_path / _meta.PROJECT_DIR / "lock.json"
+    path.parent.mkdir()
+    path.write_text('{"schema": 1, "files": [{"path": "x", "kind": "block", "block_id": "c", "owner": "o", "sha256": "a", "style": "xml"}]}', encoding="utf-8")
+    with pytest.raises(LockError, match="style"):
+        lock.read(tmp_path)

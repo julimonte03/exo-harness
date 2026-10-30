@@ -65,7 +65,7 @@ def run(args: argparse.Namespace) -> int:
                 backup=args.backup,
             )
             action, human = "inject", ("actualizado" if changed else "sin cambios")
-    except (filemerge.BlockError, OSError) as exc:
+    except (ValueError, OSError) as exc:  # BlockError, UTF-8 inválido, disco
         return error(str(exc))
     if args.json:
         emit_json(

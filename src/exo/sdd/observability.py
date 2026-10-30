@@ -80,7 +80,12 @@ def _phase(folder: Path, archived: bool) -> str:
     for artifact, name in PHASES:
         if (folder / artifact).is_file():
             phase = name
-    if phase == "tasks" and _CHECKED.search((folder / "tasks.md").read_text(encoding="utf-8")):
+    tasks = (
+        (folder / "tasks.md").read_text(encoding="utf-8", errors="replace")
+        if phase == "tasks"
+        else ""
+    )
+    if phase == "tasks" and _CHECKED.search(tasks):
         return "apply"
     return phase
 
@@ -119,6 +124,9 @@ def _walk(project: Path, root: Path, archived: bool) -> list[Change]:
 def find_changes(project: Path, *, include_archived: bool = True) -> list[Change]:
     project = Path(project)
     root = specs_root(project)
+    # Solo lectura dentro del proyecto: un specs/ que sale por un link no se recorre.
+    if root.exists() and not root.resolve().is_relative_to(project.resolve()):
+        return []
     changes = _walk(project, root, archived=False)
     if include_archived:
         changes += _walk(project, root / ARCHIVE, archived=True)
@@ -182,7 +190,11 @@ def _followups(project: Path, change: Change, warnings: list[str]) -> list[dict[
         warnings.append(f"{FOLLOWUPS} ilegible (followups no es una lista); se ignora")
         items = []
     record = _record(project, change, [])
-    dismissed = [d for d in (record or {}).get("dismissed_followups", []) if isinstance(d, dict)]
+    raw_dismissed = (record or {}).get("dismissed_followups", [])
+    if not isinstance(raw_dismissed, list):
+        warnings.append("dismissed_followups no es una lista; se ignora")
+        raw_dismissed = []
+    dismissed = [d for d in raw_dismissed if isinstance(d, dict)]
     result = []
     for item in items or []:
         if not isinstance(item, dict):

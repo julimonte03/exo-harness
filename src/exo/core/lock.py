@@ -34,6 +34,7 @@ class LockEntry:
     sha256: str
     block_id: str | None = None
     key: str | None = None
+    style: str | None = None  # estilo de comentario del bloque, si no se deduce del nombre
 
     def sort_key(self) -> tuple[str, str, str, str]:
         return (self.path, self.kind, self.block_id or "", self.key or "")
@@ -51,7 +52,7 @@ class Lock:
 @dataclass(frozen=True)
 class Drift:
     entry: LockEntry
-    status: str  # "modified" | "missing"
+    status: str  # "modified" | "missing" | "unreadable"
     actual: str | None
 
 
@@ -92,7 +93,10 @@ def _entry(raw: Any, index: int) -> LockEntry:
         raise LockError(f"{where}: una entrada block necesita block_id")
     if kind == "key" and not isinstance(key, str):
         raise LockError(f"{where}: una entrada key necesita key")
-    return LockEntry(path, kind, raw["owner"], raw["sha256"], block_id, key)
+    style = raw.get("style")
+    if style is not None and style not in (filemerge.STYLE_HTML, filemerge.STYLE_HASH):
+        raise LockError(f"{where}: style desconocido {style!r}")
+    return LockEntry(path, kind, raw["owner"], raw["sha256"], block_id, key, style)
 
 
 def read(project: Path) -> Lock | None:
@@ -124,6 +128,8 @@ def _serialize(entry: LockEntry) -> dict[str, str]:
         out["block_id"] = entry.block_id
     if entry.key is not None:
         out["key"] = entry.key
+    if entry.style is not None:
+        out["style"] = entry.style
     return out
 
 
@@ -152,7 +158,7 @@ def current_hash(project: Path, entry: LockEntry) -> str | None:
         return fsutil.sha256_file(target)
     if entry.kind == "block":
         try:
-            blocks = filemerge.list_blocks(target)
+            blocks = filemerge.list_blocks(target, style=entry.style)
         except filemerge.BlockError:
             return fsutil.sha256_file(target)
         found = next((b for b in blocks if b.id == entry.block_id), None)
@@ -171,7 +177,11 @@ def drift(project: Path, data: Lock | None = None) -> list[Drift]:
         return []
     found: list[Drift] = []
     for entry in sorted(data.files, key=LockEntry.sort_key):
-        actual = current_hash(project, entry)
+        try:
+            actual = current_hash(project, entry)
+        except (fsutil.UnsafePathError, OSError):
+            found.append(Drift(entry, "unreadable", None))
+            continue
         if actual is None:
             found.append(Drift(entry, "missing", None))
         elif actual != entry.sha256:

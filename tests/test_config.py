@@ -223,3 +223,11 @@ def test_save_rechaza_config_invalida(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match="specs_dir"):
         config.save(tmp_path, cfg)
     assert not (tmp_path / _meta.PROJECT_DIR / "config.json").exists()
+
+
+def test_save_no_pisa_una_config_de_esquema_mas_nuevo(tmp_path: Path) -> None:
+    path = _write(tmp_path, {"schema": 99, "algo": "del futuro"})
+    loaded = config.load(tmp_path)
+    with pytest.raises(ConfigError, match="esquema 99"):
+        config.save(tmp_path, loaded.config)
+    assert json.loads(path.read_text(encoding="utf-8")) == {"schema": 99, "algo": "del futuro"}

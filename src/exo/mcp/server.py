@@ -62,7 +62,8 @@ def _initialize(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _call_tool(params: dict[str, Any], context: registry.Context) -> dict[str, Any] | None:
-    tool = registry.get(params.get("name", ""))
+    name = params.get("name")
+    tool = registry.get(name) if isinstance(name, str) else None
     if tool is None:
         return None
     try:
@@ -106,8 +107,22 @@ def handle(message: Any, context: registry.Context) -> dict[str, Any] | None:
 
 
 def _write(stream: BinaryIO, payload: dict[str, Any]) -> None:
-    stream.write((json.dumps(payload, ensure_ascii=False) + "\n").encode("utf-8"))
+    # ASCII: cualquier texto (incluso surrogates sueltos) sale como JSON válido.
+    stream.write((json.dumps(payload, ensure_ascii=True) + "\n").encode("ascii"))
     stream.flush()
+
+
+def _respond(line: bytes, context: registry.Context) -> dict[str, Any] | None:
+    try:
+        message = json.loads(line.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError, RecursionError) as exc:
+        return _error(None, PARSE_ERROR, f"JSON inválido: {exc}")
+    try:
+        return handle(message, context)
+    except Exception as exc:  # el servidor nunca se cae por un mensaje
+        log.exception("error procesando un mensaje")
+        msg_id = message.get("id") if isinstance(message, dict) else None
+        return _error(msg_id, INTERNAL_ERROR, f"error interno: {exc}")
 
 
 def serve(
@@ -124,12 +139,7 @@ def serve(
         line = raw.strip()
         if not line:
             continue
-        try:
-            message = json.loads(line.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            _write(stdout, _error(None, PARSE_ERROR, f"JSON inválido: {exc}"))
-            continue
-        response = handle(message, context)
+        response = _respond(line, context)
         if response is not None:
             _write(stdout, response)
     return 0

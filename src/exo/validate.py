@@ -38,7 +38,8 @@ _SCANNED = {".md", ".json", ".txt", ".yml", ".yaml", ".toml"}
 _NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _ESCAPE = re.compile(r"\\u[0-9a-fA-F]{4}")
 _SKILL_REF = re.compile(r"\bskill:([a-z0-9][a-z0-9-]*)")
-_REFERENCE_FILE = re.compile(r"\breferences/[^\s)\]'\"`<>]+")
+# Rutas relativas a la skill; no cuenta dentro de URLs ni de otras rutas (x/references/...).
+_REFERENCE_FILE = re.compile(r"(?<![\w/.:-])references/[^\s)\]'\"`<>]+")
 _FENCE = re.compile(r"^\s*(```|~~~)")
 
 
@@ -122,12 +123,12 @@ class _Validator:
             if not skills_dir.is_dir():
                 continue
             for folder in sorted(skills_dir.iterdir()):
-                if (
-                    folder.is_dir()
-                    and not folder.name.startswith("_")
-                    and (folder / SKILL_FILE).is_file()
-                ):
+                if not folder.is_dir() or folder.name.startswith("_"):
+                    continue
+                if (folder / SKILL_FILE).is_file():
                     self.check_skill(pack, folder)
+                else:
+                    self.warn(folder, 0, f"carpeta de skill sin {SKILL_FILE}; no se instala")
         for name, places in self.skills.items():
             if len(places) > 1:
                 packs = ", ".join(p for p, _ in places)
@@ -138,7 +139,11 @@ class _Validator:
 
     def check_skill(self, pack: Pack, folder: Path) -> None:
         path = folder / SKILL_FILE
-        text = path.read_text(encoding="utf-8")
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError as exc:
+            self.error(path, 0, f"no es UTF-8 válido ({exc.reason})")
+            return
         self.check_body(path, text, folder, pack)
         try:
             data, _ = frontmatter.parse(text, strict=True)
@@ -191,7 +196,7 @@ class _Validator:
                 0,
                 f"compatibility tiene que ser texto de hasta {MAX_COMPATIBILITY} caracteres",
             )
-        lines = text.count("\n") + 1
+        lines = len(text.splitlines())
         if lines > MAX_SKILL_LINES:
             self.warn(
                 path,
@@ -262,6 +267,9 @@ class _Validator:
                     data, _ = frontmatter.parse(path.read_text(encoding="utf-8"), strict=True)
                 except frontmatter.FrontmatterError as exc:
                     self.error(path, exc.line, f"frontmatter inválido: {exc.message}")
+                    continue
+                except UnicodeDecodeError as exc:
+                    self.error(path, 0, f"no es UTF-8 válido ({exc.reason})")
                     continue
                 name = data.get("name")
                 if not isinstance(name, str) or not name:

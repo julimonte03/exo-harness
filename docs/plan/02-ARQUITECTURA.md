@@ -221,6 +221,8 @@ Con terminal interactiva, muestra los detectados preseleccionados y permite agre
 
 JSON-RPC 2.0 sobre stdio, un mensaje por línea, stdout reservado al protocolo y logs a stderr, errores de dominio como resultado con `isError: true` (§5.2 del reporte). Validación de entradas antes de tocar el filesystem (control S2). Cada tool vive en `mcp/tools/<grupo>.py` y se registra con su `inputSchema`.
 
+> **Actualizado por ADR-0005 (D-23):** las tools se definen una sola vez en `src/exo/tools/registry.py`, con su `inputSchema` y su subcomando del CLI equivalente. `src/exo/mcp/server.py` es un adaptador opcional sobre ese registro, apagado por defecto (`mcp.enabled: false`).
+
 | Grupo | Tools | Fase |
 |---|---|---|
 | Skills | `skills_list`, `skill_info`, `skills_diff` | F1 |

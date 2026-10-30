@@ -318,4 +318,19 @@ def save(project: Path, cfg: dict[str, Any]) -> bool:
     normalized, _, invalid = validate(cfg)
     if invalid:
         raise ConfigError("la config tiene valores inválidos: " + " | ".join(invalid))
+    on_disk = _schema_on_disk(project)
+    if on_disk is not None and on_disk > CURRENT_SCHEMA:
+        raise ConfigError(
+            f"la config en disco es del esquema {on_disk} y este motor entiende hasta el "
+            f"{CURRENT_SCHEMA}; no se pisa. Actualizá {_meta.NAME}."
+        )
     return fsutil.write_if_changed(config_path(project), dumps(normalized))
+
+
+def _schema_on_disk(project: Path) -> int | None:
+    try:
+        raw = json.loads(fsutil.read_bytes(config_path(project)).decode("utf-8-sig"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    schema = raw.get("schema") if isinstance(raw, dict) else None
+    return schema if isinstance(schema, int) and not isinstance(schema, bool) else None

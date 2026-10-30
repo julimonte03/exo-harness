@@ -119,10 +119,10 @@ def test_tier_desconocido_es_4(raw: object, tier: int) -> None:
 
 # -- paridad con la referencia en Markdown ------------------------------------
 
-_ROW = re.compile(r"^\|\s*(FM-\d{2})\s*\|.*\|\s*(\d)\s*\|\s*$")
+_ROW = re.compile(r"^\|\s*(FM-\d{2})\s*\|\s*`([^`]+)`\s*\|\s*(\d)\s*\|")
 
 
-def _markdown_rules() -> list[tuple[str, int]]:
+def _markdown_rules() -> list[tuple[str, str, int]]:
     path = (
         content.content_root()
         / "packs" / "sdd" / "skills" / "risk-tiering" / "references" / "classification-rules.md"
@@ -131,15 +131,16 @@ def _markdown_rules() -> list[tuple[str, int]]:
     for line in path.read_text(encoding="utf-8").splitlines():
         match = _ROW.match(line)
         if match:
-            rows.append((match.group(1), int(match.group(2))))
+            rows.append((match.group(1), match.group(2), int(match.group(3))))
     return rows
 
 
 def test_paridad_codigo_markdown() -> None:
-    rows = _markdown_rules()
-    assert rows, "la tabla de reglas no se encontró en classification-rules.md"
-    assert dict(rows) == fitness.RULE_TIERS
-    assert [rule for rule, _ in rows] == [fitness.FAILSAFE_RULE, *(r.id for r in fitness.RULES)]
+    expected = [
+        (fitness.FAILSAFE_RULE, fitness.FAILSAFE_CONDITION, fitness.FAILSAFE_TIER),
+        *((r.id, r.condition, r.tier) for r in fitness.RULES),
+    ]
+    assert _markdown_rules() == expected
 
 
 # -- CLI ----------------------------------------------------------------------

@@ -36,7 +36,7 @@ def run(args: argparse.Namespace) -> int:
         else:
             base = content.content_root()
             skills = packs.load_collection(base).skills
-    except (content.ContentError, packs.PackError) as exc:
+    except (content.ContentError, ValueError, OSError) as exc:
         return error(str(exc))
     text = registry.render(skills, base=base)
     if args.stdout:

@@ -107,9 +107,7 @@ def _skill_info(context: Context, args: dict[str, Any]) -> dict[str, Any]:
     if skill is None:
         raise InputError(f"no existe la skill {name!r}")
     data, body = frontmatter.parse((skill.path / packs.SKILL_FILE).read_text(encoding="utf-8"))
-    files = sorted(
-        p.relative_to(skill.path).as_posix() for p in skill.path.rglob("*") if p.is_file()
-    )
+    files = [p.relative_to(skill.path).as_posix() for p in fsutil.walk_files(skill.path)]
     return {
         **_skill_summary(skill, root),
         "metadata": skill.metadata,
@@ -120,10 +118,9 @@ def _skill_info(context: Context, args: dict[str, Any]) -> dict[str, Any]:
 
 
 def _hashes(folder: Path) -> dict[str, str]:
+    # Sin seguir links: un junction dentro del destino no filtra archivos de afuera.
     return {
-        p.relative_to(folder).as_posix(): fsutil.sha256_file(p)
-        for p in sorted(folder.rglob("*"))
-        if p.is_file()
+        p.relative_to(folder).as_posix(): fsutil.sha256_file(p) for p in fsutil.walk_files(folder)
     }
 
 
@@ -287,5 +284,8 @@ def call(name: str, arguments: Any, context: Context) -> Any:
     args = check_arguments(tool.input_schema, arguments)
     try:
         return tool.handler(context, args)
-    except content.ContentError as exc:
+    except InputError:
+        raise
+    except (content.ContentError, ValueError, OSError) as exc:
+        # Contenido roto, frontmatter o JSON ilegible, rutas inseguras, disco.
         raise InputError(str(exc)) from exc
