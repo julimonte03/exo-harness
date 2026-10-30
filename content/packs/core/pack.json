@@ -1,0 +1,7 @@
+{
+  "name": "core",
+  "version": "0.1.0",
+  "description": "Reglas base, contratos compartidos y skills transversales del motor.",
+  "requires": [],
+  "optional": []
+}
