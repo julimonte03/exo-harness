@@ -1,0 +1,80 @@
+"""Validación de entradas antes de tocar el filesystem (control S2, §5.2 del reporte).
+
+La usan por igual el CLI y el servidor MCP: toda tool valida sus argumentos acá
+antes de leer nada. Los errores son `InputError`, que el servidor MCP devuelve
+como resultado con `isError: true`.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+from typing import Any
+
+SKILL_NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+CHANGE_NAME = re.compile(r"^(?:[A-Z][A-Z0-9]*-\d+-)?[a-z0-9]+(?:-[a-z0-9]+)*$")
+MAX_SKILL_NAME = 64
+MAX_CHANGE_NAME = 100
+
+
+class InputError(ValueError):
+    """Argumento inválido: se rechaza antes de tocar el filesystem."""
+
+
+def validate_skill_name(value: Any) -> str:
+    if not isinstance(value, str) or not SKILL_NAME.match(value) or len(value) > MAX_SKILL_NAME:
+        raise InputError(
+            f"nombre de skill inválido: {value!r} "
+            f"(kebab-case en minúsculas, hasta {MAX_SKILL_NAME})"
+        )
+    return value
+
+
+def validate_change_name(value: Any) -> str:
+    if not isinstance(value, str) or not CHANGE_NAME.match(value) or len(value) > MAX_CHANGE_NAME:
+        raise InputError(
+            f"nombre de change inválido: {value!r} (formato [PREFIJO-123-]slug-en-kebab, "
+            f"hasta {MAX_CHANGE_NAME})"
+        )
+    return value
+
+
+def validate_cwd(value: Any, *, root: Path | None = None) -> Path:
+    """Directorio existente; si hay `root`, tiene que quedar dentro (resolve + is_relative_to)."""
+    if not isinstance(value, str) or not value or "\x00" in value:
+        raise InputError(f"directorio inválido: {value!r}")
+    base = root.resolve() if root is not None else None
+    candidate = Path(value)
+    if base is not None and not candidate.is_absolute():
+        candidate = base / candidate
+    resolved = candidate.resolve()
+    if base is not None and not resolved.is_relative_to(base):
+        raise InputError(f"el directorio {value!r} queda fuera del proyecto {base}")
+    if not resolved.is_dir():
+        raise InputError(f"no existe el directorio {value!r}")
+    return resolved
+
+
+def check_arguments(schema: dict[str, Any], arguments: Any) -> dict[str, Any]:
+    """Subconjunto de JSON Schema que usan las tools: objeto plano de string, boolean y enum."""
+    if arguments is None:
+        arguments = {}
+    if not isinstance(arguments, dict):
+        raise InputError("los argumentos tienen que ser un objeto")
+    properties: dict[str, Any] = schema.get("properties", {})
+    unknown = sorted(set(arguments) - set(properties))
+    if unknown:
+        raise InputError(f"argumentos desconocidos: {', '.join(unknown)}")
+    for name in schema.get("required", []):
+        if name not in arguments:
+            raise InputError(f"falta el argumento {name!r}")
+    for name, value in arguments.items():
+        spec = properties[name]
+        expected = spec.get("type")
+        if expected == "string" and not isinstance(value, str):
+            raise InputError(f"{name} tiene que ser texto")
+        if expected == "boolean" and not isinstance(value, bool):
+            raise InputError(f"{name} tiene que ser true o false")
+        if "enum" in spec and value not in spec["enum"]:
+            raise InputError(f"{name} tiene que ser uno de: {', '.join(spec['enum'])}")
+    return arguments
