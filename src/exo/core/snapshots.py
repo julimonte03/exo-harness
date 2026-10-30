@@ -17,7 +17,6 @@ import io
 import json
 import os
 import re
-import shutil
 import stat
 import tarfile
 from dataclasses import dataclass, field
@@ -80,26 +79,39 @@ def _mode(path: Path) -> int:
     return 0o755 if os.stat(path).st_mode & stat.S_IXUSR and os.name != "nt" else 0o644
 
 
+def _target(project: Path, rel: str) -> Path:
+    """Ruta dentro del proyecto, armada sin resolver links y rechazando cualquier link.
+
+    El motor no gestiona rutas que pasan por symlinks o junctions: seguirlas
+    permitiría leer o borrar fuera de las raíces del snapshot.
+    """
+    current = project
+    for part in fsutil.safe_relpath(rel).parts:
+        current = current / part
+        if fsutil.is_link(current):
+            where = current.relative_to(project).as_posix()
+            raise SnapshotError(
+                f"{rel}: {where} es un symlink o junction; el motor no gestiona rutas con links"
+            )
+    return current
+
+
 def _collect(project: Path, roots: list[str]) -> tuple[dict, dict[str, Path]]:
-    excluded = backups_dir(project).resolve()
+    excluded = backups_dir(project)
     files: dict[str, Path] = {}
     dirs: list[str] = []
     absent: list[str] = []
     for root in roots:
-        target = fsutil.resolve_within(project, root)
+        target = _target(project, root)
         if target.is_dir():
             dirs.append(root)
-            for current, subdirs, names in os.walk(target):
-                subdirs.sort()
-                here = Path(current)
-                if here.resolve().is_relative_to(excluded):
-                    subdirs.clear()
+            for item in fsutil.walk_files(target):
+                if item.is_relative_to(excluded):
                     continue
-                for name in sorted(names):
-                    item = here / name
-                    if item.is_symlink() or not item.is_file():
-                        continue
-                    files[item.relative_to(project).as_posix()] = item
+                name = item.relative_to(project).as_posix()
+                if "\\" in name:
+                    raise SnapshotError(f"{name}: nombre con '\\' no soportado en un snapshot")
+                files[name] = item
         elif target.is_file():
             files[root] = target
         else:
@@ -244,17 +256,31 @@ def unpin(project: Path, name: str) -> bool:
     return True
 
 
-def prune(project: Path, keep: int = DEFAULT_KEEP) -> list[str]:
-    """Borra los snapshots sin fijar más viejos hasta dejar `keep`. Devuelve los borrados."""
+def prune(project: Path, keep: int = DEFAULT_KEEP, *, protect: tuple[str, ...] = ()) -> list[str]:
+    """Borra los snapshots sin fijar más viejos hasta dejar `keep`. Devuelve los borrados.
+
+    Los nombres de `protect` cuentan para `keep` pero nunca se borran: se poda el
+    más viejo que no esté protegido.
+    """
     loose = [s for s in list_snapshots(project) if not s.pinned]
-    removed = [s.name for s in loose[: max(0, len(loose) - keep)]]
+    excess = max(0, len(loose) - keep)
+    removed = [s.name for s in loose if s.name not in protect][:excess]
     for name in removed:
         (backups_dir(project) / name).unlink()
     return removed
 
 
-def snapshot(project: Path, paths: list[str], *, keep: int = DEFAULT_KEEP) -> Snapshot:
-    """Crea un snapshot de `paths` o devuelve el último si el contenido es el mismo."""
+def snapshot(
+    project: Path,
+    paths: list[str],
+    *,
+    keep: int = DEFAULT_KEEP,
+    protect: tuple[str, ...] = (),
+) -> Snapshot:
+    """Crea un snapshot de `paths` o devuelve el último si el contenido es el mismo.
+
+    La poda nunca borra el snapshot recién creado ni los nombres de `protect`.
+    """
     tar = _tar_bytes(project, paths)
     digest = fsutil.sha256_bytes(tar)[:_HASH_LEN]
     existing = list_snapshots(project)
@@ -269,7 +295,7 @@ def snapshot(project: Path, paths: list[str], *, keep: int = DEFAULT_KEEP) -> Sn
         counter += 1
     data = _gzip(tar)
     fsutil.write_atomic(folder / name, data)
-    prune(project, keep)
+    prune(project, keep, protect=(name, *protect))
     pinned = name in _pins(project)
     return Snapshot(name, folder / name, len(data), pinned)
 
@@ -278,39 +304,55 @@ def snapshot(project: Path, paths: list[str], *, keep: int = DEFAULT_KEEP) -> Sn
 
 
 def _remove_tree(project: Path, target: Path, removed: list[str]) -> None:
-    if target.is_dir() and not target.is_symlink():
-        for item in sorted(target.rglob("*")):
-            if item.is_file() or item.is_symlink():
-                removed.append(item.relative_to(project).as_posix())
-        shutil.rmtree(target)
-    elif target.exists() or target.is_symlink():
+    """Borra `target` sin seguir links: un link se quita a sí mismo, nunca su destino."""
+    if fsutil.is_link(target):
+        removed.append(target.relative_to(project).as_posix())
+        if target.is_dir():
+            os.rmdir(target)  # junction de Windows
+        else:
+            target.unlink()
+        return
+    if target.is_dir():
+        for entry in sorted(target.iterdir()):
+            _remove_tree(project, entry, removed)
+        target.rmdir()
+    elif target.exists():
         removed.append(target.relative_to(project).as_posix())
         target.unlink()
 
 
+def _covered(rel: str, roots: list[str]) -> bool:
+    return any(rel == root or rel.startswith(root + "/") for root in roots)
+
+
 def restore(project: Path, name: str) -> RestoreResult:
-    """Vuelve las raíces del snapshot a su estado. Antes snapshotea el estado actual."""
+    """Vuelve las raíces del snapshot a su estado. Antes snapshotea el estado actual.
+
+    Valida todas las rutas antes de tocar nada y no sigue symlinks ni junctions.
+    """
     project = Path(project).resolve()
     archive = read_archive(fsutil.read_bytes(_existing(project, name)))
     manifest = archive.manifest
-    before = snapshot(project, manifest["roots"]) if manifest["roots"] else None
+    roots = manifest["roots"]
+    outside = [rel for rel in archive.files if not _covered(rel, roots)]
+    if outside:
+        raise UnsafeArchiveError(f"el backup tiene archivos fuera de sus raíces: {outside[0]!r}")
+    targets = {rel: _target(project, rel) for rel in [*roots, *archive.files]}
+    before = snapshot(project, roots, protect=(name,)) if roots else None
     removed: list[str] = []
     for root in manifest["absent"]:
-        _remove_tree(project, fsutil.resolve_within(project, root), removed)
+        _remove_tree(project, targets[root], removed)
     for root in manifest["dirs"]:
-        target = fsutil.resolve_within(project, root)
-        if not target.is_dir():
-            continue
-        for item in sorted(target.rglob("*")):
+        for item in fsutil.walk_files(targets[root]):
             rel = item.relative_to(project).as_posix()
-            if (item.is_file() or item.is_symlink()) and rel not in archive.files:
+            if rel not in archive.files:
                 item.unlink()
                 removed.append(rel)
     restored: list[str] = []
     for rel, (data, mode) in sorted(archive.files.items()):
-        target = fsutil.resolve_within(project, rel)
+        target = targets[rel]
         if target.is_dir():
             _remove_tree(project, target, removed)
-        if fsutil.write_if_changed(target, data, mode=mode):
+        if fsutil.write_if_changed(target, data, mode=mode, follow_symlinks=False):
             restored.append(rel)
     return RestoreResult(before, restored, sorted(removed))

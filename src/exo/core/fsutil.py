@@ -22,6 +22,7 @@ _RETRY_DELAY = 0.05
 _CHUNK = 1024 * 1024
 _DEFAULT_MODE = 0o644
 _WINDOWS_MAX_PATH = 240
+_REPARSE_POINT = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
 
 
 class UnsafePathError(ValueError):
@@ -61,15 +62,58 @@ def _replace_with_retry(src: str, dst: str) -> None:
             time.sleep(_RETRY_DELAY * (attempt + 1))
 
 
-def write_atomic(path: Path, data: bytes, *, mode: int | None = None) -> None:
+def is_link(path: Path) -> bool:
+    """Symlink, o junction de Windows (directorio con reparse point). No sigue el link."""
+    try:
+        info = os.lstat(_os_path(Path(path)))
+    except (FileNotFoundError, NotADirectoryError):
+        return False
+    if stat.S_ISLNK(info.st_mode):
+        return True
+    attributes = getattr(info, "st_file_attributes", 0)
+    return stat.S_ISDIR(info.st_mode) and bool(attributes & _REPARSE_POINT)
+
+
+def walk_files(root: Path) -> list[Path]:
+    """Archivos regulares bajo `root`, ordenados, sin entrar en symlinks ni junctions."""
+    found: list[Path] = []
+    pending = [Path(root)]
+    while pending:
+        folder = pending.pop()
+        try:
+            entries = sorted(os.scandir(folder), key=lambda e: e.name)
+        except (FileNotFoundError, NotADirectoryError):
+            continue
+        for entry in entries:
+            path = Path(entry.path)
+            if is_link(path):
+                continue
+            if entry.is_dir(follow_symlinks=False):
+                pending.append(path)
+            elif entry.is_file(follow_symlinks=False):
+                found.append(path)
+    return sorted(found)
+
+
+def write_atomic(
+    path: Path, data: bytes, *, mode: int | None = None, follow_symlinks: bool = True
+) -> None:
     """Escribe `data` en `path` de forma atómica.
 
     Conserva el modo del archivo existente; los nuevos quedan en 0644 salvo que
-    se indique `mode`.
+    se indique `mode`. Si `path` es un symlink, por defecto escribe en su destino
+    (por ejemplo `CLAUDE.md -> AGENTS.md`) en lugar de reemplazar el link; que el
+    destino quede dentro del proyecto lo verifica quien llama (`resolve_within`).
     """
     target = Path(path)
+    if follow_symlinks and os.path.islink(_os_path(target)):
+        target = Path(os.path.realpath(_os_path(target)))
     os_target = _os_path(target)
-    os_parent = _os_path(target.parent)
+    # Con prefijo de ruta larga, el temporal va en el mismo directorio prefijado.
+    if os_target.startswith(_LONG_PREFIX):
+        os_parent = os.path.dirname(os_target)
+    else:
+        os_parent = _os_path(target.parent)
     os.makedirs(os_parent, exist_ok=True)
     if mode is None:
         try:
@@ -90,14 +134,16 @@ def write_atomic(path: Path, data: bytes, *, mode: int | None = None) -> None:
         raise
 
 
-def write_if_changed(path: Path, data: bytes, *, mode: int | None = None) -> bool:
+def write_if_changed(
+    path: Path, data: bytes, *, mode: int | None = None, follow_symlinks: bool = True
+) -> bool:
     """Escribe solo si el contenido cambia. Devuelve si escribió."""
     try:
-        if read_bytes(path) == data:
+        if read_bytes(path) == data and (follow_symlinks or not os.path.islink(path)):
             return False
-    except FileNotFoundError:
+    except (FileNotFoundError, IsADirectoryError):
         pass
-    write_atomic(path, data, mode=mode)
+    write_atomic(path, data, mode=mode, follow_symlinks=follow_symlinks)
     return True
 
 

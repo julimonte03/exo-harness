@@ -178,3 +178,41 @@ def test_resolve_within_rechaza_symlink_que_escapa(tmp_path: Path) -> None:
     (root / "link").symlink_to(outside, target_is_directory=True)
     with pytest.raises(UnsafePathError):
         fsutil.resolve_within(root, "link/secreto.txt")
+
+
+def test_is_link_reconoce_links_de_directorio(tmp_path: Path, make_dir_link) -> None:
+    target = tmp_path / "destino"
+    target.mkdir()
+    (tmp_path / "archivo.txt").write_bytes(b"x")
+    make_dir_link(tmp_path / "link", target)
+    assert fsutil.is_link(tmp_path / "link") is True
+    assert fsutil.is_link(target) is False
+    assert fsutil.is_link(tmp_path / "archivo.txt") is False
+    assert fsutil.is_link(tmp_path / "no-existe") is False
+
+
+def test_walk_files_no_entra_en_links(tmp_path: Path, make_dir_link) -> None:
+    outside = tmp_path / "afuera"
+    outside.mkdir()
+    (outside / "secreto.txt").write_bytes(b"no")
+    root = tmp_path / "raiz"
+    (root / "sub").mkdir(parents=True)
+    (root / "a.txt").write_bytes(b"a")
+    (root / "sub" / "b.txt").write_bytes(b"b")
+    make_dir_link(root / "sub" / "link", outside)
+    assert [p.relative_to(root).as_posix() for p in fsutil.walk_files(root)] == ["a.txt", "sub/b.txt"]
+    assert fsutil.walk_files(tmp_path / "no-existe") == []
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="symlinks de archivo requieren privilegios en Windows")
+def test_write_atomic_escribe_en_el_destino_del_symlink(tmp_path: Path) -> None:
+    real = tmp_path / "AGENTS.md"
+    real.write_bytes(b"viejo")
+    link = tmp_path / "CLAUDE.md"
+    link.symlink_to(real)
+    fsutil.write_atomic(link, b"nuevo")
+    assert link.is_symlink()
+    assert real.read_bytes() == b"nuevo"
+    fsutil.write_atomic(link, b"reemplazo", follow_symlinks=False)
+    assert not link.is_symlink()
+    assert real.read_bytes() == b"nuevo"
