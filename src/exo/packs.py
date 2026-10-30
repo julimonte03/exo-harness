@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from exo import _meta
-from exo.core import frontmatter
+from exo.core import frontmatter, fsutil
 
 MANIFEST = "pack.json"
 PACK_KEY = f"{_meta.NAME}-pack"  # metadata de la skill que indica su pack
@@ -159,7 +159,7 @@ def discover_skills(skills_dir: Path, pack: str | None = None) -> list[Skill]:
     found: list[Skill] = []
     for folder in sorted(skills_dir.iterdir()):
         skill_file = folder / SKILL_FILE
-        if folder.name.startswith("_") or not skill_file.is_file():
+        if folder.name.startswith("_") or fsutil.is_link(folder) or not skill_file.is_file():
             continue
         data, _ = frontmatter.parse(skill_file.read_text(encoding="utf-8"))
         metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}

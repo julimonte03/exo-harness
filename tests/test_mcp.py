@@ -134,5 +134,44 @@ def test_criterio_5_por_subprocess(tmp_path: Path) -> None:
     assert len(tools) == 7
     assert all("inputSchema" in t and t["inputSchema"]["type"] == "object" for t in tools)
     assert by_id[3]["result"]["isError"] is True
+    assert "inválido" in by_id[3]["result"]["content"][0]["text"], "tiene que rechazarlo S2"
     assert by_id[4]["result"]["isError"] is False
     assert "hello-exo" in by_id[4]["result"]["content"][0]["text"]
+
+
+# -- robustez (revisión F1) ---------------------------------------------------
+
+
+def test_nombre_de_tool_que_no_es_texto(tmp_path: Path) -> None:
+    for name in (["x"], {"a": 1}, None, 3):
+        response = server.handle(_msg(7, "tools/call", {"name": name}), _ctx(tmp_path))
+        assert response["error"]["code"] == server.INVALID_PARAMS
+
+
+def test_el_servidor_sigue_despues_de_mensajes_hostiles(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    deep = "[" * 100_000 + "]" * 100_000
+    surrogate = json.dumps(_msg(9, "tools/call", {"name": "get_change_state", "arguments": {"change_name": "PLACEHOLDER"}})).replace("PLACEHOLDER", chr(92) + "ud800")
+    lines = [
+        json.dumps(_msg(1, "tools/call", {"name": ["x"]})),
+        deep,
+        surrogate,
+        json.dumps(_msg(2, "ping")),
+    ]
+    out = io.BytesIO()
+    server.serve(tmp_path, io.BytesIO(("\n".join(lines) + "\n").encode()), out)
+    responses = [json.loads(line) for line in out.getvalue().decode("ascii").splitlines()]
+    assert [r.get("id") for r in responses] == [1, None, 9, 2]
+    assert responses[0]["error"]["code"] == server.INVALID_PARAMS
+    assert responses[1]["error"]["code"] == server.PARSE_ERROR
+    assert responses[2]["result"]["isError"] is True
+    assert responses[3]["result"] == {}
+
+
+def test_excepcion_inesperada_en_handle_da_internal_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def explode(message: object, context: registry.Context) -> None:
+        raise RuntimeError("bug")
+
+    monkeypatch.setattr(server, "handle", explode)
+    out = io.BytesIO()
+    server.serve(tmp_path, io.BytesIO((json.dumps(_msg(3, "ping")) + "\n").encode()), out)
+    assert json.loads(out.getvalue())["error"]["code"] == server.INTERNAL_ERROR

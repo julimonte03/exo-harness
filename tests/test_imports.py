@@ -14,7 +14,9 @@ from exo import _meta
 
 SRC = Path(_meta.__file__).resolve().parent
 EXCEPTIONS = (SRC / "memory" / "backends", SRC / "memory" / "embeddings")
-ALLOWED = set(sys.stdlib_module_names) | {_meta.NAME, "__future__"}
+# Módulos de la stdlib que no existen en Python 3.10, el mínimo soportado.
+NOT_IN_PY310 = {"tomllib"}
+ALLOWED = (set(sys.stdlib_module_names) - NOT_IN_PY310) | {_meta.NAME, "__future__"}
 
 
 def _imports(path: Path) -> list[tuple[int, str]]:
@@ -52,3 +54,9 @@ def test_el_detector_encuentra_dependencias_externas(tmp_path: Path) -> None:
     module = tmp_path / "x.py"
     module.write_text("import os\nimport yaml\nfrom requests import get\nfrom . import local\n", encoding="utf-8")
     assert [name for _, name in _imports(module) if name not in ALLOWED] == ["yaml", "requests"]
+
+
+def test_modulos_nuevos_que_no_existen_en_310_cuentan_como_externos(tmp_path: Path) -> None:
+    module = tmp_path / "y.py"
+    module.write_text("import tomllib\n", encoding="utf-8")
+    assert [name for _, name in _imports(module) if name not in ALLOWED] == ["tomllib"]

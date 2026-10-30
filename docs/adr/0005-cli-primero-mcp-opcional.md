@@ -25,7 +25,7 @@ En la prueba de F0 (`docs/spikes/agent-probe.md`), Claude Code respondió `MCP s
 ## Consecuencias
 
 - **F1:**
-  - Las tools de los grupos Skills y Observabilidad tienen su subcomando, por ejemplo `exo skills {list,info,diff}` y `exo changes {list,status,followups,ai-usage}`; los nombres finales salen del plan de F1.
+  - Las tools de los grupos Skills y Observabilidad tienen su subcomando, `exo skills {list,info,diff}` y `exo change {list,status,followups,ai-usage}` (en singular, para que F4 sume `exo change new`). Las tools se definen una sola vez en `src/exo/tools/registry.py`, que consumen el CLI y `src/exo/mcp/server.py`.
   - El servidor MCP se construye igual, porque es barato y el criterio 5 de F1 lo pide, pero es opcional.
   - El esquema de config suma `mcp.enabled` (`false` por defecto).
 - **F2:**

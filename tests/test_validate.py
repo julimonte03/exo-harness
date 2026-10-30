@@ -84,7 +84,7 @@ BASE = "packs/core/skills/base/SKILL.md"
         (_replace("packs/sdd/pack.json", '"0.1.0"', '"1.0"'), "semver"),
         (_replace("packs/sdd/pack.json", '"requires": ["core"]', '"requires": ["fantasma"]'), "fantasma"),
         (_replace(BASE, "name: base", "name: otra"), "igual a la carpeta"),
-        (_replace(BASE, "name: base", "name: Base_Mal"), "igual a la carpeta"),
+        (_replace(BASE, "name: base", "name: Base_Mal"), "kebab-case"),
         (_put("packs/core/skills/" + "a" * 65 + "/SKILL.md", _skill_md("a" * 65)), "64"),
         (_put("packs/core/skills/con--doble/SKILL.md", _skill_md("con--doble")), "kebab-case"),
         (_replace(BASE, "description: Hace algo. Use when needed.\n", ""), "falta description"),
@@ -152,3 +152,35 @@ def test_cli_validate(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> Non
 def test_cli_validate_contenido_del_motor(capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["validate"]) == 0
     assert "todo válido" in capsys.readouterr().out
+
+
+# -- ajustes de la revisión F1 -------------------------------------------------
+
+
+def test_skill_de_exactamente_500_lineas_no_avisa(tmp_path: Path) -> None:
+    root = _base(tmp_path)
+    head = _skill_md("base")
+    padding = "linea\n" * (500 - len(head.splitlines()))
+    _write(root / BASE, head + padding)
+    assert len((root / BASE).read_text(encoding="utf-8").splitlines()) == 500
+    assert not any("500 líneas" in w.message for w in validate(root).warnings)
+
+
+def test_references_dentro_de_urls_no_cuentan(tmp_path: Path) -> None:
+    root = _base(tmp_path)
+    _replace(BASE, "# base\n", "# base\nVer https://example.com/docs/references/guia.md y otra/references/x.md\n")(root)
+    assert _messages(root) == []
+
+
+def test_carpeta_de_skill_sin_skill_md_avisa(tmp_path: Path) -> None:
+    root = _base(tmp_path)
+    (root / "packs" / "core" / "skills" / "solo-referencias" / "references").mkdir(parents=True)
+    report = validate(root)
+    assert report.errors == []
+    assert any("sin SKILL.md" in w.message for w in report.warnings)
+
+
+def test_skill_que_no_es_utf8(tmp_path: Path) -> None:
+    root = _base(tmp_path)
+    (root / BASE).write_bytes(b"---\nname: base\ndescription: \xff\n---\n")
+    assert any("UTF-8" in m for m in _messages(root))

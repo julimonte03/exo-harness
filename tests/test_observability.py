@@ -209,3 +209,30 @@ def test_es_de_solo_lectura(tmp_path: Path) -> None:
     after = {p: fsutil.sha256_file(p) for p in root.rglob("*") if p.is_file()}
     assert after == before
     assert not (tmp_path / _meta.PROJECT_DIR).exists()
+
+
+# -- robustez (revisión F1) ---------------------------------------------------
+
+
+def test_tasks_no_utf8_no_rompe_el_listado(tmp_path: Path) -> None:
+    folder = tmp_path / "specs" / "c"
+    folder.mkdir(parents=True)
+    (folder / "tasks.md").write_bytes(b"- [x] hecho \xff\xfe\n")
+    assert _by_name(tmp_path)["c"].phase == "apply"
+
+
+def test_dismissed_followups_que_no_es_lista(tmp_path: Path) -> None:
+    _touch(tmp_path / "specs" / "c" / "ai-usage-record.json", json.dumps({"dismissed_followups": {"x": 1}}))
+    _touch(tmp_path / "specs" / "c" / "followups.json", json.dumps([{"id": "J1-1", "judge": "j", "rule": "r"}]))
+    state = observability.change_state(tmp_path, "c")
+    assert state["followups"] == {"open": 1, "dismissed": 0}
+    assert any("dismissed_followups" in w for w in state["warnings"])
+
+
+def test_specs_que_sale_del_proyecto_por_un_link_no_se_lee(tmp_path: Path, make_dir_link) -> None:
+    outside = tmp_path / "afuera"
+    _touch(outside / "secreto" / "proposal.md")
+    project = tmp_path / "proyecto"
+    project.mkdir()
+    make_dir_link(project / "specs", outside)
+    assert observability.find_changes(project) == []

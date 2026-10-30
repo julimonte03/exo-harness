@@ -30,6 +30,7 @@ DIMENSIONS = (
 CEREMONIES = {1: "minimal", 2: "light", 3: "full", 4: "full"}
 FAILSAFE_RULE = "FM-00"
 FAILSAFE_TIER = 4
+FAILSAFE_CONDITION = "evidencia faltante o ilegible"
 _MIN, _MAX = 0, 3
 
 
