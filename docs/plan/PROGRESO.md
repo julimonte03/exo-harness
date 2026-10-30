@@ -1,15 +1,17 @@
 # Progreso de construcción
 
-**Fase activa:** F0
+**Fase activa:** F1, bloqueada por D-23 hasta que se decida.
 
 Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron con el comando exacto, la CI está verde en los tres sistemas operativos y el PR de la fase está mergeado.
+
+**Mientras no haya repo remoto** (decisión del dueño, 2026-10-30): la fase se cierra en local. La suite y el lint se corren en Windows y en Linux (Ubuntu en WSL, sobre un clon limpio), y la rama se mergea a `main` con `git merge --no-ff`, sin push. La CI de GitHub Actions (incluido macOS) y el PR quedan diferidos. Cuando exista el remoto, se suben `main` y las ramas, y se verifica la CI de cada fase cerrada así.
 
 ## Estado por fase
 
 | Fase | Estado | Rama / PR | Inicio | Cierre | Notas |
 |---|---|---|---|---|---|
-| F0 Fundaciones | En curso | `feat/F0-fundaciones` (sin remoto ni PR) | 2026-10-29 | | Criterios 1, 2, 4–7 OK. Falta el 3 (CI en GitHub): requiere crear el repo remoto (D-16, D-22) |
-| F1 Núcleo | Pendiente | | | | |
+| F0 Fundaciones | Terminada (local; CI diferida) | `feat/F0-fundaciones`, mergeada a `main` en local, sin PR | 2026-10-29 | 2026-10-30 | Criterios 1, 2, 4–7 OK. Criterio 3: Windows y Linux en local OK; macOS y GitHub Actions diferidos hasta tener remoto |
+| F1 Núcleo | Bloqueada (D-23) | | | | Decidir el rol del servidor MCP antes de diseñar `mcp/tools/` |
 | F2 Adaptadores + instalador | Pendiente | | | | |
 | F3 Memoria v2 | Pendiente | | | | |
 | F4 Ciclo SDD | Pendiente | | | | |
@@ -38,13 +40,13 @@ Desvíos respecto del plan y por qué:
 
 ### F0 — Fundaciones — 2026-10-29
 
-Entorno: Windows 11, venv `.venv` con Python 3.14.5. La suite también se corrió con Python 3.10.20 (venv con `uv`).
+Entorno: Windows 11, venv `.venv` con Python 3.14.5. La suite también se corrió con Python 3.10.20 (venv con `uv`) y en Linux: Ubuntu 24.04 en WSL2, Python 3.12.3, clon limpio en `/tmp`, el 2026-10-30.
 
 | # | Criterio | Comando ejecutado | Resultado |
 |---|---|---|---|
 | 1 | El paquete se instala y responde | `pip install -e ".[dev]"`; `exo --version`; `python -m exo --version` | OK: los dos imprimen `exo 0.0.1` |
 | 2 | Tests y lint verdes | `pytest`; `ruff check .` | OK: 8 passed, cobertura 96.55 % (umbral 80 %); ruff "All checks passed!" |
-| 3 | CI verde en los 3 SO | Run de GitHub Actions del PR | **Pendiente**: no hay repo remoto. `.github/workflows/ci.yml` está listo (ubuntu/macos/windows × 3.10/3.13) |
+| 3 | CI verde en los 3 SO | Sin remoto: `pip install -e ".[dev]"`, `exo --version`, `python -m exo --version`, `pytest`, `ruff check .` en Windows y en Ubuntu (WSL) | **Parcial**: Windows OK (3.14.5 y 3.10.20) y Linux OK (3.12.3; 8 passed, 96.55 %, versión `exo 0.0.1` por las dos vías). macOS y el run de GitHub Actions (`.github/workflows/ci.yml`) quedan diferidos hasta tener remoto |
 | 4 | Nombre centralizado | `pytest --no-cov tests/test_meta.py` | OK: 3 passed. Prueba a mano: un módulo temporal con `".exo/config.json"` hace fallar el test con `_tmp_probe.py:1`, y se revirtió |
 | 5 | Matriz de agentes completa | Revisión de `docs/agent-matrix.md` (script que cuenta las filas 1–8 por tabla) | OK: 8 tablas (Claude Code, Copilot CLI, VS Code, cloud agent, Cursor, Codex, Gemini, Devin), cada una con las filas 1–8, URL o `[No verificado]` |
 | 6 | Decisiones registradas | `ls docs/adr`; `grep "Decidida" docs/plan/04-DECISIONES.md` | OK: ADR-0001 a 0004; D-01, D-02, D-03 y D-15 decididas |
@@ -68,3 +70,4 @@ Desvíos respecto del plan y por qué:
 - `.gitattributes` fuerza LF en todo el repo y deja la transcripción de referencia byte a byte.
 - `AGENTS.md` de la raíz difiere de su plantilla `docs/plan/repo-raiz/AGENTS.md`: además del nombre `exo`, agrega la nota de APIs 3.11+, cobertura de 80 % en F0 y `pytest --no-cov`. La plantilla queda como en el plan original.
 - Revisión final con contexto fresco (subagente). Se corrigieron: la contradicción del ADR-0003 con la matriz, el test de nombres que podía pasar sin revisar nada, fuentes faltantes, la salvedad de Claude Code ≥ 2.1.281 y la numeración de invariantes. También se agregó un test de metadata de la distribución y se ajustó el CI (cancelación solo en PR, timeout, cache de pip).
+- **Cierre sin remoto** (decisión del dueño, 2026-10-30): F0 se mergea a `main` en local con `--no-ff`, sin PR, y el criterio 3 queda parcial (ver la nota al principio de este archivo).
