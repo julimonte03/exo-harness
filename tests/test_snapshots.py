@@ -278,3 +278,99 @@ def test_proyecto_con_ruta_sin_resolver() -> None:
         assert result.removed == ["a/extra.md"]
     finally:
         shutil.rmtree(raw, ignore_errors=True)
+
+
+# -- links, poda y validación previa (revisión F1) ----------------------------
+
+
+def test_restore_no_borra_a_traves_de_un_link(tmp_path: Path, make_dir_link) -> None:
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    (shared / "precious.md").write_bytes(b"no tocar")
+    snap = snapshots.snapshot(tmp_path, [".claude/skills"])
+    make_dir_link(tmp_path / ".claude" / "skills", shared)
+    with pytest.raises(SnapshotError, match="symlink o junction"):
+        snapshots.restore(tmp_path, snap.name)
+    assert (shared / "precious.md").read_bytes() == b"no tocar"
+
+
+def test_raiz_reemplazada_por_link_se_rechaza(tmp_path: Path, make_dir_link) -> None:
+    _tree(tmp_path)
+    snap = snapshots.snapshot(tmp_path, ["a"])
+    outside = tmp_path / "afuera"
+    outside.mkdir()
+    (outside / "x.md").write_bytes(b"x")
+    for item in (tmp_path / "a").iterdir():
+        item.unlink()
+    (tmp_path / "a").rmdir()
+    make_dir_link(tmp_path / "a", outside)
+    with pytest.raises(SnapshotError, match="symlink o junction"):
+        snapshots.restore(tmp_path, snap.name)
+    assert (outside / "x.md").read_bytes() == b"x"
+
+
+def test_snapshot_no_entra_en_links(tmp_path: Path, make_dir_link) -> None:
+    _tree(tmp_path)
+    outside = tmp_path / "afuera"
+    outside.mkdir()
+    (outside / "secreto.md").write_bytes(b"no")
+    make_dir_link(tmp_path / "a" / "link", outside)
+    archive = snapshots.read_archive(snapshots.build_archive(tmp_path, ["a"]))
+    assert sorted(archive.files) == ["a/dos.txt", "a/uno.md"]
+    with pytest.raises(SnapshotError, match="symlink o junction"):
+        snapshots.build_archive(tmp_path, ["a/link"])
+
+
+def test_restore_no_poda_el_snapshot_que_restaura(tmp_path: Path) -> None:
+    _tree(tmp_path)
+    names = []
+    for i in range(snapshots.DEFAULT_KEEP):
+        (tmp_path / "AGENTS.md").write_bytes(f"v{i}".encode())
+        names.append(snapshots.snapshot(tmp_path, ["AGENTS.md"]).name)
+    (tmp_path / "AGENTS.md").write_bytes(b"actual")
+    snapshots.restore(tmp_path, names[0])
+    assert names[0] in [s.name for s in snapshots.list_snapshots(tmp_path)]
+
+
+def test_keep_cero_no_borra_el_recien_creado(tmp_path: Path) -> None:
+    _tree(tmp_path)
+    snap = snapshots.snapshot(tmp_path, ["AGENTS.md"], keep=0)
+    assert snap.path.is_file()
+
+
+def test_restore_valida_todo_antes_de_tocar(tmp_path: Path) -> None:
+    raw = io.BytesIO()
+    with tarfile.open(fileobj=raw, mode="w", format=tarfile.GNU_FORMAT) as tar:
+        manifest = json.dumps({"schema": 1, "roots": ["a"], "dirs": ["a"], "absent": []}).encode()
+        info = tarfile.TarInfo(snapshots.MANIFEST_NAME)
+        info.size = len(manifest)
+        tar.addfile(info, io.BytesIO(manifest))
+        _file("fuera-de-raiz.md")(tar)
+    backups = tmp_path / _meta.PROJECT_DIR / "backups"
+    backups.mkdir(parents=True)
+    name = "20200101T000000000000Z-0123456789ab.tar.gz"
+    (backups / name).write_bytes(gzip.compress(raw.getvalue()))
+    _tree(tmp_path)
+    before = {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file() and "backups" not in p.parts}
+    with pytest.raises(UnsafeArchiveError, match="fuera de sus raíces"):
+        snapshots.restore(tmp_path, name)
+    after = {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file() and "backups" not in p.parts}
+    assert after == before
+    assert [s.name for s in snapshots.list_snapshots(tmp_path)] == [name]
+
+
+@pytest.mark.skipif(os.name == "nt", reason="'\' no es válido en nombres de archivo de Windows")
+def test_nombre_con_barra_invertida_se_rechaza(tmp_path: Path) -> None:
+    (tmp_path / "a").mkdir()
+    (tmp_path / "a" / "raro\nombre.md").write_bytes(b"x")
+    with pytest.raises(SnapshotError, match="no soportado"):
+        snapshots.build_archive(tmp_path, ["a"])
+
+
+def test_cli_restore_con_ruta_insegura_no_explota(tmp_path: Path, make_dir_link, capsys: pytest.CaptureFixture[str]) -> None:
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    snap = snapshots.snapshot(tmp_path, ["x"])
+    make_dir_link(tmp_path / "x", shared)
+    assert main(["restore", snap.name, "--project", str(tmp_path), "--yes"]) == 1
+    assert capsys.readouterr().err.startswith("error:")

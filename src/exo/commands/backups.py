@@ -87,7 +87,7 @@ def _restore(args: argparse.Namespace) -> int:
             return 1
     try:
         result = snapshots.restore(args.project, args.name)
-    except (snapshots.SnapshotError, OSError) as exc:
+    except (ValueError, OSError) as exc:  # SnapshotError, rutas inseguras, disco
         return error(str(exc))
     before = result.before.name if result.before else None
     if args.json:
