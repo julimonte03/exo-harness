@@ -1,0 +1,67 @@
+"""registry: render determinista de skill-registry.md y `exo registry`."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from exo import _meta, registry
+from exo.cli import main
+from exo.packs import Skill
+
+
+def _skills(base: Path) -> list[Skill]:
+    return [
+        Skill("zeta", "última | con barra", "sdd", base / "packs" / "sdd" / "skills" / "zeta", {}),
+        Skill("alfa", "primera\n  en dos líneas", "core", base / "packs" / "core" / "skills" / "alfa", {}),
+    ]
+
+
+def test_render_ordenado_y_escapado(tmp_path: Path) -> None:
+    text = registry.render(_skills(tmp_path), base=tmp_path)
+    lines = text.splitlines()
+    assert lines[0] == "# Skill registry"
+    assert f"{_meta.NAME} registry" in text
+    rows = [line for line in lines if line.startswith("| ") and not line.startswith("| Skill")]
+    assert rows == [
+        "| alfa | core | primera en dos líneas | packs/core/skills/alfa/SKILL.md |",
+        "| zeta | sdd | última \\| con barra | packs/sdd/skills/zeta/SKILL.md |",
+    ]
+    assert registry.render(list(reversed(_skills(tmp_path))), base=tmp_path) == text
+    assert text.endswith("\n")
+
+
+def test_render_vacio(tmp_path: Path) -> None:
+    assert "_No hay skills._" in registry.render([], base=tmp_path)
+
+
+def test_cli_registry_desde_el_contenido(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["registry", "--project", str(tmp_path)]) == 0
+    out = tmp_path / _meta.PROJECT_DIR / "skill-registry.md"
+    assert "| hello-exo | core |" in out.read_text(encoding="utf-8")
+    assert "actualizado" in capsys.readouterr().out
+    assert main(["registry", "--project", str(tmp_path), "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["changed"] is False
+    assert "hello-exo" in [s["name"] for s in payload["skills"]]
+
+
+def test_cli_registry_desde_skills_instaladas(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    installed = tmp_path / ".agents" / "skills" / "mia"
+    installed.mkdir(parents=True)
+    (installed / "SKILL.md").write_text(
+        "---\nname: mia\ndescription: propia\nmetadata:\n  exo-pack: core\n---\n", encoding="utf-8"
+    )
+    assert main(["registry", "--project", str(tmp_path), "--from", str(tmp_path / ".agents" / "skills"), "--stdout"]) == 0
+    out = capsys.readouterr().out
+    assert "| mia | core | propia | .agents/skills/mia/SKILL.md |" in out
+    assert not (tmp_path / _meta.PROJECT_DIR / "skill-registry.md").exists()
+
+
+def test_cli_registry_from_inexistente(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["registry", "--project", str(tmp_path), "--from", str(tmp_path / "nada")]) == 1
+    assert "no existe" in capsys.readouterr().err
