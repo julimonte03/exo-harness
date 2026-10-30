@@ -1,6 +1,6 @@
 # Progreso de construcción
 
-**Fase activa:** F1, bloqueada por D-23 hasta que se decida.
+**Fase activa:** F1 (D-23 decidida → ADR-0005).
 
 Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron con el comando exacto, la CI está verde en los tres sistemas operativos y el PR de la fase está mergeado.
 
@@ -11,7 +11,7 @@ Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron 
 | Fase | Estado | Rama / PR | Inicio | Cierre | Notas |
 |---|---|---|---|---|---|
 | F0 Fundaciones | Terminada (local; CI diferida) | `feat/F0-fundaciones`, mergeada a `main` en local, sin PR | 2026-10-29 | 2026-10-30 | Criterios 1, 2, 4–7 OK. Criterio 3: Windows y Linux en local OK; macOS y GitHub Actions diferidos hasta tener remoto |
-| F1 Núcleo | Bloqueada (D-23) | | | | Decidir el rol del servidor MCP antes de diseñar `mcp/tools/` |
+| F1 Núcleo | Pendiente | `feat/F1-nucleo` | | | D-23 → ADR-0005: CLI primero, MCP opcional. Falta proponer y aprobar la secuencia de commits |
 | F2 Adaptadores + instalador | Pendiente | | | | |
 | F3 Memoria v2 | Pendiente | | | | |
 | F4 Ciclo SDD | Pendiente | | | | |
