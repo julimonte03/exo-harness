@@ -95,6 +95,18 @@ def walk_files(root: Path) -> list[Path]:
     return sorted(found)
 
 
+def _os_parent(target: Path, os_target: str) -> str:
+    """Directorio del temporal: con prefijo de ruta larga si el destino lo necesita.
+
+    El temporal tiene un nombre más largo que el destino; si el destino ya pasa
+    el límite, el directorio prefijado evita que el temporal falle cuando
+    Windows no tiene habilitadas las rutas largas.
+    """
+    if os_target.startswith(_LONG_PREFIX):
+        return os.path.dirname(os_target)
+    return _os_path(target.parent)
+
+
 def write_atomic(
     path: Path, data: bytes, *, mode: int | None = None, follow_symlinks: bool = True
 ) -> None:
@@ -109,11 +121,7 @@ def write_atomic(
     if follow_symlinks and os.path.islink(_os_path(target)):
         target = Path(os.path.realpath(_os_path(target)))
     os_target = _os_path(target)
-    # Con prefijo de ruta larga, el temporal va en el mismo directorio prefijado.
-    if os_target.startswith(_LONG_PREFIX):
-        os_parent = os.path.dirname(os_target)
-    else:
-        os_parent = _os_path(target.parent)
+    os_parent = _os_parent(target, os_target)
     os.makedirs(os_parent, exist_ok=True)
     if mode is None:
         try:
