@@ -359,10 +359,10 @@ def test_restore_valida_todo_antes_de_tocar(tmp_path: Path) -> None:
     assert [s.name for s in snapshots.list_snapshots(tmp_path)] == [name]
 
 
-@pytest.mark.skipif(os.name == "nt", reason="'\' no es válido en nombres de archivo de Windows")
+@pytest.mark.skipif(os.name == "nt", reason="la barra invertida no es válida en nombres de archivo de Windows")
 def test_nombre_con_barra_invertida_se_rechaza(tmp_path: Path) -> None:
     (tmp_path / "a").mkdir()
-    (tmp_path / "a" / "raro\nombre.md").write_bytes(b"x")
+    (tmp_path / "a" / ("raro" + chr(92) + "nombre.md")).write_bytes(b"x")
     with pytest.raises(SnapshotError, match="no soportado"):
         snapshots.build_archive(tmp_path, ["a"])
 
