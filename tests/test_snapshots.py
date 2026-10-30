@@ -260,3 +260,21 @@ def test_cli_backups_errores(tmp_path: Path, capsys: pytest.CaptureFixture[str])
     assert main(["restore", "nada.tar.gz", "--project", str(tmp_path), "--yes"]) == 1
     assert main(["backups"]) == 0
     assert "usage:" in capsys.readouterr().out
+
+
+def test_proyecto_con_ruta_sin_resolver() -> None:
+    # En Windows %TEMP% puede venir en formato 8.3 (JULIAN~1.MON) y en macOS
+    # /var es un symlink a /private/var: el snapshot no tiene que depender de eso.
+    import shutil
+    import tempfile
+
+    raw = Path(tempfile.mkdtemp())
+    try:
+        _tree(raw)
+        assert snapshots.build_archive(raw, ["a"]) == snapshots.build_archive(raw.resolve(), ["a"])
+        snap = snapshots.snapshot(raw, ["a", "AGENTS.md"])
+        (raw / "a" / "extra.md").write_bytes(b"nuevo")
+        result = snapshots.restore(raw, snap.name)
+        assert result.removed == ["a/extra.md"]
+    finally:
+        shutil.rmtree(raw, ignore_errors=True)
