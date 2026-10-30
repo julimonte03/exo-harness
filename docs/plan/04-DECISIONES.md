@@ -135,4 +135,4 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
   - (c) Las dos: (a) como base y (b) como gestión paralela.
 - **Default:** (c). (a) no depende de terceros y suma poco costo, porque el plan ya prevé CLI para casi todo (`exo mem`, `exo change status`, `exo discover`). (b) mejora la experiencia donde se consiga.
 - **Bloquea:** F1 (diseño de `mcp/tools/` con su par en el CLI) y F2 (chequeo de doctor y checklist manual).
-- **Estado:** Abierta.
+- **Estado:** Decidida (ADR-0005), 2026-10-30: opción (a), con el CLI como interfaz principal. Las skills usan `exo … --json` por terminal y el servidor MCP queda opcional, apagado por defecto (`mcp.enabled: false`). Donde el plan (§2.10, fases) dice "tool MCP", se lee "subcomando del CLI, también expuesto por MCP si está habilitado".

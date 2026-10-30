@@ -31,6 +31,10 @@ path = "src/exo/_meta.py"
 [tool.hatch.build.targets.wheel]
 packages = ["src/exo"]
 
+# El contenido canónico viaja dentro del paquete (exo.content lo busca ahí).
+[tool.hatch.build.targets.wheel.force-include]
+"content" = "exo/_content"
+
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
@@ -44,8 +48,8 @@ source = ["exo"]
 branch = true
 
 [tool.coverage.report]
-# 80 % en F0; sube a 85 % en F1.
-fail_under = 80
+# 80 % en F0; 85 % desde F1.
+fail_under = 85
 show_missing = true
 
 [tool.ruff]
@@ -55,3 +59,7 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tablas de casos en tests: se privilegia una fila por caso.
+"tests/**" = ["E501"]
