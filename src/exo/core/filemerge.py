@@ -84,29 +84,44 @@ def _newline(text: str) -> str:
     return "\r\n" if crlf and crlf >= text.count("\n") - crlf else "\n"
 
 
-def _split(text: str) -> tuple[str, list[str], bool]:
-    """Devuelve (BOM, líneas sin fin de línea, terminaba en salto)."""
-    bom = "﻿" if text.startswith("﻿") else ""
+# Solo \r\n y \n separan líneas: \r suelto, \f, \x85 o U+2028 son contenido del humano.
+_LINE_BREAK = re.compile(r"(\r\n|\n)")
+_FENCE = re.compile(r"^\s*(```|~~~)")
+
+Line = list[str]  # [texto, separador]; el separador es "\r\n", "\n" o "" (última línea)
+
+
+def _split(text: str) -> tuple[str, list[Line]]:
+    """Devuelve (BOM, líneas con su separador original)."""
+    bom = "\ufeff" if text.startswith("\ufeff") else ""
     body = text[len(bom) :]
-    return bom, body.splitlines(), body.endswith(("\n", "\r"))
+    if not body:
+        return bom, []
+    parts = _LINE_BREAK.split(body)
+    lines = [[parts[i], parts[i + 1]] for i in range(0, len(parts) - 1, 2)]
+    if parts[-1]:
+        lines.append([parts[-1], ""])
+    return bom, lines
 
 
-def _join(bom: str, lines: list[str], newline: str, trailing: bool) -> str:
-    if not lines:
-        return bom
-    return bom + newline.join(lines) + (newline if trailing else "")
+def _join(bom: str, lines: list[Line]) -> str:
+    return bom + "".join(text + sep for text, sep in lines)
 
 
 def parse_blocks(text: str, style: str) -> list[Block]:
+    """Bloques del archivo. En Markdown, los marcadores dentro de ``` no cuentan."""
     pattern = _MARKER[style]
-    _, lines, _ = _split(text)
+    _, lines = _split(text)
     blocks: list[Block] = []
     seen: set[str] = set()
     open_id: str | None = None
     open_line = 0
     content: list[str] = []
-    for number, line in enumerate(lines, start=1):
-        match = pattern.match(line)
+    in_code = False
+    for number, (line, _sep) in enumerate(lines, start=1):
+        if style == STYLE_HTML and _FENCE.match(line):
+            in_code = not in_code
+        match = None if in_code else pattern.match(line)
         if not match:
             if open_id is not None:
                 content.append(line)
@@ -140,7 +155,11 @@ def _find(blocks: list[Block], block_id: str) -> Block | None:
 def _block_lines(block_id: str, content: str, style: str) -> list[str]:
     begin, end = markers(block_id, style)
     body = content.replace("\r\n", "\n").rstrip("\n")
-    return [begin, *(body.split("\n") if body else []), end]
+    inner = body.split("\n") if body else []
+    for line in inner:
+        if any(pattern.match(line) for pattern in _MARKER.values()):
+            raise BlockError(f"el contenido del bloque {block_id!r} no puede incluir marcadores")
+    return [begin, *inner, end]
 
 
 def inject_text(
@@ -149,18 +168,22 @@ def inject_text(
     if position not in ("start", "end"):
         raise BlockError(f"posición inválida: {position!r} (start o end)")
     new_block = _block_lines(block_id, content, style)
-    blocks = parse_blocks(text, style)
-    bom, lines, trailing = _split(text)
+    existing = _find(parse_blocks(text, style), block_id)
+    bom, lines = _split(text)
     newline = _newline(text)
-    existing = _find(blocks, block_id)
+    block = [[line, newline] for line in new_block]
     if existing is not None:
-        lines[existing.start_line - 1 : existing.end_line] = new_block
-        return _join(bom, lines, newline, trailing or not lines)
+        start, end = existing.start_line - 1, existing.end_line
+        block[-1][1] = lines[end - 1][1]  # conserva lo que seguía al END original
+        lines[start:end] = block
+        return _join(bom, lines)
     if not lines:
-        return _join(bom, new_block, newline, True)
+        return _join(bom, block)
     if position == "start":
-        return _join(bom, [*new_block, "", *lines], newline, trailing)
-    return _join(bom, [*lines, "", *new_block], newline, True)
+        return _join(bom, [*block, ["", newline], *lines])
+    if not lines[-1][1]:
+        lines[-1][1] = newline
+    return _join(bom, [*lines, ["", newline], *block])
 
 
 def replace_text(text: str, block_id: str, content: str, *, style: str) -> str:
@@ -173,15 +196,15 @@ def remove_text(text: str, block_id: str, *, style: str) -> str:
     existing = _find(parse_blocks(text, style), block_id)
     if existing is None:
         return text
-    bom, lines, trailing = _split(text)
+    bom, lines = _split(text)
     start, end = existing.start_line - 1, existing.end_line
     # Quita también la línea en blanco que agregó inject para separar el bloque.
-    if end == len(lines) and start > 0 and lines[start - 1] == "":
+    if end == len(lines) and start > 0 and lines[start - 1][0] == "":
         start -= 1
-    elif start == 0 and end < len(lines) and lines[end] == "":
+    elif start == 0 and end < len(lines) and lines[end][0] == "":
         end += 1
     del lines[start:end]
-    return _join(bom, lines, _newline(text), trailing)
+    return _join(bom, lines)
 
 
 # -- operaciones sobre archivos ---------------------------------------------

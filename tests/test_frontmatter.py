@@ -228,3 +228,39 @@ def test_mas_errores_estrictos(text: str, line: int, fragment: str) -> None:
         parse(text, strict=True)
     assert exc.value.line == line
     assert fragment in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "Use when: the user asks",
+        "Pasos:",
+        "`codigo`",
+        "@usuario",
+        "%dato",
+        ", coma",
+        "- guion",
+        "? pregunta",
+        "a-b: no",
+    ],
+)
+def test_estricto_rechaza_escalares_que_yaml_no_acepta(value: str) -> None:
+    text = f"---\nname: x\ndescription: {value}\n---\n"
+    with pytest.raises(FrontmatterError) as exc:
+        parse(text, strict=True)
+    assert exc.value.line == 3
+    data, _ = parse(text)
+    assert data["name"] == "x"
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["http://x.y/z", "ratio 1:2", "-flag", "texto # comentario: ok"],
+)
+def test_estricto_acepta_escalares_validos(value: str) -> None:
+    parse(f"---\nd: {value}\n---\n", strict=True)
+
+
+def test_estricto_acepta_lo_mismo_entre_comillas() -> None:
+    data, _ = parse("---\ndescription: \"Use when: the user asks\"\n---\n", strict=True)
+    assert data["description"] == "Use when: the user asks"
