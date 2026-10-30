@@ -1,11 +1,14 @@
-"""CLI del motor. En F0 solo responde `--version`; F1 suma los subcomandos."""
+"""CLI del motor. Solo cablea subcomandos; la lógica vive en los módulos del runtime."""
 
 from __future__ import annotations
 
 import argparse
+import contextlib
+import sys
 from collections.abc import Sequence
 
 from exo import _meta
+from exo.commands import COMMANDS
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -18,11 +21,25 @@ def build_parser() -> argparse.ArgumentParser:
         action="version",
         version=f"{_meta.NAME} {_meta.VERSION}",
     )
+    sub = parser.add_subparsers(dest="command", metavar="<comando>")
+    for register in COMMANDS:
+        register(sub)
     return parser
 
 
+def _tolerant_streams() -> None:
+    # Una consola Windows en cp1252 no debe cortar la salida por un carácter.
+    for stream in (sys.stdout, sys.stderr):
+        with contextlib.suppress(AttributeError, ValueError):
+            stream.reconfigure(errors="replace")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
+    _tolerant_streams()
     parser = build_parser()
-    parser.parse_args(argv)
-    parser.print_help()
-    return 0
+    args = parser.parse_args(argv)
+    handler = getattr(args, "handler", None)
+    if handler is None:
+        parser.print_help()
+        return 0
+    return int(handler(args))
