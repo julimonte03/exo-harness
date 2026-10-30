@@ -46,6 +46,8 @@ No entra: adaptadores, instalación en proyectos (F2), memoria (F3), skills real
 
 **`mcp/server.py` + `mcp/tools/`.** JSON-RPC 2.0 por stdio, un mensaje por línea, `initialize` → `tools/list` → `tools/call`, logs a stderr, errores de dominio con `isError: true`. Validadores S2: `validate_cwd` (`resolve()` + `is_relative_to`), `validate_skill_name`, `validate_change_name`. Tools de esta fase: `skills_list`, `skill_info`, `skills_diff`, `list_changes`, `get_change_state`, `get_followups` (`status`: `open`/`dismissed`/`all`), `get_ai_usage_record`.
 
+> **Implementado según ADR-0005 (D-23):** las tools se definen una sola vez en `src/exo/tools/registry.py`, cada una con su subcomando del CLI (`exo skills …`, `exo change …`). Los validadores S2 están en `src/exo/tools/validation.py`, y `src/exo/mcp/server.py` es un adaptador opcional sobre ese registro.
+
 **`cli.py`.** Subcomandos: `version`, `validate`, `registry`, `fitness classify --evidence-json`, `speclint <ruta> [--type] [--json]`, `doctor`, `mcp`, `backups {list,pin,unpin}`, `restore`, `inject`.
 
 **Contenido mínimo.** `content/packs/core/pack.json`, `content/packs/sdd/pack.json`, una skill de prueba `hello-arnes`, `content/rules/AGENTS.base.md` provisorio y la referencia de fitness.
