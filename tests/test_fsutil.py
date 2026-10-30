@@ -107,12 +107,22 @@ def test_write_if_changed_no_reescribe_si_es_igual(tmp_path: Path) -> None:
 def test_ruta_larga(tmp_path: Path) -> None:
     deep = tmp_path.joinpath(*(["d" * 40] * 8)) / "archivo-con-nombre-largo.txt"
     assert len(str(deep)) > 260
-    try:
-        fsutil.write_atomic(deep, b"largo")
-    except OSError as exc:  # pragma: no cover - depende del SO
-        pytest.skip(f"el sistema no permite rutas largas: {exc}")
+    # Sin skip: en Windows el prefijo de ruta larga tiene que funcionar aunque el
+    # sistema no tenga habilitadas las rutas largas; Linux y macOS las soportan.
+    fsutil.write_atomic(deep, b"largo")
     assert fsutil.read_bytes(deep) == b"largo"
     assert fsutil.sha256_file(deep) == hashlib.sha256(b"largo").hexdigest()
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="prefijo de ruta larga de Windows")
+def test_temporal_usa_el_prefijo_si_el_destino_es_largo(tmp_path: Path) -> None:
+    parent = tmp_path / ("p" * (230 - len(str(tmp_path)) - 1))
+    target = parent / ("n" * 30 + ".txt")
+    assert len(str(parent)) < 240 <= len(str(target))
+    os_parent = fsutil._os_parent(target, fsutil._os_path(target))
+    assert os_parent.startswith(fsutil._LONG_PREFIX)
+    fsutil.write_atomic(target, b"ok")
+    assert fsutil.read_bytes(target) == b"ok"
 
 
 def test_sha256(tmp_path: Path) -> None:
