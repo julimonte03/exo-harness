@@ -55,3 +55,7 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tablas de casos en tests: se privilegia una fila por caso.
+"tests/**" = ["E501"]
