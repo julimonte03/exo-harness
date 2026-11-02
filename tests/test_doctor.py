@@ -94,3 +94,64 @@ def test_cli_doctor_con_errores(monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
     monkeypatch.setenv(content.ENV_VAR, str(tmp_path / "nada"))
     assert main(["doctor", "--project", str(tmp_path)]) == 1
     assert "error" in capsys.readouterr().out
+
+
+# -- chequeos de instalación y por agente (F2) ----------------------------------
+
+
+def _installed(tmp_path: Path, agents: list[str]) -> Path:
+    from exo.installer import project
+
+    root = tmp_path / "p"
+    root.mkdir()
+    project.sync(root, agents=agents)
+    return root
+
+
+def test_install_sin_motor_y_con_drift(tmp_path: Path) -> None:
+    assert _by_name(doctor.run_checks(tmp_path))["install"].status == "info"
+    root = _installed(tmp_path, ["claude-code"])
+    assert _by_name(doctor.run_checks(root))["install"].status == "ok"
+    (root / ".claude" / "agents" / "sdd-judge.md").write_bytes(b"tocado")
+    check = _by_name(doctor.run_checks(root))["install"]
+    assert check.status == "warn"
+    assert ".claude/agents/sdd-judge.md (modified)" in check.detail
+
+
+@pytest.mark.parametrize(
+    ("version", "status"),
+    [((2, 1, 312), "ok"), ((2, 1, 281), "ok"), ((2, 1, 200), "warn"), (None, "info")],
+)
+def test_version_de_claude_code_sin_claude_md(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, version: tuple[int, ...] | None, status: str
+) -> None:
+    root = _installed(tmp_path, ["claude-code"])
+    monkeypatch.setattr(doctor, "_claude_version", lambda: version)
+    check = _by_name(doctor.run_checks(root))["claude-code"]
+    assert check.status == status
+    if status == "warn":
+        assert "--claude-md" in check.detail
+
+
+def test_claude_code_con_claude_md_o_sin_ser_destino(tmp_path: Path) -> None:
+    root = _installed(tmp_path, ["copilot"])
+    assert _by_name(doctor.run_checks(root))["claude-code"].status == "info"
+    (root / "CLAUDE.md").write_text("# mio\n", encoding="utf-8")
+    from exo.installer import project
+
+    project.sync(root, agents=["claude-code"])
+    assert _by_name(doctor.run_checks(root))["claude-code"].status == "ok"
+
+
+def test_lee_la_version_de_claude(monkeypatch: pytest.MonkeyPatch) -> None:
+    import subprocess
+
+    monkeypatch.setattr(doctor.shutil, "which", lambda name: "/bin/claude")
+    monkeypatch.setattr(
+        doctor.subprocess,
+        "run",
+        lambda *a, **k: subprocess.CompletedProcess(a, 0, stdout="2.1.312 (Claude Code)\n"),
+    )
+    assert doctor._claude_version() == (2, 1, 312)
+    monkeypatch.setattr(doctor.shutil, "which", lambda name: None)
+    assert doctor._claude_version() is None

@@ -8,7 +8,9 @@ snapshots) corren en un directorio temporal y no tocan el proyecto.
 from __future__ import annotations
 
 import platform
+import re
 import shutil
+import subprocess
 import sys
 import sysconfig
 import tempfile
@@ -17,7 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from exo import _meta, content, packs
-from exo.core import config, filemerge, snapshots
+from exo.core import config, filemerge, lock, snapshots
 
 MIN_PYTHON = (3, 10)
 MIN_FREE_BYTES = 100 * 1024 * 1024
@@ -131,6 +133,65 @@ def _config(project: Path) -> Check:
     return Check("config", "ok", str(result.source))
 
 
+# Claude Code lee AGENTS.md sin CLAUDE.md desde 2.1.281 en todas las sesiones (agent-matrix).
+CLAUDE_AGENTS_MD = (2, 1, 281)
+
+
+def _install(project: Path) -> Check:
+    data = lock.read(project)
+    if data is None:
+        return Check("install", "info", f"el motor no está instalado en {project.resolve()}")
+    drift = lock.drift(project, data)
+    if drift:
+        listed = ", ".join(f"{d.entry.path} ({d.status})" for d in drift[:5])
+        more = f" y {len(drift) - 5} más" if len(drift) > 5 else ""
+        return Check(
+            "install",
+            "warn",
+            f"cambios manuales sobre lo generado: {listed}{more}; mirá `{_meta.NAME} status`",
+        )
+    return Check("install", "ok", f"{len(data.files)} unidades gestionadas, sin cambios manuales")
+
+
+def _claude_version() -> tuple[int, ...] | None:
+    exe = shutil.which("claude")
+    if exe is None:
+        return None
+    try:
+        out = subprocess.run(
+            [exe, "--version"], capture_output=True, text=True, timeout=15, check=False
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    match = re.search(r"(\d+)\.(\d+)\.(\d+)", out)
+    return tuple(int(n) for n in match.groups()) if match else None
+
+
+def _claude_code(project: Path) -> Check:
+    agents = config.load(project).config["agents"]
+    if "claude-code" not in agents:
+        return Check("claude-code", "info", "no es agente destino del proyecto")
+    if (project / "CLAUDE.md").exists():
+        return Check("claude-code", "ok", "CLAUDE.md importa AGENTS.md con @AGENTS.md")
+    version = _claude_version()
+    needed = ".".join(map(str, CLAUDE_AGENTS_MD))
+    if version is None:
+        return Check(
+            "claude-code",
+            "info",
+            f"no se pudo leer la versión de Claude Code; sin CLAUDE.md necesita {needed} o más",
+        )
+    shown = ".".join(map(str, version))
+    if version < CLAUDE_AGENTS_MD:
+        return Check(
+            "claude-code",
+            "warn",
+            f"Claude Code {shown} puede no leer AGENTS.md sin CLAUDE.md: actualizalo a {needed} "
+            f"o corré `{_meta.NAME} init --claude-md --yes`",
+        )
+    return Check("claude-code", "ok", f"Claude Code {shown} lee AGENTS.md sin CLAUDE.md")
+
+
 CHECKS: tuple[Callable[[Path], Check], ...] = (
     _python,
     _platform,
@@ -142,6 +203,8 @@ CHECKS: tuple[Callable[[Path], Check], ...] = (
     _selftest_filemerge,
     _selftest_snapshots,
     _config,
+    _install,
+    _claude_code,
 )
 _NAMES = {
     _selftest_filemerge: "filemerge",
