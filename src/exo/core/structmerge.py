@@ -160,12 +160,55 @@ def remove_json_key(path: Path, dotted_key: str, *, prune_empty: bool = False) -
         return False
     del parent[keys[-1]]
     if prune_empty:
-        # De adentro hacia afuera: borra cada padre que haya quedado vacío.
-        for depth in range(len(keys) - 1, 0, -1):
-            container: Any = data
-            for key in keys[: depth - 1]:
-                container = container[key]
-            if container.get(keys[depth - 1]) != {}:
-                break
-            del container[keys[depth - 1]]
+        _prune(data, keys)
+    return fsutil.write_if_changed(path, _dump(data, original))
+
+
+def _prune(data: dict[str, Any], keys: list[str]) -> None:
+    """De adentro hacia afuera, borra cada padre de `keys` que haya quedado vacío."""
+    for depth in range(len(keys) - 1, 0, -1):
+        container: Any = data
+        for key in keys[: depth - 1]:
+            container = container[key]
+        if container.get(keys[depth - 1]) != {}:
+            break
+        del container[keys[depth - 1]]
+
+
+def add_json_list_item(path: Path, dotted_key: str, item: Any) -> bool:
+    """Agrega `item` a la lista en `dotted_key` si no está. No toca los demás ítems."""
+    keys = _keys(dotted_key)
+    data, original = _load(path)
+    parent = _parent(data, keys, path, create=True)
+    current = parent.get(keys[-1], MISSING)
+    if current is MISSING:
+        parent[keys[-1]] = [item]
+    elif not isinstance(current, list):
+        raise StructMergeError(f"{path}: {dotted_key} no es una lista; no se modificó")
+    elif item in current:
+        return False
+    else:
+        current.append(item)
+    return fsutil.write_if_changed(path, _dump(data, original))
+
+
+def remove_json_list_item(
+    path: Path, dotted_key: str, item: Any, *, prune_empty: bool = False
+) -> bool:
+    """Quita `item` de la lista. Con `prune_empty`, si la lista queda vacía, la quita a ella
+    y a los padres vacíos."""
+    keys = _keys(dotted_key)
+    if not Path(path).exists():
+        return False
+    data, original = _load(path)
+    parent = _parent(data, keys, path, create=False)
+    if parent is MISSING or not isinstance(parent.get(keys[-1]), list):
+        return False
+    current = parent[keys[-1]]
+    if item not in current:
+        return False
+    current.remove(item)
+    if prune_empty and not current:
+        del parent[keys[-1]]
+        _prune(data, keys)
     return fsutil.write_if_changed(path, _dump(data, original))

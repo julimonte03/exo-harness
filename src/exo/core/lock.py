@@ -1,9 +1,12 @@
 """Lock del proyecto (`<PROJECT_DIR>/lock.json`): qué generó el motor y con qué hash.
 
 Cada entrada es un archivo completo (`file`), una copia espejo (`mirror`), un
-bloque marcado dentro de un archivo del humano (`block`) o una clave dentro de
-un JSON (`key`). `drift()` compara el estado actual con el lock y devuelve lo
-que alguien editó a mano: el motor no lo pisa sin `--force` (invariante 13 de
+bloque marcado dentro de un archivo del humano (`block`), una clave dentro de
+un JSON (`key`) o un ítem dentro de una lista JSON (`item`). `created` indica
+que el motor creó el archivo: al desinstalar, si queda vacío, se borra.
+
+`drift()` compara el estado actual con el lock y devuelve lo que alguien
+editó a mano: el motor no lo pisa sin `--force` (invariante 13 de
 `docs/plan/02-ARQUITECTURA.md` §2.13).
 """
 
@@ -19,7 +22,7 @@ from exo.core import filemerge, fsutil, structmerge
 
 SCHEMA = 1
 FILENAME = "lock.json"
-KINDS = ("file", "mirror", "block", "key")
+KINDS = ("file", "mirror", "block", "key", "item")
 
 
 class LockError(ValueError):
@@ -35,9 +38,11 @@ class LockEntry:
     block_id: str | None = None
     key: str | None = None
     style: str | None = None  # estilo de comentario del bloque, si no se deduce del nombre
+    item: str | None = None  # valor del ítem, para kind "item"
+    created: bool = False  # el motor creó el archivo que contiene el bloque, clave o ítem
 
-    def sort_key(self) -> tuple[str, str, str, str]:
-        return (self.path, self.kind, self.block_id or "", self.key or "")
+    def sort_key(self) -> tuple[str, str, str, str, str]:
+        return (self.path, self.kind, self.block_id or "", self.key or "", self.item or "")
 
 
 @dataclass
@@ -91,12 +96,18 @@ def _entry(raw: Any, index: int) -> LockEntry:
     block_id, key = raw.get("block_id"), raw.get("key")
     if kind == "block" and not isinstance(block_id, str):
         raise LockError(f"{where}: una entrada block necesita block_id")
-    if kind == "key" and not isinstance(key, str):
-        raise LockError(f"{where}: una entrada key necesita key")
+    if kind in ("key", "item") and not isinstance(key, str):
+        raise LockError(f"{where}: una entrada {kind} necesita key")
+    item = raw.get("item")
+    if kind == "item" and not isinstance(item, str):
+        raise LockError(f"{where}: una entrada item necesita item")
+    created = raw.get("created", False)
+    if not isinstance(created, bool):
+        raise LockError(f"{where}: created tiene que ser true o false")
     style = raw.get("style")
     if style is not None and style not in (filemerge.STYLE_HTML, filemerge.STYLE_HASH):
         raise LockError(f"{where}: style desconocido {style!r}")
-    return LockEntry(path, kind, raw["owner"], raw["sha256"], block_id, key, style)
+    return LockEntry(path, kind, raw["owner"], raw["sha256"], block_id, key, style, item, created)
 
 
 def read(project: Path) -> Lock | None:
@@ -122,14 +133,23 @@ def read(project: Path) -> Lock | None:
     )
 
 
-def _serialize(entry: LockEntry) -> dict[str, str]:
-    out = {"path": entry.path, "kind": entry.kind, "owner": entry.owner, "sha256": entry.sha256}
+def _serialize(entry: LockEntry) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "path": entry.path,
+        "kind": entry.kind,
+        "owner": entry.owner,
+        "sha256": entry.sha256,
+    }
     if entry.block_id is not None:
         out["block_id"] = entry.block_id
     if entry.key is not None:
         out["key"] = entry.key
     if entry.style is not None:
         out["style"] = entry.style
+    if entry.item is not None:
+        out["item"] = entry.item
+    if entry.created:
+        out["created"] = True
     return out
 
 
@@ -167,7 +187,12 @@ def current_hash(project: Path, entry: LockEntry) -> str | None:
         value = structmerge.get_json_key(target, entry.key or "")
     except structmerge.StructMergeError:
         return fsutil.sha256_file(target)
-    return None if value is structmerge.MISSING else hash_json_value(value)
+    if value is structmerge.MISSING:
+        return None
+    if entry.kind == "item":
+        present = isinstance(value, list) and entry.item in value
+        return hash_json_value(entry.item) if present else None
+    return hash_json_value(value)
 
 
 def drift(project: Path, data: Lock | None = None) -> list[Drift]:
