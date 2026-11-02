@@ -187,6 +187,22 @@ def safe_relpath(raw: str | PurePath) -> PurePosixPath:
     return PurePosixPath(*parts)
 
 
+def join_within(root: Path, raw: str | PurePath) -> Path:
+    """Ruta dentro de `root` armada sin resolver, rechazando cualquier componente que sea link.
+
+    Es la forma segura de obtener una ruta para escribir o borrar: el motor no
+    gestiona rutas que pasan por symlinks o junctions.
+    """
+    current = Path(root)
+    for part in safe_relpath(raw).parts:
+        current = current / part
+        if is_link(current):
+            raise UnsafePathError(
+                f"{raw}: {current} es un symlink o junction; el motor no gestiona rutas con links"
+            )
+    return current
+
+
 def resolve_within(root: Path, raw: str | PurePath) -> Path:
     """Resuelve `raw` dentro de `root`, siguiendo symlinks, y verifica que no escape."""
     base = Path(root).resolve()

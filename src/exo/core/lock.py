@@ -155,6 +155,11 @@ def _serialize(entry: LockEntry) -> dict[str, Any]:
 
 def write(project: Path, data: Lock) -> bool:
     """Escribe el lock ordenado, de forma atómica. Devuelve si cambió."""
+    return fsutil.write_if_changed(lock_path(project), dumps(data))
+
+
+def dumps(data: Lock) -> bytes:
+    """Serialización determinista del lock (entradas ordenadas)."""
     payload = {
         "schema": SCHEMA,
         "engine_version": data.engine_version,
@@ -162,8 +167,7 @@ def write(project: Path, data: Lock) -> bool:
         "packs": list(data.packs),
         "files": [_serialize(e) for e in sorted(data.files, key=LockEntry.sort_key)],
     }
-    text = json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
-    return fsutil.write_if_changed(lock_path(project), text.encode("utf-8"))
+    return (json.dumps(payload, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
 
 
 # -- drift --------------------------------------------------------------------
