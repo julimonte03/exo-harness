@@ -213,3 +213,100 @@ def test_hashes_del_lock_coinciden_con_el_disco(tmp_path: Path) -> None:
     for entry in lock.read(tmp_path).files:
         assert lock.current_hash(tmp_path, entry) == entry.sha256, entry
     assert fsutil.sha256_file(tmp_path / ".claude" / "skills" / "demo" / "SKILL.md") == fsutil.sha256_bytes(b"skill v1\n")
+
+
+def test_padre_que_no_es_objeto_se_saltea_sin_escribir_a_medias(tmp_path: Path) -> None:
+    settings = tmp_path / ".claude" / "settings.json"
+    settings.parent.mkdir(parents=True)
+    settings.write_bytes(b'{"permissions": ["legacy"]}\n')
+    result = _apply(tmp_path, _ops())
+    assert result.applied
+    assert ("skip", ".claude/settings.json") in [(a.action, a.path) for a in result.actions]
+    assert "permissions no es un objeto" in result.warnings[0]
+    assert settings.read_bytes() == b'{"permissions": ["legacy"]}\n'
+    assert ".claude/settings.json" not in [e.path for e in lock.read(tmp_path).files]
+
+
+def _falla_en(monkeypatch: pytest.MonkeyPatch, path: str) -> None:
+    real = engine._write
+
+    def write(project: Path, op) -> None:
+        if op.path == path:
+            raise OSError("disco lleno")
+        real(project, op)
+
+    monkeypatch.setattr(engine, "_write", write)
+
+
+def test_falla_a_mitad_de_camino_restaura_todo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (tmp_path / "AGENTS.md").write_bytes(b"# del humano\n")
+    original = _tree(tmp_path)
+    _falla_en(monkeypatch, ".claude/settings.json")
+    with pytest.raises(engine.ApplyError, match="disco lleno") as info:
+        _apply(tmp_path, _ops())
+    assert "se restauró" in str(info.value)
+    assert _tree(tmp_path) == original
+    assert sorted(p.name for p in tmp_path.iterdir()) == [_meta.PROJECT_DIR, "AGENTS.md"]
+    assert [p.name for p in (tmp_path / _meta.PROJECT_DIR).iterdir()] == ["backups"]
+
+
+def test_falla_en_una_actualizacion_vuelve_a_la_instalacion_anterior(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _apply(tmp_path, _ops())
+    before = _tree(tmp_path)
+    _falla_en(monkeypatch, ".claude/settings.json")
+    ops = [*_ops(b"skill v2\n"), MergeListItem(".claude/settings.json", "permissions.allow", "Bash(y:*)", OWNER)]
+    with pytest.raises(engine.ApplyError):
+        _apply(tmp_path, ops)
+    assert _tree(tmp_path) == before
+
+
+def test_force_conserva_la_entrada_de_marcadores_rotos(tmp_path: Path) -> None:
+    _apply(tmp_path, _ops())
+    agents = tmp_path / "AGENTS.md"
+    end = f"<!-- END:{_meta.BLOCK_PREFIX}:core -->"
+    agents.write_text(agents.read_text(encoding="utf-8").replace(end, ""), encoding="utf-8")
+    result = _apply(tmp_path, _ops(b"skill v2\n"), force=True)
+    assert result.applied
+    assert [(c.path, c.forceable) for c in result.conflicts] == [("AGENTS.md", False)]
+    assert result.unresolved == result.conflicts
+    assert "AGENTS.md" in [e.path for e in lock.read(tmp_path).files]
+    assert (tmp_path / ".claude" / "skills" / "demo" / "SKILL.md").read_bytes() == b"skill v2\n"
+
+
+def test_force_no_pisa_un_archivo_del_humano(tmp_path: Path) -> None:
+    skill = tmp_path / ".claude" / "skills" / "demo" / "SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_bytes(b"mia\n")
+    result = _apply(tmp_path, _ops(), force=True)
+    assert result.applied
+    assert [(c.path, c.forceable) for c in result.conflicts] == [(".claude/skills/demo/SKILL.md", False)]
+    assert skill.read_bytes() == b"mia\n"
+    assert ".claude/skills/demo/SKILL.md" not in [e.path for e in lock.read(tmp_path).files]
+    assert (tmp_path / "AGENTS.md").exists()
+
+
+def test_force_con_dry_run_informa_sin_escribir(tmp_path: Path) -> None:
+    _apply(tmp_path, _ops())
+    skill = tmp_path / ".claude" / "skills" / "demo" / "SKILL.md"
+    skill.write_bytes(b"editado\n")
+    before = _tree(tmp_path)
+    result = _apply(tmp_path, _ops(), force=True, dry_run=True)
+    assert result.applied is False
+    assert ("update", ".claude/skills/demo/SKILL.md") in [(a.action, a.path) for a in result.actions]
+    assert _tree(tmp_path) == before
+
+
+def test_baja_en_un_json_que_se_volvio_jsonc(tmp_path: Path) -> None:
+    _apply(tmp_path, _ops())
+    mcp = tmp_path / ".mcp.json"
+    jsonc = b'{\n  // ahora con comentarios\n  "mcpServers": {"motor": {"command": "x"}}\n}\n'
+    mcp.write_bytes(jsonc)
+    result = engine.apply(tmp_path, [], agents=[], packs=[])
+    assert result.applied is False
+    assert [c.path for c in result.conflicts] == [".mcp.json"]
+    forced = engine.apply(tmp_path, [], agents=[], packs=[], force=True)
+    assert forced.applied
+    assert ("skip", ".mcp.json") in [(a.action, a.path) for a in forced.actions]
+    assert any("mcpServers" in w for w in forced.warnings)
+    assert mcp.read_bytes() == jsonc
+    assert lock.read(tmp_path).files == []

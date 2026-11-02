@@ -173,8 +173,12 @@ def dumps(data: Lock) -> bytes:
 # -- drift --------------------------------------------------------------------
 
 
-def current_hash(project: Path, entry: LockEntry) -> str | None:
-    """Hash actual de lo que registra la entrada, o None si ya no existe."""
+def current_hash(project: Path, entry: LockEntry, *, strict: bool = False) -> str | None:
+    """Hash actual de lo que registra la entrada, o None si ya no existe.
+
+    Si el archivo no se puede analizar (marcadores rotos, JSON inválido), devuelve el
+    hash del archivo entero, que cuenta como cambio manual; con `strict`, lanza el error.
+    """
     target = fsutil.resolve_within(project, entry.path)
     if not target.exists():
         return None
@@ -184,12 +188,16 @@ def current_hash(project: Path, entry: LockEntry) -> str | None:
         try:
             blocks = filemerge.list_blocks(target, style=entry.style)
         except filemerge.BlockError:
+            if strict:
+                raise
             return fsutil.sha256_file(target)
         found = next((b for b in blocks if b.id == entry.block_id), None)
         return None if found is None else hash_block_content(found.content)
     try:
-        value = structmerge.get_json_key(target, entry.key or "")
+        value = structmerge.get_json_key(target, entry.key or "", strict=strict)
     except structmerge.StructMergeError:
+        if strict:
+            raise
         return fsutil.sha256_file(target)
     if value is structmerge.MISSING:
         return None

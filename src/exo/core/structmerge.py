@@ -127,12 +127,19 @@ def _parent(data: dict[str, Any], keys: list[str], path: Path, *, create: bool) 
     return node
 
 
-def get_json_key(path: Path, dotted_key: str) -> Any:
+def get_json_key(path: Path, dotted_key: str, *, strict: bool = False) -> Any:
+    """Valor en `dotted_key`, o MISSING. Con `strict`, un padre que existe y no es un
+    objeto es un error: ahí no se podría escribir la clave."""
     keys = _keys(dotted_key)
     data, _ = _load(path)
     node: Any = data
-    for key in keys:
-        if not isinstance(node, dict) or key not in node:
+    for depth, key in enumerate(keys):
+        if not isinstance(node, dict):
+            if strict:
+                where = ".".join(keys[:depth])
+                raise StructMergeError(f"{path}: {where} no es un objeto; no se modificó")
+            return MISSING
+        if key not in node:
             return MISSING
         node = node[key]
     return node

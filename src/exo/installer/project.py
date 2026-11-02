@@ -170,7 +170,7 @@ def uninstall(project: Path, *, force: bool = False, dry_run: bool = False) -> U
         backup = paths.user_data_dir() / "uninstall-backups" / name
         fsutil.write_atomic(backup, archive)
     result = engine.apply(project, [], agents=[], packs=[], force=force, dry_run=dry_run)
-    if result.applied and motor_dir.is_dir():
+    if result.applied and not result.unresolved and motor_dir.is_dir():
         if fsutil.is_link(motor_dir):
             raise ProjectError(f"{motor_dir} es un link; no se borra")
         shutil.rmtree(motor_dir)
