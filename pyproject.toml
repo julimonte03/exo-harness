@@ -40,8 +40,18 @@ minversion = "8.0"
 testpaths = ["tests"]
 # `pytest` mide cobertura y aplica el umbral de [tool.coverage.report].
 # Para correr un archivo suelto sin umbral: `pytest --no-cov tests/test_x.py`.
-addopts = ["-ra", "--strict-markers", "-m", "not agent_e2e", "--cov", "--cov-report=term-missing"]
-markers = ["agent_e2e: usa agentes reales o red; excluido de la suite normal"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "-m",
+    "not agent_e2e and not installer",
+    "--cov",
+    "--cov-report=term-missing",
+]
+markers = [
+    "agent_e2e: usa agentes reales o red; excluido de la suite normal",
+    "installer: corre los instaladores de verdad (red); usar pytest -m installer --no-cov",
+]
 
 [tool.coverage.run]
 source = ["exo"]
