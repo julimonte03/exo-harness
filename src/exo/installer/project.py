@@ -8,14 +8,16 @@ elegido, pero solo después de aplicar sin conflictos.
 
 from __future__ import annotations
 
+import shutil
 from collections.abc import Iterable
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from exo import adapters, content
+from exo import _meta, adapters, content, paths
 from exo.adapters.base import Context
-from exo.core import config
+from exo.core import config, fsutil, lock, snapshots
 from exo.installer import engine
 from exo.installer.bundle import build_bundle
 
@@ -92,3 +94,67 @@ def sync(
         written = config.save(project, cfg)
     notes = [*loaded.warnings, *adapters.GENERIC.notes(ctx)]
     return SyncResult(result, list(targets), list(bundle.packs), notes, written)
+
+
+# -- estado y desinstalación ----------------------------------------------------
+
+
+@dataclass
+class Status:
+    installed: bool
+    agents: list[str]
+    packs: list[str]
+    lock_version: str | None
+    files: int
+    drift: list[lock.Drift]
+    warnings: list[str]
+
+
+def status(project: Path) -> Status:
+    project = Path(project).resolve()
+    loaded = config.load(project)
+    data = lock.read(project)
+    return Status(
+        installed=data is not None,
+        agents=list(loaded.config["agents"]),
+        packs=list(loaded.config["packs"]),
+        lock_version=data.engine_version if data else None,
+        files=len(data.files) if data else 0,
+        drift=lock.drift(project, data) if data else [],
+        warnings=loaded.warnings,
+    )
+
+
+@dataclass
+class UninstallResult:
+    engine: engine.Result
+    backup: Path | None
+
+
+def uninstall(project: Path, *, force: bool = False, dry_run: bool = False) -> UninstallResult:
+    """Revierte todo lo del lock y borra la carpeta del motor.
+
+    Antes guarda un backup de seguridad fuera del proyecto, en la carpeta de datos
+    de usuario, para que el proyecto quede idéntico al original.
+    """
+    project = Path(project).resolve()
+    data = lock.read(project)
+    motor_dir = project / _meta.PROJECT_DIR
+    if data is None and not motor_dir.exists():
+        raise ProjectError(f"el motor no está instalado en {project}")
+    roots = sorted({e.path for e in (data.files if data else [])})
+    if motor_dir.is_dir():
+        roots.append(_meta.PROJECT_DIR)
+    backup = None
+    if not dry_run:
+        archive = snapshots.build_archive(project, roots)
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        name = f"{project.name}-{stamp}-{fsutil.sha256_bytes(archive)[:12]}.tar.gz"
+        backup = paths.user_data_dir() / "uninstall-backups" / name
+        fsutil.write_atomic(backup, archive)
+    result = engine.apply(project, [], agents=[], packs=[], force=force, dry_run=dry_run)
+    if result.applied and motor_dir.is_dir():
+        if fsutil.is_link(motor_dir):
+            raise ProjectError(f"{motor_dir} es un link; no se borra")
+        shutil.rmtree(motor_dir)
+    return UninstallResult(result, backup)
