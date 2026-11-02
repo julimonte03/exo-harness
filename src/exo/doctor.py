@@ -7,6 +7,7 @@ snapshots) corren en un directorio temporal y no tocan el proyecto.
 
 from __future__ import annotations
 
+import json
 import platform
 import re
 import shutil
@@ -192,6 +193,41 @@ def _claude_code(project: Path) -> Check:
     return Check("claude-code", "ok", f"Claude Code {shown} lee AGENTS.md sin CLAUDE.md")
 
 
+def _claude_trusted(project: Path) -> bool | None:
+    """Si el usuario aceptó la confianza del workspace en Claude Code (lectura de ~/.claude.json).
+
+    Formato interno de Claude Code: puede cambiar, por eso el chequeo es solo informativo.
+    """
+    try:
+        data = json.loads((Path.home() / ".claude.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    projects = data.get("projects") if isinstance(data, dict) else None
+    if not isinstance(projects, dict):
+        return None
+    wanted = Path(project).resolve().as_posix().casefold()
+    for key, value in projects.items():
+        if Path(key).as_posix().casefold() == wanted and isinstance(value, dict):
+            return bool(value.get("hasTrustDialogAccepted"))
+    return False
+
+
+def _claude_trust(project: Path) -> Check:
+    if "claude-code" not in config.load(project).config["agents"]:
+        return Check("claude-trust", "info", "no es agente destino del proyecto")
+    trusted = _claude_trusted(project)
+    if trusted:
+        return Check(
+            "claude-trust", "ok", "workspace confiable: se aplican los permisos del proyecto"
+        )
+    return Check(
+        "claude-trust",
+        "info",
+        "abrí Claude Code una vez en el proyecto y aceptá la confianza del workspace: hasta "
+        f"entonces ignora el permiso para `{_meta.NAME}` de .claude/settings.json",
+    )
+
+
 CHECKS: tuple[Callable[[Path], Check], ...] = (
     _python,
     _platform,
@@ -205,6 +241,7 @@ CHECKS: tuple[Callable[[Path], Check], ...] = (
     _config,
     _install,
     _claude_code,
+    _claude_trust,
 )
 _NAMES = {
     _selftest_filemerge: "filemerge",
