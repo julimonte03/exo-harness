@@ -3,7 +3,9 @@
 - Skills en `.claude/skills/` (Claude Code no lee `.agents/skills/`).
 - Subagentes en `.claude/agents/`.
 - Permiso para ejecutar el CLI del motor sin preguntar (`permissions.allow` de
-  `.claude/settings.json`), porque las tools se usan por terminal (ADR-0005).
+  `.claude/settings.json`, por Bash y por PowerShell), porque las tools se usan por
+  terminal (ADR-0005). Claude Code aplica estas reglas recién cuando el usuario
+  acepta la confianza del workspace.
 - `CLAUDE.md`: Claude Code ≥ 2.1.281 lee `AGENTS.md` si no hay `CLAUDE.md`, así
   que no se crea; si ya existe, se le agrega al principio el import `@AGENTS.md`
   (ADR-0007). Con `claude_md="always"` se crea igual.
@@ -24,7 +26,9 @@ from exo.adapters.base import (
 from exo.installer.ops import MergeBlock, MergeKey, MergeListItem, Op
 
 OWNER = "adapter:claude-code"
-PERMISSION = f"Bash({_meta.NAME}:*)"
+# En Windows, Claude Code puede ejecutar por su herramienta de PowerShell además de Bash
+# (verificado en docs/checklists/F2-agentes.md).
+PERMISSIONS = (f"Bash({_meta.NAME}:*)", f"PowerShell({_meta.NAME}:*)")
 
 
 class ClaudeCodeAdapter:
@@ -37,7 +41,10 @@ class ClaudeCodeAdapter:
         ops: list[Op] = [
             *mirror_skills(ctx, CLAUDE_SKILLS, OWNER),
             *mirror_subagents(ctx, OWNER),
-            MergeListItem(".claude/settings.json", "permissions.allow", PERMISSION, OWNER),
+            *(
+                MergeListItem(".claude/settings.json", "permissions.allow", rule, OWNER)
+                for rule in PERMISSIONS
+            ),
         ]
         if ctx.claude_md == "always" or (ctx.project / "CLAUDE.md").exists():
             ops.append(MergeBlock("CLAUDE.md", "core", "@AGENTS.md", OWNER, position="start"))

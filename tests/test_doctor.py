@@ -155,3 +155,19 @@ def test_lee_la_version_de_claude(monkeypatch: pytest.MonkeyPatch) -> None:
     assert doctor._claude_version() == (2, 1, 312)
     monkeypatch.setattr(doctor.shutil, "which", lambda name: None)
     assert doctor._claude_version() is None
+
+
+def test_confianza_del_workspace_de_claude(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = _installed(tmp_path, ["claude-code"])
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(doctor.Path, "home", classmethod(lambda cls: home))
+    assert _by_name(doctor.run_checks(root))["claude-trust"].status == "info"
+    key = root.resolve().as_posix()
+    (home / ".claude.json").write_text(json.dumps({"projects": {key: {"hasTrustDialogAccepted": True}}}), encoding="utf-8")
+    assert _by_name(doctor.run_checks(root))["claude-trust"].status == "ok"
+    (home / ".claude.json").write_text("{ roto", encoding="utf-8")
+    assert _by_name(doctor.run_checks(root))["claude-trust"].status == "info"
+    (tmp_path / "otro").mkdir()
+    other = _installed(tmp_path / "otro", ["copilot"])
+    assert _by_name(doctor.run_checks(other))["claude-trust"].detail == "no es agente destino del proyecto"

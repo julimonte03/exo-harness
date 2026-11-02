@@ -82,7 +82,8 @@ def test_permiso_para_el_cli(tmp_path: Path) -> None:
     root.mkdir()
     project.sync(root, agents=["claude-code"])
     settings = json.loads((root / ".claude" / "settings.json").read_text(encoding="utf-8"))
-    assert settings == {"permissions": {"allow": [f"Bash({_meta.NAME}:*)"]}}
+    expected = [f"Bash({_meta.NAME}:*)", f"PowerShell({_meta.NAME}:*)"]
+    assert settings == {"permissions": {"allow": expected}}
 
 
 def test_solo_copilot_usa_claude_y_no_pide_permisos(tmp_path: Path) -> None:
