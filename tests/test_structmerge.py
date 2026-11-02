@@ -143,3 +143,37 @@ def test_list_item_sobre_algo_que_no_es_lista(tmp_path: Path) -> None:
     with pytest.raises(StructMergeError, match="no es una lista"):
         structmerge.add_json_list_item(target, "permissions.allow", "Bash(exo:*)")
     assert structmerge.remove_json_list_item(target, "permissions.allow", "x") is False
+
+
+def test_missing_containers(tmp_path: Path) -> None:
+    target = tmp_path / "settings.json"
+    assert structmerge.missing_containers(target, "permissions.allow", leaf=True) == ["permissions", "permissions.allow"]
+    assert structmerge.missing_containers(target, "mcpServers.exo", leaf=False) == ["mcpServers"]
+    target.write_text('{"permissions": {"deny": []}}', encoding="utf-8")
+    assert structmerge.missing_containers(target, "permissions.allow", leaf=True) == ["permissions.allow"]
+    assert structmerge.missing_containers(target, "permissions.deny", leaf=True) == []
+
+
+def test_prune_empty_keys_solo_quita_lo_pedido_y_vacio(tmp_path: Path) -> None:
+    target = tmp_path / "settings.json"
+    target.write_text('{"permissions": {"allow": [], "deny": []}, "x": {}}', encoding="utf-8")
+    assert structmerge.prune_empty_keys(target, ["permissions", "permissions.allow", "nada.aca"]) is True
+    assert json.loads(target.read_text()) == {"permissions": {"deny": []}, "x": {}}
+    assert structmerge.prune_empty_keys(target, ["permissions"]) is False
+    assert structmerge.prune_empty_keys(tmp_path / "no.json", ["a"]) is False
+
+
+@pytest.mark.parametrize(
+    "original",
+    [b'{"permissions": {"allow": []}}\n', b'{"permissions":{"allow":[]},"model":"x"}', b"{}\n"],
+    ids=["compacto", "compacto-sin-espacios", "vacio"],
+)
+def test_json_de_una_linea_vuelve_identico(tmp_path: Path, original: bytes) -> None:
+    target = tmp_path / "settings.json"
+    target.write_bytes(original)
+    structmerge.add_json_list_item(target, "permissions.allow", "Bash(exo:*)")
+    if original != b"{}\n":
+        assert target.read_bytes().count(b"\n") <= 1
+    structmerge.remove_json_list_item(target, "permissions.allow", "Bash(exo:*)")
+    structmerge.prune_empty_keys(target, [] if b"allow" in original else ["permissions", "permissions.allow"])
+    assert target.read_bytes() == original

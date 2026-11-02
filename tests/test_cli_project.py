@@ -81,7 +81,7 @@ def test_criterio_6_init_y_uninstall_dejan_el_proyecto_igual(tmp_path: Path, fix
     root = tmp_path / "p"
     FIXTURES[fixture](root)
     original = tree(root)
-    extra = ["--mcp"] if fixture == "mcp-jsonc" else []
+    extra = ["--mcp"] if fixture in ("mcp-jsonc", "settings-compacto") else []
     assert _init(root, *extra) == 0
     assert tree(root) != original
     assert main(["uninstall", "--project", str(root), "--yes"]) == 0
@@ -191,7 +191,6 @@ def test_dry_run_y_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
         (["add-agent", "cursor"], 1, "no está instalado"),
         (["init", "--agents", "windsurf", "--yes"], 1, "desconocido"),
         (["init", "--packs", "fantasma", "--yes", "--agents", "generic"], 1, "no existe"),
-        (["uninstall", "--yes"], 1, "no está instalado"),
         (["uninstall"], 2, "--yes"),
     ],
 )
@@ -299,3 +298,23 @@ def test_force_con_dry_run_muestra_lo_que_haria(tmp_path: Path, capsys: pytest.C
     assert "dry-run" in out
     assert "se forzaría: .claude/skills/hello-exo/SKILL.md" in out
     assert skill.read_bytes() == b"editado\n"
+
+
+def test_uninstall_avisa_lo_del_humano_en_la_carpeta_del_motor(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _init(tmp_path)
+    notes = tmp_path / _meta.PROJECT_DIR / "notas.md"
+    notes.write_bytes(b"mis notas\n")
+    capsys.readouterr()
+    assert main(["uninstall", "--project", str(tmp_path), "--yes"]) == 0
+    out = capsys.readouterr().out
+    assert f"{_meta.PROJECT_DIR}/notas.md" in out
+    backup = next((paths.user_data_dir() / "uninstall-backups").iterdir())
+    assert snapshots.read_archive(backup.read_bytes()).files[f"{_meta.PROJECT_DIR}/notas.md"][0] == b"mis notas\n"
+
+
+def test_uninstall_dos_veces(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _init(tmp_path)
+    assert main(["uninstall", "--project", str(tmp_path), "--yes"]) == 0
+    capsys.readouterr()
+    assert main(["uninstall", "--project", str(tmp_path), "--yes"]) == 0
+    assert "nada que hacer" in capsys.readouterr().out

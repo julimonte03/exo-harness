@@ -47,12 +47,30 @@ def mcp_jsonc(root: Path) -> None:
     _write(root, ".mcp.json", b'{\n  // servidores del equipo\n  "mcpServers": {}\n}\n')
 
 
+def sin_salto_final(root: Path) -> None:
+    _write(root, "AGENTS.md", HUMAN_AGENTS.rstrip("\n").encode())
+    _write(root, ".gitignore", b"node_modules/\n*.log")
+
+
+def settings_humano(root: Path) -> None:
+    # Como lo escribe Claude Code: indentado con 2 espacios.
+    _write(root, ".claude/settings.json", b'{\n  "permissions": {\n    "allow": []\n  }\n}\n')
+
+
+def settings_compacto(root: Path) -> None:
+    _write(root, ".claude/settings.json", b'{"permissions": {"allow": ["Bash(npm test:*)"], "deny": []}}\n')
+    _write(root, ".mcp.json", b'{"mcpServers": {}}\n')
+
+
 FIXTURES: dict[str, Callable[[Path], None]] = {
     "vacio": vacio,
     "agents-humano": agents_humano,
     "claude-existente": claude_existente,
     "crlf": crlf,
     "mcp-jsonc": mcp_jsonc,
+    "sin-salto-final": sin_salto_final,
+    "settings-humano": settings_humano,
+    "settings-compacto": settings_compacto,
 }
 
 

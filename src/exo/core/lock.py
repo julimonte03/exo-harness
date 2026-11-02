@@ -2,8 +2,12 @@
 
 Cada entrada es un archivo completo (`file`), una copia espejo (`mirror`), un
 bloque marcado dentro de un archivo del humano (`block`), una clave dentro de
-un JSON (`key`) o un ítem dentro de una lista JSON (`item`). `created` indica
-que el motor creó el archivo: al desinstalar, si queda vacío, se borra.
+un JSON (`key`) o un ítem dentro de una lista JSON (`item`).
+
+`created` registra, por archivo, lo que el motor creó dentro de archivos que
+también son del humano: el archivo mismo y los contenedores JSON (por ejemplo
+`permissions.allow`). Al quitar lo del motor, solo eso se borra, y solo si
+quedó vacío: así `init` + `uninstall` deja el proyecto como estaba.
 
 `drift()` compara el estado actual con el lock y devuelve lo que alguien
 editó a mano: el motor no lo pisa sin `--force` (invariante 13 de
@@ -39,10 +43,18 @@ class LockEntry:
     key: str | None = None
     style: str | None = None  # estilo de comentario del bloque, si no se deduce del nombre
     item: str | None = None  # valor del ítem, para kind "item"
-    created: bool = False  # el motor creó el archivo que contiene el bloque, clave o ítem
 
     def sort_key(self) -> tuple[str, str, str, str, str]:
         return (self.path, self.kind, self.block_id or "", self.key or "", self.item or "")
+
+
+@dataclass(frozen=True, order=True)
+class Created:
+    """Lo que el motor creó dentro de `path`: el archivo y/o contenedores JSON."""
+
+    path: str
+    file: bool = False
+    containers: tuple[str, ...] = ()
 
 
 @dataclass
@@ -51,6 +63,7 @@ class Lock:
     agents: list[str] = field(default_factory=list)
     packs: list[str] = field(default_factory=list)
     files: list[LockEntry] = field(default_factory=list)
+    created: list[Created] = field(default_factory=list)
     schema: int = SCHEMA
 
 
@@ -101,13 +114,29 @@ def _entry(raw: Any, index: int) -> LockEntry:
     item = raw.get("item")
     if kind == "item" and not isinstance(item, str):
         raise LockError(f"{where}: una entrada item necesita item")
-    created = raw.get("created", False)
-    if not isinstance(created, bool):
-        raise LockError(f"{where}: created tiene que ser true o false")
     style = raw.get("style")
     if style is not None and style not in (filemerge.STYLE_HTML, filemerge.STYLE_HASH):
         raise LockError(f"{where}: style desconocido {style!r}")
-    return LockEntry(path, kind, raw["owner"], raw["sha256"], block_id, key, style, item, created)
+    return LockEntry(path, kind, raw["owner"], raw["sha256"], block_id, key, style, item)
+
+
+def _created(raw: Any, index: int) -> Created:
+    where = f"created[{index}]"
+    if not isinstance(raw, dict) or not isinstance(raw.get("path"), str):
+        raise LockError(f"{where}: tiene que ser un objeto con path")
+    try:
+        path = str(fsutil.safe_relpath(raw["path"]))
+    except fsutil.UnsafePathError as exc:
+        raise LockError(f"{where}: ruta insegura ({exc})") from exc
+    file = raw.get("file", False)
+    if not isinstance(file, bool):
+        raise LockError(f"{where}: file tiene que ser true o false")
+    containers = raw.get("containers", [])
+    if not isinstance(containers, list) or not all(
+        isinstance(c, str) and c for c in containers
+    ):
+        raise LockError(f"{where}: containers tiene que ser una lista de claves")
+    return Created(path, file, tuple(containers))
 
 
 def read(project: Path) -> Lock | None:
@@ -125,11 +154,15 @@ def read(project: Path) -> Lock | None:
     files = raw.get("files", [])
     if not isinstance(files, list):
         raise LockError(f"{path}: files tiene que ser una lista")
+    created = raw.get("created", [])
+    if not isinstance(created, list):
+        raise LockError(f"{path}: created tiene que ser una lista")
     return Lock(
         engine_version=str(raw.get("engine_version", "")),
         agents=[str(a) for a in raw.get("agents", [])],
         packs=[str(p) for p in raw.get("packs", [])],
         files=[_entry(item, i) for i, item in enumerate(files)],
+        created=[_created(item, i) for i, item in enumerate(created)],
     )
 
 
@@ -148,8 +181,15 @@ def _serialize(entry: LockEntry) -> dict[str, Any]:
         out["style"] = entry.style
     if entry.item is not None:
         out["item"] = entry.item
-    if entry.created:
-        out["created"] = True
+    return out
+
+
+def _serialize_created(created: Created) -> dict[str, Any]:
+    out: dict[str, Any] = {"path": created.path}
+    if created.file:
+        out["file"] = True
+    if created.containers:
+        out["containers"] = list(created.containers)
     return out
 
 
@@ -166,6 +206,7 @@ def dumps(data: Lock) -> bytes:
         "agents": list(data.agents),
         "packs": list(data.packs),
         "files": [_serialize(e) for e in sorted(data.files, key=LockEntry.sort_key)],
+        "created": [_serialize_created(c) for c in sorted(data.created)],
     }
     return (json.dumps(payload, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
 

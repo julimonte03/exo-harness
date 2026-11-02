@@ -15,6 +15,11 @@ Flujo (`docs/plan/fases/F2-adaptadores-e-instalador.md`):
    archivo por archivo y lock al final. Si algo falla a mitad de camino, se
    restaura el snapshot: no quedan archivos a medias ni huérfanos.
 
+Lo que el motor crea dentro de archivos del humano (el archivo mismo, o
+contenedores JSON como `permissions.allow`) queda en `lock.created`, por
+archivo. Al quitar lo del motor de un archivo, se borra solo eso y solo si
+quedó vacío: un `"allow": []` del humano sobrevive.
+
 Un JSON que no se puede editar sin perder datos (JSONC, claves repetidas, un
 padre que no es objeto) no es conflicto al agregar: se saltea con un aviso y
 el snippet para pegar a mano. Al quitar, sí es conflicto; con `force` se
@@ -116,17 +121,36 @@ def _current(project: Path, op: Op) -> str | None:
     return lock.hash_json_value(value)
 
 
-def _entry(op: Op, created: bool) -> lock.LockEntry:
+def _entry(op: Op) -> lock.LockEntry:
     common = {"path": op.path, "owner": op.owner, "sha256": expected_hash(op)}
     if isinstance(op, WriteFile):
         return lock.LockEntry(kind=op.kind, **common)
     if isinstance(op, MergeBlock):
-        return lock.LockEntry(
-            kind="block", block_id=op.block_id, style=op.style, created=created, **common
-        )
+        return lock.LockEntry(kind="block", block_id=op.block_id, style=op.style, **common)
     if isinstance(op, MergeKey):
-        return lock.LockEntry(kind="key", key=op.key, created=created, **common)
-    return lock.LockEntry(kind="item", key=op.key, item=op.item, created=created, **common)
+        return lock.LockEntry(kind="key", key=op.key, **common)
+    return lock.LockEntry(kind="item", key=op.key, item=op.item, **common)
+
+
+def _creates(project: Path, op: Op) -> lock.Created | None:
+    """Lo que escribir `op` crearía dentro de un archivo que también es del humano."""
+    if isinstance(op, WriteFile):
+        return None
+    target = fsutil.join_within(project, op.path)
+    containers: list[str] = []
+    if isinstance(op, (MergeKey, MergeListItem)):
+        leaf = isinstance(op, MergeListItem)
+        containers = structmerge.missing_containers(target, op.key, leaf=leaf)
+    if target.exists() and not containers:
+        return None
+    return lock.Created(op.path, not target.exists(), tuple(containers))
+
+
+def _union(a: lock.Created | None, b: lock.Created) -> lock.Created:
+    if a is None:
+        return b
+    containers = tuple(dict.fromkeys([*a.containers, *b.containers]))
+    return lock.Created(a.path, a.file or b.file, containers)
 
 
 def _snippet(key: str, value: Any) -> str:
@@ -183,14 +207,22 @@ def _remove(project: Path, entry: lock.LockEntry) -> None:
     if entry.kind in ("file", "mirror"):
         target.unlink()
         _prune_dirs(project, target)
-        return
-    if entry.kind == "block":
+    elif entry.kind == "block":
         filemerge.remove(target, entry.block_id or "", style=entry.style)
     elif entry.kind == "key":
-        structmerge.remove_json_key(target, entry.key or "", prune_empty=True)
+        structmerge.remove_json_key(target, entry.key or "")
     else:
-        structmerge.remove_json_list_item(target, entry.key or "", entry.item, prune_empty=True)
-    if entry.created and _is_empty(target, entry.kind):
+        structmerge.remove_json_list_item(target, entry.key or "", entry.item)
+
+
+def _undo_created(project: Path, created: lock.Created, kind: str) -> None:
+    """Después de quitar lo del motor de un archivo, borra lo que creó si quedó vacío."""
+    target = fsutil.join_within(project, created.path)
+    if not target.exists():
+        return
+    if created.containers:
+        structmerge.prune_empty_keys(target, list(created.containers))
+    if created.file and _is_empty(target, kind):
         target.unlink()
         _prune_dirs(project, target)
 
@@ -228,6 +260,7 @@ def apply(
     ops = merge_duplicates(ops)
     previous = lock.read(project)
     old = {unit_of_entry(e): e for e in (previous.files if previous else [])}
+    created = {c.path: c for c in (previous.created if previous else [])}
     result = Result()
     writes: list[Op] = []
     removals: list[lock.LockEntry] = []
@@ -242,7 +275,6 @@ def apply(
         entry = old.get(unit)
         expected = expected_hash(op)
         try:
-            existed = fsutil.join_within(project, op.path).exists()
             current = _current(project, op)
         except fsutil.UnsafePathError as exc:
             result.conflicts.append(Conflict(op.path, kind, str(exc), forceable=False))
@@ -260,8 +292,7 @@ def apply(
             result.actions.append(Action("skip", op.path, kind, "archivo no editable"))
             keep(unit)
             continue
-        created = entry.created if entry else (not existed and kind in ("block", "key", "item"))
-        new_entry = _entry(op, created)
+        new_entry = _entry(op)
         if entry is None:
             if current is None:
                 writes.append(op)
@@ -338,6 +369,20 @@ def apply(
             removals.append(entry)
             result.actions.append(Action("remove", entry.path, entry.kind))
 
+    # Lo creado se registra por archivo; se deshace en los archivos de los que se quita
+    # algo y en los que no se escribe nada en esta misma corrida.
+    for op in writes:
+        made = _creates(project, op)
+        if made is not None:
+            created[op.path] = _union(created.get(op.path), made)
+    written = {op.path for op in writes}
+    kept = {e.path for e in entries.values()}
+    undo = [
+        (created[path], kind)
+        for path, kind in {e.path: e.kind for e in removals}.items()
+        if path in created and path not in written
+    ]
+
     extra_writes: dict[str, bytes] = {}
     for rel, data in (extra or {}).items():
         target = fsutil.join_within(project, rel)
@@ -349,7 +394,13 @@ def apply(
             continue
         extra_writes[rel] = data
 
-    new_lock = lock.Lock(_meta.VERSION, list(agents), list(packs), list(entries.values()))
+    new_lock = lock.Lock(
+        _meta.VERSION,
+        list(agents),
+        list(packs),
+        list(entries.values()),
+        [c for path, c in created.items() if path in kept],
+    )
     result.lock_changed = lock.dumps(new_lock) != _current_lock_bytes(project)
     if (result.conflicts and not force) or dry_run:
         return result
@@ -361,6 +412,8 @@ def apply(
     try:
         for entry in removals:
             _remove(project, entry)
+        for made, kind in undo:
+            _undo_created(project, made, kind)
         for op in writes:
             _write(project, op)
         for rel, data in extra_writes.items():

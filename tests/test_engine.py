@@ -47,7 +47,11 @@ def test_alta_en_proyecto_vacio(tmp_path: Path) -> None:
     assert json.loads((tmp_path / ".claude" / "settings.json").read_text()) == {"permissions": {"allow": ["Bash(x:*)"]}}
     data = lock.read(tmp_path)
     assert len(data.files) == 5
-    assert {e.kind: e.created for e in data.files} == {"mirror": False, "file": False, "block": True, "key": True, "item": True}
+    assert data.created == [
+        lock.Created(".claude/settings.json", file=True, containers=("permissions", "permissions.allow")),
+        lock.Created(".mcp.json", file=True, containers=("mcpServers",)),
+        lock.Created("AGENTS.md", file=True),
+    ]
     assert result.snapshot is not None
     assert lock.drift(tmp_path) == []
 
@@ -310,3 +314,60 @@ def test_baja_en_un_json_que_se_volvio_jsonc(tmp_path: Path) -> None:
     assert any("mcpServers" in w for w in forced.warnings)
     assert mcp.read_bytes() == jsonc
     assert lock.read(tmp_path).files == []
+
+
+def _item(item: str) -> MergeListItem:
+    return MergeListItem(".claude/settings.json", "permissions.allow", item, OWNER)
+
+
+def test_desinstalar_no_poda_contenedores_del_humano(tmp_path: Path) -> None:
+    settings = tmp_path / ".claude" / "settings.json"
+    settings.parent.mkdir()
+    original = b'{\n  "permissions": {\n    "allow": []\n  }\n}\n'
+    settings.write_bytes(original)
+    (tmp_path / ".mcp.json").write_bytes(b'{\n  "mcpServers": {}\n}\n')
+    before = _tree(tmp_path)
+    _apply(tmp_path, _ops())
+    engine.apply(tmp_path, [], agents=[], packs=[])
+    after = {k: v for k, v in _tree(tmp_path).items() if not k.startswith(_meta.PROJECT_DIR)}
+    assert after == before
+
+
+def test_lo_creado_es_por_archivo_y_sobrevive_a_una_actualizacion(tmp_path: Path) -> None:
+    _apply(tmp_path, [_item("Bash(x:*)")])
+    _apply(tmp_path, [_item("Bash(x:*)"), _item("PowerShell(x:*)")])
+    engine.apply(tmp_path, [], agents=[], packs=[])
+    assert not (tmp_path / ".claude").exists()
+
+
+def test_cambiar_un_item_por_otro_en_la_misma_corrida(tmp_path: Path) -> None:
+    _apply(tmp_path, [_item("Bash(x:*)")])
+    _apply(tmp_path, [_item("Bash(y:*)")])
+    settings = tmp_path / ".claude" / "settings.json"
+    assert json.loads(settings.read_text()) == {"permissions": {"allow": ["Bash(y:*)"]}}
+    engine.apply(tmp_path, [], agents=[], packs=[])
+    assert not settings.exists()
+
+
+def test_ctrl_c_a_mitad_de_camino_restaura_y_sigue_la_interrupcion(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    original = _tree(tmp_path)
+
+    def write(project: Path, op) -> None:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(engine, "_write", write)
+    with pytest.raises(KeyboardInterrupt):
+        _apply(tmp_path, _ops())
+    assert _tree(tmp_path) == original
+
+
+def test_si_tampoco_se_puede_restaurar_lo_dice(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _falla_en(monkeypatch, ".claude/settings.json")
+
+    def restore(project: Path, name: str):
+        raise OSError("sin permisos")
+
+    monkeypatch.setattr(snapshots, "restore", restore)
+    with pytest.raises(engine.ApplyError, match="no se pudo restaurar") as info:
+        _apply(tmp_path, _ops())
+    assert f"{_meta.NAME} restore" in str(info.value)
