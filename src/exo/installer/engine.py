@@ -39,6 +39,7 @@ from exo.installer.ops import (
 )
 
 WRITES = ("create", "update", "remove")
+_LOCK_REL = f"{_meta.PROJECT_DIR}/{lock.FILENAME}"
 
 
 @dataclass(frozen=True)
@@ -180,7 +181,10 @@ def apply(
     packs: list[str],
     force: bool = False,
     dry_run: bool = False,
+    extra: dict[str, bytes] | None = None,
 ) -> Result:
+    """Aplica `ops` contra el lock. `extra` son archivos fuera del lock (la config del
+    proyecto) que se escriben en la misma transacción y entran en el snapshot."""
     project = Path(project).resolve()
     ops = merge_duplicates(ops)
     previous = lock.read(project)
@@ -275,17 +279,32 @@ def apply(
             removals.append(entry)
             result.actions.append(Action("remove", entry.path, entry.kind))
 
+    extra_writes: dict[str, bytes] = {}
+    for rel, data in (extra or {}).items():
+        target = fsutil.join_within(project, rel)
+        if not target.exists():
+            result.actions.append(Action("create", rel, "file", "fuera del lock"))
+        elif fsutil.read_bytes(target) != data:
+            result.actions.append(Action("update", rel, "file", "fuera del lock"))
+        else:
+            continue
+        extra_writes[rel] = data
+
     new_lock = lock.Lock(_meta.VERSION, list(agents), list(packs), list(entries.values()))
     result.lock_changed = lock.dumps(new_lock) != _current_lock_bytes(project)
     if (result.conflicts and not force) or dry_run:
         return result
-    affected = sorted({op.path for op in writes} | {e.path for e in removals})
+    affected = {op.path for op in writes} | {e.path for e in removals} | set(extra_writes)
     if affected:
-        result.snapshot = snapshots.snapshot(project, affected).name
+        if result.lock_changed:
+            affected.add(_LOCK_REL)
+        result.snapshot = snapshots.snapshot(project, sorted(affected)).name
     for entry in removals:
         _remove(project, entry)
     for op in writes:
         _write(project, op)
+    for rel, data in extra_writes.items():
+        fsutil.write_atomic(fsutil.join_within(project, rel), data)
     if result.lock_changed:
         lock.write(project, new_lock)
     result.applied = True

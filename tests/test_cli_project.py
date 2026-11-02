@@ -213,3 +213,54 @@ def test_uninstall_con_conflicto_no_borra_nada(tmp_path: Path, capsys: pytest.Ca
     assert (tmp_path / _meta.PROJECT_DIR / "lock.json").exists()
     assert main(["uninstall", "--project", str(tmp_path), "--yes", "--force"]) == 0
     assert not (tmp_path / _meta.PROJECT_DIR).exists()
+
+
+@pytest.mark.parametrize(
+    "broken",
+    ['{"agents": ["claude-code"], // comentario\n}', '{"schema": 99}', '{"schema": 1, "agents": "claude-code"}'],
+    ids=["jsonc", "esquema-futuro", "campo-invalido"],
+)
+def test_config_rota_aborta_sin_tocar_nada(tmp_path: Path, broken: str, capsys: pytest.CaptureFixture[str]) -> None:
+    _init(tmp_path)
+    config.config_path(tmp_path).write_text(broken, encoding="utf-8")
+    before = tree(tmp_path)
+    capsys.readouterr()
+    for argv in (["sync"], ["add-agent", "cursor"], ["init", "--yes"]):
+        assert main([*argv, "--project", str(tmp_path)]) == 1
+        assert "config.json" in capsys.readouterr().err
+    assert tree(tmp_path) == before
+
+
+def test_config_invalida_por_flags_no_escribe_nada(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert _init(tmp_path, "--tracker", "jira", "--prefix", "proj") == 1
+    assert "tracker.prefix" in capsys.readouterr().err
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_sync_no_reescribe_la_config_del_humano(tmp_path: Path) -> None:
+    _init(tmp_path)
+    path = config.config_path(tmp_path)
+    compact = json.dumps(json.loads(path.read_text(encoding="utf-8"))).encode()
+    path.write_bytes(compact)
+    assert main(["sync", "--project", str(tmp_path)]) == 0
+    assert main(["init", "--project", str(tmp_path), "--yes"]) == 0
+    assert path.read_bytes() == compact
+
+
+def test_la_config_y_el_lock_van_en_el_snapshot(tmp_path: Path) -> None:
+    _init(tmp_path)
+    motor = tmp_path / _meta.PROJECT_DIR
+    before = {name: (motor / name).read_bytes() for name in ("config.json", "lock.json")}
+    assert main(["add-agent", "cursor", "--project", str(tmp_path)]) == 0
+    newest = snapshots.list_snapshots(tmp_path)[-1]
+    archive = snapshots.read_archive(newest.path.read_bytes())
+    for name, data in before.items():
+        assert archive.files[f"{_meta.PROJECT_DIR}/{name}"][0] == data
+
+
+def test_wizard_normaliza_y_repregunta_el_tracker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    _answers(monkeypatch, "claude-code", "", "Trello", "Jira", "1x", "proj", "s")
+    assert main(["init", "--project", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert out.count("inválido") == 2
+    assert config.load(tmp_path).config["tracker"] == {"type": "jira", "prefix": "PROJ", "prefixes": []}
