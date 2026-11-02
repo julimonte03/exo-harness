@@ -300,9 +300,16 @@ def _uninstall(args: argparse.Namespace) -> int:
         if not wizard.confirm([f"quitar el motor de {args.project.resolve()}"]):  # pragma: no cover
             print("cancelado")
             return 1
+    root = args.project.resolve()
+    if not (root / _meta.PROJECT_DIR).exists():
+        print(f"el motor no está instalado en {root}; nada que hacer")
+        return 0
     try:
-        result = project.uninstall(args.project, force=args.force, dry_run=args.dry_run)
+        result = project.uninstall(root, force=args.force, dry_run=args.dry_run)
     except (project.ProjectError, ValueError, OSError) as exc:
         return error(str(exc))
     backup = str(result.backup) if result.backup else None
-    return _report(result.engine, args, {"backup de seguridad": backup})
+    extra = {"backup de seguridad": backup}
+    if result.also_removed:
+        extra["también se borra (queda en el backup)"] = ", ".join(result.also_removed)
+    return _report(result.engine, args, extra)

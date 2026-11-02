@@ -182,7 +182,10 @@ def inject_text(
     if position == "start":
         return _join(bom, [*block, ["", newline], *lines])
     if not lines[-1][1]:
+        # El archivo no terminaba en salto de línea: se agrega uno para separar y el
+        # bloque queda sin salto final, así `remove_text` sabe que tiene que quitarlo.
         lines[-1][1] = newline
+        block[-1][1] = ""
     return _join(bom, [*lines, ["", newline], *block])
 
 
@@ -198,9 +201,12 @@ def remove_text(text: str, block_id: str, *, style: str) -> str:
         return text
     bom, lines = _split(text)
     start, end = existing.start_line - 1, existing.end_line
-    # Quita también la línea en blanco que agregó inject para separar el bloque.
+    # Quita también la línea en blanco que agregó inject para separar el bloque y, si
+    # el bloque cerraba el archivo sin salto final, el salto que agregó a la línea previa.
     if end == len(lines) and start > 0 and lines[start - 1][0] == "":
         start -= 1
+        if not lines[end - 1][1] and start > 0:
+            lines[start - 1][1] = ""
     elif start == 0 and end < len(lines) and lines[end][0] == "":
         end += 1
     del lines[start:end]

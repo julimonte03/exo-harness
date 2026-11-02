@@ -146,6 +146,9 @@ def status(project: Path) -> Status:
 class UninstallResult:
     engine: engine.Result
     backup: Path | None
+    # Archivos de la carpeta del motor que no generó él (notas del humano, etc.): se
+    # borran con la carpeta y quedan en el backup de seguridad.
+    also_removed: list[str] = field(default_factory=list)
 
 
 def uninstall(project: Path, *, force: bool = False, dry_run: bool = False) -> UninstallResult:
@@ -170,8 +173,20 @@ def uninstall(project: Path, *, force: bool = False, dry_run: bool = False) -> U
         backup = paths.user_data_dir() / "uninstall-backups" / name
         fsutil.write_atomic(backup, archive)
     result = engine.apply(project, [], agents=[], packs=[], force=force, dry_run=dry_run)
+    also_removed = _human_files_in(project, motor_dir)
     if result.applied and not result.unresolved and motor_dir.is_dir():
         if fsutil.is_link(motor_dir):
             raise ProjectError(f"{motor_dir} es un link; no se borra")
         shutil.rmtree(motor_dir)
-    return UninstallResult(result, backup)
+    return UninstallResult(result, backup, also_removed)
+
+
+def _human_files_in(project: Path, motor_dir: Path) -> list[str]:
+    own = {lock.FILENAME, config.FILENAME, snapshots.backups_dir(project).name}
+    if not motor_dir.is_dir() or fsutil.is_link(motor_dir):
+        return []
+    return sorted(
+        path.relative_to(project).as_posix()
+        for path in fsutil.walk_files(motor_dir)
+        if path.relative_to(motor_dir).parts[0] not in own
+    )

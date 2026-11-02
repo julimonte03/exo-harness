@@ -208,3 +208,18 @@ def test_bom_se_conserva(tmp_path: Path) -> None:
     assert target.read_bytes().startswith("\ufeff# Humano\n".encode())
     filemerge.remove(target, "core")
     assert target.read_bytes() == "\ufeff# Humano\n".encode()
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
+def test_archivo_sin_salto_final_sigue_sin_salto(tmp_path: Path, newline: str) -> None:
+    original = f"# Reglas{newline}{newline}sin salto al final".encode()
+    target = tmp_path / "AGENTS.md"
+    target.write_bytes(original)
+    filemerge.inject(target, "core", "regla")
+    data = target.read_bytes()
+    assert data.startswith(original + (newline * 2).encode())
+    assert data.endswith(f"{E}".encode())
+    filemerge.inject(target, "core", "regla 2")
+    assert target.read_bytes().endswith(f"{E}".encode())
+    filemerge.remove(target, "core")
+    assert target.read_bytes() == original

@@ -40,6 +40,8 @@ def _keys(dotted_key: str) -> list[str]:
 
 
 _BOM = chr(0xFEFF)
+_STRING = re.compile(r'"(?:[^"\\]|\\.)*"')
+_LOOSE = re.compile(r"[:,]\s")
 
 
 class _Lossy(ValueError):
@@ -92,20 +94,29 @@ def _load(path: Path) -> tuple[dict[str, Any], str | None]:
 
 
 def _dump(data: dict[str, Any], original: str | None) -> bytes:
-    indent: str | int = 2
+    indent: str | int | None = 2
     newline = "\n"
     trailing = True
     bom = ""
+    separators: tuple[str, str] | None = None
     if original is not None:
         bom = _BOM if original.startswith(_BOM) else ""
+        body = original.removeprefix(_BOM).strip()
         match = _INDENT.match(original.removeprefix(_BOM))
         if match:
             indent = match.group(1)
+        elif "\n" not in body and body != "{}":
+            # JSON de una línea: se conserva compacto, con o sin espacios tras ":" y ",".
+            indent = None
+            loose = _LOOSE.search(_STRING.sub('""', body))
+            separators = (", ", ": ") if loose else (",", ":")
         if "\r\n" in original:
             newline = "\r\n"
         trailing = original.endswith("\n")
     try:
-        text = json.dumps(data, indent=indent, ensure_ascii=False, allow_nan=False)
+        text = json.dumps(
+            data, indent=indent, separators=separators, ensure_ascii=False, allow_nan=False
+        )
     except ValueError as exc:
         raise StructMergeError(f"el valor no se puede escribir como JSON estándar ({exc})") from exc
     if newline != "\n":
@@ -180,6 +191,39 @@ def _prune(data: dict[str, Any], keys: list[str]) -> None:
         if container.get(keys[depth - 1]) != {}:
             break
         del container[keys[depth - 1]]
+
+
+def missing_containers(path: Path, dotted_key: str, *, leaf: bool) -> list[str]:
+    """Claves (con puntos) que habría que crear para escribir en `dotted_key`: los padres
+    que faltan y, con `leaf`, la clave misma (la lista de un ítem). El motor las registra
+    para quitar al desinstalar solo los contenedores que creó él."""
+    keys = _keys(dotted_key)
+    data, _ = _load(path)
+    upto = len(keys) if leaf else len(keys) - 1
+    node: Any = data
+    for depth in range(upto):
+        if not isinstance(node, dict) or keys[depth] not in node:
+            return [".".join(keys[: d + 1]) for d in range(depth, upto)]
+        node = node[keys[depth]]
+    return []
+
+
+def prune_empty_keys(path: Path, dotted_keys: list[str]) -> bool:
+    """Quita, de la más profunda a la menos, cada clave de `dotted_keys` que exista y sea
+    un objeto o una lista vacíos. Devuelve si el archivo cambió."""
+    if not Path(path).exists():
+        return False
+    data, original = _load(path)
+    changed = False
+    for dotted in sorted(set(dotted_keys), key=lambda k: k.count("."), reverse=True):
+        keys = _keys(dotted)
+        parent: Any = data
+        for key in keys[:-1]:
+            parent = parent.get(key) if isinstance(parent, dict) else None
+        if isinstance(parent, dict) and keys[-1] in parent and parent[keys[-1]] in ({}, []):
+            del parent[keys[-1]]
+            changed = True
+    return changed and fsutil.write_if_changed(path, _dump(data, original))
 
 
 def add_json_list_item(path: Path, dotted_key: str, item: Any) -> bool:

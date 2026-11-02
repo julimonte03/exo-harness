@@ -175,35 +175,51 @@ def test_style_invalido_en_el_lock(tmp_path: Path) -> None:
         lock.read(tmp_path)
 
 
-def test_entrada_item_y_created(tmp_path: Path) -> None:
+def test_entrada_item(tmp_path: Path) -> None:
     settings = tmp_path / ".claude" / "settings.json"
     structmerge.add_json_list_item(settings, "permissions.allow", "Bash(motor:*)")
     entry = LockEntry(
         ".claude/settings.json", "item", "adapter:claude-code", lock.hash_json_value("Bash(motor:*)"),
-        key="permissions.allow", item="Bash(motor:*)", created=True,
+        key="permissions.allow", item="Bash(motor:*)",
     )
     data = Lock("0.0.1", files=[entry])
     assert lock.drift(tmp_path, data) == []
     lock.write(tmp_path, data)
     raw = json.loads(lock.lock_path(tmp_path).read_text(encoding="utf-8"))
     assert raw["files"][0]["item"] == "Bash(motor:*)"
-    assert raw["files"][0]["created"] is True
     assert lock.read(tmp_path).files == [entry]
     structmerge.remove_json_list_item(settings, "permissions.allow", "Bash(motor:*)")
     assert [d.status for d in lock.drift(tmp_path, data)] == ["missing"]
 
 
+def test_created_por_archivo_ida_y_vuelta(tmp_path: Path) -> None:
+    created = [
+        lock.Created(".mcp.json", file=False, containers=("mcpServers",)),
+        lock.Created("AGENTS.md", file=True),
+    ]
+    lock.write(tmp_path, Lock("0.0.1", created=list(reversed(created))))
+    raw = json.loads(lock.lock_path(tmp_path).read_text(encoding="utf-8"))
+    assert raw["created"] == [
+        {"path": ".mcp.json", "containers": ["mcpServers"]},
+        {"path": "AGENTS.md", "file": True},
+    ]
+    assert lock.read(tmp_path).created == created
+
+
 @pytest.mark.parametrize(
-    ("entry", "fragment"),
+    ("payload", "fragment"),
     [
-        ('{"path": "x", "kind": "item", "owner": "o", "sha256": "a", "key": "k"}', "necesita item"),
-        ('{"path": "x", "kind": "item", "owner": "o", "sha256": "a", "item": "i"}', "necesita key"),
-        ('{"path": "x", "kind": "file", "owner": "o", "sha256": "a", "created": "si"}', "created"),
+        ('"files": [{"path": "x", "kind": "item", "owner": "o", "sha256": "a", "key": "k"}]', "necesita item"),
+        ('"files": [{"path": "x", "kind": "item", "owner": "o", "sha256": "a", "item": "i"}]', "necesita key"),
+        ('"created": [{"path": "x", "file": "si"}]', "file"),
+        ('"created": [{"path": "../x", "file": true}]', "insegura"),
+        ('"created": [{"path": "x", "containers": [1]}]', "containers"),
+        ('"created": {"x": true}', "created"),
     ],
 )
-def test_item_o_created_invalidos(tmp_path: Path, entry: str, fragment: str) -> None:
+def test_item_o_created_invalidos(tmp_path: Path, payload: str, fragment: str) -> None:
     path = tmp_path / _meta.PROJECT_DIR / "lock.json"
     path.parent.mkdir()
-    path.write_text('{"schema": 1, "files": [' + entry + "]}", encoding="utf-8")
+    path.write_text('{"schema": 1, ' + payload + "}", encoding="utf-8")
     with pytest.raises(LockError, match=fragment):
         lock.read(tmp_path)
