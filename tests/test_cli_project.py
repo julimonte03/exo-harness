@@ -264,3 +264,38 @@ def test_wizard_normaliza_y_repregunta_el_tracker(tmp_path: Path, monkeypatch: p
     out = capsys.readouterr().out
     assert out.count("inválido") == 2
     assert config.load(tmp_path).config["tracker"] == {"type": "jira", "prefix": "PROJ", "prefixes": []}
+
+
+def _romper_marcador(root: Path) -> None:
+    agents = root / "AGENTS.md"
+    end = f"<!-- END:{_meta.BLOCK_PREFIX}:core -->"
+    agents.write_text(agents.read_text(encoding="utf-8").replace(end, ""), encoding="utf-8")
+
+
+def test_force_informa_lo_que_no_pudo_resolver(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _init(tmp_path)
+    _romper_marcador(tmp_path)
+    skill = tmp_path / ".claude" / "skills" / "hello-exo" / "SKILL.md"
+    original = skill.read_bytes()
+    skill.write_bytes(b"editado\n")
+    capsys.readouterr()
+    assert main(["sync", "--project", str(tmp_path), "--force"]) == 1
+    out = capsys.readouterr().out
+    assert "forzado: .claude/skills/hello-exo/SKILL.md" in out
+    assert "sin resolver: AGENTS.md" in out
+    assert skill.read_bytes() == original
+    assert main(["uninstall", "--project", str(tmp_path), "--yes", "--force"]) == 1
+    assert "sin resolver: AGENTS.md" in capsys.readouterr().out
+    assert (tmp_path / _meta.PROJECT_DIR / "lock.json").is_file()
+
+
+def test_force_con_dry_run_muestra_lo_que_haria(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _init(tmp_path)
+    skill = tmp_path / ".claude" / "skills" / "hello-exo" / "SKILL.md"
+    skill.write_bytes(b"editado\n")
+    capsys.readouterr()
+    assert main(["sync", "--project", str(tmp_path), "--force", "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "dry-run" in out
+    assert "se forzaría: .claude/skills/hello-exo/SKILL.md" in out
+    assert skill.read_bytes() == b"editado\n"

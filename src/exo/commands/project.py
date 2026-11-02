@@ -95,11 +95,22 @@ def _payload(result: engine.Result) -> dict[str, Any]:
     }
 
 
+def _conflict_label(conflict: engine.Conflict, args: argparse.Namespace) -> str:
+    if not conflict.forceable:
+        return "sin resolver"
+    if not args.force:
+        return "conflicto"
+    return "se forzaría" if args.dry_run else "forzado"
+
+
 def _report(result: engine.Result, args: argparse.Namespace, extra: dict[str, Any]) -> int:
-    failed = bool(result.conflicts) and not result.applied
+    """Imprime el resultado. Sale con 1 si hubo conflictos sin `--force`, o si quedaron
+    conflictos que `--force` no resuelve."""
+    failed = bool(result.conflicts) and not args.force
+    code = 1 if failed or result.unresolved else 0
     if args.json:
         emit_json({**extra, **_payload(result)})
-        return 1 if failed else 0
+        return code
     for key, value in extra.items():
         if isinstance(value, list) and value and key == "notes":
             for note in value:
@@ -110,10 +121,16 @@ def _report(result: engine.Result, args: argparse.Namespace, extra: dict[str, An
             print(f"{key}: {value}")
     for warning in result.warnings:
         print(f"aviso: {warning}")
+    for conflict in result.conflicts:
+        label = _conflict_label(conflict, args)
+        print(f"{label}: {conflict.path} ({conflict.kind}): {conflict.reason}")
     if failed:
-        for conflict in result.conflicts:
-            print(f"conflicto: {conflict.path} ({conflict.kind}): {conflict.reason}")
-        print("no se escribió nada. Revisá los conflictos o repetí con --force (con snapshot).")
+        hint = (
+            "Arreglá a mano los marcados «sin resolver»; --force no los pisa."
+            if result.unresolved
+            else "Revisá los conflictos o repetí con --force (con snapshot)."
+        )
+        print(f"no se escribió nada. {hint}")
         return 1
     writes = [a for a in result.actions if a.action in engine.WRITES]
     if args.dry_run:
@@ -128,7 +145,9 @@ def _report(result: engine.Result, args: argparse.Namespace, extra: dict[str, An
         print(f"{'se haría' if args.dry_run else 'listo'}: {summary or 'solo el lock'}")
         if result.snapshot:
             print(f"snapshot previo: {result.snapshot}")
-    return 0
+    if result.unresolved:
+        print("lo demás se aplicó; arreglá a mano los marcados «sin resolver» y repetí.")
+    return code
 
 
 # -- comandos ---------------------------------------------------------------------

@@ -6,13 +6,19 @@ Flujo (`docs/plan/fases/F2-adaptadores-e-instalador.md`):
 2. Compara cada unidad con el lock y con el disco: alta, cambio, sin cambios,
    adopción (ya estaba igual y es del humano: no se registra) o conflicto.
 3. Lo que está en el lock y ya no se pide, se da de baja.
-4. Conflictos (algo editado a mano, o un archivo del humano con otro
-   contenido): sin `force` no se escribe **nada** y se informan.
+4. Conflictos: sin `force` no se escribe **nada** y se informan. Con `force`
+   se pisa lo editado a mano sobre lo generado; lo que `force` no resuelve
+   (un archivo del humano, marcadores rotos, una ruta que pasa por un link)
+   queda como está, con su entrada del lock, y se informa igual.
 5. Sin cambios: no escribe ni crea snapshot. Con `dry_run`: solo informa.
-6. Si no, snapshot de las rutas afectadas, aplicación atómica y lock al final.
+6. Si no, snapshot de las rutas afectadas (con el lock), aplicación atómica
+   archivo por archivo y lock al final. Si algo falla a mitad de camino, se
+   restaura el snapshot: no quedan archivos a medias ni huérfanos.
 
-Un JSON que no se puede editar sin perder datos (JSONC, claves repetidas) no
-es conflicto: se saltea con un aviso y el snippet para pegar a mano.
+Un JSON que no se puede editar sin perder datos (JSONC, claves repetidas, un
+padre que no es objeto) no es conflicto al agregar: se saltea con un aviso y
+el snippet para pegar a mano. Al quitar, sí es conflicto; con `force` se
+saltea con el aviso y la entrada se olvida.
 """
 
 from __future__ import annotations
@@ -40,6 +46,14 @@ from exo.installer.ops import (
 
 WRITES = ("create", "update", "remove")
 _LOCK_REL = f"{_meta.PROJECT_DIR}/{lock.FILENAME}"
+_HUMAN = (
+    "ya existe con otro contenido y no lo generó el motor; movelo o borralo y repetí "
+    "(--force no pisa lo del humano)"
+)
+
+
+class ApplyError(ValueError):
+    """Falló la escritura a mitad de camino (el mensaje dice si se restauró el snapshot)."""
 
 
 @dataclass(frozen=True)
@@ -55,6 +69,7 @@ class Conflict:
     path: str
     kind: str
     reason: str
+    forceable: bool = True  # --force lo resuelve; si no, hay que arreglarlo a mano
 
 
 @dataclass
@@ -69,6 +84,11 @@ class Result:
     @property
     def changed(self) -> bool:
         return self.lock_changed or any(a.action in WRITES for a in self.actions)
+
+    @property
+    def unresolved(self) -> list[Conflict]:
+        """Conflictos que ni `force` resuelve."""
+        return [c for c in self.conflicts if not c.forceable]
 
 
 # -- estado actual ------------------------------------------------------------
@@ -86,7 +106,7 @@ def _current(project: Path, op: Op) -> str | None:
             (b for b in filemerge.list_blocks(target, style=op.style) if b.id == op.block_id), None
         )
         return None if found is None else lock.hash_block_content(found.content)
-    value = structmerge.get_json_key(target, op.key)
+    value = structmerge.get_json_key(target, op.key, strict=True)
     if value is structmerge.MISSING:
         return None
     if isinstance(op, MergeListItem):
@@ -109,11 +129,16 @@ def _entry(op: Op, created: bool) -> lock.LockEntry:
     return lock.LockEntry(kind="item", key=op.key, item=op.item, created=created, **common)
 
 
-def _snippet(op: Op) -> str:
-    value: Any = [op.item] if isinstance(op, MergeListItem) else getattr(op, "value", None)
-    for part in reversed(getattr(op, "key", "").split(".")):
+def _snippet(key: str, value: Any) -> str:
+    for part in reversed(key.split(".")):
         value = {part: value}
     return json.dumps(value, indent=2, ensure_ascii=False)
+
+
+def _op_snippet(op: Op) -> str:
+    if isinstance(op, MergeListItem):
+        return _snippet(op.key, [op.item])
+    return _snippet(getattr(op, "key", ""), getattr(op, "value", None))
 
 
 # -- escritura y baja ---------------------------------------------------------
@@ -170,6 +195,20 @@ def _remove(project: Path, entry: lock.LockEntry) -> None:
         _prune_dirs(project, target)
 
 
+def _rollback(project: Path, name: str, error: BaseException) -> ApplyError:
+    """Vuelve al snapshot tomado antes de escribir y borra los directorios que quedaron vacíos."""
+    try:
+        restored = snapshots.restore(project, name)
+    except Exception as exc:  # noqa: BLE001 - se informa junto con el error original
+        return ApplyError(
+            f"falló a mitad de camino ({error}) y no se pudo restaurar el snapshot {name} "
+            f"({exc}). Restauralo con `{_meta.NAME} restore {name}`."
+        )
+    for rel in restored.removed:
+        _prune_dirs(project, project / rel)
+    return ApplyError(f"falló a mitad de camino ({error}); se restauró el snapshot {name}")
+
+
 # -- plan y aplicación ----------------------------------------------------------
 
 
@@ -194,6 +233,10 @@ def apply(
     removals: list[lock.LockEntry] = []
     entries: dict[Unit, lock.LockEntry] = {}
 
+    def keep(unit: Unit) -> None:
+        if unit in old:
+            entries[unit] = old[unit]
+
     for op in ops:
         unit, kind = unit_of(op), kind_of(op)
         entry = old.get(unit)
@@ -202,18 +245,20 @@ def apply(
             existed = fsutil.join_within(project, op.path).exists()
             current = _current(project, op)
         except fsutil.UnsafePathError as exc:
-            result.conflicts.append(Conflict(op.path, kind, str(exc)))
+            result.conflicts.append(Conflict(op.path, kind, str(exc), forceable=False))
+            keep(unit)
             continue
         except filemerge.BlockError as exc:
-            result.conflicts.append(Conflict(op.path, kind, f"marcadores inválidos ({exc})"))
+            reason = f"marcadores inválidos ({exc})"
+            result.conflicts.append(Conflict(op.path, kind, reason, forceable=False))
+            keep(unit)
             continue
         except structmerge.StructMergeError as exc:
             result.warnings.append(
-                f"{op.path}: no se modificó ({exc}). Agregá a mano:\n{_snippet(op)}"
+                f"{op.path}: no se modificó ({exc}). Agregá a mano:\n{_op_snippet(op)}"
             )
             result.actions.append(Action("skip", op.path, kind, "archivo no editable"))
-            if entry is not None:
-                entries[unit] = entry
+            keep(unit)
             continue
         created = entry.created if entry else (not existed and kind in ("block", "key", "item"))
         new_entry = _entry(op, created)
@@ -227,13 +272,7 @@ def apply(
                     Action("adopt", op.path, kind, "ya estaba igual; queda del humano")
                 )
             else:
-                result.conflicts.append(
-                    Conflict(op.path, kind, "ya existe con otro contenido y no lo generó el motor")
-                )
-                if force:
-                    writes.append(op)
-                    result.actions.append(Action("update", op.path, kind, "forzado"))
-                    entries[unit] = new_entry
+                result.conflicts.append(Conflict(op.path, kind, _HUMAN, forceable=False))
             continue
         if current is not None and current not in (entry.sha256, expected):
             result.conflicts.append(
@@ -259,10 +298,30 @@ def apply(
         if unit in planned:
             continue
         try:
-            current = lock.current_hash(project, entry)
+            current = lock.current_hash(project, entry, strict=True)
         except (fsutil.UnsafePathError, OSError) as exc:
-            result.conflicts.append(Conflict(entry.path, entry.kind, f"no se puede leer ({exc})"))
-            entries[unit] = entry
+            reason = f"no se puede leer ({exc})"
+            result.conflicts.append(Conflict(entry.path, entry.kind, reason, forceable=False))
+            keep(unit)
+            continue
+        except filemerge.BlockError as exc:
+            reason = f"marcadores inválidos ({exc}); no se quita"
+            result.conflicts.append(Conflict(entry.path, entry.kind, reason, forceable=False))
+            keep(unit)
+            continue
+        except structmerge.StructMergeError as exc:
+            result.conflicts.append(
+                Conflict(entry.path, entry.kind, f"no se puede editar ({exc}); no se quita")
+            )
+            if force:
+                value: Any = [entry.item] if entry.kind == "item" else "..."
+                result.warnings.append(
+                    f"{entry.path}: no se quitó ({exc}). Quitá a mano:\n"
+                    f"{_snippet(entry.key or '', value)}"
+                )
+                result.actions.append(Action("skip", entry.path, entry.kind, "quitalo a mano"))
+            else:
+                keep(unit)
             continue
         if current is None:
             result.actions.append(Action("forget", entry.path, entry.kind, "ya no existía"))
@@ -274,7 +333,7 @@ def apply(
                 removals.append(entry)
                 result.actions.append(Action("remove", entry.path, entry.kind, "forzado"))
             else:
-                entries[unit] = entry
+                keep(unit)
         else:
             removals.append(entry)
             result.actions.append(Action("remove", entry.path, entry.kind))
@@ -299,14 +358,23 @@ def apply(
         if result.lock_changed:
             affected.add(_LOCK_REL)
         result.snapshot = snapshots.snapshot(project, sorted(affected)).name
-    for entry in removals:
-        _remove(project, entry)
-    for op in writes:
-        _write(project, op)
-    for rel, data in extra_writes.items():
-        fsutil.write_atomic(fsutil.join_within(project, rel), data)
-    if result.lock_changed:
-        lock.write(project, new_lock)
+    try:
+        for entry in removals:
+            _remove(project, entry)
+        for op in writes:
+            _write(project, op)
+        for rel, data in extra_writes.items():
+            fsutil.write_atomic(fsutil.join_within(project, rel), data)
+        if result.lock_changed:
+            lock.write(project, new_lock)
+    except Exception as exc:
+        if result.snapshot is None:
+            raise
+        raise _rollback(project, result.snapshot, exc) from exc
+    except BaseException as exc:  # Ctrl+C: se restaura y se deja seguir la interrupción
+        if result.snapshot is not None:
+            _rollback(project, result.snapshot, exc)
+        raise
     result.applied = True
     return result
 
