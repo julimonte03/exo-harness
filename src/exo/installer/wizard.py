@@ -67,14 +67,47 @@ def choose(
         out(f"Packs sugeridos que todavía no existen (llegan más adelante): {', '.join(pending)}")
     packs = _list(ask(f"Packs [{', '.join(default_packs)}]: "), default_packs)
 
-    tracker_type = (
-        ask(f"Tracker de tickets ({'/'.join(config.TRACKERS)}) [none]: ").strip() or "none"
+    tracker_type = _valid(
+        ask,
+        out,
+        f"Tracker de tickets ({'/'.join(config.TRACKERS)}) [none]: ",
+        _tracker_type,
+        f"uno de {', '.join(config.TRACKERS)}",
     )
     tracker: dict[str, Any] = {"type": tracker_type}
     if tracker_type != "none":
-        prefix = ask("Prefijo de los tickets (por ejemplo PROJ), vacío si no hay: ").strip()
-        tracker["prefix"] = prefix or None
+        tracker["prefix"] = _valid(
+            ask,
+            out,
+            "Prefijo de los tickets (por ejemplo PROJ), vacío si no hay: ",
+            _prefix,
+            "letras y números, empezando por una letra (por ejemplo PROJ)",
+        )
     return Choices(agents, packs, tracker)
+
+
+def _tracker_type(answer: str) -> str:
+    value = answer.lower() or "none"
+    if value not in config.TRACKERS:
+        raise ValueError(value)
+    return value
+
+
+def _prefix(answer: str) -> str | None:
+    value = answer.upper()
+    if value and not config.PREFIX.match(value):
+        raise ValueError(value)
+    return value or None
+
+
+def _valid(ask: Ask, out: Out, prompt: str, parse: Callable[[str], Any], hint: str) -> Any:
+    """Pregunta hasta que `parse` acepte la respuesta (si no, lanza ValueError)."""
+    while True:
+        answer = ask(prompt).strip()
+        try:
+            return parse(answer)
+        except ValueError:
+            out(f"valor inválido: {answer!r}; {hint}")
 
 
 def confirm(summary: list[str], *, ask: Ask | None = None, out: Out | None = None) -> bool:

@@ -2,12 +2,16 @@
 
 `sync` es el núcleo de `exo init`, `exo sync`, `exo add-agent` y
 `exo remove-agent`; los comandos solo deciden qué agentes, packs y opciones
-pasarle. La config del proyecto es del humano: se crea o actualiza con lo
-elegido, pero solo después de aplicar sin conflictos.
+pasarle. La config del proyecto es del humano: solo se escribe cuando el
+comando pide cambiar algo (agentes, packs, MCP o tracker), se valida antes de
+tocar nada y va en la misma transacción que el resto, con su snapshot. Si la
+config existe pero no se puede usar, se aborta: con los defaults se borraría
+lo de los agentes que tiene configurados.
 """
 
 from __future__ import annotations
 
+import copy
 import shutil
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -64,7 +68,14 @@ def sync(
 ) -> SyncResult:
     project = Path(project).resolve()
     loaded = config.load(project)
-    cfg = loaded.config
+    if loaded.fallback or loaded.invalid:
+        problems = " | ".join(loaded.invalid or loaded.warnings)
+        raise ProjectError(
+            f"{_meta.PROJECT_DIR}/{config.FILENAME} no se puede usar ({problems}). "
+            "Corregila y repetí: con los defaults se borraría lo de tus agentes."
+        )
+    cfg = copy.deepcopy(loaded.config)
+    explicit = agents is not None or packs is not None or mcp is not None or bool(tracker)
     if agents is not None:
         cfg["agents"] = list(agents)
     if packs is not None:
@@ -78,9 +89,16 @@ def sync(
         bundle = build_bundle(content.content_root(), list(cfg["packs"] or DEFAULT_PACKS))
     except ValueError as exc:
         raise ProjectError(str(exc)) from exc
-    cfg["agents"] = list(targets)
-    cfg["packs"] = list(bundle.packs)
-    ctx = Context(project, bundle, targets, cfg, claude_md="always" if claude_md else "auto")
+    if explicit:
+        cfg["agents"] = list(targets)
+        cfg["packs"] = list(bundle.packs)
+    normalized, _, invalid = config.validate(cfg)
+    if invalid:
+        raise ProjectError("valores inválidos para la config: " + " | ".join(invalid))
+    extra: dict[str, bytes] = {}
+    if explicit and (loaded.source is None or normalized != loaded.config):
+        extra[f"{_meta.PROJECT_DIR}/{config.FILENAME}"] = config.dumps(normalized)
+    ctx = Context(project, bundle, targets, normalized, claude_md="always" if claude_md else "auto")
     result = engine.apply(
         project,
         adapters.plan_all(ctx),
@@ -88,11 +106,10 @@ def sync(
         packs=list(bundle.packs),
         force=force,
         dry_run=dry_run,
+        extra=extra,
     )
-    written = False
-    if result.applied:
-        written = config.save(project, cfg)
     notes = [*loaded.warnings, *adapters.GENERIC.notes(ctx)]
+    written = result.applied and bool(extra)
     return SyncResult(result, list(targets), list(bundle.packs), notes, written)
 
 
