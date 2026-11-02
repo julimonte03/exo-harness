@@ -114,3 +114,32 @@ def test_remove_sin_poda_deja_el_padre(tmp_path: Path) -> None:
     structmerge.merge_json_key(target, "mcpServers.exo", SERVER)
     structmerge.remove_json_key(target, "mcpServers.exo")
     assert json.loads(target.read_text()) == {"mcpServers": {}}
+
+
+def test_add_y_remove_list_item(tmp_path: Path) -> None:
+    target = tmp_path / ".claude" / "settings.json"
+    target.parent.mkdir()
+    target.write_bytes(b'{\n  "permissions": {\n    "allow": [\n      "Bash(git:*)"\n    ]\n  }\n}\n')
+    assert structmerge.add_json_list_item(target, "permissions.allow", "Bash(exo:*)") is True
+    assert json.loads(target.read_text())["permissions"]["allow"] == ["Bash(git:*)", "Bash(exo:*)"]
+    assert structmerge.add_json_list_item(target, "permissions.allow", "Bash(exo:*)") is False
+    assert structmerge.remove_json_list_item(target, "permissions.allow", "Bash(exo:*)") is True
+    assert target.read_bytes() == b'{\n  "permissions": {\n    "allow": [\n      "Bash(git:*)"\n    ]\n  }\n}\n'
+    assert structmerge.remove_json_list_item(target, "permissions.allow", "Bash(exo:*)") is False
+
+
+def test_list_item_crea_la_lista_y_poda_al_quitar(tmp_path: Path) -> None:
+    target = tmp_path / "settings.json"
+    structmerge.add_json_list_item(target, "permissions.allow", "Bash(exo:*)")
+    assert json.loads(target.read_text()) == {"permissions": {"allow": ["Bash(exo:*)"]}}
+    structmerge.remove_json_list_item(target, "permissions.allow", "Bash(exo:*)", prune_empty=True)
+    assert json.loads(target.read_text()) == {}
+    assert structmerge.remove_json_list_item(tmp_path / "no.json", "a", "x") is False
+
+
+def test_list_item_sobre_algo_que_no_es_lista(tmp_path: Path) -> None:
+    target = tmp_path / "settings.json"
+    target.write_text('{"permissions": {"allow": "todo"}}', encoding="utf-8")
+    with pytest.raises(StructMergeError, match="no es una lista"):
+        structmerge.add_json_list_item(target, "permissions.allow", "Bash(exo:*)")
+    assert structmerge.remove_json_list_item(target, "permissions.allow", "x") is False

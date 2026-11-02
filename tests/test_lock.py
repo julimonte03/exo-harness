@@ -173,3 +173,37 @@ def test_style_invalido_en_el_lock(tmp_path: Path) -> None:
     path.write_text('{"schema": 1, "files": [{"path": "x", "kind": "block", "block_id": "c", "owner": "o", "sha256": "a", "style": "xml"}]}', encoding="utf-8")
     with pytest.raises(LockError, match="style"):
         lock.read(tmp_path)
+
+
+def test_entrada_item_y_created(tmp_path: Path) -> None:
+    settings = tmp_path / ".claude" / "settings.json"
+    structmerge.add_json_list_item(settings, "permissions.allow", "Bash(motor:*)")
+    entry = LockEntry(
+        ".claude/settings.json", "item", "adapter:claude-code", lock.hash_json_value("Bash(motor:*)"),
+        key="permissions.allow", item="Bash(motor:*)", created=True,
+    )
+    data = Lock("0.0.1", files=[entry])
+    assert lock.drift(tmp_path, data) == []
+    lock.write(tmp_path, data)
+    raw = json.loads(lock.lock_path(tmp_path).read_text(encoding="utf-8"))
+    assert raw["files"][0]["item"] == "Bash(motor:*)"
+    assert raw["files"][0]["created"] is True
+    assert lock.read(tmp_path).files == [entry]
+    structmerge.remove_json_list_item(settings, "permissions.allow", "Bash(motor:*)")
+    assert [d.status for d in lock.drift(tmp_path, data)] == ["missing"]
+
+
+@pytest.mark.parametrize(
+    ("entry", "fragment"),
+    [
+        ('{"path": "x", "kind": "item", "owner": "o", "sha256": "a", "key": "k"}', "necesita item"),
+        ('{"path": "x", "kind": "item", "owner": "o", "sha256": "a", "item": "i"}', "necesita key"),
+        ('{"path": "x", "kind": "file", "owner": "o", "sha256": "a", "created": "si"}', "created"),
+    ],
+)
+def test_item_o_created_invalidos(tmp_path: Path, entry: str, fragment: str) -> None:
+    path = tmp_path / _meta.PROJECT_DIR / "lock.json"
+    path.parent.mkdir()
+    path.write_text('{"schema": 1, "files": [' + entry + "]}", encoding="utf-8")
+    with pytest.raises(LockError, match=fragment):
+        lock.read(tmp_path)
