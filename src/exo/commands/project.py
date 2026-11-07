@@ -150,7 +150,8 @@ def _report(result: engine.Result, args: argparse.Namespace, extra: dict[str, An
         if result.snapshot:
             print(f"snapshot previo: {result.snapshot}")
     if result.unresolved:
-        print("lo demás se aplicó; arreglá a mano los marcados «sin resolver» y repetí.")
+        done = "se aplicaría" if args.dry_run else "se aplicó"
+        print(f"lo demás {done}; arreglá a mano los marcados «sin resolver» y repetí.")
     return code
 
 
@@ -163,14 +164,14 @@ def _available_packs() -> list[str]:
 
 def _init(args: argparse.Namespace) -> int:
     root = args.project.resolve()
-    existing = config.load(root)
     interactive = not args.yes and sys.stdin.isatty()
     agents = args.agents
     chosen_packs = args.packs
     tracker = {"type": args.tracker, "prefix": args.prefix} if args.tracker else None
     try:
-        if agents is None and existing.source is not None:
-            agents = existing.config["agents"]
+        installed = project.current_agents(root)
+        if agents is None and installed is not None:
+            agents = installed
         if interactive and agents is None:
             choices = wizard.choose(
                 detect.detect(root), stack.detect_stack(root), _available_packs()
@@ -186,7 +187,7 @@ def _init(args: argparse.Namespace) -> int:
             _print_detections(detections)
             if not agents:
                 print("aviso: no se detectó ningún agente; se instala la base genérica (AGENTS.md)")
-        if chosen_packs is None and existing.source is None:
+        if chosen_packs is None and installed is None:
             suggested = stack.detect_stack(root).suggested
             available = _available_packs()
             chosen_packs = [p for p in suggested if p in available]
@@ -229,15 +230,15 @@ def _print_detections(detections: list[detect.Detection]) -> None:
             )
 
 
-def _installed(root: Path) -> bool:
-    return project.status(root).installed or config.load(root).source is not None
+def _not_installed(root: Path) -> int:
+    return error(f"el motor no está instalado en {root}; corré `{_meta.NAME} init`")
 
 
 def _sync(args: argparse.Namespace) -> int:
     root = args.project.resolve()
-    if not _installed(root):
-        return error(f"el motor no está instalado en {root}; corré `{_meta.NAME} init`")
     try:
+        if project.current_agents(root) is None:
+            return _not_installed(root)
         result = project.sync(root, force=args.force, dry_run=args.dry_run)
     except (project.ProjectError, ValueError, OSError) as exc:
         return error(str(exc))
@@ -250,18 +251,19 @@ def _sync(args: argparse.Namespace) -> int:
 
 def _change_agents(args: argparse.Namespace, add: bool) -> int:
     root = args.project.resolve()
-    if not _installed(root):
-        return error(f"el motor no está instalado en {root}; corré `{_meta.NAME} init`")
-    current = [a for a in config.load(root).config["agents"] if a != "generic"]
-    if add:
-        agents = [*current, args.agent] if args.agent not in current else current
-    else:
-        if args.agent not in current:
+    try:
+        installed = project.current_agents(root)
+        if installed is None:
+            return _not_installed(root)
+        current = [a for a in installed if a != "generic"]
+        if add:
+            agents = [*current, args.agent] if args.agent not in current else current
+        elif args.agent not in current:
             return error(
                 f"{args.agent} no está entre los agentes del proyecto ({', '.join(current) or '-'})"
             )
-        agents = [a for a in current if a != args.agent]
-    try:
+        else:
+            agents = [a for a in current if a != args.agent]
         result = project.sync(root, agents=agents, force=args.force, dry_run=args.dry_run)
     except (project.ProjectError, ValueError, OSError) as exc:
         return error(str(exc))
@@ -321,7 +323,10 @@ def _uninstall(args: argparse.Namespace) -> int:
             return 1
     root = args.project.resolve()
     if not (root / _meta.PROJECT_DIR).exists():
-        print(f"el motor no está instalado en {root}; nada que hacer")
+        if args.json:
+            emit_json({"installed": False, "applied": False, "changed": False})
+        else:
+            print(f"el motor no está instalado en {root}; nada que hacer")
         return 0
     try:
         result = project.uninstall(root, force=args.force, dry_run=args.dry_run)

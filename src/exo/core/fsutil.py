@@ -137,6 +137,10 @@ def write_atomic(
         os.chmod(tmp, mode)
         _replace_with_retry(tmp, os_target)
     except BaseException:
+        # En Windows no se puede borrar un archivo de solo lectura: el temporal ya
+        # tiene el modo del destino.
+        with contextlib.suppress(OSError):
+            os.chmod(tmp, stat.S_IREAD | stat.S_IWRITE)
         with contextlib.suppress(FileNotFoundError):
             os.unlink(tmp)
         raise

@@ -335,3 +335,57 @@ def test_salida_sin_notas_vacias_ni_lineas_repetidas(tmp_path: Path, capsys: pyt
     assert "notes" not in capsys.readouterr().out
     assert main(["uninstall", "--project", str(tmp_path), "--yes"]) == 0
     assert capsys.readouterr().out.count("remove\t.claude/settings.json") == 1
+
+
+def test_sin_config_pero_con_lock_usa_lo_del_lock(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["init", "--project", str(tmp_path), "--agents", "claude-code", "--yes"]) == 0
+    config.config_path(tmp_path).unlink()
+    capsys.readouterr()
+    assert main(["sync", "--project", str(tmp_path), "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "remove" not in out
+    assert "se usan los agentes y packs del lock" in out
+    assert main(["init", "--project", str(tmp_path), "--yes", "--dry-run"]) == 0
+    assert "remove" not in capsys.readouterr().out
+    assert main(["add-agent", "copilot", "--project", str(tmp_path)]) == 0
+    assert config.load(tmp_path).config["agents"] == ["claude-code", "copilot"]
+    assert (tmp_path / ".claude" / "skills" / "hello-exo" / "SKILL.md").is_file()
+
+
+def test_uninstall_no_lista_archivos_del_motor(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _init(tmp_path)
+    capsys.readouterr()
+    assert main(["uninstall", "--project", str(tmp_path), "--yes", "--dry-run"]) == 0
+    assert "también se borra" not in capsys.readouterr().out
+
+
+def test_uninstall_json_sin_instalar(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["uninstall", "--project", str(tmp_path), "--yes", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["installed"] is False
+
+
+def test_remove_agent_con_config_rota_explica_la_config(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _init(tmp_path)
+    config.config_path(tmp_path).write_text("{ roto", encoding="utf-8")
+    capsys.readouterr()
+    assert main(["remove-agent", "copilot", "--project", str(tmp_path)]) == 1
+    assert "config.json no se puede usar" in capsys.readouterr().err
+
+
+def test_lock_corrupto_da_error_sin_traceback(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _init(tmp_path)
+    (tmp_path / _meta.PROJECT_DIR / "lock.json").write_text("{ roto", encoding="utf-8")
+    capsys.readouterr()
+    for argv in (["sync"], ["add-agent", "cursor"]):
+        assert main([*argv, "--project", str(tmp_path)]) == 1
+        assert "lock.json" in capsys.readouterr().err
+
+
+def test_force_dry_run_con_algo_sin_resolver_no_dice_que_aplico(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _init(tmp_path)
+    _romper_marcador(tmp_path)
+    capsys.readouterr()
+    assert main(["sync", "--project", str(tmp_path), "--force", "--dry-run"]) == 1
+    out = capsys.readouterr().out
+    assert "lo demás se aplicaría" in out
+    assert "lo demás se aplicó" not in out
