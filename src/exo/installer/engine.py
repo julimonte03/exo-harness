@@ -275,6 +275,11 @@ def apply(
         entry = old.get(unit)
         expected = expected_hash(op)
         try:
+            if isinstance(op, WriteFile) and fsutil.join_within(project, op.path).is_dir():
+                reason = "hay un directorio donde va el archivo; movelo y repetí"
+                result.conflicts.append(Conflict(op.path, kind, reason, forceable=False))
+                keep(unit)
+                continue
             current = _current(project, op)
         except fsutil.UnsafePathError as exc:
             result.conflicts.append(Conflict(op.path, kind, str(exc), forceable=False))
@@ -325,10 +330,12 @@ def apply(
             entries[unit] = new_entry
 
     planned = {unit_of(op) for op in ops}
+    forgotten: list[lock.LockEntry] = []
     for unit, entry in old.items():
         if unit in planned:
             continue
         try:
+            fsutil.join_within(project, entry.path)  # no seguir links al quitar
             current = lock.current_hash(project, entry, strict=True)
         except (fsutil.UnsafePathError, OSError) as exc:
             reason = f"no se puede leer ({exc})"
@@ -356,6 +363,7 @@ def apply(
             continue
         if current is None:
             result.actions.append(Action("forget", entry.path, entry.kind, "ya no existía"))
+            forgotten.append(entry)
         elif current != entry.sha256:
             result.conflicts.append(
                 Conflict(entry.path, entry.kind, "modificado a mano; no se quita")
@@ -377,9 +385,10 @@ def apply(
             created[op.path] = _union(created.get(op.path), made)
     written = {op.path for op in writes}
     kept = {e.path for e in entries.values()}
+    # También tras un "forget": el humano pudo vaciar a mano lo que creó el motor.
     undo = [
         (created[path], kind)
-        for path, kind in {e.path: e.kind for e in removals}.items()
+        for path, kind in {e.path: e.kind for e in [*removals, *forgotten]}.items()
         if path in created and path not in written
     ]
 
@@ -405,6 +414,7 @@ def apply(
     if (result.conflicts and not force) or dry_run:
         return result
     affected = {op.path for op in writes} | {e.path for e in removals} | set(extra_writes)
+    affected |= {made.path for made, _ in undo}
     if affected:
         if result.lock_changed:
             affected.add(_LOCK_REL)

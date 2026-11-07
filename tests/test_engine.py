@@ -371,3 +371,38 @@ def test_si_tampoco_se_puede_restaurar_lo_dice(tmp_path: Path, monkeypatch: pyte
     with pytest.raises(engine.ApplyError, match="no se pudo restaurar") as info:
         _apply(tmp_path, _ops())
     assert f"{_meta.NAME} restore" in str(info.value)
+
+
+def test_baja_a_traves_de_un_link_queda_sin_resolver(tmp_path: Path, make_dir_link) -> None:
+    _apply(tmp_path, _ops())
+    real = tmp_path / "claude-real"
+    (tmp_path / ".claude").rename(real)
+    make_dir_link(tmp_path / ".claude", real)
+    ops = [op for op in _ops() if not op.path.startswith(".claude/")]
+    result = _apply(tmp_path, ops, force=True)
+    assert result.applied
+    assert {c.path for c in result.unresolved} == {".claude/skills/demo/SKILL.md", ".claude/settings.json"}
+    kept = {e.path for e in lock.read(tmp_path).files}
+    assert {".claude/skills/demo/SKILL.md", ".claude/settings.json"} <= kept
+    assert (real / "skills" / "demo" / "SKILL.md").is_file()
+
+
+def test_si_el_humano_vacio_lo_creado_igual_se_deshace(tmp_path: Path) -> None:
+    _apply(tmp_path, [_item("Bash(x:*)"), _item("PowerShell(x:*)")])
+    settings = tmp_path / ".claude" / "settings.json"
+    settings.write_text('{"permissions": {"allow": []}}', encoding="utf-8")
+    result = engine.apply(tmp_path, [], agents=[], packs=[])
+    assert [a.action for a in result.actions] == ["forget", "forget"]
+    assert result.snapshot is not None
+    assert not (tmp_path / ".claude").exists()
+
+
+def test_un_directorio_donde_va_un_archivo_queda_sin_resolver(tmp_path: Path) -> None:
+    _apply(tmp_path, _ops())
+    skill = tmp_path / ".claude" / "skills" / "demo" / "SKILL.md"
+    skill.unlink()
+    skill.mkdir()
+    result = _apply(tmp_path, _ops(b"skill v2\n"), force=True)
+    assert result.applied
+    assert [(c.path, c.forceable) for c in result.conflicts] == [(".claude/skills/demo/SKILL.md", False)]
+    assert skill.is_dir()
