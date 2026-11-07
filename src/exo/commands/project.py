@@ -112,7 +112,7 @@ def _report(result: engine.Result, args: argparse.Namespace, extra: dict[str, An
         emit_json({**extra, **_payload(result)})
         return code
     for key, value in extra.items():
-        if isinstance(value, list) and value and key == "notes":
+        if key == "notes":
             for note in value:
                 print(f"nota: {note}")
         elif isinstance(value, list):
@@ -132,15 +132,19 @@ def _report(result: engine.Result, args: argparse.Namespace, extra: dict[str, An
         )
         print(f"no se escribió nada. {hint}")
         return 1
-    writes = [a for a in result.actions if a.action in engine.WRITES]
+    # Una línea por archivo: varias unidades del mismo archivo (los ítems de una
+    # lista, por ejemplo) se informan juntas.
+    writes = list(
+        dict.fromkeys((a.action, a.path) for a in result.actions if a.action in engine.WRITES)
+    )
     if args.dry_run:
         print("dry-run: no se escribió nada")
-    for action in writes if (args.dry_run or len(writes) <= 30) else []:
-        print(f"{action.action}\t{action.path}")
+    for action, path in writes if (args.dry_run or len(writes) <= 30) else []:
+        print(f"{action}\t{path}")
     if not result.changed:
         print("sin cambios")
     else:
-        counts = {name: sum(a.action == name for a in writes) for name in engine.WRITES}
+        counts = {name: sum(action == name for action, _ in writes) for name in engine.WRITES}
         summary = ", ".join(f"{n} {name}" for name, n in counts.items() if n)
         print(f"{'se haría' if args.dry_run else 'listo'}: {summary or 'solo el lock'}")
         if result.snapshot:
@@ -177,7 +181,9 @@ def _init(args: argparse.Namespace) -> int:
                 tracker or choices.tracker,
             )
         elif agents is None:
-            agents = detect.preselect(detect.detect(root))
+            detections = detect.detect(root)
+            agents = detect.preselect(detections)
+            _print_detections(detections)
             if not agents:
                 print("aviso: no se detectó ningún agente; se instala la base genérica (AGENTS.md)")
         if chosen_packs is None and existing.source is None:
@@ -208,6 +214,19 @@ def _init(args: argparse.Namespace) -> int:
         args,
         {"agentes": result.agents, "packs": result.packs, "notes": result.notes},
     )
+
+
+def _print_detections(detections: list[detect.Detection]) -> None:
+    """ADR-0006: sin preguntar, se instala lo detectado con certeza y se informa el resto."""
+    for item in detections:
+        evidence = ", ".join(item.evidence)
+        if item.strong:
+            print(f"detectado: {item.agent} ({evidence})")
+        else:
+            print(
+                f"sin confirmar: {item.agent} ({evidence}); si lo usan, "
+                f"`{_meta.NAME} add-agent {item.agent}`"
+            )
 
 
 def _installed(root: Path) -> bool:
