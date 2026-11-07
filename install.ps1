@@ -52,11 +52,10 @@ function Test-Native {
 
 function Find-Python {
     # Devuelve el ejecutable y sus argumentos previos (por ejemplo py -3). Prueba
-    # primero el lanzador py y saltea los alias de la Microsoft Store (WindowsApps),
-    # que no son Python: abren la Store o fallan.
+    # primero el lanzador py. El alias de la Microsoft Store que no es Python sale
+    # con error al recibir argumentos, así que la sonda lo descarta sola.
     foreach ($candidate in @(@('py', '-3'), @('python'), @('python3'))) {
         $exe = Get-Command $candidate[0] -CommandType Application -ErrorAction SilentlyContinue |
-            Where-Object { $_.Source -notmatch '\\WindowsApps\\' } |
             Select-Object -First 1
         if (-not $exe) { continue }
         $prefix = @($candidate | Select-Object -Skip 1)
@@ -116,7 +115,8 @@ function Test-SameDir {
 $uv = Get-Command uv -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($uv -and $env:EXO_INSTALL_NO_UV -ne '1') {
     Write-Host "Instalando $Dist con uv tool..."
-    Invoke-Checked $uv.Source @('tool', 'install', '--force', '--reinstall', $Spec)
+    # Sin --force: si ya hay otro exo en el directorio de uv, uv no lo pisa (ADR-0001).
+    Invoke-Checked $uv.Source @('tool', 'install', '--reinstall', $Spec)
     $BinDir = (& $uv.Source tool dir --bin).Trim()
 } else {
     $Python = Find-Python
