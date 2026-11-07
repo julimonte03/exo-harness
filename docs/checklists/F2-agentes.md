@@ -38,5 +38,5 @@ En esta máquina no está confirmada la licencia de Copilot. Para verificarlo:
 3. Preguntá por los agentes personalizados.
    - Esperado: los de `.claude/agents/`.
 4. Pedile que ejecute `exo change list --json` en la terminal.
-   - Copilot puede pedir confirmación: es su política de herramientas, no un error del motor.
+   - Copilot puede pedir confirmación: es su política de herramientas, no un error del motor. El motor todavía no agrega un permiso para `exo` en Copilot (diferido en ADR-0005); anotá si existe una regla de proyecto que lo evite.
 5. Anotá el resultado en este archivo y en `docs/plan/PROGRESO.md`.

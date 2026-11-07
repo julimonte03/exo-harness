@@ -318,3 +318,20 @@ def test_uninstall_dos_veces(tmp_path: Path, capsys: pytest.CaptureFixture[str])
     capsys.readouterr()
     assert main(["uninstall", "--project", str(tmp_path), "--yes"]) == 0
     assert "nada que hacer" in capsys.readouterr().out
+
+
+def test_init_no_interactivo_informa_las_detecciones_debiles(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    found = [Detection("claude-code", 3, ("variable CLAUDECODE",)), Detection("codex", 1, ("ejecutable codex",))]
+    monkeypatch.setattr(detect, "detect", lambda project, env=None, which=None: found)
+    assert main(["init", "--project", str(tmp_path), "--yes"]) == 0
+    out = capsys.readouterr().out
+    assert "detectado: claude-code (variable CLAUDECODE)" in out
+    assert "sin confirmar: codex (ejecutable codex)" in out
+    assert f"{_meta.NAME} add-agent codex" in out
+
+
+def test_salida_sin_notas_vacias_ni_lineas_repetidas(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _init(tmp_path)
+    assert "notes" not in capsys.readouterr().out
+    assert main(["uninstall", "--project", str(tmp_path), "--yes"]) == 0
+    assert capsys.readouterr().out.count("remove\t.claude/settings.json") == 1
