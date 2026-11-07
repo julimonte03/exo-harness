@@ -128,6 +128,7 @@ def test_install_sh(tmp_path: Path, no_uv: bool) -> None:
     env = _env(tmp_path, no_uv=no_uv)
     home = Path(env["HOME"])
     (home / ".bash_profile").write_text("# mío\n", encoding="utf-8")
+    (home / ".bashrc").write_text("", encoding="utf-8")
     project = tmp_path / "proyecto"
     project.mkdir()
     _run(["sh", str(REPO / "install.sh"), "--init", str(project)], env)
@@ -137,6 +138,7 @@ def test_install_sh(tmp_path: Path, no_uv: bool) -> None:
     line = f'export PATH="{bin_dir}:$PATH" {MARK}\n'
     assert (home / ".profile").read_text(encoding="utf-8") == line
     assert (home / ".bash_profile").read_text(encoding="utf-8") == "# mío\n" + line
+    assert (home / ".bashrc").read_text(encoding="utf-8") == line
     assert not (home / ".zshrc").exists()
     _run(["sh", str(REPO / "install.sh")], env)
     assert (home / ".profile").read_text(encoding="utf-8") == line
@@ -147,6 +149,8 @@ def test_install_sh(tmp_path: Path, no_uv: bool) -> None:
     assert not exe.exists()
     assert not (home / ".profile").exists()
     assert (home / ".bash_profile").read_text(encoding="utf-8") == "# mío\n"
+    # Ya existía (vacío): queda, vacío.
+    assert (home / ".bashrc").read_text(encoding="utf-8") == ""
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="install.sh es para Linux y macOS")
@@ -162,3 +166,16 @@ def test_install_sh_no_pisa_otro_exo(tmp_path: Path) -> None:
     assert "no es de este motor" in result.stderr
     assert other.read_text(encoding="utf-8") == "#!/bin/sh\necho otra herramienta\n"
     assert not (tmp_path / "datos" / "venv").exists()
+
+
+@pytest.mark.skipif(sys.platform == "win32" or not shutil.which("uv"), reason="install.sh con uv")
+def test_install_sh_con_uv_no_pisa_otro_exo(tmp_path: Path) -> None:
+    env = _env(tmp_path, no_uv=False)
+    other = tmp_path / "uv-bin" / _meta.NAME
+    other.parent.mkdir(parents=True)
+    other.write_text("#!/bin/sh\necho otra herramienta\n", encoding="utf-8")
+    result = subprocess.run(
+        ["sh", str(REPO / "install.sh")], env=env, capture_output=True, text=True, timeout=TIMEOUT
+    )
+    assert result.returncode != 0
+    assert other.read_text(encoding="utf-8") == "#!/bin/sh\necho otra herramienta\n"

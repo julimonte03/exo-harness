@@ -3,9 +3,10 @@
 #
 # Verifica Python 3.10 o más. Con uv usa `uv tool install`; si no, crea un venv
 # en la carpeta de datos de usuario y deja `exo` en ~/.local/bin (si ahí ya hay
-# otro `exo`, no lo pisa). Agrega ese directorio al PATH si falta, avisando: en
-# ~/.profile, en ~/.bash_profile si existe y en ~/.zshrc si usás zsh. Corre
-# `exo doctor` y, con --init, adopta un proyecto. Re-ejecutarlo actualiza.
+# otro `exo`, no lo pisa; uv tampoco). Agrega ese directorio al PATH si falta,
+# avisando: en ~/.profile, en ~/.bash_profile si existe, en ~/.bashrc si usás bash
+# y en ~/.zshrc si usás zsh. Corre `exo doctor` y, con --init, adopta un
+# proyecto. Re-ejecutarlo actualiza.
 #
 # Uso: ./install.sh [--init DIR] [--with-vector] [--no-path]
 # Variables: EXO_DATA_DIR, EXO_INSTALL_NO_PATH=1, EXO_INSTALL_NO_UV=1.
@@ -23,7 +24,7 @@ while [ $# -gt 0 ]; do
         --init) INIT="$2"; shift 2 ;;
         --with-vector) WITH_VECTOR=1; shift ;;
         --no-path) NO_PATH=1; shift ;;
-        -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
         *) echo "opción desconocida: $1" >&2; exit 2 ;;
     esac
 done
@@ -49,11 +50,15 @@ find_python() {
     return 1
 }
 
-# Agrega la línea del PATH a un archivo de inicio del shell, una sola vez.
+# Agrega la línea del PATH a un archivo de inicio del shell, una sola vez. Anota
+# los archivos que crea, para que uninstall.sh borre solo esos si quedan vacíos.
 add_path_line() {
     line="export PATH=\"$BIN_DIR:\$PATH\" $MARK"
     if grep -qsF "$line" "$1"; then
         return 0
+    fi
+    if [ ! -e "$1" ]; then
+        printf '%s\n' "$1" >> "$DATA_DIR/path-created.txt"
     fi
     if [ -s "$1" ] && [ -n "$(tail -c 1 "$1")" ]; then
         printf '\n' >> "$1"
@@ -65,7 +70,8 @@ add_path_line() {
 DATA_DIR=$(data_dir)
 if command -v uv >/dev/null 2>&1 && [ "${EXO_INSTALL_NO_UV:-0}" != 1 ]; then
     echo "Instalando $DIST con uv tool..."
-    uv tool install --force --reinstall "$SPEC"
+    # Sin --force: si ya hay otro exo en el directorio de uv, uv no lo pisa (ADR-0001).
+    uv tool install --reinstall "$SPEC"
     BIN_DIR=$(uv tool dir --bin)
 else
     VENV="$DATA_DIR/venv"
@@ -75,7 +81,7 @@ else
     if [ -e "$LINK" ] || [ -L "$LINK" ]; then
         if [ "$(readlink "$LINK" 2>/dev/null || true)" != "$VENV/bin/exo" ]; then
             echo "Ya existe $LINK y no es de este motor (¿otra herramienta llamada exo?)." >&2
-            echo "Movelo o borralo y repetí, o instalá uv para usar 'uv tool install'." >&2
+            echo "Movelo o borralo y repetí." >&2
             exit 1
         fi
     fi
@@ -97,15 +103,20 @@ case ":$PATH:" in
     *":$BIN_DIR:"*) ;;
     *)
         if [ "$NO_PATH" != 1 ]; then
+            mkdir -p "$DATA_DIR"
             add_path_line "$HOME/.profile"
             if [ -f "$HOME/.bash_profile" ]; then
                 add_path_line "$HOME/.bash_profile"
             fi
+            # Las terminales de los escritorios Linux abren bash sin login: leen ~/.bashrc.
+            case "${SHELL:-}" in
+                *bash) add_path_line "$HOME/.bashrc" ;;
+                *) if [ -f "$HOME/.bashrc" ]; then add_path_line "$HOME/.bashrc"; fi ;;
+            esac
             case "${SHELL:-}" in
                 *zsh) add_path_line "$HOME/.zshrc" ;;
                 *) if [ -f "$HOME/.zshrc" ]; then add_path_line "$HOME/.zshrc"; fi ;;
             esac
-            mkdir -p "$DATA_DIR"
             printf '%s\n' "$BIN_DIR" > "$DATA_DIR/path-entry.txt"
             echo "Abrí una terminal nueva para usar 'exo'."
         fi

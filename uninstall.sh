@@ -20,7 +20,8 @@ data_dir() {
     fi
 }
 
-# Quita las líneas marcadas; si el archivo queda vacío, lo borra.
+# Quita las líneas marcadas. Si el archivo queda vacío y lo había creado
+# install.sh, lo borra.
 strip_marked() {
     if [ ! -f "$1" ] || ! grep -qF "$MARK" "$1"; then
         return 0
@@ -28,7 +29,7 @@ strip_marked() {
     grep -vF "$MARK" "$1" > "$1.$DIST.tmp" || true
     cat "$1.$DIST.tmp" > "$1"
     rm -f "$1.$DIST.tmp"
-    if [ ! -s "$1" ]; then
+    if [ ! -s "$1" ] && grep -qsxF "$1" "$CREATED"; then
         rm -f "$1"
     fi
 }
@@ -52,17 +53,18 @@ if [ -d "$VENV" ]; then
 fi
 
 MARKER="$DATA_DIR/path-entry.txt"
+CREATED="$DATA_DIR/path-created.txt"
 if [ "$NO_PATH" != 1 ] && [ -f "$MARKER" ]; then
     ADDED=$(cat "$MARKER")
     if [ ! -d "$ADDED" ] || [ -z "$(ls -A "$ADDED")" ]; then
-        for rc in "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.zshrc"; do
+        for rc in "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.bashrc" "$HOME/.zshrc"; do
             strip_marked "$rc"
         done
         echo "Quité $ADDED del PATH."
     else
         echo "Dejo $ADDED en el PATH: tiene otras herramientas."
     fi
-    rm -f "$MARKER"
+    rm -f "$MARKER" "$CREATED"
 fi
 
 if [ "$REMOVED" = 1 ]; then
