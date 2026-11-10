@@ -226,3 +226,19 @@ def test_write_atomic_escribe_en_el_destino_del_symlink(tmp_path: Path) -> None:
     fsutil.write_atomic(link, b"reemplazo", follow_symlinks=False)
     assert not link.is_symlink()
     assert real.read_bytes() == b"nuevo"
+
+
+def test_write_atomic_no_deja_temporales_si_el_destino_es_de_solo_lectura(tmp_path: Path) -> None:
+    import stat
+
+    target = tmp_path / "solo-lectura.txt"
+    target.write_bytes(b"viejo")
+    target.chmod(stat.S_IREAD)
+    try:
+        try:
+            fsutil.write_atomic(target, b"nuevo")
+        except PermissionError:
+            assert target.read_bytes() == b"viejo"
+        assert [p.name for p in tmp_path.iterdir()] == ["solo-lectura.txt"]
+    finally:
+        target.chmod(stat.S_IREAD | stat.S_IWRITE)

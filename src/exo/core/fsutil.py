@@ -137,6 +137,10 @@ def write_atomic(
         os.chmod(tmp, mode)
         _replace_with_retry(tmp, os_target)
     except BaseException:
+        # En Windows no se puede borrar un archivo de solo lectura: el temporal ya
+        # tiene el modo del destino.
+        with contextlib.suppress(OSError):
+            os.chmod(tmp, stat.S_IREAD | stat.S_IWRITE)
         with contextlib.suppress(FileNotFoundError):
             os.unlink(tmp)
         raise
@@ -185,6 +189,22 @@ def safe_relpath(raw: str | PurePath) -> PurePosixPath:
     if ".." in parts:
         raise UnsafePathError(f"la ruta no puede contener '..': {text!r}")
     return PurePosixPath(*parts)
+
+
+def join_within(root: Path, raw: str | PurePath) -> Path:
+    """Ruta dentro de `root` armada sin resolver, rechazando cualquier componente que sea link.
+
+    Es la forma segura de obtener una ruta para escribir o borrar: el motor no
+    gestiona rutas que pasan por symlinks o junctions.
+    """
+    current = Path(root)
+    for part in safe_relpath(raw).parts:
+        current = current / part
+        if is_link(current):
+            raise UnsafePathError(
+                f"{raw}: {current} es un symlink o junction; el motor no gestiona rutas con links"
+            )
+    return current
 
 
 def resolve_within(root: Path, raw: str | PurePath) -> Path:
