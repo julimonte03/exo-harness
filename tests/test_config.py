@@ -231,3 +231,31 @@ def test_save_no_pisa_una_config_de_esquema_mas_nuevo(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match="esquema 99"):
         config.save(tmp_path, loaded.config)
     assert json.loads(path.read_text(encoding="utf-8")) == {"schema": 99, "algo": "del futuro"}
+
+
+@pytest.mark.parametrize(
+    "raw",
+    ["{ esto no es json", "[1, 2]", '{"schema": 99}', '{"schema": "uno"}'],
+    ids=["json-roto", "no-objeto", "esquema-futuro", "esquema-invalido"],
+)
+def test_load_marca_cuando_no_pudo_usar_el_archivo(tmp_path: Path, raw: str) -> None:
+    config.config_path(tmp_path).parent.mkdir(parents=True, exist_ok=True)
+    config.config_path(tmp_path).write_text(raw, encoding="utf-8")
+    result = config.load(tmp_path)
+    assert result.fallback is True
+    assert result.invalid == []
+
+
+def test_load_lista_los_campos_invalidos(tmp_path: Path) -> None:
+    _write(tmp_path, {"schema": 1, "agents": "claude-code", "specs_dir": "s"})
+    result = config.load(tmp_path)
+    assert result.fallback is False
+    assert [problem.split(":")[0] for problem in result.invalid] == ["agents"]
+    assert result.config["specs_dir"] == "s"
+
+
+def test_load_valido_no_marca_nada(tmp_path: Path) -> None:
+    _write(tmp_path, {"schema": 1, "extra": True})
+    result = config.load(tmp_path)
+    assert (result.fallback, result.invalid) == (False, [])
+    assert config.load(tmp_path / "otro").fallback is False

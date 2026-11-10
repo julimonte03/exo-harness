@@ -85,15 +85,10 @@ def _target(project: Path, rel: str) -> Path:
     El motor no gestiona rutas que pasan por symlinks o junctions: seguirlas
     permitiría leer o borrar fuera de las raíces del snapshot.
     """
-    current = project
-    for part in fsutil.safe_relpath(rel).parts:
-        current = current / part
-        if fsutil.is_link(current):
-            where = current.relative_to(project).as_posix()
-            raise SnapshotError(
-                f"{rel}: {where} es un symlink o junction; el motor no gestiona rutas con links"
-            )
-    return current
+    try:
+        return fsutil.join_within(project, rel)
+    except fsutil.UnsafePathError as exc:
+        raise SnapshotError(str(exc)) from exc
 
 
 def _collect(project: Path, roots: list[str]) -> tuple[dict, dict[str, Path]]:

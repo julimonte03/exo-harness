@@ -33,6 +33,9 @@ En la prueba de F0 (`docs/spikes/agent-probe.md`), Claude Code respondió `MCP s
   - En Claude Code, el instalador agrega el permiso para ejecutar `exo` (por ejemplo `Bash(exo:*)` en `.claude/settings.json`), y lo equivalente en los demás agentes donde exista.
   - `exo doctor` verifica que `exo` esté en el `PATH`.
   - **A verificar:** que la política de la organización no bloquee también los hooks ni esas reglas de permiso.
+  - **Resultado de F2:**
+    - Claude Code recibe `Bash(exo:*)` y `PowerShell(exo:*)`. Las reglas aplican recién cuando el workspace es confiable; `exo doctor` lo avisa (`docs/checklists/F2-agentes.md`).
+    - En Copilot queda diferido: no se verificó una regla de permiso a nivel de proyecto que Copilot lea, y la licencia todavía no está confirmada. Hasta entonces, Copilot puede pedir confirmación para ejecutar `exo`. Se revisa con el checklist manual de F2.
 - **F3:**
   - La memoria se usa con `exo mem …`. La skill `memory-protocol` y `AGENTS.base.md` dicen cuándo guardar y cuándo buscar.
   - El contexto al iniciar sesión se inyecta con un hook que corre `exo mem context`.

@@ -31,7 +31,7 @@ EMBEDDING_PROVIDERS = ("local", "none", "static", "onnx", "ollama", "openai-comp
 DISCOVERY_DEPTHS = ("quick", "standard", "deep")
 
 _SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-_PREFIX = re.compile(r"^[A-Z][A-Z0-9]*$")
+PREFIX = re.compile(r"^[A-Z][A-Z0-9]*$")
 _LANG = re.compile(r"^[a-z]{2}(?:-[A-Z]{2})?$")
 
 
@@ -44,6 +44,10 @@ class LoadResult:
     config: dict[str, Any]
     warnings: list[str] = field(default_factory=list)
     source: Path | None = None
+    # El archivo existe pero no se pudo usar (JSON roto, esquema desconocido): todo
+    # viene de los defaults. Quien escribe a partir de la config tiene que abortar.
+    fallback: bool = False
+    invalid: list[str] = field(default_factory=list)  # campos que volvieron a su default
 
 
 def defaults() -> dict[str, Any]:
@@ -82,9 +86,8 @@ class _Collector:
         self.invalid: list[str] = []
 
     def invalid_value(self, path: str, message: str, action: str = "se usa el default") -> None:
-        text = f"{path}: {message}; {action}"
-        self.warnings.append(text)
-        self.invalid.append(text)
+        self.warnings.append(f"{path}: {message}; {action}")
+        self.invalid.append(f"{path}: {message}")
 
     def note(self, path: str, message: str) -> None:
         self.warnings.append(f"{path}: {message}")
@@ -211,8 +214,8 @@ _SPEC = _section(
         "tracker": _section(
             {
                 "type": _choice(TRACKERS),
-                "prefix": _text(_PREFIX, _PREFIX_HINT, optional=True),
-                "prefixes": _text_list(_PREFIX, _PREFIX_HINT),
+                "prefix": _text(PREFIX, _PREFIX_HINT, optional=True),
+                "prefixes": _text_list(PREFIX, _PREFIX_HINT),
             }
         ),
         "specs_dir": _specs_dir,
@@ -285,7 +288,9 @@ def _migrate(raw: dict[str, Any]) -> tuple[dict[str, Any] | None, list[str]]:
 
 
 def _fallback(path: Path, problem: str) -> LoadResult:
-    return LoadResult(defaults(), [f"{FILENAME}: {problem}; se usan los defaults"], path)
+    return LoadResult(
+        defaults(), [f"{FILENAME}: {problem}; se usan los defaults"], path, fallback=True
+    )
 
 
 def load(project: Path) -> LoadResult:
@@ -304,9 +309,9 @@ def load(project: Path) -> LoadResult:
         return _fallback(path, "la raíz tiene que ser un objeto JSON")
     migrated, warnings = _migrate(raw)
     if migrated is None:
-        return LoadResult(defaults(), warnings, path)
-    cfg, field_warnings, _ = validate(migrated)
-    return LoadResult(cfg, warnings + field_warnings, path)
+        return LoadResult(defaults(), warnings, path, fallback=True)
+    cfg, field_warnings, invalid = validate(migrated)
+    return LoadResult(cfg, warnings + field_warnings, path, invalid=invalid)
 
 
 def dumps(cfg: dict[str, Any]) -> bytes:

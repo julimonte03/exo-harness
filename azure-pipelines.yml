@@ -8,54 +8,80 @@ trigger:
     include:
       - main
 
-strategy:
-  matrix:
-    linux_py310:
-      imageName: ubuntu-latest
-      pythonVersion: "3.10"
-    linux_py313:
-      imageName: ubuntu-latest
-      pythonVersion: "3.13"
-    macos_py310:
-      imageName: macOS-latest
-      pythonVersion: "3.10"
-    macos_py313:
-      imageName: macOS-latest
-      pythonVersion: "3.13"
-    windows_py310:
-      imageName: windows-latest
-      pythonVersion: "3.10"
-    windows_py313:
-      imageName: windows-latest
-      pythonVersion: "3.13"
+jobs:
+  - job: tests
+    displayName: Tests y lint
+    timeoutInMinutes: 15
+    strategy:
+      matrix:
+        linux_py310:
+          imageName: ubuntu-latest
+          pythonVersion: "3.10"
+        linux_py313:
+          imageName: ubuntu-latest
+          pythonVersion: "3.13"
+        macos_py310:
+          imageName: macOS-latest
+          pythonVersion: "3.10"
+        macos_py313:
+          imageName: macOS-latest
+          pythonVersion: "3.13"
+        windows_py310:
+          imageName: windows-latest
+          pythonVersion: "3.10"
+        windows_py313:
+          imageName: windows-latest
+          pythonVersion: "3.13"
+    pool:
+      vmImage: $(imageName)
+    steps:
+      - task: UsePythonVersion@0
+        displayName: Python $(pythonVersion)
+        inputs:
+          versionSpec: $(pythonVersion)
 
-pool:
-  vmImage: $(imageName)
+      - script: python -m pip install -e ".[dev]"
+        displayName: Instalar
 
-timeoutInMinutes: 15
+      - script: ruff check .
+        displayName: Lint
 
-steps:
-  - task: UsePythonVersion@0
-    displayName: Python $(pythonVersion)
-    inputs:
-      versionSpec: $(pythonVersion)
+      - script: pytest
+        displayName: Tests con cobertura
 
-  - script: python -m pip install -e ".[dev]"
-    displayName: Instalar
+      - script: exo validate
+        displayName: Contenido del motor
 
-  - script: ruff check .
-    displayName: Lint
+      - bash: |
+          a="$(exo --version)"
+          b="$(python -m exo --version)"
+          echo "exo --version: $a"
+          echo "python -m exo --version: $b"
+          test "$a" = "$b"
+        displayName: Misma versión por CLI y por módulo
 
-  - script: pytest
-    displayName: Tests con cobertura
+  # Criterio 1 de F2: los instaladores de un comando en un HOME temporal.
+  - job: installers
+    displayName: Instaladores de un comando
+    timeoutInMinutes: 30
+    strategy:
+      matrix:
+        linux:
+          imageName: ubuntu-latest
+        macos:
+          imageName: macOS-latest
+        windows:
+          imageName: windows-latest
+    pool:
+      vmImage: $(imageName)
+    steps:
+      - task: UsePythonVersion@0
+        displayName: Python 3.13
+        inputs:
+          versionSpec: "3.13"
 
-  - script: exo validate
-    displayName: Contenido del motor
+      - script: python -m pip install -e ".[dev]"
+        displayName: Instalar dependencias de desarrollo
 
-  - bash: |
-      a="$(exo --version)"
-      b="$(python -m exo --version)"
-      echo "exo --version: $a"
-      echo "python -m exo --version: $b"
-      test "$a" = "$b"
-    displayName: Misma versión por CLI y por módulo
+      - script: pytest -m installer --no-cov
+        displayName: install.sh / install.ps1 y sus desinstaladores
