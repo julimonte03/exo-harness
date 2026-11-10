@@ -1,6 +1,6 @@
 # Progreso de construcción
 
-**Fase activa:** F2 (pendiente: decidir D-04, D-05, D-06 y D-16 y aprobar su plan).
+**Fase activa:** F3 (pendiente: aprobar su plan; D-07 y D-08 los decide el experimento de la fase y D-12 sigue abierta).
 
 Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron con el comando exacto, la CI está verde en los tres sistemas operativos y el PR de la fase está mergeado.
 
@@ -12,7 +12,7 @@ Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron 
 |---|---|---|---|---|---|
 | F0 Fundaciones | Terminada (local; CI diferida) | `feat/F0-fundaciones`, mergeada a `main` en local, sin PR | 2026-10-29 | 2026-10-30 | Criterios 1, 2, 4–7 OK. Criterio 3: Windows y Linux en local OK; macOS y Azure Pipelines diferidos hasta tener remoto (ADR-0008) |
 | F1 Núcleo | Terminada (local; CI diferida) | `feat/F1-nucleo`, mergeada a `main` en local, sin PR | 2026-10-30 | 2026-10-30 | Criterios 1–8 OK en Windows (3.14 y 3.10) y Linux (WSL). D-23 → ADR-0005 |
-| F2 Adaptadores + instalador | Pendiente | | | | |
+| F2 Adaptadores + instalador | Terminada (local; CI diferida) | `feat/F2-adaptadores`, mergeada a `main` en local, sin PR | 2026-10-30 | 2026-11-07 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL). Criterio 1 sin macOS ni Azure. Criterio 8: Claude Code OK, Copilot pendiente (checklist manual). D-04 → ADR-0006, D-05/D-06 → ADR-0007, D-16 → ADR-0008 |
 | F3 Memoria v2 | Pendiente | | | | |
 | F4 Ciclo SDD | Pendiente | | | | |
 | F5 Gobierno y gates | Pendiente | | | | |
@@ -113,3 +113,62 @@ Desvíos respecto del plan y por qué:
 - Definiciones propias donde la referencia no tenía detalle (apéndices no fotografiados): regla FM-00, regex S2, marcadores `#`, formato de snapshot y manifiesto, fases por artefacto, esquema de `followups.json`, plantillas y versiones de MCP. Están en el plan aprobado y en el docstring de cada módulo.
 - Los tests quedan exentos de E501 (tablas de casos); el código del paquete sigue con 100 columnas.
 - Cierre local sin remoto, según la regla del principio de este archivo.
+
+### F2 — Adaptadores, detección e instalador — 2026-11-07
+
+Entorno: Windows 11 con Python 3.14.5 (venv `.venv`) y 3.10.20 (venv con `uv`); Linux Ubuntu 24.04 en WSL2 (clon limpio), con Python 3.12 administrado por `uv`, porque el Python del sistema no trae `ensurepip` y el modo venv de `install.sh` lo necesita. Resultados: Windows, 707 passed y 5 skipped (POSIX-only); Python 3.10, 707 passed; Linux, 711 passed. Cobertura 96,38 %.
+
+| # | Criterio | Comando ejecutado | Resultado |
+|---|---|---|---|
+| 1 | Instalación de un comando | `pytest -m installer --no-cov` | OK en Windows y Linux, modos venv y uv. Instalan, corren `exo doctor` sin errores, adoptan un proyecto con `-Init`/`--init` y desinstalan. El PATH se prueba sin tocar el real: en Windows, en una clave temporal de HKCU con `REG_EXPAND_SZ` (el tipo y `%USERPROFILE%` se conservan y la desinstalación deja el valor idéntico); en Linux, en un HOME temporal (`.profile`, `.bash_profile`, `.bashrc`). Además, ninguno de los dos modos pisa un `exo` ajeno. **Parcial:** macOS y el job `installers` de Azure Pipelines quedan diferidos hasta tener remoto |
+| 2 | Adopción reproducible | `pytest -k "criterio_2 or golden"` | OK: `exo init --agents claude-code,copilot --yes` sobre el fixture vacío es igual a `tests/golden/claude-copilot__vacio.json`; además 6 golden tests (genérico, `AGENTS.md` del humano, `CLAUDE.md` existente, CRLF, `.mcp.json` JSONC con MCP) |
+| 3 | Idempotencia | `pytest -k criterio_3` | OK (9 passed): un segundo `sync` o `init` en los 8 fixtures informa «sin cambios», no crea snapshot y no reescribe la config del humano |
+| 4 | Archivos del humano | `pytest -k criterio_4` | OK: fuera de los bloques, `AGENTS.md`, `CLAUDE.md` y `.gitignore` quedan byte a byte iguales, con CRLF |
+| 5 | Conflictos | `pytest -k criterio_5` | OK: un archivo generado y editado a mano hace que `exo sync` lo informe, salga con 1 y no escriba nada; con `--force` lo pisa con snapshot |
+| 6 | Reversible | `pytest -k criterio_6` | OK (8 passed): `init` + `uninstall` deja idénticos los 8 fixtures, incluidos archivos sin salto de línea final y un `.claude/settings.json` del humano (indentado con `"allow": []`, y compacto con su propio permiso) |
+| 7 | Multi-agente incremental | `pytest -k criterio_7` | OK: `exo add-agent cursor` solo agrega `.agents/skills/` (más config y lock); `remove-agent cursor` deja el árbol como estaba |
+| 8 | Agentes reales | `docs/checklists/F2-agentes.md` | **Parcial.** Claude Code 2.1.312 (Windows): ve las 3 skills y los 4 subagentes, carga `AGENTS.md` sin `CLAUDE.md` y ejecuta `exo` sin pedir permiso una vez que el workspace es confiable. Copilot: checklist manual pendiente (licencia sin confirmar). MCP: no aplica (ADR-0005, D-23) |
+
+Extras:
+- `ruff check .` limpio.
+- `exo validate`: «todo válido» (sigue el aviso esperado de `risk-tiering`, que llega en F4).
+
+Checklist manual: `docs/checklists/F2-agentes.md`. Claude Code verificado el 2026-11-02; Copilot queda para el dueño.
+
+Revisiones con contexto fresco (subagentes):
+- **Primera revisión: 7 problemas para corregir antes de cerrar**, todos resueltos y con test:
+  - Una config rota, inválida o de un esquema más nuevo hacía que `sync` borrara lo de los agentes.
+  - La config se validaba después de escribir.
+  - Una falla a mitad de camino dejaba archivos huérfanos. Ahora se restaura el snapshot.
+  - `--force` perdía entradas del lock.
+  - `uninstall` no era exacto con archivos sin salto final ni con un `"allow": []` del humano. Ahora el lock registra por archivo lo que creó el motor.
+  - Los instaladores se cortaban en PowerShell 5.1 y aplanaban el PATH de usuario.
+  - `install.sh` pisaba otro `exo`.
+- **Segunda revisión, sobre esas correcciones: 3 problemas más**, también resueltos y con test:
+  - Si faltaba la config con el motor instalado, se borraban los agentes. Ahora se toman del lock.
+  - El modo uv pisaba otro `exo`.
+  - `uninstall` listaba archivos del motor como si fueran del humano.
+- También se aplicaron casi todas las mejoras menores:
+  - Las bajas que pasan por un link y un directorio donde va un archivo quedan «sin resolver».
+  - Lo creado por el motor se deshace aunque el humano lo haya vaciado.
+  - `write_atomic` ya no deja temporales con un destino de solo lectura.
+  - La salida de `init`, `uninstall` y `--force --dry-run` es más precisa.
+
+Decisiones tomadas durante la fase:
+- D-04 → ADR-0006: base agnóstica con detección; adaptadores solo para Claude Code y Copilot.
+- D-05 y D-06 → ADR-0007: skills por proyecto, con las copias que hagan falta gestionadas por el lock.
+- D-16 → ADR-0008: Azure DevOps y `azure-pipelines.yml`.
+
+Desvíos respecto del plan y por qué:
+- **Commits:** los adaptadores genérico, claude-code y copilot fueron en un solo commit (eran los commits 4 y 5 del plan), porque comparten los golden tests.
+- **Permisos de Claude Code:** también agrega `PowerShell(exo:*)`, porque en Windows el agente usa esa herramienta. Las reglas de permiso del proyecto aplican recién cuando el workspace es confiable; `exo doctor` lo avisa (`claude-trust`).
+- **Permiso de Copilot para ejecutar `exo`:** diferido. No se verificó una regla de proyecto que Copilot lea (ADR-0005).
+- **`created` en el lock:** pasa a ser una lista por archivo (archivo y contenedores JSON creados), no una marca por entrada como decía el plan. Por entrada fallaba entre actualizaciones.
+- **La config:** solo se escribe cuando el comando pide cambiar agentes, packs, MCP o tracker, y va en la misma transacción que el resto.
+- **`--force`:** pisa lo generado por el motor y editado a mano, pero no un archivo del humano que no está en el lock, ni marcadores rotos o rutas con links. Esos quedan «sin resolver» y el comando sale con 1.
+- **Los tests de instaladores:** usan `EXO_INSTALL_ENV_SUBKEY` (Windows) y un HOME temporal (Linux) para ejercitar el PATH sin tocar el de la máquina.
+- **Limitaciones conocidas:**
+  - `structmerge` reescribe el JSON entero. Un JSON del humano con formato mixto (listas en una línea dentro de un archivo indentado, escapes `\uXXXX`, `{ }`) se normaliza en la primera edición; el contenido no cambia y el original queda en el snapshot. El indentado de Claude Code y el JSON de una línea se conservan.
+  - `uninstall` y la vuelta atrás borran directorios vacíos que ya existían antes (git no los versiona).
+  - Una primera instalación fallida deja sus snapshots en `.exo/backups/`.
+- **Cierre local sin remoto**, según la regla del principio de este archivo.
