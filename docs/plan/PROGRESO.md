@@ -1,6 +1,6 @@
 # Progreso de construcción
 
-**Fase activa:** F3 (pendiente: aprobar su plan; D-07 y D-08 los decide el experimento de la fase y D-12 sigue abierta).
+**Fase activa:** F4 (pendiente: decidir D-09, D-10, D-11 y D-13 y aprobar su plan).
 
 Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron con el comando exacto, la CI está verde en los tres sistemas operativos y el PR de la fase está mergeado.
 
@@ -13,7 +13,7 @@ Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron 
 | F0 Fundaciones | Terminada (local; CI diferida) | `feat/F0-fundaciones`, mergeada a `main` en local, sin PR | 2026-10-29 | 2026-10-30 | Criterios 1, 2, 4–7 OK. Criterio 3: Windows y Linux en local OK; macOS y Azure Pipelines diferidos hasta tener remoto (ADR-0008) |
 | F1 Núcleo | Terminada (local; CI diferida) | `feat/F1-nucleo`, mergeada a `main` en local, sin PR | 2026-10-30 | 2026-10-30 | Criterios 1–8 OK en Windows (3.14 y 3.10) y Linux (WSL). D-23 → ADR-0005 |
 | F2 Adaptadores + instalador | Terminada (local; CI diferida) | `feat/F2-adaptadores`, mergeada a `main` en local, sin PR | 2026-10-30 | 2026-11-07 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL). Criterio 1 sin macOS ni Azure. Criterio 8: Claude Code OK, Copilot pendiente (checklist manual). D-04 → ADR-0006, D-05/D-06 → ADR-0007, D-16 → ADR-0008 |
-| F3 Memoria v2 | Pendiente | | | | |
+| F3 Memoria v2 | Terminada (local; CI diferida) | `feat/F3-memoria`, mergeada a `main` en local, sin PR | 2026-11-13 | 2026-11-13 | Criterios 2–8 OK en Windows (3.14 y 3.10 sin extras) y Linux (WSL, con y sin extras). Criterio 1 fuera de alcance (ADR-0009). D-07/D-08 → ADR-0010; D-20, D-24 y D-25 → ADR-0009; D-12 parcial |
 | F4 Ciclo SDD | Pendiente | | | | |
 | F5 Gobierno y gates | Pendiente | | | | |
 | F6 Ingeniería inversa | Pendiente | | | | |
@@ -172,3 +172,71 @@ Desvíos respecto del plan y por qué:
   - `uninstall` y la vuelta atrás borran directorios vacíos que ya existían antes (git no los versiona).
   - Una primera instalación fallida deja sus snapshots en `.exo/backups/`.
 - **Cierre local sin remoto**, según la regla del principio de este archivo.
+
+### F3 — Memoria v2 — 2026-11-13
+
+**Entorno:**
+- Windows 11, con Python 3.14.5 (venv `.venv`, con los extras `[vector]` y `[static]` y los dos modelos bajados) y Python 3.10.20 (venv con `uv`, **sin extras**).
+- Linux Ubuntu 24.04 en WSL2, con Python 3.12 de `uv`, sobre un clon limpio, con y sin extras.
+
+**Resultados:**
+
+| Entorno | Resultado |
+|---|---|
+| Windows, Python 3.14 | 891 passed, cobertura 94,84 % |
+| Windows, Python 3.10 sin extras | 884 passed |
+| Linux | 888 passed; con extras, 174 tests de memoria |
+
+| # | Criterio | Comando ejecutado | Resultado |
+|---|---|---|---|
+| 1 | Guard sin fugas | — | **Fuera de alcance** (decisión del dueño, D-24, ADR-0009). La memoria no tiene guard |
+| 2 | Funciona sin extras | Suite completa en el venv de Python 3.10 sin `[vector]`, más `exo mem save` y `exo mem search --json` | OK: la suite pasa (los tests de modelos y de sqlite-vec se saltean) y `mode` es `"lexical"` |
+| 3 | Índices reconstruibles | `pytest -k criterio_3 tests/test_memory_semantic.py tests/test_memory_providers.py` | OK (2 passed). Se borran los vectores y el índice FTS5 y se reindexa desde SQLite: mismos resultados antes y después, con el proveedor de prueba y con el modelo onnx real (las 50 consultas del dataset) |
+| 4 | Concurrencia | `pytest tests/test_memory_concurrency.py` | OK (2 passed). Servidor MCP y CLI en dos procesos, 60 `save` + 60 `search` cada uno, con índice semántico y sin él: sin errores de lock |
+| 5 | Experimento cerrado | `exo mem eval --providers static,onnx --output docs/evals/memory-2026-11-13.md` | OK: reporte con la tabla de métricas y ADR-0010. La regla se congeló en `f6699a7` antes de correr. Gana `hybrid-onnx` (Recall@5 80,0 contra 62,2 de la léxica, exactas sin pérdida) |
+| 6 | Rendimiento | La misma corrida | OK: p95 de 67,1 ms con 5 000 memorias en `hybrid-onnx` (85 ms al repetirla en la revisión), con el modelo cargado. Cada llamada del CLI carga el modelo: entre 1,3 y 2,1 s (ver ADR-0010) |
+| 7 | Nada sale sin permiso | `pytest -k criterio_7` y `exo mem reindex --provider openai-compatible` | OK: error claro (pide `--allow-remote`) y sale con 1. Además, Ollama local no pasa por el proxy y Ollama en otro host cuenta como remoto |
+| 8 | Paridad de API | `pytest -k criterio_8` | OK: las 15 tools con los nombres del §5.3, por CLI (`exo mem …`) y por el servidor MCP |
+
+**Extras:**
+- `ruff check .` limpio y `exo validate` «todo válido».
+- **Sesión real de Claude Code 2.1.312** (`claude -p` sobre un proyecto adoptado, con una memoria sembrada):
+  - Por la regla de `AGENTS.md`, corrió `exo mem context` al empezar, recuperó la decisión y cerró la sesión con `exo mem session summary`.
+  - Sin `--allowedTools`, el comando quedó esperando aprobación: el workspace no era confiable, el mismo hallazgo de F2. El agente no inventó la memoria.
+
+**Revisión final con contexto fresco** (subagente):
+- Reprodujo los números del experimento y encontró 8 problemas para corregir. Todos quedaron resueltos con su test (`tests/test_memory_regresiones.py`: 29 de 31 fallan con el código anterior):
+  - `--content -` corrompía el UTF-8 en Windows.
+  - Un remoto de git con acentos rompía la detección del proyecto.
+  - Ollama local pasaba por el proxy del sistema.
+  - Un `reindex` con otra dimensión desde otro proceso dejaba la búsqueda rota, y `doctor` decía ok.
+  - Un modelo roto impedía guardar.
+  - El import comparaba fechas como texto.
+  - Repos sin remoto con la misma carpeta compartían memoria.
+  - La latencia se había medido con el modelo cargado y el CLI lo recarga en cada llamada. Ahora hay un caché en el proceso y la aclaración en ADR-0010.
+- También se aplicaron casi todas las menores:
+  - la consulta FTS5 la tokeniza FTS5;
+  - abrir la base no toma el lock de escritura;
+  - la salida a un pipe va en UTF-8;
+  - `save` muestra los parecidos;
+  - errores claros para ids enormes y sesiones inexistentes;
+  - `merge` no duplica contenido idéntico, entre otras.
+- **Python 3.10:** antes de la revisión ya había aparecido un bug, que quedó corregido. Con la resolución del reloj de Windows, el import pisaba una versión local con la misma fecha.
+- **Un test escribió en la carpeta de datos real del usuario:** un `monkeypatch.undo()` deshizo el aislamiento. Se revisó la base: solo tenía lo que había creado el test, y se borró. `conftest` ahora usa un `MonkeyPatch` propio.
+
+**Decisiones tomadas durante la fase:**
+- ADR-0009, decisión del dueño: la memoria es por usuario, sin guard ni perfiles (D-24, D-12 parcial), sin Qdrant (D-20) y sin hooks, solo reglas (D-25). La política de la organización bloquea los hooks de proyecto en Claude Code (`allowManagedHooksOnly`).
+- ADR-0010, por el experimento: D-07 → `hybrid-sqlite`; D-08 → `onnx` (FastEmbed, `paraphrase-multilingual-MiniLM-L12-v2`) primero en `local` y `static` (model2vec) como alternativa. El extra `[vector]` pasa a ser sqlite-vec + FastEmbed; model2vec queda en `[static]`.
+
+**Desvíos respecto del plan y por qué:**
+- **Fuera de la fase, por ADR-0009:** el guard S1 (tarea 2 y criterio 1), Qdrant (tarea 7) y los hooks de sesión (parte de la tarea 9).
+- **Configuración de la memoria:** vive en la `meta` de la base (`exo mem reindex --provider …`), no en `.exo/config.json`. Hay una base por usuario para todos sus proyectos. La sección `memory` de la config del proyecto queda sin efecto y `exo doctor` lo avisa.
+- **Sin descargas implícitas:** los modelos se bajan solo con `exo mem model pull`, a una carpeta temporal que se renombra al terminar. Al usarlos se cargan de la carpeta local, sin red.
+- **Índice FTS5 sin triggers:** se mantiene desde Python, así un Python sin FTS5 puede escribir igual y el índice se reconstruye al volver a abrir con FTS5. Tiene contenido propio, en lugar de contenido externo.
+- **Vectores en una tabla común:** blobs float32 con la función de distancia de sqlite-vec, en lugar de una tabla virtual `vec0`. Así los filtros se aplican antes de rankear con el mismo SQL para sqlite-vec y para el backend de Python.
+- **Definiciones propias:** la referencia no las trae. Son los `inputSchema` de las 15 tools, la normalización del remoto, los tipos de observación y el formato de export. Están en los docstrings.
+- **Trabajo futuro documentado en ADR-0010:**
+  - pesos de RRF para el idioma cruzado (la semántica sola acierta el 80 % y la híbrida, el 40 %);
+  - palabras vacías en la léxica;
+  - un dataset más grande y escrito por otra persona.
+- **Cierre local sin remoto**, según la regla del principio de este archivo. El job de Azure Pipelines con extras queda definido en `azure-pipelines.yml`.
