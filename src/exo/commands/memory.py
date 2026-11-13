@@ -218,6 +218,32 @@ def _reindex(args: argparse.Namespace) -> int:
     return 0
 
 
+def _eval(args: argparse.Namespace) -> int:
+    from exo.memory import evaluation
+
+    providers = [p.strip() for p in args.providers.split(",") if p.strip()]
+    try:
+        report = evaluation.evaluate(
+            args.dataset,
+            evaluation.default_configs(providers),
+            latency_size=args.latency_size,
+            measure_cost=not args.skip_cost,
+            progress=lambda text: print(text, file=sys.stderr, flush=True),
+        )
+    except (ValueError, ImportError, OSError) as exc:
+        return error(str(exc))
+    text = evaluation.render(report)
+    if args.output is not None:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_bytes(text.encode("utf-8"))
+        print(f"reporte: {args.output}", file=sys.stderr)
+    if args.json:
+        emit_json(report)
+    else:
+        print(text, end="")
+    return 0
+
+
 def _import(args: argparse.Namespace) -> int:
     try:
         data = json.loads(args.file.read_bytes().decode("utf-8-sig"))
@@ -439,6 +465,20 @@ def register(sub: argparse._SubParsersAction) -> None:
     models = model.add_parser("list", help="modelos bajados")
     models.add_argument("--json", action="store_true", help="salida JSON")
     models.set_defaults(handler=_model_list)
+
+    ev = mem.add_parser(
+        "eval",
+        help="(desarrollo) experimento: búsqueda léxica contra híbrida",
+        description="Mide Recall@5, MRR@10, nDCG@10, falsos positivos, latencia, tamaño y "
+        "arranque sobre una base temporal, y aplica la regla de decisión de F3.",
+    )
+    ev.add_argument("--dataset", type=Path, default=Path("tests/memory_eval"))
+    ev.add_argument("--providers", default="static,onnx", help="separados por coma")
+    ev.add_argument("--latency-size", type=int, default=5000)
+    ev.add_argument("--skip-cost", action="store_true", help="sin tamaño ni arranque en frío")
+    ev.add_argument("--output", type=Path, help="escribe el reporte en Markdown")
+    ev.add_argument("--json", action="store_true", help="salida JSON")
+    ev.set_defaults(handler=_eval)
 
     export = mem.add_parser("export", help="exporta a JSON (sin redactar)")
     export.add_argument("--all", action="store_true", help="todos los proyectos y lo personal")
