@@ -76,20 +76,20 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 
 ### D-09 — Tracker de tickets
 - **Default:** configurable en el wizard (`jira`, `github`, `gitlab`, `linear`, `none`). El formato del `change-name` y del commit se adapta al tracker. Si es `none`, se usa Conventional Commits sin prefijo (regla del reporte cuando no hay ticket).
-- **Estado:** Abierta.
+- **Estado:** Decidida (ADR-0012), 2026-11-13: agnóstico. Sin integración con ningún tracker; cada proyecto define el patrón de su ID de ticket (o ninguno) y el motor solo lo valida y lo usa en cambios, ramas y commits.
 
 ### D-10 — Idiomas
 - **Default:** chat en el idioma de la persona (español), artefactos SDD en inglés (regla del reporte §6.6), cuerpo de las skills en español con disparadores bilingües en la `description`.
 - **Alternativa:** todo en español, o skills en inglés.
-- **Estado:** Abierta.
+- **Estado:** Decidida (ADR-0011), 2026-11-13: inglés, y solo inglés, para todo lo que va a los proyectos (reglas, skills con disparadores en inglés, subagentes, plantillas y artefactos SDD) y para los mensajes del CLI. Los docs de este repo siguen en español. El agente responde en el idioma de la persona.
 
 ### D-11 — Specs vivas por capacidad
 - **Default:** sí. `specs/capabilities/<capacidad>/spec.md` es la fuente de verdad; cada cambio escribe un delta (`ADDED`/`MODIFIED`/`REMOVED` por ID de requisito) y `sdd-archive` lo integra. Es lo que permite que la ingeniería inversa de F6 se conecte con el ciclo.
-- **Estado:** Abierta.
+- **Estado:** Decidida, 2026-11-13: sí, el default.
 
 ### D-13 — Alcance de skills antes de F7
 - **Default:** 34 skills del reporte + 5 nuevas de ingeniería inversa hasta M3; las otras 65 en F7 por prioridad. Detalle en `99-TRAZABILIDAD.md`.
-- **Estado:** Abierta.
+- **Estado:** Decidida, 2026-11-13: el default (las del ciclo SDD en F4, gobierno en F5, ingeniería inversa en F6 y las de cada stack en F7).
 
 ## Bloquean F5
 

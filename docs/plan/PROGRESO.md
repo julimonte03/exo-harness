@@ -1,6 +1,6 @@
 # Progreso de construcción
 
-**Fase activa:** F4 (pendiente: decidir D-09, D-10, D-11 y D-13 y aprobar su plan).
+**Fase activa:** F4 (pendiente: aprobar su plan; antes va la rama de refactor que pasa al inglés el contenido y el CLI, ADR-0011). D-09 → ADR-0012, D-10 → ADR-0011, D-11 y D-13 decididas con el default.
 
 Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron con el comando exacto, la CI está verde en los tres sistemas operativos y el PR de la fase está mergeado.
 
