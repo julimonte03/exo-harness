@@ -1,5 +1,7 @@
 # F3 — Memoria v2 (engram híbrido)
 
+> **Actualizado por ADR-0009 (2026-11-13):** la memoria es por máquina de usuario. No hay guard S1 ni perfiles (D-24), ni backend Qdrant (D-20), ni hooks de sesión (D-25): solo reglas. El criterio 1 sale del alcance y el experimento compara `lexical` contra `hybrid-sqlite`.
+
 ## Objetivo
 
 Portar engram tal como lo describe el reporte (API de 15 tools, `topic_key`, sesiones, proyectos, guard S1, export redactado) sobre una interfaz con backends intercambiables, agregar búsqueda semántica y **medir** si la búsqueda híbrida realmente recupera mejor que la léxica para este uso. La decisión del backend por defecto sale de ese experimento, no de una preferencia.
