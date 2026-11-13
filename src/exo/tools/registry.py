@@ -4,74 +4,40 @@ Cada tool se define una sola vez, con nombre, descripción, `inputSchema` y un
 handler puro que devuelve un objeto serializable. El CLI (`exo skills …`,
 `exo change …`) y el servidor MCP opcional consumen este mismo registro, así
 que validan igual (S2) y responden igual. `cli` indica el subcomando
-equivalente; un test de paridad verifica que exista.
+equivalente; un test de paridad verifica que exista. Las tools de memoria
+(F3) viven en `exo.tools.memory`.
 """
 
 from __future__ import annotations
 
+import sqlite3
 from collections.abc import Callable
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from exo import content, packs
 from exo.core import frontmatter, fsutil
 from exo.sdd import observability
+from exo.tools import memory
+from exo.tools.base import CWD as _CWD
+from exo.tools.base import Context, Tool
+from exo.tools.base import project_dir as _project
+from exo.tools.base import schema as _schema
 from exo.tools.validation import (
     InputError,
     check_arguments,
     validate_change_name,
-    validate_cwd,
     validate_skill_name,
 )
+
+__all__ = ["TOOLS", "Context", "InputError", "Tool", "call", "get"]
 
 DEFAULT_SKILLS_TARGET = ".agents/skills"
 
 
-@dataclass(frozen=True)
-class Context:
-    """Raíz del proyecto sobre la que trabajan las tools (`cwd` no puede salir de acá)."""
-
-    project: Path
-
-
-@dataclass(frozen=True)
-class Tool:
-    name: str
-    description: str
-    input_schema: dict[str, Any]
-    handler: Callable[[Context, dict[str, Any]], Any]
-    cli: tuple[str, str]
-
-    def describe(self) -> dict[str, Any]:
-        return {
-            "name": self.name,
-            "description": self.description,
-            "inputSchema": self.input_schema,
-        }
-
-
-def _schema(properties: dict[str, Any] | None = None, required: list[str] | None = None) -> dict:
-    schema: dict[str, Any] = {
-        "type": "object",
-        "properties": properties or {},
-        "additionalProperties": False,
-    }
-    if required:
-        schema["required"] = required
-    return schema
-
-
-_CWD = {"cwd": {"type": "string", "description": "directorio del proyecto, dentro de la raíz"}}
 _CHANGE = {
     "change_name": {"type": "string", "description": "nombre del change ([PREFIJO-123-]slug)"}
 }
-
-
-def _project(context: Context, args: dict[str, Any]) -> Path:
-    if "cwd" in args:
-        return validate_cwd(args["cwd"], root=context.project)
-    return context.project.resolve()
 
 
 # -- skills -------------------------------------------------------------------
@@ -268,6 +234,7 @@ TOOLS: tuple[Tool, ...] = (
         _get_ai_usage_record,
         ("change", "ai-usage"),
     ),
+    *memory.TOOLS,
 )
 _BY_NAME = {tool.name: tool for tool in TOOLS}
 
@@ -289,3 +256,5 @@ def call(name: str, arguments: Any, context: Context) -> Any:
     except (content.ContentError, ValueError, OSError) as exc:
         # Contenido roto, frontmatter o JSON ilegible, rutas inseguras, disco.
         raise InputError(str(exc)) from exc
+    except sqlite3.Error as exc:
+        raise InputError(f"error de la base de memoria: {exc}") from exc

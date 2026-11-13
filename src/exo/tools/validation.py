@@ -56,7 +56,8 @@ def validate_cwd(value: Any, *, root: Path | None = None) -> Path:
 
 
 def check_arguments(schema: dict[str, Any], arguments: Any) -> dict[str, Any]:
-    """Subconjunto de JSON Schema que usan las tools: objeto plano de string, boolean y enum."""
+    """Subconjunto de JSON Schema que usan las tools: objeto plano de string (con
+    `minLength`/`maxLength`), integer (con `minimum`/`maximum`), boolean y enum."""
     if arguments is None:
         arguments = {}
     if not isinstance(arguments, dict):
@@ -73,6 +74,16 @@ def check_arguments(schema: dict[str, Any], arguments: Any) -> dict[str, Any]:
         expected = spec.get("type")
         if expected == "string" and not isinstance(value, str):
             raise InputError(f"{name} tiene que ser texto")
+        if expected == "string" and len(value) < spec.get("minLength", 0):
+            raise InputError(f"{name} tiene que tener al menos {spec['minLength']} caracteres")
+        if expected == "string" and "maxLength" in spec and len(value) > spec["maxLength"]:
+            raise InputError(f"{name} supera los {spec['maxLength']} caracteres")
+        if expected == "integer" and (isinstance(value, bool) or not isinstance(value, int)):
+            raise InputError(f"{name} tiene que ser un número entero")
+        if expected == "integer":
+            low, high = spec.get("minimum"), spec.get("maximum")
+            if (low is not None and value < low) or (high is not None and value > high):
+                raise InputError(f"{name} tiene que estar entre {low} y {high}")
         if expected == "boolean" and not isinstance(value, bool):
             raise InputError(f"{name} tiene que ser true o false")
         if "enum" in spec and value not in spec["enum"]:
