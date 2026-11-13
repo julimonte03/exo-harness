@@ -60,5 +60,6 @@ Al planificar la fase aparecieron dos datos:
   - El experimento (criterio 5) compara `lexical` contra `hybrid-sqlite` con dos modelos multilingües, sin Qdrant.
   - Las tareas 2 (guard) y 7 (Qdrant) y la parte de hooks de la tarea 9 no se hacen.
 - **Riesgo aceptado:** nada en el código impide que un agente guarde un secreto en la memoria. Un export lo comparte sin redactar.
+- **La configuración de la memoria vive en la base, no en el proyecto.** Como hay una base por usuario compartida por todos sus proyectos, el proveedor, el modelo, la dimensión y el permiso remoto de los embeddings se guardan en la `meta` de la base. Se cambian con `exo mem reindex --provider … [--allow-remote]`. Si dependieran del `config.json` de cada proyecto, dos proyectos con modelos distintos se pisarían el índice. La sección `memory` de `.exo/config.json` queda sin efecto.
 - **F5:** el escáner de secretos para el `pre-commit` parte de `core/secrets.py`, como estaba previsto.
 - **D-12:** queda abierta para el resto de su alcance (estilo, matriz DPA y herramientas corporativas en F5).

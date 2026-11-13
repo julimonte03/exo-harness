@@ -170,3 +170,23 @@ class Stats:
     by_type: dict[str, int]
     by_project: dict[str, int]
     last_updated: str | None
+    semantic: dict[str, object] | None = None  # proveedor, modelo, dimensión, vectores
+
+
+SEARCH_MODES = ("auto", "lexical", "semantic", "hybrid")
+
+
+@dataclass(frozen=True)
+class SearchResult:
+    hits: list[Hit]
+    mode: str  # el que se usó de verdad: lexical, semantic o hybrid
+    note: str | None = None
+
+
+@dataclass(frozen=True)
+class ReindexResult:
+    fts: int
+    vectors: int
+    provider: str | None
+    model: str | None
+    dim: int | None

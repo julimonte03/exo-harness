@@ -7,6 +7,8 @@
   devuelve el contenido completo (recuperación en dos pasos, §5.6 del reporte).
 - Búsqueda léxica: FTS5 con BM25. Sin FTS5 (algunos Python lo traen
   deshabilitado) se rankea en Python, con la misma tokenización.
+- Búsqueda semántica e híbrida (RRF) si la base tiene un índice semántico
+  (`reindex`). El modo `auto` usa la híbrida cuando hay índice y si no, la léxica.
 """
 
 from __future__ import annotations
@@ -15,22 +17,27 @@ import hashlib
 import re
 import sqlite3
 import unicodedata
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from exo import _meta, paths
-from exo.memory import db, projects
+from exo.memory import backends, db, embeddings, fusion, index, projects
+from exo.memory.index import IndexConfig, SemanticIndex
 from exo.memory.model import (
     MAX_CONTENT,
     MAX_TITLE,
+    SEARCH_MODES,
     Hit,
     MemoryStoreError,
     MergeResult,
     NotFoundError,
     Observation,
     ProjectInfo,
+    ReindexResult,
     SaveResult,
+    SearchResult,
     Session,
     SessionView,
     Stats,
@@ -47,6 +54,11 @@ __all__ = ["MemoryStore", "MemoryStoreError", "NotFoundError"]
 
 MAX_LIMIT = 100
 CONTEXT_CHARS = 8000
+# Candidatos de cada ranking antes de fusionar, y similitud mínima para avisar duplicados.
+FUSION_DEPTH = 50
+SIMILAR_MIN = 0.80
+# Similitud mínima para que un resultado semántico cuente (el experimento de F3 la ajusta).
+SEMANTIC_MIN = 0.25
 _WORD = re.compile(r"[^\W_]+")
 # Pesos de BM25 por columna: título, contenido, topic_key.
 _BM25 = "bm25(observations_fts, 4.0, 1.0, 2.0)"
@@ -130,7 +142,13 @@ def _hit(row: sqlite3.Row, score: float) -> Hit:
 class MemoryStore:
     """Abre (y crea o migra) la base. `fts=None` detecta FTS5; `False` lo fuerza apagado."""
 
-    def __init__(self, path: Path | None = None, *, fts: bool | None = None) -> None:
+    def __init__(
+        self,
+        path: Path | None = None,
+        *,
+        fts: bool | None = None,
+        semantic: SemanticIndex | str | None = "auto",
+    ) -> None:
         self.path = Path(path) if path is not None else paths.memory_db_path()
         self.conn = db.connect(self.path)
         available = db.fts5_available(self.conn)
@@ -143,9 +161,46 @@ class MemoryStore:
             db.migrate(self.conn, fts=self.fts)
             if self.fts and (not had_index or db.get_meta(self.conn, "fts_stale") == "1"):
                 self.rebuild_fts()
+            self._open_semantic(semantic)
         except BaseException:
             self.conn.close()
             raise
+
+    def _open_semantic(self, semantic: SemanticIndex | str | None) -> None:
+        """`auto`: el índice que dice `meta`, si se puede usar; si no, queda la nota."""
+        self.semantic: SemanticIndex | None = None
+        self.semantic_note: str | None = None
+        if semantic is None:
+            return
+        if not isinstance(semantic, str):
+            semantic.prepare(self.conn)
+            self.semantic = semantic
+            return
+        config = index.read_config(self.conn)
+        if config is None:
+            return
+        try:
+            provider = embeddings.create(
+                config.provider, config.model or None, allow_remote=config.allow_remote
+            )
+            candidate = SemanticIndex(provider, backends.create(), dim=config.dim)
+            candidate.prepare(self.conn)
+        except (MemoryStoreError, ImportError) as exc:
+            self.semantic_note = f"búsqueda semántica no disponible ({exc}); se usa la léxica"
+            return
+        self.semantic = candidate
+
+    def _embed(self, title: str, content: str) -> bytes | None:
+        """Vector para guardar; si el proveedor falla, se guarda igual (queda sin vector)."""
+        if self.semantic is None:
+            return None
+        try:
+            return self.semantic.vectors([index.text_for(title, content)])[0]
+        except (MemoryStoreError, ImportError, OSError) as exc:
+            self.semantic_note = (
+                f"no se calculó el vector ({exc}); corré `{_meta.NAME} mem reindex`"
+            )
+            return None
 
     def __enter__(self) -> MemoryStore:
         return self
@@ -177,6 +232,69 @@ class MemoryStore:
             db.set_meta(self.conn, "fts_stale", "0")
         return int(self.conn.execute("SELECT count(*) FROM observations").fetchone()[0])
 
+    def reindex(
+        self,
+        *,
+        provider: str | None = None,
+        model: str | None = None,
+        allow_remote: bool = False,
+        progress: Callable[[int, int], None] | None = None,
+    ) -> ReindexResult:
+        """Reconstruye los índices derivados desde las observaciones (criterio 3).
+
+        Con `provider`, cambia el índice semántico (`none` lo apaga); sin él, rehace el que
+        ya tiene la base. La primera vez puede tardar: calcula un vector por observación.
+        """
+        fts_count = self.rebuild_fts() if self.fts else 0
+        if provider is not None:
+            name = embeddings.resolve(provider)
+            if name == "none":
+                with db.write(self.conn):
+                    self.conn.execute("DROP TABLE IF EXISTS observation_vectors")
+                    index.write_config(self.conn, None)
+                self.semantic, self.semantic_note = None, None
+                return ReindexResult(fts_count, 0, None, None, None)
+            source = embeddings.create(name, model, allow_remote=allow_remote)
+            config = IndexConfig(name, source.model, None, allow_remote)
+            target = SemanticIndex(source, backends.create())
+        else:
+            current = index.read_config(self.conn)
+            if current is None:
+                return ReindexResult(fts_count, 0, None, None, None)
+            if self.semantic is None:
+                raise MemoryStoreError(self.semantic_note or "el índice semántico no se puede usar")
+            config = current
+            target = SemanticIndex(self.semantic.provider, self.semantic.backend)
+        target.prepare(self.conn)
+        count = target.rebuild(self.conn, config, progress=progress)
+        self.semantic, self.semantic_note = target, None
+        return ReindexResult(fts_count, count, config.provider, config.model, target.dim)
+
+    def fill_vectors(self) -> int:
+        """Calcula los vectores que faltan (por ejemplo, después de un import)."""
+        if self.semantic is None:
+            return 0
+        rows = self.conn.execute(
+            "SELECT o.id, o.title, o.content, o.content_hash FROM observations o "
+            "LEFT JOIN observation_vectors v ON v.id = o.id "
+            "WHERE v.id IS NULL OR v.content_hash != o.content_hash"
+        ).fetchall()
+        done = 0
+        for start in range(0, len(rows), index.BATCH):
+            chunk = rows[start : start + index.BATCH]
+            try:
+                blobs = self.semantic.vectors(
+                    [index.text_for(r["title"], r["content"]) for r in chunk]
+                )
+            except (MemoryStoreError, ImportError, OSError) as exc:
+                self.semantic_note = f"faltan vectores ({exc}); corré `{_meta.NAME} mem reindex`"
+                break
+            with db.write(self.conn):
+                for row, blob in zip(chunk, blobs, strict=True):
+                    self.semantic.upsert(self.conn, row["id"], row["content_hash"], blob)
+            done += len(chunk)
+        return done
+
     def _index(self, obs_id: int, title: str, content: str, topic_key: str | None) -> None:
         if not self.fts:
             db.set_meta(self.conn, "fts_stale", "1")
@@ -207,9 +325,30 @@ class MemoryStore:
         session_id: int | None = None,
     ) -> SaveResult:
         fields = _fields(project, scope, type, title, content, topic_key)
+        vector = self._embed(fields[3], fields[4])
         with db.write(self.conn):
-            obs_id, action = self._upsert(*fields, session_id=session_id)
-        return SaveResult(obs_id, action)
+            obs_id, action = self._upsert(*fields, session_id=session_id, vector=vector)
+        similar = self._similar(obs_id, fields[0], vector) if vector else []
+        return SaveResult(obs_id, action, similar)
+
+    def _similar(self, obs_id: int, project: str, vector: bytes) -> list[Hit]:
+        """Las más parecidas del mismo proyecto, para que la skill decida si actualizar."""
+        assert self.semantic is not None
+        near = self.semantic.nearest(
+            self.conn, vector, "o.project = ? AND o.id != ?", [project, obs_id], 3
+        )
+        keep = {i: 1.0 - d for i, d in near if 1.0 - d >= SIMILAR_MIN}
+        return self._hits_by_id(list(keep), keep)
+
+    def _hits_by_id(self, ids: list[int], scores: dict[int, float]) -> list[Hit]:
+        if not ids:
+            return []
+        marks = ", ".join("?" * len(ids))
+        rows = {
+            row["id"]: row
+            for row in self.conn.execute(f"SELECT * FROM observations WHERE id IN ({marks})", ids)
+        }
+        return [_hit(rows[i], scores[i]) for i in ids if i in rows]
 
     def _upsert(
         self,
@@ -224,6 +363,7 @@ class MemoryStore:
         created_at: str | None = None,
         updated_at: str | None = None,
         keep_newer: bool = False,
+        vector: bytes | None = None,
     ) -> tuple[int, str]:
         """Upsert dentro de una transacción ya abierta. Con `keep_newer` (import), no pisa
         una versión local más nueva: devuelve "skipped"."""
@@ -242,6 +382,7 @@ class MemoryStore:
                 (project, digest),
             ).fetchone()
         if row is not None and row["content_hash"] == digest:
+            self._vector(row["id"], digest, vector, only_missing=True)
             return row["id"], "unchanged"
         if row is not None:
             if keep_newer and updated_at is not None and row["updated_at"] > updated_at:
@@ -253,6 +394,7 @@ class MemoryStore:
                 (kind, title, content, scope, session_id, digest, updated_at or stamp, row["id"]),
             )
             self._index(row["id"], title, content, topic_key)
+            self._vector(row["id"], digest, vector)
             return row["id"], "updated"
         cursor = self.conn.execute(
             "INSERT INTO observations (project, scope, type, title, content, topic_key, "
@@ -273,7 +415,23 @@ class MemoryStore:
         )
         obs_id = int(cursor.lastrowid or 0)
         self._index(obs_id, title, content, topic_key)
+        self._vector(obs_id, digest, vector)
         return obs_id, "created"
+
+    def _vector(
+        self, obs_id: int, digest: str, vector: bytes | None, *, only_missing: bool = False
+    ) -> None:
+        if self.semantic is None or vector is None:
+            return
+        if (
+            only_missing
+            and self.conn.execute(
+                "SELECT 1 FROM observation_vectors WHERE id = ? AND content_hash = ?",
+                (obs_id, digest),
+            ).fetchone()
+        ):
+            return
+        self.semantic.upsert(self.conn, obs_id, digest, vector)
 
     def import_rows(
         self, rows: list[tuple[str, str, str, str, str, str | None, str, str]]
@@ -295,6 +453,7 @@ class MemoryStore:
                     keep_newer=True,
                 )
                 counts[action] += 1
+        self.fill_vectors()
         return counts
 
     def delete(self, obs_id: int) -> bool:
@@ -362,12 +521,75 @@ class MemoryStore:
         type: str | None = None,
         scope: str | None = None,
         limit: int = 10,
+        mode: str = "auto",
     ) -> list[Hit]:
-        """Búsqueda léxica. Cada palabra suma (OR); BM25 premia las raras y las del título."""
+        return self.query(
+            query, project=project, type=type, scope=scope, limit=limit, mode=mode
+        ).hits
+
+    def query(
+        self,
+        query: str,
+        *,
+        project: str | None = None,
+        type: str | None = None,
+        scope: str | None = None,
+        limit: int = 10,
+        mode: str = "auto",
+        weights: tuple[float, float] = (1.0, 1.0),
+    ) -> SearchResult:
+        """Busca con el modo pedido. `weights` pesa (léxico, semántico) en la fusión RRF."""
         limit = self._limit(limit)
+        if mode not in SEARCH_MODES:
+            raise MemoryStoreError(f"modo inválido: {mode!r} (uno de {', '.join(SEARCH_MODES)})")
+        note = None
+        auto = mode == "auto"
+        if auto:
+            mode, note = ("hybrid", None) if self.semantic else ("lexical", self.semantic_note)
+        if mode != "lexical" and self.semantic is None:
+            raise MemoryStoreError(
+                self.semantic_note
+                or "no hay índice semántico; creálo con "
+                f"`{_meta.NAME} mem reindex --provider local`"
+            )
         found = terms(query)
         if not found:
-            return []
+            return SearchResult([], mode, note)
+        if mode == "lexical":
+            return SearchResult(self._lexical(found, project, type, scope, limit), mode, note)
+        try:
+            semantic = self._semantic_ranking(query, project, type, scope, FUSION_DEPTH)
+        except (MemoryStoreError, ImportError, OSError) as exc:
+            if not auto:
+                raise
+            note = f"búsqueda semántica no disponible ({exc}); se usó la léxica"
+            return SearchResult(self._lexical(found, project, type, scope, limit), "lexical", note)
+        if mode == "semantic":
+            scores = {i: 1.0 - d for i, d in semantic[:limit]}
+            return SearchResult(self._hits_by_id(list(scores), scores), mode, note)
+        lexical = self._lexical(found, project, type, scope, FUSION_DEPTH)
+        fused = fusion.rrf([[h.id for h in lexical], [i for i, _ in semantic]], weights=weights)
+        scores = dict(fused[:limit])
+        return SearchResult(self._hits_by_id(list(scores), scores), mode, note)
+
+    def _semantic_ranking(
+        self, query: str, project: str | None, kind: str | None, scope: str | None, k: int
+    ) -> list[tuple[int, float]]:
+        assert self.semantic is not None
+        where, args = self._filters(project, kind, scope, alias="o")
+        vector = self.semantic.vectors([query])[0]
+        near = self.semantic.nearest(self.conn, vector, where, args, k)
+        return [(i, d) for i, d in near if 1.0 - d >= SEMANTIC_MIN]
+
+    def _lexical(
+        self,
+        found: list[tuple[str, ...]],
+        project: str | None,
+        type: str | None,
+        scope: str | None,
+        limit: int,
+    ) -> list[Hit]:
+        """Cada palabra suma (OR); BM25 premia las raras y las del título."""
         if self.fts:
             where, args = self._filters(project, type, scope, alias="o")
             rows = self.conn.execute(
@@ -445,6 +667,7 @@ class MemoryStore:
         y como observación `session-summary`, para que se pueda buscar."""
         project = check_project(project)
         content = check_text("content", content, MAX_CONTENT)
+        vector = self._embed("Resumen de sesión", content)
         with db.write(self.conn):
             if session_id is None:
                 row = self.conn.execute(
@@ -470,6 +693,7 @@ class MemoryStore:
                 content,
                 f"session/{session_id}",
                 session_id=session_id,
+                vector=vector,
             )
         return SummaryResult(session_id, obs_id)
 
@@ -633,7 +857,25 @@ class MemoryStore:
             by_type=by_type,
             by_project=by_project,
             last_updated=count("SELECT max(updated_at) FROM observations").fetchone()[0],
+            semantic=self._semantic_stats(),
         )
+
+    def _semantic_stats(self) -> dict[str, object] | None:
+        config = index.read_config(self.conn)
+        if config is None:
+            return None
+        stats: dict[str, object] = {
+            "provider": config.provider,
+            "model": config.model,
+            "dim": config.dim,
+            "allow_remote": config.allow_remote,
+            "available": self.semantic is not None,
+            "note": self.semantic_note,
+        }
+        if self.semantic is not None:
+            stats["backend"] = self.semantic.backend.name
+            stats["missing_vectors"] = self.semantic.missing(self.conn)
+        return stats
 
     # -- contexto -------------------------------------------------------------------------
 
