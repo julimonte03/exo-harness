@@ -14,23 +14,23 @@ from exo.core import filemerge
 def register(sub: argparse._SubParsersAction) -> None:
     parser = sub.add_parser(
         "inject",
-        help="inserta, lista o quita un bloque marcado en un archivo",
+        help="insert, list or remove a marked block in a file",
         description=(
-            "Gestiona bloques BEGIN/END del motor dentro de un archivo, sin tocar el resto. "
-            "Idempotente: si nada cambia, no escribe."
+            "Manages the engine's BEGIN/END blocks inside a file, leaving the rest untouched. "
+            "Idempotent: if nothing changes, nothing is written."
         ),
     )
-    parser.add_argument("file", type=Path, help="archivo a modificar")
-    parser.add_argument("--id", dest="block_id", help="id del bloque (por ejemplo core)")
+    parser.add_argument("file", type=Path, help="file to modify")
+    parser.add_argument("--id", dest="block_id", help="block id (for example core)")
     source = parser.add_mutually_exclusive_group()
-    source.add_argument("--content", help="contenido del bloque")
-    source.add_argument("--from", dest="source", help="archivo con el contenido, o - para stdin")
-    source.add_argument("--remove", action="store_true", help="quita el bloque")
-    source.add_argument("--list", action="store_true", help="lista los bloques del archivo")
+    source.add_argument("--content", help="block content")
+    source.add_argument("--from", dest="source", help="file with the content, or - for stdin")
+    source.add_argument("--remove", action="store_true", help="remove the block")
+    source.add_argument("--list", action="store_true", help="list the blocks in the file")
     parser.add_argument("--position", choices=("end", "start"), default="end")
     parser.add_argument("--style", choices=(filemerge.STYLE_HTML, filemerge.STYLE_HASH))
-    parser.add_argument("--backup", action="store_true", help="guarda una copia antes de escribir")
-    parser.add_argument("--json", action="store_true", help="salida JSON")
+    parser.add_argument("--backup", action="store_true", help="save a copy before writing")
+    parser.add_argument("--json", action="store_true", help="JSON output")
     parser.set_defaults(handler=run)
 
 
@@ -46,15 +46,15 @@ def run(args: argparse.Namespace) -> int:
     if args.list:
         return _list(args)
     if not args.block_id:
-        return usage_error("falta --id con el id del bloque")
+        return usage_error("missing --id with the block id")
     if not args.remove and args.content is None and args.source is None:
-        return usage_error("indicá el contenido con --content o --from (o usá --remove)")
+        return usage_error("pass the content with --content or --from (or use --remove)")
     try:
         if args.remove:
             changed = filemerge.remove(
                 args.file, args.block_id, style=args.style, backup=args.backup
             )
-            action, human = "remove", ("quitado" if changed else "no estaba")
+            action, human = "remove", ("removed" if changed else "not present")
         else:
             changed = filemerge.inject(
                 args.file,
@@ -64,7 +64,7 @@ def run(args: argparse.Namespace) -> int:
                 position=args.position,
                 backup=args.backup,
             )
-            action, human = "inject", ("actualizado" if changed else "sin cambios")
+            action, human = "inject", ("updated" if changed else "unchanged")
     except (ValueError, OSError) as exc:  # BlockError, UTF-8 inválido, disco
         return error(str(exc))
     if args.json:
@@ -72,7 +72,7 @@ def run(args: argparse.Namespace) -> int:
             {"action": action, "path": str(args.file), "block": args.block_id, "changed": changed}
         )
     else:
-        print(f"{args.file}: bloque {args.block_id} {human}")
+        print(f"{args.file}: block {args.block_id} {human}")
     return 0
 
 
@@ -85,7 +85,7 @@ def _list(args: argparse.Namespace) -> int:
         emit_json({"action": "list", "path": str(args.file), "blocks": [asdict(b) for b in blocks]})
         return 0
     for block in blocks:
-        print(f"{block.id}\tlíneas {block.start_line}-{block.end_line}")
+        print(f"{block.id}\tlines {block.start_line}-{block.end_line}")
     if not blocks:
-        print(f"{args.file}: sin bloques")
+        print(f"{args.file}: no blocks")
     return 0

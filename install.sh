@@ -1,14 +1,14 @@
 #!/bin/sh
-# Instala el motor exo desde este clon (Linux y macOS).
+# Installs the exo engine from this clone (Linux and macOS).
 #
-# Verifica Python 3.10 o más. Con uv usa `uv tool install`; si no, crea un venv
-# en la carpeta de datos de usuario y deja `exo` en ~/.local/bin (si ahí ya hay
-# otro `exo`, no lo pisa; uv tampoco). Agrega ese directorio al PATH si falta,
-# avisando: en ~/.profile, en ~/.bash_profile si existe, en ~/.bashrc si usás bash
-# y en ~/.zshrc si usás zsh. Corre `exo doctor` y, con --init, adopta un
-# proyecto. Re-ejecutarlo actualiza.
+# Requires Python 3.10 or later. With uv it uses `uv tool install`; otherwise it
+# creates a venv in the user data folder and puts `exo` in ~/.local/bin (if another
+# `exo` is already there, it is left alone; uv does the same). Adds that directory
+# to the PATH if missing, and says so: in ~/.profile, in ~/.bash_profile if it
+# exists, in ~/.bashrc if you use bash and in ~/.zshrc if you use zsh. Runs
+# `exo doctor` and, with --init, adopts a project. Running it again updates it.
 #
-# Uso: ./install.sh [--init DIR] [--with-vector] [--no-path]
+# Usage: ./install.sh [--init DIR] [--with-vector] [--no-path]
 # Variables: EXO_DATA_DIR, EXO_INSTALL_NO_PATH=1, EXO_INSTALL_NO_UV=1.
 set -eu
 
@@ -17,15 +17,15 @@ DIST=exo-harness
 INIT=""
 WITH_VECTOR=0
 NO_PATH=${EXO_INSTALL_NO_PATH:-0}
-MARK="# agregado por $DIST"
+MARK="# added by $DIST"
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --init) INIT="$2"; shift 2 ;;
         --with-vector) WITH_VECTOR=1; shift ;;
         --no-path) NO_PATH=1; shift ;;
-        -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
-        *) echo "opción desconocida: $1" >&2; exit 2 ;;
+        -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
+        *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
 done
 
@@ -46,7 +46,7 @@ find_python() {
             echo "$candidate"; return 0
         fi
     done
-    echo "No encontré Python 3.10 o más; instalalo con el gestor de paquetes del sistema." >&2
+    echo "Python 3.10 or later not found; install it with the system package manager." >&2
     return 1
 }
 
@@ -64,12 +64,12 @@ add_path_line() {
         printf '\n' >> "$1"
     fi
     printf '%s\n' "$line" >> "$1"
-    echo "Agregué $BIN_DIR al PATH en $1."
+    echo "Added $BIN_DIR to the PATH in $1."
 }
 
 DATA_DIR=$(data_dir)
 if command -v uv >/dev/null 2>&1 && [ "${EXO_INSTALL_NO_UV:-0}" != 1 ]; then
-    echo "Instalando $DIST con uv tool..."
+    echo "Installing $DIST with uv tool..."
     # Sin --force: si ya hay otro exo en el directorio de uv, uv no lo pisa (ADR-0001).
     uv tool install --reinstall "$SPEC"
     BIN_DIR=$(uv tool dir --bin)
@@ -80,15 +80,15 @@ else
     # ADR-0001: hay otra herramienta que se llama exo. No se pisa nada que no sea nuestro.
     if [ -e "$LINK" ] || [ -L "$LINK" ]; then
         if [ "$(readlink "$LINK" 2>/dev/null || true)" != "$VENV/bin/exo" ]; then
-            echo "Ya existe $LINK y no es de este motor (¿otra herramienta llamada exo?)." >&2
-            echo "Movelo o borralo y repetí." >&2
+            echo "$LINK already exists and does not belong to this engine (another tool called exo?)." >&2
+            echo "Move or delete it and retry." >&2
             exit 1
         fi
     fi
     PY=$(find_python)
-    echo "Instalando $DIST en $VENV..."
+    echo "Installing $DIST into $VENV..."
     if ! "$PY" -m venv "$VENV"; then
-        echo "No pude crear el venv: instalá el paquete python3-venv o instalá uv." >&2
+        echo "Could not create the venv: install the python3-venv package or install uv." >&2
         exit 1
     fi
     "$VENV/bin/python" -m pip install --upgrade --quiet --disable-pip-version-check "$SPEC"
@@ -97,7 +97,7 @@ else
 fi
 
 EXE="$BIN_DIR/exo"
-[ -x "$EXE" ] || { echo "La instalación no dejó $EXE" >&2; exit 1; }
+[ -x "$EXE" ] || { echo "The installation did not produce $EXE" >&2; exit 1; }
 
 case ":$PATH:" in
     *":$BIN_DIR:"*) ;;
@@ -118,7 +118,7 @@ case ":$PATH:" in
                 *) if [ -f "$HOME/.zshrc" ]; then add_path_line "$HOME/.zshrc"; fi ;;
             esac
             printf '%s\n' "$BIN_DIR" > "$DATA_DIR/path-entry.txt"
-            echo "Abrí una terminal nueva para usar 'exo'."
+            echo "Open a new terminal to use 'exo'."
         fi
         ;;
 esac
@@ -127,4 +127,4 @@ esac
 if [ -n "$INIT" ]; then
     "$EXE" init --project "$INIT" --yes
 fi
-echo "Listo: $EXE"
+echo "Done: $EXE"

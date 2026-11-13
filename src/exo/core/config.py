@@ -85,7 +85,7 @@ class _Collector:
         self.warnings: list[str] = []
         self.invalid: list[str] = []
 
-    def invalid_value(self, path: str, message: str, action: str = "se usa el default") -> None:
+    def invalid_value(self, path: str, message: str, action: str = "using the default") -> None:
         self.warnings.append(f"{path}: {message}; {action}")
         self.invalid.append(f"{path}: {message}")
 
@@ -103,7 +103,7 @@ def _join(path: str, key: str) -> str:
 def _section(spec: dict[str, Validator]) -> Validator:
     def validate(value: Any, path: str, col: _Collector, default: Any) -> Any:
         if not isinstance(value, dict):
-            col.invalid_value(path, "tiene que ser un objeto")
+            col.invalid_value(path, "must be an object")
             return copy.deepcopy(default)
         out: dict[str, Any] = {}
         for key, validator in spec.items():
@@ -113,7 +113,7 @@ def _section(spec: dict[str, Validator]) -> Validator:
                 out[key] = copy.deepcopy(default[key])
         for key, extra in value.items():
             if key not in spec:
-                col.note(_join(path, key), "clave desconocida; se conserva sin validar")
+                col.note(_join(path, key), "unknown key; kept without validation")
                 out[key] = extra
         return out
 
@@ -124,7 +124,7 @@ def _choice(options: tuple[str, ...]) -> Validator:
     def validate(value: Any, path: str, col: _Collector, default: Any) -> Any:
         if isinstance(value, str) and value in options:
             return value
-        col.invalid_value(path, f"tiene que ser uno de: {', '.join(options)}")
+        col.invalid_value(path, f"must be one of: {', '.join(options)}")
         return default
 
     return validate
@@ -133,7 +133,7 @@ def _choice(options: tuple[str, ...]) -> Validator:
 def _bool(value: Any, path: str, col: _Collector, default: Any) -> Any:
     if isinstance(value, bool):
         return value
-    col.invalid_value(path, "tiene que ser true o false")
+    col.invalid_value(path, "must be true or false")
     return default
 
 
@@ -152,7 +152,7 @@ def _text(pattern: re.Pattern[str] | None, hint: str, *, optional: bool = False)
 def _text_list(pattern: re.Pattern[str] | None, hint: str) -> Validator:
     def validate(value: Any, path: str, col: _Collector, default: Any) -> Any:
         if not isinstance(value, list):
-            col.invalid_value(path, "tiene que ser una lista")
+            col.invalid_value(path, "must be a list")
             return copy.deepcopy(default)
         out: list[str] = []
         for index, item in enumerate(value):
@@ -160,7 +160,7 @@ def _text_list(pattern: re.Pattern[str] | None, hint: str) -> Validator:
                 if item not in out:
                     out.append(item)
             else:
-                col.invalid_value(f"{path}[{index}]", hint, "se descarta")
+                col.invalid_value(f"{path}[{index}]", hint, "dropped")
         return out
 
     return validate
@@ -168,14 +168,14 @@ def _text_list(pattern: re.Pattern[str] | None, hint: str) -> Validator:
 
 def _roles(value: Any, path: str, col: _Collector, default: Any) -> Any:
     if not isinstance(value, dict):
-        col.invalid_value(path, "tiene que ser un objeto {rol: [personas]}")
+        col.invalid_value(path, "must be an object {role: [people]}")
         return copy.deepcopy(default)
-    people = _text_list(None, "tiene que ser un texto no vacío")
+    people = _text_list(None, "must be a non-empty string")
     out: dict[str, Any] = {}
     for role, members in value.items():
         role_path = _join(path, str(role))
         if not isinstance(members, list):
-            col.invalid_value(role_path, "tiene que ser una lista de personas", "se descarta")
+            col.invalid_value(role_path, "must be a list of people", "dropped")
             continue
         out[role] = people(members, role_path, col, [])
     return out
@@ -186,9 +186,9 @@ def _specs_dir(value: Any, path: str, col: _Collector, default: Any) -> Any:
         try:
             return str(fsutil.safe_relpath(value))
         except fsutil.UnsafePathError as exc:
-            col.invalid_value(path, f"ruta insegura ({exc})")
+            col.invalid_value(path, f"unsafe path ({exc})")
             return default
-    col.invalid_value(path, "tiene que ser una ruta relativa")
+    col.invalid_value(path, "must be a relative path")
     return default
 
 
@@ -196,17 +196,17 @@ def _schema(value: Any, path: str, col: _Collector, default: Any) -> Any:
     return CURRENT_SCHEMA
 
 
-_SLUG_HINT = "tiene que ser kebab-case en minúsculas (a-z, 0-9, guiones)"
-_PREFIX_HINT = "tiene que cumplir ^[A-Z][A-Z0-9]*$ (por ejemplo PROJ)"
+_SLUG_HINT = "must be lowercase kebab-case (a-z, 0-9, hyphens)"
+_PREFIX_HINT = "must match ^[A-Z][A-Z0-9]*$ (for example PROJ)"
 
 _SPEC = _section(
     {
         "schema": _schema,
         "project": _section(
             {
-                "name": _text(None, "tiene que ser un texto no vacío o null", optional=True),
-                "chat_language": _text(_LANG, "tiene que ser un código de idioma como es o en"),
-                "artifact_language": _text(_LANG, "tiene que ser un código de idioma como es o en"),
+                "name": _text(None, "must be a non-empty string or null", optional=True),
+                "chat_language": _text(_LANG, "must be a language code such as es or en"),
+                "artifact_language": _text(_LANG, "must be a language code such as es or en"),
             }
         ),
         "agents": _text_list(_SLUG, _SLUG_HINT),
@@ -225,7 +225,7 @@ _SPEC = _section(
                 "embeddings": _section(
                     {
                         "provider": _choice(EMBEDDING_PROVIDERS),
-                        "model": _text(None, "tiene que ser un texto o null", optional=True),
+                        "model": _text(None, "must be a string or null", optional=True),
                         "allow_remote": _bool,
                     }
                 ),
@@ -233,7 +233,7 @@ _SPEC = _section(
         ),
         "governance": _section(
             {
-                "protected_branches": _text_list(None, "tiene que ser un nombre de rama"),
+                "protected_branches": _text_list(None, "must be a branch name"),
                 "roles": _roles,
                 "dpa_profile": _text(_SLUG, _SLUG_HINT),
                 "githooks": _bool,
@@ -241,7 +241,7 @@ _SPEC = _section(
         ),
         "discovery": _section(
             {
-                "ignore": _text_list(None, "tiene que ser un patrón no vacío"),
+                "ignore": _text_list(None, "must be a non-empty pattern"),
                 "depth": _choice(DISCOVERY_DEPTHS),
             }
         ),
@@ -261,15 +261,15 @@ def _migrate(raw: dict[str, Any]) -> tuple[dict[str, Any] | None, list[str]]:
     warnings: list[str] = []
     schema = raw.get("schema")
     if schema is None:
-        warnings.append("schema: falta el campo; se asume 1")
+        warnings.append("schema: field missing; assuming 1")
         schema = 1
     if isinstance(schema, bool) or not isinstance(schema, int) or schema < 1:
-        return None, [*warnings, "schema: tiene que ser un entero ≥ 1; se usan los defaults"]
+        return None, [*warnings, "schema: must be an integer ≥ 1; using the defaults"]
     if schema > CURRENT_SCHEMA:
         return None, [
             *warnings,
-            f"schema: esquema {schema} desconocido (este motor entiende hasta el "
-            f"{CURRENT_SCHEMA}); se usan los defaults. Actualizá {_meta.NAME}.",
+            f"schema: unknown schema {schema} (this engine understands up to "
+            f"{CURRENT_SCHEMA}); using the defaults. Update {_meta.NAME}.",
         ]
     original = schema
     while schema < CURRENT_SCHEMA:
@@ -277,19 +277,18 @@ def _migrate(raw: dict[str, Any]) -> tuple[dict[str, Any] | None, list[str]]:
         if step is None:
             return None, [
                 *warnings,
-                f"schema: no hay migración del esquema {schema} al {schema + 1}; "
-                "se usan los defaults",
+                f"schema: no migration from schema {schema} to {schema + 1}; using the defaults",
             ]
         raw = step(raw)
         schema += 1
     if schema != original:
-        warnings.append(f"schema: config migrada del esquema {original} al {schema}")
+        warnings.append(f"schema: config migrated from schema {original} to {schema}")
     return raw, warnings
 
 
 def _fallback(path: Path, problem: str) -> LoadResult:
     return LoadResult(
-        defaults(), [f"{FILENAME}: {problem}; se usan los defaults"], path, fallback=True
+        defaults(), [f"{FILENAME}: {problem}; using the defaults"], path, fallback=True
     )
 
 
@@ -300,13 +299,13 @@ def load(project: Path) -> LoadResult:
     except FileNotFoundError:
         return LoadResult(defaults())
     except (OSError, UnicodeDecodeError) as exc:
-        return _fallback(path, f"no se pudo leer ({exc})")
+        return _fallback(path, f"could not be read ({exc})")
     try:
         raw = json.loads(text)
     except json.JSONDecodeError as exc:
-        return _fallback(path, f"no es JSON válido (línea {exc.lineno}: {exc.msg})")
+        return _fallback(path, f"is not valid JSON (line {exc.lineno}: {exc.msg})")
     if not isinstance(raw, dict):
-        return _fallback(path, "la raíz tiene que ser un objeto JSON")
+        return _fallback(path, "the root must be a JSON object")
     migrated, warnings = _migrate(raw)
     if migrated is None:
         return LoadResult(defaults(), warnings, path, fallback=True)
@@ -322,12 +321,12 @@ def save(project: Path, cfg: dict[str, Any]) -> bool:
     """Valida y escribe la config de forma atómica. Devuelve si escribió."""
     normalized, _, invalid = validate(cfg)
     if invalid:
-        raise ConfigError("la config tiene valores inválidos: " + " | ".join(invalid))
+        raise ConfigError("the config has invalid values: " + " | ".join(invalid))
     on_disk = _schema_on_disk(project)
     if on_disk is not None and on_disk > CURRENT_SCHEMA:
         raise ConfigError(
-            f"la config en disco es del esquema {on_disk} y este motor entiende hasta el "
-            f"{CURRENT_SCHEMA}; no se pisa. Actualizá {_meta.NAME}."
+            f"the config on disk uses schema {on_disk} and this engine understands up to "
+            f"{CURRENT_SCHEMA}; not overwriting it. Update {_meta.NAME}."
         )
     return fsutil.write_if_changed(config_path(project), dumps(normalized))
 

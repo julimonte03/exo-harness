@@ -28,5 +28,5 @@ def error(message: str) -> int:
 
 
 def usage_error(message: str) -> int:
-    print(f"error de uso: {message}", file=sys.stderr)
+    print(f"usage error: {message}", file=sys.stderr)
     return 2

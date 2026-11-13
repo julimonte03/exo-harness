@@ -54,9 +54,7 @@ def style_for(path: Path) -> str:
         return STYLE_HASH
     if path.suffix.lower() in _HTML_SUFFIXES:
         return STYLE_HTML
-    raise BlockError(
-        f"no sé qué estilo de comentario usar para {path.name}; indicá style='html' o 'hash'"
-    )
+    raise BlockError(f"unknown comment style for {path.name}; pass style='html' or 'hash'")
 
 
 def markers(block_id: str, style: str) -> tuple[str, str]:
@@ -66,13 +64,13 @@ def markers(block_id: str, style: str) -> tuple[str, str]:
         return f"<!-- BEGIN:{tag}:{block_id} -->", f"<!-- END:{tag}:{block_id} -->"
     if style == STYLE_HASH:
         return f"# BEGIN:{tag}:{block_id}", f"# END:{tag}:{block_id}"
-    raise BlockError(f"estilo desconocido: {style!r}")
+    raise BlockError(f"unknown style: {style!r}")
 
 
 def _check_id(block_id: str) -> None:
     if not _ID.match(block_id):
         raise BlockError(
-            f"id de bloque inválido: {block_id!r} (minúsculas, dígitos y separadores - _ .)"
+            f"invalid block id: {block_id!r} (lowercase letters, digits and separators - _ .)"
         )
 
 
@@ -129,22 +127,20 @@ def parse_blocks(text: str, style: str) -> list[Block]:
         kind, block_id = match.groups()
         if kind == "BEGIN":
             if open_id is not None:
-                raise BlockError(
-                    f"línea {number}: BEGIN de {block_id!r} anidado dentro de {open_id!r}"
-                )
+                raise BlockError(f"line {number}: BEGIN of {block_id!r} nested inside {open_id!r}")
             if block_id in seen:
-                raise BlockError(f"línea {number}: bloque {block_id!r} repetido")
+                raise BlockError(f"line {number}: duplicate block {block_id!r}")
             open_id, open_line, content = block_id, number, []
             continue
         if open_id is None:
-            raise BlockError(f"línea {number}: END de {block_id!r} sin su BEGIN")
+            raise BlockError(f"line {number}: END of {block_id!r} without its BEGIN")
         if block_id != open_id:
-            raise BlockError(f"línea {number}: el END {block_id!r} no coincide con {open_id!r}")
+            raise BlockError(f"line {number}: END {block_id!r} does not match {open_id!r}")
         blocks.append(Block(open_id, open_line, number, "\n".join(content)))
         seen.add(open_id)
         open_id = None
     if open_id is not None:
-        raise BlockError(f"línea {open_line}: BEGIN de {open_id!r} sin su END")
+        raise BlockError(f"line {open_line}: BEGIN of {open_id!r} without its END")
     return blocks
 
 
@@ -158,7 +154,7 @@ def _block_lines(block_id: str, content: str, style: str) -> list[str]:
     inner = body.split("\n") if body else []
     for line in inner:
         if any(pattern.match(line) for pattern in _MARKER.values()):
-            raise BlockError(f"el contenido del bloque {block_id!r} no puede incluir marcadores")
+            raise BlockError(f"the content of block {block_id!r} cannot include markers")
     return [begin, *inner, end]
 
 
@@ -166,7 +162,7 @@ def inject_text(
     text: str, block_id: str, content: str, *, style: str, position: str = "end"
 ) -> str:
     if position not in ("start", "end"):
-        raise BlockError(f"posición inválida: {position!r} (start o end)")
+        raise BlockError(f"invalid position: {position!r} (start or end)")
     new_block = _block_lines(block_id, content, style)
     existing = _find(parse_blocks(text, style), block_id)
     bom, lines = _split(text)
@@ -191,7 +187,7 @@ def inject_text(
 
 def replace_text(text: str, block_id: str, content: str, *, style: str) -> str:
     if _find(parse_blocks(text, style), block_id) is None:
-        raise BlockError(f"no existe el bloque {block_id!r}")
+        raise BlockError(f"block {block_id!r} does not exist")
     return inject_text(text, block_id, content, style=style)
 
 
@@ -224,7 +220,7 @@ def _read(path: Path) -> str:
     try:
         return raw.decode("utf-8")
     except UnicodeDecodeError as exc:
-        raise BlockError(f"{path} no es UTF-8 válido ({exc.reason}); no se modificó") from exc
+        raise BlockError(f"{path} is not valid UTF-8 ({exc.reason}); left unchanged") from exc
 
 
 def _write(path: Path, old: str, new: str, *, backup: bool) -> bool:
