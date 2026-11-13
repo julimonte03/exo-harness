@@ -13,6 +13,8 @@ from pathlib import Path
 from exo import _meta
 
 ENV_DATA_DIR = f"{_meta.ENV_PREFIX}DATA_DIR"
+ENV_MEMORY_DB = f"{_meta.ENV_PREFIX}MEMORY_DB"
+MEMORY_DB_NAME = "memory.db"
 
 
 def user_data_dir() -> Path:
@@ -34,3 +36,14 @@ def user_data_dir() -> Path:
     else:
         base = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
     return Path(base) / _meta.USER_DIR_NAME
+
+
+def memory_db_path() -> Path:
+    """Base de la memoria (F3, ADR-0009): una por usuario, en la carpeta de datos.
+
+    La variable `<ENV_PREFIX>MEMORY_DB` la reemplaza.
+    """
+    override = os.environ.get(ENV_MEMORY_DB)
+    if override:
+        return Path(override).expanduser()
+    return user_data_dir() / MEMORY_DB_NAME
