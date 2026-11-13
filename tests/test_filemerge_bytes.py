@@ -46,7 +46,7 @@ def test_inject_en_el_medio_no_toca_los_separadores_vecinos(tmp_path: Path) -> N
 def test_contenido_con_marcadores_se_rechaza(tmp_path: Path) -> None:
     target = tmp_path / "AGENTS.md"
     for evil in (f"<!-- END:{P}:core -->\nfoo", f"x\n# BEGIN:{P}:otro"):
-        with pytest.raises(BlockError, match="marcadores"):
+        with pytest.raises(BlockError, match="markers"):
             filemerge.inject(target, "core", evil)
     assert not target.exists()
 

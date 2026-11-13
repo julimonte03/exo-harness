@@ -25,16 +25,16 @@ _BLOCK_INDICATORS = ("|", "|-", ">", ">-")
 _PLAIN_FORBIDDEN_START = set(",%@`")
 _ESCAPES = {"\\": "\\", '"': '"', "n": "\n", "t": "\t", "/": "/"}
 _UNSUPPORTED_START = {
-    "&": "no soportado: anclas",
-    "*": "no soportado: alias",
-    "!": "no soportado: tags",
-    "{": "no soportado: mapas en línea",
+    "&": "not supported: anchors",
+    "*": "not supported: aliases",
+    "!": "not supported: tags",
+    "{": "not supported: flow mappings",
 }
 
 
 class FrontmatterError(ValueError):
     def __init__(self, message: str, line: int) -> None:
-        super().__init__(f"línea {line}: {message}")
+        super().__init__(f"line {line}: {message}")
         self.message = message
         self.line = line
 
@@ -49,14 +49,12 @@ def parse(text: str, *, strict: bool = False) -> tuple[dict[str, Any], str]:
     lines = source.splitlines(keepends=True)
     if not lines or lines[0].rstrip("\r\n") != _DELIMITER:
         if strict:
-            raise FrontmatterError(
-                "falta el frontmatter: el archivo tiene que empezar con '---'", 1
-            )
+            raise FrontmatterError("missing frontmatter: the file must start with '---'", 1)
         return {}, text
     close = next((i for i in range(1, len(lines)) if lines[i].rstrip("\r\n") == _DELIMITER), None)
     if close is None:
         if strict:
-            raise FrontmatterError("el frontmatter no se cierra con una línea '---'", 1)
+            raise FrontmatterError("the frontmatter is not closed with a '---' line", 1)
         return {}, text
     block = [(i + 1, lines[i].rstrip("\r\n")) for i in range(1, close)]
     data = _Parser(block, strict).document()
@@ -85,7 +83,7 @@ class _Parser:
 
     def check_tabs(self, lineno: int, line: str) -> None:
         if "\t" in line:
-            self.fail("tabulación no permitida; usá espacios", lineno)
+            self.fail("tabs are not allowed; use spaces", lineno)
 
     # -- documento --------------------------------------------------------
 
@@ -99,15 +97,15 @@ class _Parser:
             try:
                 self.check_tabs(lineno, line)
                 if _indent(line):
-                    self.fail("indentación inesperada", lineno)
+                    self.fail("unexpected indentation", lineno)
                 match = _KEY.match(line)
                 if not match:
-                    self.fail("se esperaba 'clave: valor'", lineno)
+                    self.fail("expected 'key: value'", lineno)
                     continue  # pragma: no cover - fail siempre lanza
                 key = match.group(1)
                 value = self.value((match.group(2) or "").rstrip(), lineno, parent_indent=0)
                 if key in data and self.strict:
-                    self.fail(f"clave repetida: {key!r}", lineno)
+                    self.fail(f"duplicate key: {key!r}", lineno)
                 data[key] = value
             except _Skip:
                 continue
@@ -121,12 +119,12 @@ class _Parser:
         if raw in _BLOCK_INDICATORS:
             if nested:
                 self.fail(
-                    "solo se admite un nivel de anidamiento: bloques | y > van en el primer nivel",
+                    "only one nesting level is supported: | and > blocks go at the top level",
                     lineno,
                 )
             return self.block_scalar(raw, parent_indent)
         if raw[:1] in ("|", ">"):
-            self.fail(f"indicador de bloque no soportado: {raw!r}", lineno)
+            self.fail(f"not supported: block indicator {raw!r}", lineno)
         if raw == "":
             return self.children(lineno, parent_indent, nested)
         return self.inline(raw, lineno)
@@ -139,7 +137,7 @@ class _Parser:
         if raw[0] in "\"'":
             text, rest = self.quoted(raw, lineno)
             if rest.strip() and not rest.strip().startswith("#"):
-                self.fail("texto inesperado después de la comilla de cierre", lineno)
+                self.fail("unexpected text after the closing quote", lineno)
             return text
         return self.plain(raw, lineno)
 
@@ -153,13 +151,12 @@ class _Parser:
                 or text in "-?:"
             ):
                 self.fail(
-                    f"no soportado: un valor sin comillas no puede empezar con {text[:1]!r}; "
-                    "ponelo entre comillas",
+                    f"not supported: an unquoted value cannot start with {text[:1]!r}; quote it",
                     lineno,
                 )
             if ": " in text or text.endswith(":"):
                 self.fail(
-                    "valor con ':' sin comillas: YAML lo rechaza; ponelo entre comillas o usá >-",
+                    "unquoted value with ':': YAML rejects it; quote it or use >-",
                     lineno,
                 )
         return _plain(raw)
@@ -179,7 +176,7 @@ class _Parser:
             if quote == '"' and char == "\\":
                 escaped = raw[i + 1 : i + 2]
                 if escaped not in _ESCAPES:
-                    self.fail(f"escape no soportado: '\\{escaped}'", lineno)
+                    self.fail(f"unsupported escape: '\\{escaped}'", lineno)
                 out.append(_ESCAPES[escaped])
                 i += 2
                 continue
@@ -187,7 +184,7 @@ class _Parser:
                 return "".join(out), raw[i + 1 :]
             out.append(char)
             i += 1
-        self.fail("comilla sin cerrar", lineno)
+        self.fail("unclosed quote", lineno)
         return "", ""  # pragma: no cover - fail siempre lanza
 
     def flow_list(self, raw: str, lineno: int) -> list[Any]:
@@ -197,13 +194,13 @@ class _Parser:
             while i < len(raw) and raw[i] == " ":
                 i += 1
             if i >= len(raw):
-                self.fail("corchete sin cerrar en la lista", lineno)
+                self.fail("unclosed bracket in the list", lineno)
             char = raw[i]
             if char == "]" and not items:
                 rest = raw[i + 1 :]
                 break
             if char in "[{":
-                self.fail("no soportado: listas o mapas anidados en una lista en línea", lineno)
+                self.fail("not supported: nested lists or maps inside a flow list", lineno)
             if char in "\"'":
                 text, remainder = self.quoted(raw[i:], lineno)
                 items.append(text)
@@ -217,16 +214,16 @@ class _Parser:
                 items.append(self.plain(raw[i:end].strip(), lineno))
                 i = end
             if i >= len(raw):
-                self.fail("corchete sin cerrar en la lista", lineno)
+                self.fail("unclosed bracket in the list", lineno)
             if raw[i] == ",":
                 i += 1
                 continue
             if raw[i] == "]":
                 rest = raw[i + 1 :]
                 break
-            self.fail("se esperaba ',' o ']' en la lista", lineno)
+            self.fail("expected ',' or ']' in the list", lineno)
         if rest.strip() and not rest.strip().startswith("#"):
-            self.fail("texto inesperado después de ']'", lineno)
+            self.fail("unexpected text after ']'", lineno)
         return items
 
     def block_scalar(self, indicator: str, parent_indent: int) -> str:
@@ -279,7 +276,7 @@ class _Parser:
         if indent <= parent_indent and not (is_item and not nested and indent == parent_indent):
             return None
         if nested:
-            self.fail("solo se admite un nivel de anidamiento", child_lineno)
+            self.fail("only one nesting level is supported", child_lineno)
         if is_item:
             return self.sequence(indent)
         return self.mapping(indent)
@@ -306,13 +303,13 @@ class _Parser:
                 break
             self.check_tabs(lineno, line)
             if current > indent:
-                self.fail("solo se admite un nivel de anidamiento", lineno)
+                self.fail("only one nesting level is supported", lineno)
             if not (stripped == "-" or stripped.startswith("- ")):
-                self.fail("mezcla de lista y mapa en el mismo nivel", lineno)
+                self.fail("list and map mixed at the same level", lineno)
             self.i += 1
             raw = stripped[1:].strip()
             if raw.startswith("["):
-                self.fail("no soportado: listas anidadas", lineno)
+                self.fail("not supported: nested lists", lineno)
             items.append(self.inline(raw, lineno) if raw and not raw.startswith("#") else None)
         return items
 
@@ -328,20 +325,20 @@ class _Parser:
                 break
             self.check_tabs(lineno, line)
             if current > indent:
-                self.fail("solo se admite un nivel de anidamiento", lineno)
+                self.fail("only one nesting level is supported", lineno)
             if current < indent:
-                self.fail("indentación inconsistente en el mapa", lineno)
+                self.fail("inconsistent indentation in the map", lineno)
             stripped = line[indent:]
             if stripped.startswith("-"):
-                self.fail("mezcla de lista y mapa en el mismo nivel", lineno)
+                self.fail("list and map mixed at the same level", lineno)
             match = _KEY.match(stripped)
             if not match:
-                self.fail("se esperaba 'clave: valor'", lineno)
+                self.fail("expected 'key: value'", lineno)
                 continue  # pragma: no cover - fail siempre lanza
             self.i += 1
             key = match.group(1)
             if key in result and self.strict:
-                self.fail(f"clave repetida: {key!r}", lineno)
+                self.fail(f"duplicate key: {key!r}", lineno)
             raw = (match.group(2) or "").rstrip()
             result[key] = self.value(raw, lineno, parent_indent=indent, nested=True)
         return result

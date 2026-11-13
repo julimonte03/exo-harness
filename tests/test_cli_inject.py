@@ -29,7 +29,7 @@ def test_version_subcomando(capsys: pytest.CaptureFixture[str]) -> None:
 def test_inject_crea_y_es_idempotente(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     target = tmp_path / "AGENTS.md"
     assert main(["inject", str(target), "--id", "core", "--content", "regla"]) == 0
-    assert "actualizado" in capsys.readouterr().out
+    assert "updated" in capsys.readouterr().out
     assert target.read_text(encoding="utf-8") == f"{B}\nregla\n{E}\n"
     assert main(["inject", str(target), "--id", "core", "--content", "regla", "--json"]) == 0
     assert _json(capsys) == {
@@ -76,10 +76,10 @@ def test_inject_list_y_remove(tmp_path: Path, capsys: pytest.CaptureFixture[str]
     assert main(["inject", str(target), "--list"]) == 0
     assert "core" in capsys.readouterr().out
     assert main(["inject", str(target), "--id", "core", "--remove"]) == 0
-    assert "quitado" in capsys.readouterr().out
+    assert "removed" in capsys.readouterr().out
     assert target.read_text(encoding="utf-8") == "# Humano\n"
     assert main(["inject", str(target), "--id", "core", "--remove"]) == 0
-    assert "no estaba" in capsys.readouterr().out
+    assert "not present" in capsys.readouterr().out
 
 
 def test_inject_con_backup_y_estilo(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -99,7 +99,7 @@ def test_inject_error_de_marcadores(tmp_path: Path, capsys: pytest.CaptureFixtur
     assert main(["inject", str(target), "--id", "core", "--content", "x"]) == 1
     err = capsys.readouterr().err
     assert err.startswith("error:")
-    assert "sin su END" in err
+    assert "without its END" in err
 
 
 def test_inject_requiere_id_y_contenido(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

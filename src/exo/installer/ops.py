@@ -127,7 +127,7 @@ def merge_duplicates(ops: list[Op]) -> list[Op]:
     for op in ops:
         unit = unit_of(op)
         if unit in merged and _comparable(merged[unit]) != _comparable(op):
-            raise ValueError(f"dos adaptadores piden contenidos distintos para {unit}")
+            raise ValueError(f"two adapters request different content for {unit}")
         merged.setdefault(unit, op)
         owners.setdefault(unit, []).append(op.owner)
     return [replace(op, owner=combine_owners(owners[unit])) for unit, op in merged.items()]

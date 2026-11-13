@@ -73,7 +73,7 @@ def test_inject_reemplaza_bloque_existente_sin_tocar_lo_demas(tmp_path: Path) ->
 def test_replace_exige_que_exista(tmp_path: Path) -> None:
     target = tmp_path / "AGENTS.md"
     target.write_bytes(b"nada\n")
-    with pytest.raises(BlockError, match="no existe"):
+    with pytest.raises(BlockError, match="does not exist"):
         filemerge.replace(target, "core", "x")
     assert target.read_bytes() == b"nada\n"
     filemerge.inject(target, "core", "a")
@@ -146,7 +146,7 @@ def test_style_for(name: str, style: str) -> None:
 
 
 def test_style_desconocido_pide_estilo_explicito(tmp_path: Path) -> None:
-    with pytest.raises(BlockError, match="estilo"):
+    with pytest.raises(BlockError, match="style"):
         filemerge.inject(tmp_path / "datos.bin", "core", "x")
     assert filemerge.inject(tmp_path / "datos.bin", "core", "x", style="hash") is True
 
@@ -154,11 +154,11 @@ def test_style_desconocido_pide_estilo_explicito(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("text", "fragment"),
     [
-        (f"{B}\nsin cierre\n", "sin su END"),
-        (f"suelto\n{E}\n", "sin su BEGIN"),
-        (f"{B}\n{B}\n{E}\n", "anidado"),
-        (f"{B}\n{E}\n{B}\n{E}\n", "repetido"),
-        (f"{B}\n<!-- END:{P}:otro -->\n", "no coincide"),
+        (f"{B}\nsin cierre\n", "without its END"),
+        (f"suelto\n{E}\n", "without its BEGIN"),
+        (f"{B}\n{B}\n{E}\n", "nested"),
+        (f"{B}\n{E}\n{B}\n{E}\n", "duplicate"),
+        (f"{B}\n<!-- END:{P}:otro -->\n", "does not match"),
     ],
 )
 def test_marcadores_rotos_dan_error_y_no_escriben(

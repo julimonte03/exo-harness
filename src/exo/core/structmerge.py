@@ -35,7 +35,7 @@ _INDENT = re.compile(r"^\{\s*?\r?\n([ \t]+)\S")
 def _keys(dotted_key: str) -> list[str]:
     parts = dotted_key.split(".")
     if not dotted_key or any(not part for part in parts):
-        raise StructMergeError(f"clave inválida: {dotted_key!r} (formato a.b.c)")
+        raise StructMergeError(f"invalid key: {dotted_key!r} (format a.b.c)")
     return parts
 
 
@@ -52,19 +52,19 @@ def _unique_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for key, value in pairs:
         if key in out:
-            raise _Lossy(f"la clave {key!r} está repetida y una de las dos se perdería")
+            raise _Lossy(f"key {key!r} is duplicated and one of the two would be lost")
         out[key] = value
     return out
 
 
 def _reject_constant(name: str) -> Any:
-    raise _Lossy(f"{name} no es JSON estándar")
+    raise _Lossy(f"{name} is not standard JSON")
 
 
 def _exact_float(text: str) -> float:
     value = float(text)
     if math.isinf(value) or Decimal(text) != Decimal(repr(value)):
-        raise _Lossy(f"el número {text} perdería precisión al reescribirlo")
+        raise _Lossy(f"number {text} would lose precision if rewritten")
     return value
 
 
@@ -82,14 +82,14 @@ def _load(path: Path) -> tuple[dict[str, Any], str | None]:
             parse_float=_exact_float,
         )
     except _Lossy as exc:
-        raise StructMergeError(f"{path}: {exc}; editalo a mano. No se modificó.") from exc
+        raise StructMergeError(f"{path}: {exc}; edit it by hand. Left unchanged.") from exc
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise StructMergeError(
-            f"{path} no es JSON válido ({exc}); si tiene comentarios (JSONC), "
-            "agregá la entrada a mano. No se modificó."
+            f"{path} is not valid JSON ({exc}); if it has comments (JSONC), "
+            "add the entry by hand. Left unchanged."
         ) from exc
     if not isinstance(data, dict):
-        raise StructMergeError(f"{path}: la raíz tiene que ser un objeto JSON; no se modificó")
+        raise StructMergeError(f"{path}: the root must be a JSON object; left unchanged")
     return data, text
 
 
@@ -118,7 +118,7 @@ def _dump(data: dict[str, Any], original: str | None) -> bytes:
             data, indent=indent, separators=separators, ensure_ascii=False, allow_nan=False
         )
     except ValueError as exc:
-        raise StructMergeError(f"el valor no se puede escribir como JSON estándar ({exc})") from exc
+        raise StructMergeError(f"the value cannot be written as standard JSON ({exc})") from exc
     if newline != "\n":
         text = text.replace("\n", newline)
     return (bom + text + (newline if trailing else "")).encode("utf-8")
@@ -134,7 +134,7 @@ def _parent(data: dict[str, Any], keys: list[str], path: Path, *, create: bool) 
         node = node[key]
         if not isinstance(node, dict):
             where = ".".join(keys[: depth + 1])
-            raise StructMergeError(f"{path}: {where} no es un objeto; no se modificó")
+            raise StructMergeError(f"{path}: {where} is not an object; left unchanged")
     return node
 
 
@@ -148,7 +148,7 @@ def get_json_key(path: Path, dotted_key: str, *, strict: bool = False) -> Any:
         if not isinstance(node, dict):
             if strict:
                 where = ".".join(keys[:depth])
-                raise StructMergeError(f"{path}: {where} no es un objeto; no se modificó")
+                raise StructMergeError(f"{path}: {where} is not an object; left unchanged")
             return MISSING
         if key not in node:
             return MISSING
@@ -235,7 +235,7 @@ def add_json_list_item(path: Path, dotted_key: str, item: Any) -> bool:
     if current is MISSING:
         parent[keys[-1]] = [item]
     elif not isinstance(current, list):
-        raise StructMergeError(f"{path}: {dotted_key} no es una lista; no se modificó")
+        raise StructMergeError(f"{path}: {dotted_key} is not a list; left unchanged")
     elif item in current:
         return False
     else:
