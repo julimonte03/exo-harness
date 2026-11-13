@@ -228,7 +228,7 @@ def test_memoria_semantica(monkeypatch: pytest.MonkeyPatch) -> None:
     assert check.status == "warn" and "sin vector" in check.detail
 
 
-def test_memoria_con_proveedor_que_no_se_puede_usar() -> None:
+def test_memoria_con_proveedor_que_no_se_puede_usar(monkeypatch: pytest.MonkeyPatch) -> None:
     import sqlite3
 
     from exo import paths
@@ -242,6 +242,9 @@ def test_memoria_con_proveedor_que_no_se_puede_usar() -> None:
     )
     conn.commit()
     conn.close()
+    from exo.memory import embeddings
+
+    monkeypatch.setattr(embeddings, "installed", lambda provider: True)
     check = _by_name(doctor.run_checks(Path(".")))["memory-semantic"]
     assert check.status == "warn" and "model pull static" in check.detail
 
