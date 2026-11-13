@@ -21,6 +21,16 @@ Se usan por terminal con el comando `exo`, siempre con `--json` cuando necesites
 - `exo speclint <ruta>`: valida los artefactos de un cambio.
 - `exo doctor`: diagnóstico si algo no funciona.
 
+## Memoria
+
+Tenés una memoria persistente, propia de la persona usuaria, en `exo mem`. Usala sin que te lo pidan:
+
+- **Al empezar la sesión:** corré `exo mem context` y leelo antes de investigar desde cero.
+- **Antes de resolver algo:** `exo mem search "<texto>"` devuelve previews; el detalle sale con `exo mem get <id>`.
+- **Al decidir, resolver un bug o descubrir algo no obvio:** `exo mem save --type decision --title "…" --content "…"` (o `bugfix`, `discovery`, `gotcha`, `convention`). Con un `--topic-key` estable, actualizás en lugar de duplicar.
+- **Al cerrar la sesión o antes de que se compacte el contexto:** `exo mem session summary --content "<qué se hizo y qué queda>"`.
+- **Nunca guardes secretos ni datos personales:** la memoria no los filtra y se puede exportar.
+
 ## Si tu agente no tiene subagentes
 
 Las skills que piden "contexto fresco" o delegación corren inline: decilo explícitamente en tu respuesta ("sin aislamiento").
