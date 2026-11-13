@@ -115,3 +115,58 @@ def check_text(name: str, value: str, limit: int) -> str:
     if len(value) > limit:
         raise MemoryStoreError(f"{name} supera los {limit} caracteres")
     return value
+
+
+@dataclass(frozen=True)
+class Session:
+    id: int
+    project: str
+    agent: str | None
+    started_at: str
+    ended_at: str | None
+    summary: str | None
+
+
+@dataclass(frozen=True)
+class SessionView:
+    session: Session
+    observations: list[Observation]
+
+
+@dataclass(frozen=True)
+class SummaryResult:
+    session_id: int
+    observation_id: int
+
+
+@dataclass(frozen=True)
+class ProjectInfo:
+    name: str
+    remote: str | None
+    path: str | None
+    observations: int
+    sessions: int
+    last_activity: str | None
+
+
+@dataclass(frozen=True)
+class MergeResult:
+    source: str
+    target: str
+    moved: int
+    conflicts: int  # topic_key repetidos: queda la versión más reciente
+    sessions: int
+
+
+@dataclass(frozen=True)
+class Stats:
+    path: str
+    schema_version: int
+    fts: bool
+    size_bytes: int
+    observations: int
+    sessions: int
+    projects: int
+    by_type: dict[str, int]
+    by_project: dict[str, int]
+    last_updated: str | None
