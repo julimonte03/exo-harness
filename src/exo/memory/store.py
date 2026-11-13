@@ -20,15 +20,21 @@ from pathlib import Path
 from typing import Any
 
 from exo import _meta, paths
-from exo.memory import db
+from exo.memory import db, projects
 from exo.memory.model import (
     MAX_CONTENT,
     MAX_TITLE,
     Hit,
     MemoryStoreError,
+    MergeResult,
     NotFoundError,
     Observation,
+    ProjectInfo,
     SaveResult,
+    Session,
+    SessionView,
+    Stats,
+    SummaryResult,
     check_project,
     check_scope,
     check_text,
@@ -78,6 +84,22 @@ def _fts_query(found: list[tuple[str, ...]]) -> str:
 def _contains(haystack: list[str], phrase: tuple[str, ...]) -> bool:
     n = len(phrase)
     return any(tuple(haystack[i : i + n]) == phrase for i in range(len(haystack) - n + 1))
+
+
+def _fields(
+    project: str, scope: str, kind: str, title: str, content: str, topic_key: str | None
+) -> tuple[str, str, str, str, str, str | None]:
+    """Valida y normaliza los campos de una observación."""
+    scope = check_scope(scope)
+    project = "" if scope == "personal" else check_project(project)
+    return (
+        project,
+        scope,
+        check_type(kind),
+        check_text("title", title.strip(), MAX_TITLE),
+        check_text("content", content, MAX_CONTENT),
+        check_topic_key(topic_key),
+    )
 
 
 def _hash(kind: str, title: str, content: str) -> str:
@@ -184,46 +206,96 @@ class MemoryStore:
         scope: str = "project",
         session_id: int | None = None,
     ) -> SaveResult:
-        scope = check_scope(scope)
-        project = "" if scope == "personal" else check_project(project)
-        title = check_text("title", title.strip(), MAX_TITLE)
-        content = check_text("content", content, MAX_CONTENT)
-        kind = check_type(type)
-        topic_key = check_topic_key(topic_key)
+        fields = _fields(project, scope, type, title, content, topic_key)
+        with db.write(self.conn):
+            obs_id, action = self._upsert(*fields, session_id=session_id)
+        return SaveResult(obs_id, action)
+
+    def _upsert(
+        self,
+        project: str,
+        scope: str,
+        kind: str,
+        title: str,
+        content: str,
+        topic_key: str | None,
+        *,
+        session_id: int | None = None,
+        created_at: str | None = None,
+        updated_at: str | None = None,
+        keep_newer: bool = False,
+    ) -> tuple[int, str]:
+        """Upsert dentro de una transacción ya abierta. Con `keep_newer` (import), no pisa
+        una versión local más nueva: devuelve "skipped"."""
         digest = _hash(kind, title, content)
         stamp = now()
-        with db.write(self.conn):
-            if topic_key is not None:
-                row = self.conn.execute(
-                    "SELECT id, content_hash FROM observations WHERE project = ? AND topic_key = ?",
-                    (project, topic_key),
-                ).fetchone()
-            else:
-                row = self.conn.execute(
-                    "SELECT id, content_hash FROM observations "
-                    "WHERE project = ? AND topic_key IS NULL AND content_hash = ?",
-                    (project, digest),
-                ).fetchone()
-            if row is not None and row["content_hash"] == digest:
-                return SaveResult(row["id"], "unchanged")
-            if row is not None:
-                self.conn.execute(
-                    "UPDATE observations SET type = ?, title = ?, content = ?, scope = ?, "
-                    "session_id = coalesce(?, session_id), content_hash = ?, "
-                    "revision = revision + 1, updated_at = ? WHERE id = ?",
-                    (kind, title, content, scope, session_id, digest, stamp, row["id"]),
-                )
-                self._index(row["id"], title, content, topic_key)
-                return SaveResult(row["id"], "updated")
-            cursor = self.conn.execute(
-                "INSERT INTO observations (project, scope, type, title, content, topic_key, "
-                "session_id, content_hash, revision, created_at, updated_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
-                (project, scope, kind, title, content, topic_key, session_id, digest, stamp, stamp),
+        if topic_key is not None:
+            row = self.conn.execute(
+                "SELECT id, content_hash, updated_at FROM observations "
+                "WHERE project = ? AND topic_key = ?",
+                (project, topic_key),
+            ).fetchone()
+        else:
+            row = self.conn.execute(
+                "SELECT id, content_hash, updated_at FROM observations "
+                "WHERE project = ? AND topic_key IS NULL AND content_hash = ?",
+                (project, digest),
+            ).fetchone()
+        if row is not None and row["content_hash"] == digest:
+            return row["id"], "unchanged"
+        if row is not None:
+            if keep_newer and updated_at is not None and row["updated_at"] > updated_at:
+                return row["id"], "skipped"
+            self.conn.execute(
+                "UPDATE observations SET type = ?, title = ?, content = ?, scope = ?, "
+                "session_id = coalesce(?, session_id), content_hash = ?, "
+                "revision = revision + 1, updated_at = ? WHERE id = ?",
+                (kind, title, content, scope, session_id, digest, updated_at or stamp, row["id"]),
             )
-            obs_id = int(cursor.lastrowid or 0)
-            self._index(obs_id, title, content, topic_key)
-        return SaveResult(obs_id, "created")
+            self._index(row["id"], title, content, topic_key)
+            return row["id"], "updated"
+        cursor = self.conn.execute(
+            "INSERT INTO observations (project, scope, type, title, content, topic_key, "
+            "session_id, content_hash, revision, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
+            (
+                project,
+                scope,
+                kind,
+                title,
+                content,
+                topic_key,
+                session_id,
+                digest,
+                created_at or stamp,
+                updated_at or stamp,
+            ),
+        )
+        obs_id = int(cursor.lastrowid or 0)
+        self._index(obs_id, title, content, topic_key)
+        return obs_id, "created"
+
+    def import_rows(
+        self, rows: list[tuple[str, str, str, str, str, str | None, str, str]]
+    ) -> dict[str, int]:
+        """Importa filas ya validadas `(proyecto, scope, tipo, título, contenido, topic_key,
+        created_at, updated_at)` en una sola transacción. Devuelve cuántas de cada acción."""
+        counts = {"created": 0, "updated": 0, "unchanged": 0, "skipped": 0}
+        with db.write(self.conn):
+            for project, scope, kind, title, content, topic_key, created, updated in rows:
+                _, action = self._upsert(
+                    project,
+                    scope,
+                    kind,
+                    title,
+                    content,
+                    topic_key,
+                    created_at=created,
+                    updated_at=updated,
+                    keep_newer=True,
+                )
+                counts[action] += 1
+        return counts
 
     def delete(self, obs_id: int) -> bool:
         with db.write(self.conn):
@@ -332,6 +404,237 @@ class MemoryStore:
         scored.sort(key=lambda item: (item[0], item[1]["updated_at"], item[1]["id"]), reverse=True)
         return [_hit(row, score) for score, row in scored[:limit]]
 
+    def observations(
+        self, *, project: str | None = None, scope: str | None = None
+    ) -> list[Observation]:
+        """Todas las observaciones, por proyecto exacto (sin sumar las personales) y scope."""
+        clauses, args = [], []
+        if project is not None:
+            clauses.append("project = ?")
+            args.append(project)
+        if scope is not None:
+            clauses.append("scope = ?")
+            args.append(check_scope(scope))
+        where = " AND ".join(clauses) or "1"
+        rows = self.conn.execute(
+            f"SELECT * FROM observations WHERE {where} ORDER BY created_at, id", args
+        ).fetchall()
+        return [_observation(row) for row in rows]
+
+    # -- sesiones -------------------------------------------------------------------------
+
+    def _session(self, session_id: int) -> Session:
+        row = self.conn.execute("SELECT * FROM sessions WHERE id = ?", (session_id,)).fetchone()
+        if row is None:
+            raise NotFoundError(f"no existe la sesión {session_id}")
+        return Session(**{name: row[name] for name in Session.__dataclass_fields__})
+
+    def session_start(self, project: str, *, agent: str | None = None) -> Session:
+        project = check_project(project)
+        with db.write(self.conn):
+            cursor = self.conn.execute(
+                "INSERT INTO sessions (project, agent, started_at) VALUES (?, ?, ?)",
+                (project, agent, now()),
+            )
+        return self._session(int(cursor.lastrowid or 0))
+
+    def session_summary(
+        self, project: str, content: str, *, session_id: int | None = None
+    ) -> SummaryResult:
+        """Guarda el resumen en la sesión (la abierta más reciente del proyecto, o una nueva)
+        y como observación `session-summary`, para que se pueda buscar."""
+        project = check_project(project)
+        content = check_text("content", content, MAX_CONTENT)
+        with db.write(self.conn):
+            if session_id is None:
+                row = self.conn.execute(
+                    "SELECT id FROM sessions WHERE project = ? AND ended_at IS NULL "
+                    "ORDER BY started_at DESC, id DESC LIMIT 1",
+                    (project,),
+                ).fetchone()
+                if row is not None:
+                    session_id = int(row["id"])
+                else:
+                    cursor = self.conn.execute(
+                        "INSERT INTO sessions (project, started_at) VALUES (?, ?)", (project, now())
+                    )
+                    session_id = int(cursor.lastrowid or 0)
+            else:
+                project = self._session(session_id).project
+            self.conn.execute("UPDATE sessions SET summary = ? WHERE id = ?", (content, session_id))
+            obs_id, _ = self._upsert(
+                project,
+                "project",
+                "session-summary",
+                f"Resumen de la sesión {session_id}",
+                content,
+                f"session/{session_id}",
+                session_id=session_id,
+            )
+        return SummaryResult(session_id, obs_id)
+
+    def session_end(self, session_id: int, *, summary: str | None = None) -> Session:
+        session = self._session(session_id)
+        if summary:
+            self.session_summary(session.project, summary, session_id=session_id)
+        with db.write(self.conn):
+            self.conn.execute(
+                "UPDATE sessions SET ended_at = coalesce(ended_at, ?) WHERE id = ?",
+                (now(), session_id),
+            )
+        return self._session(session_id)
+
+    def session_show(
+        self, session_id: int | None = None, *, project: str | None = None
+    ) -> SessionView:
+        """Una sesión con sus observaciones; sin id, la más reciente (del proyecto, si se da)."""
+        if session_id is None:
+            where, args = ("project = ?", [project]) if project else ("1", [])
+            row = self.conn.execute(
+                f"SELECT id FROM sessions WHERE {where} ORDER BY started_at DESC, id DESC LIMIT 1",
+                args,
+            ).fetchone()
+            if row is None:
+                raise NotFoundError("no hay sesiones" + (f" de {project}" if project else ""))
+            session_id = int(row["id"])
+        session = self._session(session_id)
+        rows = self.conn.execute(
+            "SELECT * FROM observations WHERE session_id = ? AND type != 'session-summary' "
+            "ORDER BY created_at, id",
+            (session_id,),
+        ).fetchall()
+        return SessionView(session, [_observation(row) for row in rows])
+
+    # -- proyectos ------------------------------------------------------------------------
+
+    def register_project(
+        self, name: str, *, remote: str | None = None, path: Path | str | None = None
+    ) -> None:
+        name = check_project(name)
+        stamp = now()
+        with db.write(self.conn):
+            self.conn.execute(
+                "INSERT INTO projects (name, remote, path, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?) ON CONFLICT (name) DO UPDATE SET "
+                "remote = coalesce(excluded.remote, remote), "
+                "path = coalesce(excluded.path, path), updated_at = excluded.updated_at",
+                (name, remote, str(path) if path is not None else None, stamp, stamp),
+            )
+
+    def projects_list(self) -> list[ProjectInfo]:
+        rows = self.conn.execute(
+            "WITH names AS ("
+            "  SELECT name FROM projects"
+            "  UNION SELECT project FROM observations WHERE project != ''"
+            "  UNION SELECT project FROM sessions)"
+            " SELECT n.name, p.remote, p.path,"
+            "  (SELECT count(*) FROM observations o WHERE o.project = n.name) AS observations,"
+            "  (SELECT count(*) FROM sessions s WHERE s.project = n.name) AS sessions,"
+            "  max(coalesce((SELECT max(updated_at) FROM observations o"
+            "                WHERE o.project = n.name), ''),"
+            "      coalesce((SELECT max(started_at) FROM sessions s"
+            "                WHERE s.project = n.name), ''))"
+            "   AS last_activity"
+            " FROM names n LEFT JOIN projects p ON p.name = n.name"
+            " ORDER BY last_activity DESC, n.name"
+        ).fetchall()
+        return [
+            ProjectInfo(
+                name=row["name"],
+                remote=row["remote"],
+                path=row["path"],
+                observations=int(row["observations"]),
+                sessions=int(row["sessions"]),
+                last_activity=row["last_activity"] or None,
+            )
+            for row in rows
+        ]
+
+    def projects_merge(self, source: str, target: str) -> MergeResult:
+        """Mueve todo de `source` a `target`. Si un `topic_key` está en los dos, queda la
+        versión más reciente."""
+        source, target = check_project(source), check_project(target)
+        if source == target:
+            raise MemoryStoreError("no se puede unir un proyecto consigo mismo")
+        if source not in {p.name for p in self.projects_list()}:
+            raise NotFoundError(f"no existe el proyecto {source!r}")
+        with db.write(self.conn):
+            return self._merge(source, target)
+
+    def _merge(self, source: str, target: str) -> MergeResult:
+        conflicts = 0
+        clashes = self.conn.execute(
+            "SELECT s.id AS src, s.updated_at AS src_at, t.id AS dst, t.updated_at AS dst_at "
+            "FROM observations s JOIN observations t ON t.topic_key = s.topic_key "
+            "WHERE s.project = ? AND t.project = ? AND s.topic_key IS NOT NULL",
+            (source, target),
+        ).fetchall()
+        for clash in clashes:
+            loser = clash["dst"] if clash["src_at"] > clash["dst_at"] else clash["src"]
+            self.conn.execute("DELETE FROM observations WHERE id = ?", (loser,))
+            self._unindex(loser)
+            conflicts += 1
+        moved = self.conn.execute(
+            "UPDATE observations SET project = ? WHERE project = ?", (target, source)
+        ).rowcount
+        sessions = self.conn.execute(
+            "UPDATE sessions SET project = ? WHERE project = ?", (target, source)
+        ).rowcount
+        self.conn.execute(
+            "INSERT OR IGNORE INTO projects (name, remote, path, created_at, updated_at) "
+            "SELECT ?, remote, path, created_at, updated_at FROM projects WHERE name = ?",
+            (target, source),
+        )
+        self.conn.execute("DELETE FROM projects WHERE name = ?", (source,))
+        return MergeResult(source, target, moved, conflicts, sessions)
+
+    def projects_consolidate(self, *, dry_run: bool = False) -> dict[str, list[str]]:
+        """Une los proyectos cuyo nombre es una variante del mismo remoto (mayúsculas, URL
+        completa, `.git`). Devuelve `{canónico: [variantes]}`."""
+        groups: dict[str, list[str]] = {}
+        for info in self.projects_list():
+            groups.setdefault(projects.canonical(info.name), []).append(info.name)
+        plan = {
+            canon: sorted(name for name in names if name != canon)
+            for canon, names in sorted(groups.items())
+            if any(name != canon for name in names)
+        }
+        if not dry_run:
+            with db.write(self.conn):
+                for canon, variants in plan.items():
+                    for variant in variants:
+                        self._merge(variant, canon)
+        return plan
+
+    # -- stats ----------------------------------------------------------------------------
+
+    def stats(self) -> Stats:
+        count = self.conn.execute
+        by_type = dict(count("SELECT type, count(*) FROM observations GROUP BY type ORDER BY type"))
+        by_project = dict(
+            count(
+                "SELECT project, count(*) FROM observations WHERE project != '' "
+                "GROUP BY project ORDER BY count(*) DESC, project"
+            )
+        )
+        size = sum(
+            f.stat().st_size
+            for f in (self.path, self.path.with_name(self.path.name + "-wal"))
+            if f.exists()
+        )
+        return Stats(
+            path=str(self.path),
+            schema_version=int(db.get_meta(self.conn, "schema_version") or 0),
+            fts=self.fts,
+            size_bytes=size,
+            observations=int(count("SELECT count(*) FROM observations").fetchone()[0]),
+            sessions=int(count("SELECT count(*) FROM sessions").fetchone()[0]),
+            projects=len(self.projects_list()),
+            by_type=by_type,
+            by_project=by_project,
+            last_updated=count("SELECT max(updated_at) FROM observations").fetchone()[0],
+        )
+
     # -- contexto -------------------------------------------------------------------------
 
     def context(self, project: str, *, limit: int = 10, max_chars: int = CONTEXT_CHARS) -> str:
@@ -342,10 +645,22 @@ class MemoryStore:
             f'`{cli} mem search "<texto>"`. Al cerrar la sesión, guardá un resumen: '
             f'`{cli} mem session summary --content "<qué se hizo y qué queda>"`.\n'
         )
-        items = self.list(project, limit=self._limit(limit))
-        if not items:
+        items = [
+            o for o in self.list(project, limit=self._limit(limit)) if o.type != "session-summary"
+        ]
+        last = self.conn.execute(
+            "SELECT id, started_at, summary FROM sessions "
+            "WHERE project = ? AND summary IS NOT NULL "
+            "ORDER BY started_at DESC, id DESC LIMIT 1",
+            (project,),
+        ).fetchone()
+        if not items and last is None:
             return f"# Memoria de {project}: sin memorias todavía.\n{footer}"
         lines = [f"# Memoria de {project} (más recientes primero)\n"]
+        if last is not None:
+            lines.append(
+                f"\nÚltimo resumen de sesión (#{last['id']}): {preview(last['summary'], 600)}\n\n"
+            )
         for obs in items:
             key = f" · {obs.topic_key}" if obs.topic_key else ""
             line = f"- #{obs.id} [{obs.type}] {obs.title}{key}: {preview(obs.content, 160)}\n"
