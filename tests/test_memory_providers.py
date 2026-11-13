@@ -221,3 +221,31 @@ def test_sqlite_vec_y_python_dan_la_misma_distancia() -> None:
 def test_sqlite_vec_no_disponible(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sqlite_vec, "installed", lambda: False)
     assert sqlite_vec.available() is False
+
+
+def test_criterio_3_con_el_modelo_por_defecto(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Reindex desde SQLite con el modelo real de ADR-0010: mismas respuestas antes y después."""
+    from exo.memory import evaluation
+
+    model = embeddings.DEFAULT_MODELS["onnx"]
+    real = _real_models_dir()
+    if not (real / "onnx" / model.replace("/", "--")).is_dir() or not embeddings.installed("onnx"):
+        pytest.skip("modelo onnx no bajado (exo mem model pull onnx)")
+    monkeypatch.setattr(embeddings, "models_dir", lambda: real)
+    memories, queries = evaluation.load(Path(__file__).resolve().parent / "memory_eval")
+    with MemoryStore(tmp_path / "m.db") as store:
+        for memory in memories:
+            store.save(
+                project=P, title=memory["title"], content=memory["content"], type=memory["type"]
+            )
+        store.reindex(provider="onnx")
+        battery = [q["query"] for q in queries]
+        before = [[h.id for h in store.search(q, project=P)] for q in battery]
+        store.conn.execute("DELETE FROM observation_vectors")
+        store.conn.execute("DELETE FROM observations_fts")
+        result = store.reindex()
+        after = [[h.id for h in store.search(q, project=P)] for q in battery]
+    assert (result.fts, result.vectors) == (80, 80)
+    assert after == before

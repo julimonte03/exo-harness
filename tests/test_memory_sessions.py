@@ -220,3 +220,13 @@ def test_import_invalido_no_escribe_nada(store: MemoryStore, data: dict, fragmen
     with pytest.raises(MemoryStoreError, match=fragment):
         exchange.import_(store, data)
     assert store.stats().observations == 0
+
+
+def test_import_con_la_misma_fecha_y_otro_contenido_conserva_lo_local(store: MemoryStore) -> None:
+    store.save(project=P, title="Perfil", content="local", topic_key="project/profile")
+    local = store.list(P)[0]
+    data = exchange.export(store, project=P)
+    data["observations"][0]["content"] = "importado"
+    data["observations"][0]["updated_at"] = local.updated_at
+    assert exchange.import_(store, data).skipped == 1
+    assert store.list(P)[0].content == "local"
