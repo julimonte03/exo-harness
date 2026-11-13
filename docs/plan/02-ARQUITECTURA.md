@@ -234,6 +234,8 @@ Los archivos de configuración MCP generados usan `"command": "arnes", "args": [
 
 ## 2.11 Memoria (resumen; detalle en F3)
 
+> **Actualizado por ADR-0009:** la memoria es por máquina de usuario, sin guard S1, sin perfiles y sin Qdrant. Los backends son `lexical` y `hybrid-sqlite`.
+
 SQLite es la **fuente de verdad**: observaciones, sesiones y proyectos. Los índices de búsqueda (FTS5 y vectores) son **derivados y reconstruibles** con `arnes mem reindex`. El guard S1 corre antes de guardar y antes de calcular cualquier embedding. La búsqueda híbrida fusiona resultados léxicos y semánticos con Reciprocal Rank Fusion. Backends: `lexical` (stdlib), `hybrid-sqlite` (sqlite-vec en el mismo archivo) y `qdrant` (servidor). Los embeddings son locales por defecto; un proveedor remoto requiere habilitación explícita por la matriz DPA.
 
 ## 2.12 Config del proyecto `.arnes/config.json` (esquema 1)

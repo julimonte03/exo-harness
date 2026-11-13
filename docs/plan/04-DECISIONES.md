@@ -64,11 +64,13 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 - **Opciones:** `lexical` (FTS5) · `hybrid-sqlite` (FTS5 + sqlite-vec) · `qdrant`.
 - **Default provisorio:** `auto` = `hybrid-sqlite` si el extra `[vector]` está instalado, si no `lexical`. **El default definitivo lo decide el experimento de F3** con un ADR.
 - **Por qué no Qdrant como default:** Qdrant es open source y se puede correr gratis con Docker, y su cliente Python tiene un modo local sin servidor. Pero ese modo local toma un lock de proceso único sobre la carpeta, y en este motor conviven el servidor MCP (uno por sesión de agente abierta) y el CLI. Por eso Qdrant entra como backend de servidor (Docker) para experimentar memoria de equipo, y el modo local solo para tests.
-- **Estado:** Abierta.
+- **Actualización (ADR-0009), 2026-11-13:** Qdrant sale de F3, porque la memoria es por usuario. Quedan `lexical` y `hybrid-sqlite`.
+- **Estado:** Abierta. La decide el experimento de F3.
 
 ### D-08 — Embeddings
 - **Default:** solo locales. Candidatos a comparar en el experimento: embeddings estáticos livianos (model2vec), ONNX en CPU (FastEmbed) y Ollama. Requisito: modelo **multilingüe** (las memorias van a mezclar español e inglés). Proveedores remotos solo con `allow_remote: true`.
-- **Estado:** Abierta.
+- **Actualización (ADR-0009), 2026-11-13:** los modelos se bajan de Hugging Face solo con `exo mem model pull`. Ollama no está instalado en la máquina del experimento: su proveedor existe, pero queda fuera de la comparación.
+- **Estado:** Abierta. La decide el experimento de F3.
 
 ## Bloquean F4
 
@@ -94,7 +96,7 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 ### D-12 — Contenido específico de la organización de origen
 - **Contexto:** el reporte tiene piezas propias de la organización de origen: un estilo ejecutivo propio, detectores de CUIT/CUIL/DNI, una matriz DPA propia, SonarQube/Fortify, Kibana, Xray y su plataforma interna de CI.
 - **Default:** generalizar como **perfiles de organización**: `dpa_profile: legacy-profile` (incluye los detectores argentinos y la matriz del reporte), estilo visual con tokens de marca configurables, herramientas corporativas como integraciones opcionales que degradan.
-- **Estado:** Abierta.
+- **Estado:** Parcial (ADR-0009), 2026-11-13: la memoria no tiene perfiles ni detectores (D-24). El resto (estilo, matriz DPA, herramientas corporativas) sigue abierto para F5.
 
 ### D-21 — Git hooks por defecto
 - **Default:** sí, instalados con `core.hooksPath=.arnes/githooks`. Si el proyecto ya usa husky o el framework pre-commit, el motor se integra con ese mecanismo en vez de reemplazarlo.
@@ -121,6 +123,7 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 
 ### D-20 — Memoria compartida de equipo
 - **Default:** no en la v1. El experimento con Qdrant en servidor (F3) deja la evidencia para decidir. Compartir sigue siendo posible con `mem export`/`mem import` redactado, como en el reporte.
+- **Estado:** Decidida (ADR-0009), 2026-11-13: no en la v1. La memoria es por máquina de usuario y F3 no incluye Qdrant. Compartir sigue siendo posible con `mem export`/`mem import`, sin redactar (D-24).
 
 ### D-22 — Distribución pública
 - **Default:** repo privado hasta M2; después instaladores por `curl`/`irm` y `uvx`. PyPI y marketplaces de agentes, opcionales en F8.
@@ -136,3 +139,13 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 - **Default:** (c). (a) no depende de terceros y suma poco costo, porque el plan ya prevé CLI para casi todo (`exo mem`, `exo change status`, `exo discover`). (b) mejora la experiencia donde se consiga.
 - **Bloquea:** F1 (diseño de `mcp/tools/` con su par en el CLI) y F2 (chequeo de doctor y checklist manual).
 - **Estado:** Decidida (ADR-0005), 2026-10-30: opción (a), con el CLI como interfaz principal. Las skills usan `exo … --json` por terminal y el servidor MCP queda opcional, apagado por defecto (`mcp.enabled: false`). Donde el plan (§2.10, fases) dice "tool MCP", se lee "subcomando del CLI, también expuesto por MCP si está habilitado".
+
+### D-24 — Guard S1 en la memoria
+- **Contexto:** el plan de F3 ponía un guard S1 que rechaza secretos y PII al guardar y los redacta al exportar, con perfiles de organización (D-12).
+- **Opciones:** (a) guard con perfil `legacy-profile`; (b) guard solo de secretos, sin PII; (c) sin guard.
+- **Estado:** Decidida (ADR-0009), 2026-11-13: (c). La memoria es por máquina de usuario, sin auth ni perfiles. La regla de `AGENTS.md` de no guardar secretos queda como pauta para el agente. Riesgo aceptado: un export comparte el contenido sin redactar.
+
+### D-25 — Hooks de sesión para la memoria
+- **Contexto:** la config administrada de esta máquina tiene `allowManagedHooksOnly: true`, que bloquea los hooks de proyecto en Claude Code. Además, Claude Code y Copilot esperan salidas distintas, y ninguno permite pedirle algo al agente con `PreCompact` o `SessionEnd`.
+- **Opciones:** (a) hooks donde la política lo permita, más reglas, más aviso de `exo doctor`; (b) solo reglas.
+- **Estado:** Decidida (ADR-0009), 2026-11-13: (b). La sección «Memoria» de `AGENTS.base.md` y la skill `memory-protocol` le dicen al agente cuándo correr `exo mem context`, `exo mem save` y `exo mem session summary`.
