@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from exo import _meta
-from exo.memory.embeddings import ProviderError, model_path
+from exo.memory.embeddings import ProviderError, model_path, promote, staged
 
 
 def _missing_extra() -> ProviderError:
@@ -32,7 +32,13 @@ class StaticProvider:
                 from model2vec import StaticModel
             except ImportError as exc:
                 raise _missing_extra() from exc
-            self._loaded = StaticModel.from_pretrained(str(path), force_download=False)
+            try:
+                self._loaded = StaticModel.from_pretrained(str(path), force_download=False)
+            except Exception as exc:  # noqa: BLE001 - archivos rotos dan errores de todo tipo
+                raise ProviderError(
+                    f"no se pudo cargar el modelo {self.model} de {path} ({exc}); bajalo de "
+                    f"nuevo con `{_meta.NAME} mem model pull static`"
+                ) from exc
         return self._loaded
 
     @property
@@ -40,7 +46,11 @@ class StaticProvider:
         return int(self._load().dim)
 
     def embed(self, texts: list[str]) -> list[list[float]]:
-        vectors = self._load().encode(list(texts), use_multiprocessing=False)
+        model = self._load()
+        try:
+            vectors = model.encode(list(texts), use_multiprocessing=False)
+        except Exception as exc:  # noqa: BLE001
+            raise ProviderError(f"model2vec falló al calcular vectores ({exc})") from exc
         return [[float(x) for x in row] for row in vectors]
 
 
@@ -50,10 +60,11 @@ def pull(model: str) -> Path:
     except ImportError as exc:
         raise _missing_extra() from exc
     path = model_path("static", model)
+    partial = staged(path)
     # Solo lo que usa model2vec: algunos repos traen además una copia ONNX del mismo tamaño.
     snapshot_download(
         repo_id=model,
-        local_dir=str(path),
+        local_dir=str(partial),
         allow_patterns=["*.json", "*.safetensors", "*.txt", "*.model"],
     )
-    return path
+    return promote(partial, path)
