@@ -9,6 +9,7 @@ protocolo. Las tools salen de `exo.tools.registry`, las mismas que usa el CLI.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import sys
@@ -55,8 +56,9 @@ def _initialize(params: dict[str, Any]) -> dict[str, Any]:
         "capabilities": {"tools": {"listChanged": False}},
         "serverInfo": {"name": _meta.NAME, "version": _meta.VERSION},
         "instructions": (
-            f"Tools de {_meta.DISPLAY_NAME}: skills y estado de changes SDD (solo lectura). "
-            f"Cada tool tiene su equivalente en el CLI `{_meta.NAME}`."
+            f"Tools de {_meta.DISPLAY_NAME}: skills, estado de changes SDD (solo lectura) y "
+            f"memoria del usuario (mem_*). Cada tool tiene su equivalente en el CLI "
+            f"`{_meta.NAME}`."
         ),
     }
 
@@ -67,9 +69,11 @@ def _call_tool(params: dict[str, Any], context: registry.Context) -> dict[str, A
     if tool is None:
         return None
     try:
-        return _tool_result(
-            registry.call(tool.name, params.get("arguments"), context), is_error=False
-        )
+        # stdout es del protocolo: lo que imprima una librería (una barra de progreso, por
+        # ejemplo) va a stderr.
+        with contextlib.redirect_stdout(sys.stderr):
+            payload = registry.call(tool.name, params.get("arguments"), context)
+        return _tool_result(payload, is_error=False)
     except InputError as exc:
         return _tool_result(str(exc), is_error=True)
     except Exception as exc:  # una tool nunca tira abajo el servidor
