@@ -65,12 +65,12 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 - **Default provisorio:** `auto` = `hybrid-sqlite` si el extra `[vector]` está instalado, si no `lexical`. **El default definitivo lo decide el experimento de F3** con un ADR.
 - **Por qué no Qdrant como default:** Qdrant es open source y se puede correr gratis con Docker, y su cliente Python tiene un modo local sin servidor. Pero ese modo local toma un lock de proceso único sobre la carpeta, y en este motor conviven el servidor MCP (uno por sesión de agente abierta) y el CLI. Por eso Qdrant entra como backend de servidor (Docker) para experimentar memoria de equipo, y el modo local solo para tests.
 - **Actualización (ADR-0009), 2026-11-13:** Qdrant sale de F3, porque la memoria es por usuario. Quedan `lexical` y `hybrid-sqlite`.
-- **Estado:** Abierta. La decide el experimento de F3.
+- **Estado:** Decidida (ADR-0010), 2026-11-13: `hybrid-sqlite` por el experimento (Recall@5 80,0 contra 62,2 de la léxica; p95 67 ms con 5 000 memorias). `auto` usa la híbrida si la base tiene índice semántico y la léxica si no.
 
 ### D-08 — Embeddings
 - **Default:** solo locales. Candidatos a comparar en el experimento: embeddings estáticos livianos (model2vec), ONNX en CPU (FastEmbed) y Ollama. Requisito: modelo **multilingüe** (las memorias van a mezclar español e inglés). Proveedores remotos solo con `allow_remote: true`.
 - **Actualización (ADR-0009), 2026-11-13:** los modelos se bajan de Hugging Face solo con `exo mem model pull`. Ollama no está instalado en la máquina del experimento: su proveedor existe, pero queda fuera de la comparación.
-- **Estado:** Abierta. La decide el experimento de F3.
+- **Estado:** Decidida (ADR-0010), 2026-11-13: `onnx` (FastEmbed, `paraphrase-multilingual-MiniLM-L12-v2`) como primera opción de `local`, `static` (model2vec) como alternativa. Extra `[vector]` = sqlite-vec + FastEmbed.
 
 ## Bloquean F4
 

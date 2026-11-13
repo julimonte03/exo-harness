@@ -1,4 +1,5 @@
-"""Backend sqlite-vec (extra `[vector]`): `vec_distance_cosine` en C, en la misma base.
+"""Backend sqlite-vec (extras `[vector]` y `[static]`): `vec_distance_cosine` en C, en la
+misma base.
 
 Algunos Python (por ejemplo builds de sistema en macOS) no permiten cargar
 extensiones de SQLite; entonces `available()` es falso y se usa el backend de

@@ -1,4 +1,4 @@
-"""Proveedor `static`: model2vec (extra `[vector]`). Embeddings estáticos, sin red neuronal
+"""Proveedor `static`: model2vec (extra `[static]`). Embeddings estáticos, sin red neuronal
 al consultar: muy livianos en CPU. Carga solo desde la carpeta local del modelo."""
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from exo.memory.embeddings import ProviderError, model_path
 
 
 def _missing_extra() -> ProviderError:
-    return ProviderError(f"falta el extra [vector]: pip install {_meta.DIST_NAME}[vector]")
+    return ProviderError(f"falta el extra [static]: pip install {_meta.DIST_NAME}[static]")
 
 
 class StaticProvider:

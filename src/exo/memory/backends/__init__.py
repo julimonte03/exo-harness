@@ -5,7 +5,7 @@ float32. Un backend solo aporta la función SQL de distancia coseno; así la
 búsqueda semántica filtra por proyecto, scope y tipo **antes** de rankear,
 con el mismo SQL para los dos:
 
-- `sqlite-vec`: la extensión (extra `[vector]`), `vec_distance_cosine` en C.
+- `sqlite-vec`: la extensión (extras `[vector]` y `[static]`), `vec_distance_cosine` en C.
 - `python`: la misma función en Python puro. Sirve para los tests y para bases
   chicas cuando falta la extensión; `exo doctor` avisa que es lenta.
 """

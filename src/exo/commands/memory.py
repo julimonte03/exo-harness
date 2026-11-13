@@ -458,7 +458,13 @@ def register(sub: argparse._SubParsersAction) -> None:
         description="Baja el modelo de Hugging Face a la carpeta de modelos del usuario. "
         "Después, `mem reindex --provider <proveedor>` crea el índice semántico.",
     )
-    pull.add_argument("provider", nargs="?", default="local", choices=("local", "static", "onnx"))
+    pull.add_argument(
+        "provider",
+        nargs="?",
+        default="local",
+        choices=("local", "onnx", "static"),
+        help="local (por defecto): el mejor instalado, onnx primero (ADR-0010)",
+    )
     pull.add_argument("--model", help="modelo (por defecto, el multilingüe del proveedor)")
     pull.add_argument("--json", action="store_true", help="salida JSON")
     pull.set_defaults(handler=_model_pull)
