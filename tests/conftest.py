@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
@@ -22,15 +22,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _datos_de_usuario_aislados(
-    monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory
-) -> None:
-    """Ningún test toca la carpeta de datos real ni la memoria real del usuario."""
+def _datos_de_usuario_aislados(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
+    """Ningún test toca la carpeta de datos real ni la memoria real del usuario.
+
+    Usa un MonkeyPatch propio: si un test hace `monkeypatch.undo()`, no deshace esto.
+    """
     from exo import paths
 
-    data = tmp_path_factory.mktemp("datos-usuario")
-    monkeypatch.setenv(paths.ENV_DATA_DIR, str(data))
-    monkeypatch.delenv(paths.ENV_MEMORY_DB, raising=False)
+    patch = pytest.MonkeyPatch()
+    patch.setenv(paths.ENV_DATA_DIR, str(tmp_path_factory.mktemp("datos-usuario")))
+    patch.delenv(paths.ENV_MEMORY_DB, raising=False)
+    yield
+    patch.undo()
 
 
 @pytest.fixture

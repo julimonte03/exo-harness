@@ -90,7 +90,9 @@ def test_cli_doctor(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert {c["name"] for c in payload["checks"]} >= {"python", "content", "snapshots"}
 
 
-def test_cli_doctor_con_errores(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_cli_doctor_con_errores(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     monkeypatch.setenv(content.ENV_VAR, str(tmp_path / "nada"))
     assert main(["doctor", "--project", str(tmp_path)]) == 1
     assert "error" in capsys.readouterr().out
@@ -164,10 +166,112 @@ def test_confianza_del_workspace_de_claude(tmp_path: Path, monkeypatch: pytest.M
     monkeypatch.setattr(doctor.Path, "home", classmethod(lambda cls: home))
     assert _by_name(doctor.run_checks(root))["claude-trust"].status == "info"
     key = root.resolve().as_posix()
-    (home / ".claude.json").write_text(json.dumps({"projects": {key: {"hasTrustDialogAccepted": True}}}), encoding="utf-8")
+    (home / ".claude.json").write_text(
+        json.dumps({"projects": {key: {"hasTrustDialogAccepted": True}}}), encoding="utf-8"
+    )
     assert _by_name(doctor.run_checks(root))["claude-trust"].status == "ok"
     (home / ".claude.json").write_text("{ roto", encoding="utf-8")
     assert _by_name(doctor.run_checks(root))["claude-trust"].status == "info"
     (tmp_path / "otro").mkdir()
     other = _installed(tmp_path / "otro", ["copilot"])
-    assert _by_name(doctor.run_checks(other))["claude-trust"].detail == "no es agente destino del proyecto"
+    assert (
+        _by_name(doctor.run_checks(other))["claude-trust"].detail
+        == "no es agente destino del proyecto"
+    )
+
+
+# -- memoria (F3) ----------------------------------------------------------------------
+
+
+def test_memoria_sin_base_todavia() -> None:
+    checks = _by_name(doctor.run_checks(Path(".")))
+    assert checks["memory"].status == "info" and "todavía no hay memoria" in checks["memory"].detail
+    assert checks["memory-fts5"].status == "ok"
+    assert checks["memory-semantic"].status == "info"
+
+
+def test_memoria_lexica_y_aviso_de_hibrida() -> None:
+    from exo.memory.store import MemoryStore
+
+    with MemoryStore() as store:
+        store.save(project="local/x", title="t", content="c")
+    checks = _by_name(doctor.run_checks(Path(".")))
+    assert checks["memory"].status == "ok" and "1 observaciones" in checks["memory"].detail
+    assert checks["memory-semantic"].status == "info"
+    assert "reindex --provider local" in checks["memory-semantic"].detail
+
+
+def test_memoria_semantica(monkeypatch: pytest.MonkeyPatch) -> None:
+    from _memory_fakes import FakeProvider
+    from exo.memory import embeddings
+    from exo.memory.backends import sqlite_vec
+    from exo.memory.store import MemoryStore
+
+    provider = FakeProvider()
+    monkeypatch.setitem(embeddings.FACTORIES, "fake", lambda model, allow_remote: provider)
+    with MemoryStore() as store:
+        store.save(project="local/x", title="t", content="c")
+        store.reindex(provider="fake")
+    check = _by_name(doctor.run_checks(Path(".")))["memory-semantic"]
+    assert check.status in ("ok", "warn") and "fake:v1" in check.detail
+    with monkeypatch.context() as patch:
+        # Contexto propio: undo() del monkeypatch general desharía también el aislamiento de
+        # la carpeta de datos (conftest) y escribiría en la memoria real.
+        patch.setattr(sqlite_vec, "available", lambda: False)
+        check = _by_name(doctor.run_checks(Path(".")))["memory-semantic"]
+        assert check.status == "warn" and "Python" in check.detail
+    provider.fail = True
+    with MemoryStore() as store:
+        store.save(project="local/x", title="otra", content="sin vector")
+    provider.fail = False
+    check = _by_name(doctor.run_checks(Path(".")))["memory-semantic"]
+    assert check.status == "warn" and "sin vector" in check.detail
+
+
+def test_memoria_con_proveedor_que_no_se_puede_usar() -> None:
+    import sqlite3
+
+    from exo import paths
+    from exo.memory.store import MemoryStore
+
+    MemoryStore().close()
+    conn = sqlite3.connect(paths.memory_db_path())
+    conn.executemany(
+        "INSERT INTO meta (key, value) VALUES (?, ?)",
+        [("embedding_provider", "static"), ("embedding_model", "x/y")],
+    )
+    conn.commit()
+    conn.close()
+    check = _by_name(doctor.run_checks(Path(".")))["memory-semantic"]
+    assert check.status == "warn" and "model pull static" in check.detail
+
+
+def test_memoria_de_un_esquema_mas_nuevo_es_error() -> None:
+    import sqlite3
+
+    from exo import paths
+    from exo.memory.store import MemoryStore
+
+    MemoryStore().close()
+    conn = sqlite3.connect(paths.memory_db_path())
+    conn.execute("UPDATE meta SET value = '99' WHERE key = 'schema_version'")
+    conn.commit()
+    conn.close()
+    assert _by_name(doctor.run_checks(Path(".")))["memory"].status == "error"
+
+
+def test_memoria_sin_fts5(monkeypatch: pytest.MonkeyPatch) -> None:
+    from exo.memory import db
+
+    monkeypatch.setattr(db, "fts5_available", lambda conn: False)
+    check = _by_name(doctor.run_checks(Path(".")))["memory-fts5"]
+    assert check.status == "warn" and "FTS5" in check.detail
+
+
+def test_seccion_memory_de_la_config_sin_efecto(tmp_path: Path) -> None:
+    path = tmp_path / _meta.PROJECT_DIR / "config.json"
+    path.parent.mkdir()
+    path.write_text('{"schema": 1, "memory": {"backend": "lexical"}}', encoding="utf-8")
+    check = _by_name(doctor.run_checks(tmp_path))["memory-config"]
+    assert check.status == "info" and "ADR-0009" in check.detail
+    assert _by_name(doctor.run_checks(tmp_path / "otro"))["memory-config"].status == "ok"
