@@ -1,9 +1,8 @@
 ---
 name: hello-exo
 description: >-
-  Skill de prueba del motor: confirma que las skills se instalan y que el agente
-  las ve. Usala cuando te pidan probar o verificar la instalación de skills /
-  Use when asked to test or verify that skills are installed.
+  Engine test skill: confirms that skills are installed and that the agent can
+  see them. Use it when asked to test or verify that skills are installed.
 metadata:
   exo-pack: core
   exo-execution: inline
@@ -11,8 +10,8 @@ metadata:
 
 # hello-exo
 
-Respondé con una sola línea:
+Reply with a single line:
 
-> hello-exo: la skill está instalada y el agente la puede leer.
+> hello-exo: the skill is installed and the agent can read it.
 
-No hagas nada más. Esta skill existe solo para verificar la instalación.
+Do nothing else. This skill exists only to verify the installation.

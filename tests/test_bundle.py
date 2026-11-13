@@ -20,7 +20,7 @@ def test_bundle_del_contenido_real() -> None:
     assert skill.pack == "core"
     assert set(skill.files) == {"SKILL.md"}
     assert skill.files["SKILL.md"] == (content.content_root() / "packs/core/skills/hello-exo/SKILL.md").read_bytes()
-    assert bundle.rules.startswith("# Reglas del proyecto")
+    assert bundle.rules.startswith("# Project rules")
 
 
 def test_solo_core_no_trae_lo_de_sdd() -> None:
@@ -31,5 +31,5 @@ def test_solo_core_no_trae_lo_de_sdd() -> None:
 
 
 def test_pack_inexistente() -> None:
-    with pytest.raises(PackError, match="no existe"):
+    with pytest.raises(PackError, match="does not exist"):
         build_bundle(content.content_root(), ["fantasma"])

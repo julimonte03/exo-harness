@@ -1,10 +1,9 @@
 ---
 name: sdd-status
 description: >-
-  Muestra el estado de los changes SDD del proyecto (fase, artefactos,
-  followups y ticket) sin adivinar. Usala cuando pregunten en qué está un
-  cambio o qué falta / Use it when asked about the status of a change or what
-  is missing.
+  Shows the status of the project's SDD changes (phase, artifacts, followups
+  and ticket) without guessing. Use it when asked what state a change is in or
+  what is missing.
 metadata:
   exo-pack: sdd
   exo-execution: inline
@@ -12,13 +11,13 @@ metadata:
 
 # sdd-status
 
-Respondé solo con lo que devuelve el motor. No infieras el estado leyendo archivos a mano.
+Answer only with what the engine returns. Do not infer the status by reading files by hand.
 
-## Pasos
+## Steps
 
-1. Para ver todos los changes, corré `exo change list --json`.
-2. Para uno en particular, corré `exo change status <change-name> --json`.
-3. Para los followups abiertos, corré `exo change followups <change-name> --json`.
-4. Resumí: fase, artefactos presentes, ticket, followups abiertos y qué sigue.
+1. To see all changes, run `exo change list --json`.
+2. For a specific one, run `exo change status <change-name> --json`.
+3. For open followups, run `exo change followups <change-name> --json`.
+4. Summarize: phase, artifacts present, ticket, open followups and what comes next.
 
-Si el comando no está disponible, decilo y no inventes el estado.
+If the command is not available, say so and do not make up the status.

@@ -176,7 +176,7 @@ def test_tools_de_observabilidad(tmp_path: Path) -> None:
     assert [f["id"] for f in followups["followups"]] == ["J1-1"]
     record = registry.call("get_ai_usage_record", {"change_name": "PROJ-1-login"}, ctx)
     assert record["record"] == {"jira_key": "PROJ-1"}
-    with pytest.raises(InputError, match="no existe"):
+    with pytest.raises(InputError, match="does not exist"):
         registry.call("get_change_state", {"change_name": "otro"}, ctx)
     with pytest.raises(InputError, match="fuera"):
         registry.call("list_changes", {"cwd": ".."}, ctx)

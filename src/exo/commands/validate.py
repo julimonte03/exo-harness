@@ -13,11 +13,11 @@ from exo.validate import validate
 def register(sub: argparse._SubParsersAction) -> None:
     parser = sub.add_parser(
         "validate",
-        help="valida el contenido del motor (o el de --root)",
-        description="Sale con 1 si hay errores. Las advertencias no cambian el código de salida.",
+        help="validate the engine content (or the content at --root)",
+        description="Exits with 1 if there are errors. Warnings do not change the exit code.",
     )
-    parser.add_argument("--root", type=Path, help="raíz de un contenido (con packs/ y rules/)")
-    parser.add_argument("--json", action="store_true", help="salida JSON")
+    parser.add_argument("--root", type=Path, help="root of a content tree (with packs/ and rules/)")
+    parser.add_argument("--json", action="store_true", help="JSON output")
     parser.set_defaults(handler=run)
 
 
@@ -41,14 +41,14 @@ def run(args: argparse.Namespace) -> int:
     for finding in report.errors:
         print(f"{finding.path}:{finding.line}: error: {finding.message}")
     for finding in report.warnings:
-        print(f"{finding.path}:{finding.line}: aviso: {finding.message}")
+        print(f"{finding.path}:{finding.line}: warning: {finding.message}")
     counts = report.counts
     summary = (
-        f"contenido: {counts['packs']} packs, {counts['skills']} skills, "
-        f"{counts['subagents']} subagentes"
+        f"content: {counts['packs']} packs, {counts['skills']} skills, "
+        f"{counts['subagents']} subagents"
     )
     if report.ok:
-        print(f"{summary}: todo válido")
+        print(f"{summary}: all valid")
         return 0
-    print(f"{summary}: {len(report.errors)} errores")
+    print(f"{summary}: {len(report.errors)} errors")
     return 1
