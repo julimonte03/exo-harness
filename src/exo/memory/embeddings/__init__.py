@@ -119,3 +119,29 @@ def create(name: str, model: str | None = None, *, allow_remote: bool = False) -
         raise ProviderError(f"proveedor de embeddings desconocido o vacío: {name!r}")
     check_remote(name, allow_remote)
     return FACTORIES[name](model, allow_remote)
+
+
+def pull(provider: str, model: str | None = None) -> tuple[str, str, Path]:
+    """Baja un modelo local a la carpeta de modelos. Devuelve (proveedor, modelo, carpeta)."""
+    provider = resolve(provider)
+    if provider == "ollama":
+        raise ProviderError("los modelos de Ollama se bajan con `ollama pull <modelo>`")
+    if provider not in DEFAULT_MODELS:
+        raise ProviderError(f"el proveedor {provider!r} no tiene modelos para bajar")
+    model = model or DEFAULT_MODELS[provider]
+    if provider == "static":
+        from exo.memory.embeddings.static import pull as download
+    else:
+        from exo.memory.embeddings.onnx import pull as download
+    return provider, model, download(model)
+
+
+def list_models() -> list[tuple[str, str, Path]]:
+    """Modelos bajados: (proveedor, modelo, carpeta)."""
+    found = []
+    for provider in sorted(DEFAULT_MODELS):
+        folder = models_dir() / provider
+        if folder.is_dir():
+            for path in sorted(p for p in folder.iterdir() if p.is_dir()):
+                found.append((provider, path.name.replace("--", "/"), path))
+    return found

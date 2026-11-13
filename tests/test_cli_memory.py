@@ -173,3 +173,26 @@ def test_reindex_y_modo_de_busqueda(
 def test_criterio_7_por_cli(capsys: pytest.CaptureFixture[str]) -> None:
     code, out = mem(capsys, "reindex", "--provider", "openai-compatible")
     assert code == 1 and "remoto" in out and "--allow-remote" in out
+
+
+def test_model_pull_y_list(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from exo.memory import embeddings
+    from exo.memory.embeddings import static
+
+    code, out = mem(capsys, "model", "list")
+    assert "sin modelos" in out
+
+    def fake_pull(model: str) -> Path:
+        path = embeddings.model_path("static", model)
+        path.mkdir(parents=True)
+        return path
+
+    monkeypatch.setattr(static, "pull", fake_pull)
+    code, out = mem(capsys, "model", "pull", "static")
+    assert code == 0 and "reindex --provider static" in out
+    assert mem_json(capsys, "model", "list")["models"][0]["provider"] == "static"
+    code, out = mem(capsys, "model", "pull", "static", "--model", "x/y")
+    code, out = mem(capsys, "model", "pull", "static", "--model", "x/y")
+    assert code == 1

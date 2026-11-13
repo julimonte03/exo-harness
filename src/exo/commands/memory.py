@@ -14,6 +14,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from exo import _meta
 from exo.commands._output import emit_json, error
 from exo.memory import embeddings, exchange
 from exo.memory.model import SEARCH_MODES
@@ -160,6 +161,34 @@ def _export(args: argparse.Namespace) -> int:
 
 def _progress(done: int, total: int) -> None:
     print(f"vectores: {done}/{total}", file=sys.stderr, flush=True)
+
+
+def _model_pull(args: argparse.Namespace) -> int:
+    print("bajando el modelo (puede tardar)...", file=sys.stderr, flush=True)
+    try:
+        provider, model, path = embeddings.pull(args.provider, args.model)
+    except (ValueError, ImportError, OSError) as exc:
+        return error(str(exc))
+    if args.json:
+        emit_json({"provider": provider, "model": model, "path": str(path)})
+    else:
+        print(f"listo: {provider}:{model} en {path}")
+        print(f"siguiente paso: `{_meta.NAME} mem reindex --provider {provider}`")
+    return 0
+
+
+def _model_list(args: argparse.Namespace) -> int:
+    found = embeddings.list_models()
+    if args.json:
+        emit_json(
+            {"models": [{"provider": p, "model": m, "path": str(path)} for p, m, path in found]}
+        )
+        return 0
+    for provider, model, path in found:
+        print(f"{provider}\t{model}\t{path}")
+    if not found:
+        print(f"sin modelos; bajá uno con `{_meta.NAME} mem model pull`")
+    return 0
 
 
 def _reindex(args: argparse.Namespace) -> int:
@@ -395,6 +424,21 @@ def register(sub: argparse._SubParsersAction) -> None:
     )
     reindex.add_argument("--json", action="store_true", help="salida JSON")
     reindex.set_defaults(handler=_reindex)
+
+    model = _group(mem, "model", "modelos de embeddings locales")
+    pull = model.add_parser(
+        "pull",
+        help="baja un modelo (la única forma de bajarlos: nunca se bajan solos)",
+        description="Baja el modelo de Hugging Face a la carpeta de modelos del usuario. "
+        "Después, `mem reindex --provider <proveedor>` crea el índice semántico.",
+    )
+    pull.add_argument("provider", nargs="?", default="local", choices=("local", "static", "onnx"))
+    pull.add_argument("--model", help="modelo (por defecto, el multilingüe del proveedor)")
+    pull.add_argument("--json", action="store_true", help="salida JSON")
+    pull.set_defaults(handler=_model_pull)
+    models = model.add_parser("list", help="modelos bajados")
+    models.add_argument("--json", action="store_true", help="salida JSON")
+    models.set_defaults(handler=_model_list)
 
     export = mem.add_parser("export", help="exporta a JSON (sin redactar)")
     export.add_argument("--all", action="store_true", help="todos los proyectos y lo personal")
