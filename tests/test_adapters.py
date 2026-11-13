@@ -150,7 +150,7 @@ def test_normalize_agents() -> None:
 
 
 def test_pack_inexistente_es_error_de_proyecto(tmp_path: Path) -> None:
-    with pytest.raises(ProjectError, match="no existe"):
+    with pytest.raises(ProjectError, match="does not exist"):
         project.sync(tmp_path, packs=["fantasma"])
 
 

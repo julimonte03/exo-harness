@@ -1,7 +1,7 @@
 {
   "name": "core",
   "version": "0.1.0",
-  "description": "Reglas base, contratos compartidos y skills transversales del motor.",
+  "description": "Base rules, shared contracts and cross-cutting skills of the engine.",
   "requires": [],
   "optional": []
 }

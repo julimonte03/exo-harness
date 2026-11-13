@@ -53,7 +53,7 @@ _LOOSE_SCENARIO = re.compile(r"^s-?\d+$", re.IGNORECASE)
 _STRICT = {"req": re.compile(r"^N?FR-[1-9]\d*$"), "scenario": re.compile(r"^S-[1-9]\d*$")}
 # Dónde se definen los IDs de cada clase: (token al inicio de línea, forma laxa).
 _DEFINITION = {"req": (_ITEM_TOKEN, _LOOSE_REQ), "scenario": (_HEADING_TOKEN, _LOOSE_SCENARIO)}
-_ID_HINT = "se espera por ejemplo FR-1, NFR-1, S-1"
+_ID_HINT = "expected for example FR-1, NFR-1, S-1"
 _REFERENCE = re.compile(r"\b((?:N?FR|S)-[1-9]\d*)\b")
 
 
@@ -134,9 +134,9 @@ def _check_structure(sections: list[_Section], template: str, errors: list[Issue
     for title in _required(template):
         section = _find(sections, title)
         if section is None:
-            errors.append(Issue(1, f"falta la sección '## {title}'"))
+            errors.append(Issue(1, f"missing section '## {title}'"))
         elif not section.text().strip():
-            errors.append(Issue(section.line, f"la sección '{section.title}' está vacía"))
+            errors.append(Issue(section.line, f"section '{section.title}' is empty"))
 
 
 def _definitions(section: _Section, kind: str, errors: list[Issue]) -> dict[str, int]:
@@ -153,9 +153,9 @@ def _definitions(section: _Section, kind: str, errors: list[Issue]) -> dict[str,
             continue
         token = match.group(1)
         if not strict.match(token):
-            errors.append(Issue(number, f"ID mal formado: {token} ({_ID_HINT})"))
+            errors.append(Issue(number, f"malformed ID: {token} ({_ID_HINT})"))
         elif token in found:
-            message = f"{token} definido dos veces (antes en la línea {found[token]})"
+            message = f"{token} defined twice (first on line {found[token]})"
             errors.append(Issue(number, message))
         else:
             found[token] = number
@@ -185,18 +185,18 @@ def _check_spec(sections: list[_Section], errors: list[Issue]) -> dict[str, int]
     if requirements is not None:
         reqs = _definitions(requirements, "req", errors)
         if not any(token.startswith("FR-") for token in reqs):
-            errors.append(Issue(requirements.line, "no hay requisitos FR-n en 'Requirements'"))
+            errors.append(Issue(requirements.line, "no FR-n requirements in 'Requirements'"))
         defined.update(reqs)
     scenarios = _find(sections, "Scenarios")
     if scenarios is not None:
         found = _definitions(scenarios, "scenario", errors)
         if not found:
-            errors.append(Issue(scenarios.line, "no hay escenarios S-n en 'Scenarios'"))
+            errors.append(Issue(scenarios.line, "no S-n scenarios in 'Scenarios'"))
         for token, body in _scenario_blocks(scenarios).items():
             for word in ("Given", "When", "Then"):
                 if not re.search(rf"\b{word}\b", body, re.IGNORECASE):
                     line = found.get(token, scenarios.line)
-                    errors.append(Issue(line, f"{token} no tiene {word}"))
+                    errors.append(Issue(line, f"{token} has no {word}"))
         defined.update(found)
     return defined
 
@@ -206,12 +206,12 @@ def _check_verify(sections: list[_Section], errors: list[Issue]) -> None:
     if verdict is not None and verdict.text().strip():
         words = set(re.findall(r"[a-z-]+", verdict.text().lower()))
         if len(words & set(VERDICTS)) != 1:
-            message = "Verdict tiene que ser ready, needs-rework o blocked"
+            message = "Verdict must be ready, needs-rework or blocked"
             errors.append(Issue(verdict.line, message))
     gate = _find(sections, "Gate summary")
     if gate is not None and not GATE_MARKER.search(gate.text(comments=True)):
         marker = f"<!-- {_meta.BLOCK_PREFIX}-gate:<gate> -->"
-        errors.append(Issue(gate.line, f"falta el marcador de gate ({marker}) en 'Gate summary'"))
+        errors.append(Issue(gate.line, f"missing gate marker ({marker}) in 'Gate summary'"))
 
 
 def _template_for(path: Path, kind: str | None) -> str:
@@ -219,11 +219,11 @@ def _template_for(path: Path, kind: str | None) -> str:
         template = ARTIFACTS.get(path.name)
         if template is None:
             raise SpeclintError(
-                f"no sé qué tipo de artefacto es {path.name}; indicá --type ({', '.join(KINDS)})"
+                f"unknown artifact type for {path.name}; pass --type ({', '.join(KINDS)})"
             )
         return template
     if kind not in KINDS:
-        raise SpeclintError(f"tipo desconocido: {kind!r} (uno de {', '.join(KINDS)})")
+        raise SpeclintError(f"unknown type: {kind!r} (one of {', '.join(KINDS)})")
     if kind == "functional":
         return "proposal" if "proposal" in path.name else "spec"
     return next(t for t, k in KIND_OF.items() if k == kind)
@@ -270,7 +270,7 @@ def _cross_check(reports: dict[str, tuple[FileReport, list[_Section], dict[str, 
         for number, token in _references(report.path):
             if token not in defined and token not in seen:
                 seen.add(token)
-                report.errors.append(Issue(number, f"{token} no está definido en spec.md"))
+                report.errors.append(Issue(number, f"{token} is not defined in spec.md"))
     if "design.md" in reports:
         report, sections, _ = reports["design.md"]
         plan = _find(sections, "Test Plan")
@@ -278,14 +278,14 @@ def _cross_check(reports: dict[str, tuple[FileReport, list[_Section], dict[str, 
             mentioned = set(_REFERENCE.findall(plan.text()))
             for token in defined:
                 if token.startswith("S-") and token not in mentioned:
-                    message = f"{token} de spec.md no aparece en el Test Plan de design.md"
+                    message = f"{token} from spec.md does not appear in the Test Plan of design.md"
                     report.errors.append(Issue(plan.line, message))
 
 
 def lint_path(path: Path, kind: str | None = None) -> LintReport:
     path = Path(path)
     if not path.exists():
-        raise SpeclintError(f"no existe {path}")
+        raise SpeclintError(f"{path} does not exist")
     if path.is_file():
         report, _, _ = _lint_file(path, _template_for(path, kind))
         return LintReport([report])
@@ -297,7 +297,7 @@ def lint_path(path: Path, kind: str | None = None) -> LintReport:
     if not reports:
         empty = FileReport(path, "change", "")
         empty.errors.append(
-            Issue(0, f"no hay artefactos SDD en {path} ({', '.join(ARTIFACTS)})")
+            Issue(0, f"no SDD artifacts in {path} ({', '.join(ARTIFACTS)})")
         )
         return LintReport([empty])
     _cross_check(reports)
