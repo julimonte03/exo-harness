@@ -21,6 +21,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
 
 
+@pytest.fixture(autouse=True)
+def _datos_de_usuario_aislados(
+    monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    """Ningún test toca la carpeta de datos real ni la memoria real del usuario."""
+    from exo import paths
+
+    data = tmp_path_factory.mktemp("datos-usuario")
+    monkeypatch.setenv(paths.ENV_DATA_DIR, str(data))
+    monkeypatch.delenv(paths.ENV_MEMORY_DB, raising=False)
+
+
 @pytest.fixture
 def make_dir_link() -> Callable[[Path, Path], None]:
     """Crea un link de directorio: junction en Windows (sin privilegios), symlink en POSIX."""
