@@ -14,7 +14,14 @@ from dataclasses import asdict
 from typing import Any
 
 from exo.memory import projects
-from exo.memory.model import COMMON_TYPES, MAX_CONTENT, MAX_TITLE, SCOPES, Observation
+from exo.memory.model import (
+    COMMON_TYPES,
+    MAX_CONTENT,
+    MAX_TITLE,
+    SCOPES,
+    SEARCH_MODES,
+    Observation,
+)
 from exo.memory.store import MAX_LIMIT, MemoryStore
 from exo.tools.base import CWD, Context, Tool, project_dir, schema
 
@@ -93,14 +100,20 @@ def _save(store: MemoryStore, context: Context, args: dict[str, Any]) -> dict[st
 
 def _search(store: MemoryStore, context: Context, args: dict[str, Any]) -> dict[str, Any]:
     project = _scoped(context, args, store)
-    hits = store.search(
+    result = store.query(
         args["query"],
         project=project,
         type=args.get("type"),
         scope=args.get("scope"),
         limit=args.get("limit", 10),
+        mode=args.get("mode", "auto"),
     )
-    return {"project": project, "mode": "lexical", "results": [asdict(hit) for hit in hits]}
+    return {
+        "project": project,
+        "mode": result.mode,
+        "note": result.note,
+        "results": [asdict(hit) for hit in result.hits],
+    }
 
 
 def _list(store: MemoryStore, context: Context, args: dict[str, Any]) -> dict[str, Any]:
@@ -223,6 +236,11 @@ TOOLS: tuple[Tool, ...] = (
                 **_PROJECT,
                 **_ALL,
                 "query": {"type": "string", "minLength": 1, "maxLength": 1000},
+                "mode": {
+                    "type": "string",
+                    "enum": list(SEARCH_MODES),
+                    "description": "auto: híbrida si hay índice semántico, si no léxica",
+                },
                 **_FILTERS,
                 **_LIMIT,
             },
@@ -317,8 +335,7 @@ TOOLS: tuple[Tool, ...] = (
     ),
     Tool(
         "mem_projects_merge",
-        "Mueve todo de un proyecto a otro; si un topic_key está en los dos, queda el más "
-        "reciente.",
+        "Mueve todo de un proyecto a otro; si un topic_key está en los dos, queda el más reciente.",
         schema(
             {
                 "source": {"type": "string", "minLength": 1, "maxLength": 300},

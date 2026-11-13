@@ -15,13 +15,15 @@ from pathlib import Path
 from typing import Any
 
 from exo.commands._output import emit_json, error
-from exo.memory import exchange
+from exo.memory import embeddings, exchange
+from exo.memory.model import SEARCH_MODES
 from exo.memory.store import MemoryStore
 from exo.tools import registry
 from exo.tools.validation import InputError
 
 Build = Callable[[argparse.Namespace], dict[str, Any]]
 Printer = Callable[[dict[str, Any]], None]
+PROVIDER_CHOICES: tuple[str, ...] = ("local", *embeddings.PROVIDERS)
 
 
 def _opt(**values: Any) -> dict[str, Any]:
@@ -67,6 +69,8 @@ def _run(tool: str, build: Build, printer: Printer) -> Callable[[argparse.Namesp
 
 
 def _print_hits(result: dict[str, Any]) -> None:
+    if result.get("note"):
+        print(f"nota: {result['note']}", file=sys.stderr)
     items = result.get("results", result.get("observations", []))
     for item in items:
         where = item["project"] or "personal"
@@ -154,6 +158,37 @@ def _export(args: argparse.Namespace) -> int:
     return 0
 
 
+def _progress(done: int, total: int) -> None:
+    print(f"vectores: {done}/{total}", file=sys.stderr, flush=True)
+
+
+def _reindex(args: argparse.Namespace) -> int:
+    if args.provider is not None and args.provider not in PROVIDER_CHOICES:
+        return error(
+            f"proveedor desconocido: {args.provider} (uno de {', '.join(PROVIDER_CHOICES)})"
+        )
+    try:
+        with MemoryStore() as store:
+            result = store.reindex(
+                provider=args.provider,
+                model=args.model,
+                allow_remote=args.allow_remote,
+                progress=None if args.json else _progress,
+            )
+    except (ValueError, ImportError, OSError) as exc:
+        return error(str(exc))
+    if args.json:
+        emit_json(vars(result))
+        return 0
+    semantic = (
+        f"{result.vectors} vectores ({result.provider}:{result.model}, dim {result.dim})"
+        if result.provider
+        else "sin índice semántico"
+    )
+    print(f"reindexado: {result.fts} en el índice léxico, {semantic}")
+    return 0
+
+
 def _import(args: argparse.Namespace) -> int:
     try:
         data = json.loads(args.file.read_bytes().decode("utf-8-sig"))
@@ -218,10 +253,17 @@ def register(sub: argparse._SubParsersAction) -> None:
 
     search = mem.add_parser("search", help="busca (devuelve previews)")
     search.add_argument("query")
+    search.add_argument(
+        "--mode", choices=SEARCH_MODES, help="auto (por defecto): híbrida si hay índice semántico"
+    )
     _filters(search)
     _common(search)
     search.set_defaults(
-        handler=_run("mem_search", lambda a: {"query": a.query, **_scope_args(a)}, _print_hits)
+        handler=_run(
+            "mem_search",
+            lambda a: {"query": a.query, **_scope_args(a), **_opt(mode=a.mode)},
+            _print_hits,
+        )
     )
 
     listing = mem.add_parser("list", help="observaciones recientes")
@@ -334,6 +376,25 @@ def register(sub: argparse._SubParsersAction) -> None:
             lambda r: print(f"{r['name']} ({r['source']})"),
         )
     )
+
+    reindex = mem.add_parser(
+        "reindex",
+        help="reconstruye los índices desde la base (y cambia el semántico)",
+        description=(
+            "Sin --provider, rehace el índice léxico y el semántico que ya tiene la base. Con "
+            "--provider, crea o cambia el semántico (local: el mejor instalado; none: lo apaga). "
+            "Los modelos locales se bajan antes con `mem model pull`."
+        ),
+    )
+    reindex.add_argument("--provider", help=f"uno de: {', '.join(PROVIDER_CHOICES)}")
+    reindex.add_argument("--model", help="modelo (por defecto, el del proveedor)")
+    reindex.add_argument(
+        "--allow-remote",
+        action="store_true",
+        help="permite un proveedor remoto: manda el texto de las memorias afuera",
+    )
+    reindex.add_argument("--json", action="store_true", help="salida JSON")
+    reindex.set_defaults(handler=_reindex)
 
     export = mem.add_parser("export", help="exporta a JSON (sin redactar)")
     export.add_argument("--all", action="store_true", help="todos los proyectos y lo personal")

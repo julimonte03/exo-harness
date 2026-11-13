@@ -143,3 +143,33 @@ def test_export_e_import(
     bad.write_text("{ roto", encoding="utf-8")
     code, out = mem(capsys, "import", str(bad))
     assert code == 1 and "JSON" in out
+
+
+def test_reindex_y_modo_de_busqueda(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from _memory_fakes import FakeProvider
+    from exo.memory import embeddings
+
+    monkeypatch.setitem(
+        embeddings.FACTORIES, "fake", lambda model, allow_remote: FakeProvider(model)
+    )
+    monkeypatch.setattr(
+        "exo.commands.memory.PROVIDER_CHOICES", (*embeddings.PROVIDERS, "local", "fake")
+    )
+    mem_json(capsys, "save", "--project", P, "--title", "Colas", "--content", "usamos colas")
+    assert mem_json(capsys, "search", "mensajeria", "--project", P)["mode"] == "lexical"
+    code, out = mem(capsys, "reindex", "--provider", "fake")
+    assert code == 0 and "1 vectores" in out and "fake:v1" in out
+    result = mem_json(capsys, "search", "mensajeria", "--project", P)
+    assert (result["mode"], result["results"][0]["title"]) == ("hybrid", "Colas")
+    assert (
+        mem_json(capsys, "search", "mensajeria", "--project", P, "--mode", "lexical")["results"]
+        == []
+    )
+    assert mem_json(capsys, "stats")["semantic"]["provider"] == "fake"
+
+
+def test_criterio_7_por_cli(capsys: pytest.CaptureFixture[str]) -> None:
+    code, out = mem(capsys, "reindex", "--provider", "openai-compatible")
+    assert code == 1 and "remoto" in out and "--allow-remote" in out
