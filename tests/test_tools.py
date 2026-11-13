@@ -89,8 +89,8 @@ def test_check_arguments() -> None:
 # -- registro -----------------------------------------------------------------
 
 
-def test_siete_tools_con_schema() -> None:
-    names = [t.name for t in registry.TOOLS]
+def test_tools_con_schema() -> None:
+    names = [t.name for t in registry.TOOLS if not t.name.startswith("mem_")]
     assert names == [
         "skills_list",
         "skill_info",
@@ -115,11 +115,13 @@ def _subcommands(parser: argparse.ArgumentParser) -> dict[str, argparse.Argument
 
 
 def test_paridad_cli_mcp() -> None:
-    top = _subcommands(build_parser())
     for tool in registry.TOOLS:
-        group, action = tool.cli
-        assert group in top, tool.name
-        assert action in _subcommands(top[group]), tool.name
+        level = _subcommands(build_parser())
+        for part in tool.cli:
+            assert part in level, (tool.name, tool.cli)
+            parser = level[part]
+            level = _subcommands(parser)
+        assert level == {}, f"{tool.name}: {tool.cli} no llega a un subcomando final"
 
 
 def test_call_desconocida() -> None:

@@ -5,6 +5,7 @@ from exo.commands import (
     doctor,
     fitness,
     inject,
+    memory,
     project,
     registry,
     speclint,
@@ -24,4 +25,5 @@ COMMANDS = [
     tools.register,
     doctor.register,
     project.register,
+    memory.register,
 ]

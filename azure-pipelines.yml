@@ -60,6 +60,31 @@ jobs:
           test "$a" = "$b"
         displayName: Misma versión por CLI y por módulo
 
+  # F3: la memoria con los extras (sqlite-vec, model2vec, FastEmbed). Sin modelos bajados:
+  # los tests que los necesitan se saltean.
+  - job: memory_extras
+    displayName: Memoria con extras
+    timeoutInMinutes: 20
+    strategy:
+      matrix:
+        linux:
+          imageName: ubuntu-latest
+        windows:
+          imageName: windows-latest
+    pool:
+      vmImage: $(imageName)
+    steps:
+      - task: UsePythonVersion@0
+        displayName: Python 3.13
+        inputs:
+          versionSpec: "3.13"
+
+      - script: python -m pip install -e ".[dev,vector,static]"
+        displayName: Instalar con extras
+
+      - script: pytest --no-cov tests/test_memory_store.py tests/test_memory_semantic.py tests/test_memory_providers.py tests/test_cli_memory.py
+        displayName: Tests de memoria
+
   # Criterio 1 de F2: los instaladores de un comando en un HOME temporal.
   - job: installers
     displayName: Instaladores de un comando
