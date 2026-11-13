@@ -304,19 +304,16 @@ def _memory_semantic(project: Path) -> Check:
     except (MemoryStoreError, sqlite3.Error) as exc:
         return Check("memory-semantic", "error", str(exc))
     detail = f"híbrida con {name} (dim {config_.dim}, backend {backend})"
+    problems = []
     if backend == "python":
-        return Check(
-            "memory-semantic",
-            "warn",
-            f"{detail}: sqlite-vec no carga en este Python (falta el extra o el Python no permite "
-            "extensiones de SQLite), así que la búsqueda semántica corre en Python y es lenta",
+        problems.append(
+            "sqlite-vec no carga en este Python (falta el extra o el Python no permite "
+            "extensiones de SQLite), así que la búsqueda semántica corre en Python y es lenta"
         )
     if missing:
-        return Check(
-            "memory-semantic",
-            "warn",
-            f"{detail}: {missing} observaciones sin vector; corré `{_meta.NAME} mem reindex`",
-        )
+        problems.append(f"{missing} observaciones sin vector; corré `{_meta.NAME} mem reindex`")
+    if problems:
+        return Check("memory-semantic", "warn", f"{detail}: {'; '.join(problems)}")
     return Check("memory-semantic", "ok", detail)
 
 

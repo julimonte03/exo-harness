@@ -385,7 +385,8 @@ class MemoryStore:
             self._vector(row["id"], digest, vector, only_missing=True)
             return row["id"], "unchanged"
         if row is not None:
-            if keep_newer and updated_at is not None and row["updated_at"] > updated_at:
+            # Con la misma fecha y otro contenido no se sabe cuál es más nuevo: gana el local.
+            if keep_newer and updated_at is not None and row["updated_at"] >= updated_at:
                 return row["id"], "skipped"
             self.conn.execute(
                 "UPDATE observations SET type = ?, title = ?, content = ?, scope = ?, "
