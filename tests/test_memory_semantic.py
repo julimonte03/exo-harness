@@ -201,6 +201,8 @@ def test_local_sin_extras_es_none(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(embeddings, "installed", lambda provider: provider == "onnx")
     assert embeddings.resolve("local") == "onnx"
     assert embeddings.resolve("static") == "static"
+    monkeypatch.setattr(embeddings, "installed", lambda provider: True)
+    assert embeddings.resolve("local") == "onnx"
 
 
 def test_criterio_7_proveedor_remoto_sin_permiso_falla(path: Path) -> None:

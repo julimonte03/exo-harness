@@ -79,7 +79,7 @@ jobs:
         inputs:
           versionSpec: "3.13"
 
-      - script: python -m pip install -e ".[dev,vector,onnx]"
+      - script: python -m pip install -e ".[dev,vector,static]"
         displayName: Instalar con extras
 
       - script: pytest --no-cov tests/test_memory_store.py tests/test_memory_semantic.py tests/test_memory_providers.py tests/test_cli_memory.py

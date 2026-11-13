@@ -19,10 +19,11 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6"]
-# Memoria semántica (F3, ADR-0009): sqlite-vec en la misma base y embeddings estáticos.
-vector = ["sqlite-vec>=0.1.6", "model2vec>=0.4"]
-# Embeddings ONNX en CPU (más pesados; alternativa a model2vec).
-onnx = ["fastembed>=0.4"]
+# Memoria semántica (F3, ADR-0009 y ADR-0010): sqlite-vec en la misma base y embeddings
+# ONNX en CPU con FastEmbed, la combinación que ganó el experimento.
+vector = ["sqlite-vec>=0.1.6", "fastembed>=0.4"]
+# Alternativa con embeddings estáticos (model2vec).
+static = ["sqlite-vec>=0.1.6", "model2vec>=0.4"]
 
 [project.scripts]
 exo = "exo.cli:main"

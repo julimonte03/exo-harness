@@ -1,8 +1,9 @@
 """Proveedores de embeddings (D-08). Cada uno importa su dependencia de forma diferida.
 
 - `none`: sin búsqueda semántica.
-- `static`: model2vec (extra `[vector]`), embeddings estáticos, muy livianos.
-- `onnx`: FastEmbed en CPU (extra `[onnx]`).
+- `onnx`: FastEmbed en CPU (extra `[vector]`). El default de `local` desde el
+  experimento de F3 (ADR-0010).
+- `static`: model2vec (extra `[static]`), embeddings estáticos.
 - `ollama`: HTTP a un Ollama local.
 - `openai-compatible`: HTTP a un servicio remoto. Manda el texto de las
   memorias afuera, así que exige habilitarlo explícitamente (invariante 11).
@@ -31,6 +32,7 @@ DEFAULT_MODELS = {
 }
 # Paquete que necesita cada proveedor local, para resolver `local` sin importarlos.
 _PACKAGES = {"static": "model2vec", "onnx": "fastembed"}
+LOCAL_ORDER = ("onnx", "static")
 
 
 class ProviderError(MemoryStoreError):
@@ -65,10 +67,11 @@ def installed(provider: str) -> bool:
 
 
 def resolve(name: str) -> str:
-    """`local` es el mejor proveedor local instalado: `static`, después `onnx`, si no `none`."""
+    """`local` es el mejor proveedor local instalado según el experimento de F3 (ADR-0010):
+    `onnx`, después `static`, si no `none`."""
     if name != "local":
         return name
-    return next((p for p in ("static", "onnx") if installed(p)), "none")
+    return next((p for p in LOCAL_ORDER if installed(p)), "none")
 
 
 def _static(model: str | None, allow_remote: bool) -> EmbeddingProvider:

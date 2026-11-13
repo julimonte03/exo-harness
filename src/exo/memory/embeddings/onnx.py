@@ -1,4 +1,4 @@
-"""Proveedor `onnx`: FastEmbed en CPU (extra `[onnx]`). Carga solo archivos locales."""
+"""Proveedor `onnx`: FastEmbed en CPU (extra `[vector]`). Carga solo archivos locales."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from exo.memory.embeddings import ProviderError, model_path
 
 
 def _missing_extra() -> ProviderError:
-    return ProviderError(f"falta el extra [onnx]: pip install {_meta.DIST_NAME}[onnx]")
+    return ProviderError(f"falta el extra [vector]: pip install {_meta.DIST_NAME}[vector]")
 
 
 class OnnxProvider:
