@@ -60,7 +60,7 @@ SIMILAR_MIN = 0.80
 # Similitud mínima para que un resultado semántico cuente (el experimento de F3 la ajusta).
 SEMANTIC_MIN = 0.25
 MAX_TERMS = 64
-SUMMARY_TITLE = "Resumen de sesión"
+SUMMARY_TITLE = "Session summary"
 _WORD = re.compile(r"[^\W_]+")
 # Pesos de BM25 por columna: título, contenido, topic_key.
 _BM25 = "bm25(observations_fts, 4.0, 1.0, 2.0)"
@@ -167,7 +167,7 @@ class MemoryStore:
         available = db.fts5_available(self.conn)
         if fts and not available:
             self.conn.close()
-            raise MemoryStoreError("este Python no trae FTS5; usá otro o fts=False")
+            raise MemoryStoreError("this Python has no FTS5; use another one or fts=False")
         self.fts = available if fts is None else fts
         try:
             had_index = self._has_fts_table()
@@ -199,7 +199,7 @@ class MemoryStore:
             candidate = SemanticIndex(provider, backends.create(), dim=config.dim, config=config)
             candidate.prepare(self.conn)
         except (MemoryStoreError, ImportError) as exc:
-            self.semantic_note = f"búsqueda semántica no disponible ({exc}); se usa la léxica"
+            self.semantic_note = f"semantic search unavailable ({exc}); using lexical search"
             return
         self.semantic = candidate
 
@@ -210,9 +210,7 @@ class MemoryStore:
         try:
             return self.semantic.vectors([index.text_for(title, content)])[0]
         except Exception as exc:  # noqa: BLE001 - un modelo roto nunca impide guardar
-            self.semantic_note = (
-                f"no se calculó el vector ({exc}); corré `{_meta.NAME} mem reindex`"
-            )
+            self.semantic_note = f"vector not computed ({exc}); run `{_meta.NAME} mem reindex`"
             return None
 
     def __enter__(self) -> MemoryStore:
@@ -235,7 +233,7 @@ class MemoryStore:
     def rebuild_fts(self) -> int:
         """Reconstruye el índice FTS5 desde las observaciones. Devuelve cuántas indexó."""
         if not self.fts:
-            raise MemoryStoreError("FTS5 no está disponible en este Python")
+            raise MemoryStoreError("FTS5 is not available in this Python")
         with db.write(self.conn):
             self.conn.execute("DELETE FROM observations_fts")
             self.conn.execute(
@@ -263,8 +261,8 @@ class MemoryStore:
             name = embeddings.resolve(provider)
             if provider == "local" and name == "none":
                 raise embeddings.ProviderError(
-                    "no hay un proveedor local instalado: pip install "
-                    f"{_meta.DIST_NAME}[vector] (o --provider none para apagar el índice)"
+                    "no local provider installed: pip install "
+                    f"{_meta.DIST_NAME}[vector] (or --provider none to turn the index off)"
                 )
             if name == "none":
                 with db.write(self.conn):
@@ -280,7 +278,7 @@ class MemoryStore:
             if current is None:
                 return ReindexResult(fts_count, 0, None, None, None)
             if self.semantic is None:
-                raise MemoryStoreError(self.semantic_note or "el índice semántico no se puede usar")
+                raise MemoryStoreError(self.semantic_note or "the semantic index cannot be used")
             config = current
             target = SemanticIndex(self.semantic.provider, self.semantic.backend, config=config)
         target.prepare(self.conn)
@@ -305,7 +303,7 @@ class MemoryStore:
                     [index.text_for(r["title"], r["content"]) for r in chunk]
                 )
             except (MemoryStoreError, ImportError, OSError) as exc:
-                self.semantic_note = f"faltan vectores ({exc}); corré `{_meta.NAME} mem reindex`"
+                self.semantic_note = f"missing vectors ({exc}); run `{_meta.NAME} mem reindex`"
                 break
             with db.write(self.conn):
                 for row, blob in zip(chunk, blobs, strict=True):
@@ -360,7 +358,7 @@ class MemoryStore:
                 self.conn, vector, "o.project = ? AND o.id != ?", [project, obs_id], 3
             )
         except Exception as exc:  # noqa: BLE001
-            self.semantic_note = f"no se buscaron similares ({exc})"
+            self.semantic_note = f"similar observations not checked ({exc})"
             return []
         keep = {i: 1.0 - d for i, d in near if 1.0 - d >= SIMILAR_MIN}
         return self._hits_by_id(list(keep), keep)
@@ -452,7 +450,7 @@ class MemoryStore:
         if not self.semantic.matches(self.conn):
             # Otro proceso cambió el índice (reindex con otro modelo) desde que se abrió:
             # no se mezclan vectores; la observación queda sin vector hasta el reindex.
-            self.semantic_note = f"el índice semántico cambió; corré `{_meta.NAME} mem reindex`"
+            self.semantic_note = f"the semantic index changed; run `{_meta.NAME} mem reindex`"
             return
         if (
             only_missing
@@ -499,7 +497,7 @@ class MemoryStore:
     def get(self, obs_id: int) -> Observation:
         row = self.conn.execute("SELECT * FROM observations WHERE id = ?", (obs_id,)).fetchone()
         if row is None:
-            raise NotFoundError(f"no existe la observación {obs_id}")
+            raise NotFoundError(f"observation {obs_id} not found")
         return _observation(row)
 
     @staticmethod
@@ -524,7 +522,7 @@ class MemoryStore:
     @staticmethod
     def _limit(limit: int) -> int:
         if not 1 <= limit <= MAX_LIMIT:
-            raise MemoryStoreError(f"limit tiene que estar entre 1 y {MAX_LIMIT}")
+            raise MemoryStoreError(f"limit must be between 1 and {MAX_LIMIT}")
         return limit
 
     def list(
@@ -572,7 +570,7 @@ class MemoryStore:
         """Busca con el modo pedido. `weights` pesa (léxico, semántico) en la fusión RRF."""
         limit = self._limit(limit)
         if mode not in SEARCH_MODES:
-            raise MemoryStoreError(f"modo inválido: {mode!r} (uno de {', '.join(SEARCH_MODES)})")
+            raise MemoryStoreError(f"invalid mode: {mode!r} (one of {', '.join(SEARCH_MODES)})")
         note = None
         auto = mode == "auto"
         if auto:
@@ -580,8 +578,7 @@ class MemoryStore:
         if mode != "lexical" and self.semantic is None:
             raise MemoryStoreError(
                 self.semantic_note
-                or "no hay índice semántico; creálo con "
-                f"`{_meta.NAME} mem reindex --provider local`"
+                or f"no semantic index; create one with `{_meta.NAME} mem reindex --provider local`"
             )
         found = terms(query)
         if not found:
@@ -594,8 +591,8 @@ class MemoryStore:
             semantic = self._semantic_ranking(query, project, type, scope, depth)
         except Exception as exc:  # noqa: BLE001 - el modelo puede fallar de muchas formas
             if not auto:
-                raise MemoryStoreError(f"búsqueda semántica: {exc}") from exc
-            note = f"búsqueda semántica no disponible ({exc}); se usó la léxica"
+                raise MemoryStoreError(f"semantic search: {exc}") from exc
+            note = f"semantic search unavailable ({exc}); used lexical search"
             hits = self._lexical(query, found, project, type, scope, limit)
             return SearchResult(hits, "lexical", note)
         if mode == "semantic":
@@ -683,7 +680,7 @@ class MemoryStore:
     def _session(self, session_id: int) -> Session:
         row = self.conn.execute("SELECT * FROM sessions WHERE id = ?", (session_id,)).fetchone()
         if row is None:
-            raise NotFoundError(f"no existe la sesión {session_id}")
+            raise NotFoundError(f"session {session_id} not found")
         return Session(**{name: row[name] for name in Session.__dataclass_fields__})
 
     def session_start(self, project: str, *, agent: str | None = None) -> Session:
@@ -754,7 +751,7 @@ class MemoryStore:
                 args,
             ).fetchone()
             if row is None:
-                raise NotFoundError("no hay sesiones" + (f" de {project}" if project else ""))
+                raise NotFoundError("no sessions" + (f" for {project}" if project else ""))
             session_id = int(row["id"])
         session = self._session(session_id)
         rows = self.conn.execute(
@@ -818,9 +815,9 @@ class MemoryStore:
         versión más reciente."""
         source, target = check_project(source), check_project(target)
         if source == target:
-            raise MemoryStoreError("no se puede unir un proyecto consigo mismo")
+            raise MemoryStoreError("cannot merge a project into itself")
         if source not in {p.name for p in self.projects_list()}:
-            raise NotFoundError(f"no existe el proyecto {source!r}")
+            raise NotFoundError(f"project {source!r} not found")
         with db.write(self.conn):
             return self._merge(source, target)
 
@@ -932,9 +929,9 @@ class MemoryStore:
         """Contexto reciente del proyecto, para el inicio de una sesión del agente."""
         cli = _meta.NAME
         footer = (
-            f"\nDetalle: `{cli} mem get <id>`. Buscá antes de resolver algo de nuevo: "
-            f'`{cli} mem search "<texto>"`. Al cerrar la sesión, guardá un resumen: '
-            f'`{cli} mem session summary --content "<qué se hizo y qué queda>"`.\n'
+            f"\nDetails: `{cli} mem get <id>`. Search before solving something again: "
+            f'`{cli} mem search "<text>"`. When the session ends, save a summary: '
+            f'`{cli} mem session summary --content "<what was done and what is left>"`.\n'
         )
         items = [
             o for o in self.list(project, limit=self._limit(limit)) if o.type != "session-summary"
@@ -946,11 +943,11 @@ class MemoryStore:
             (project,),
         ).fetchone()
         if not items and last is None:
-            return f"# Memoria de {project}: sin memorias todavía.\n{footer}"
-        lines = [f"# Memoria de {project} (más recientes primero)\n"]
+            return f"# Memory for {project}: no memories yet.\n{footer}"
+        lines = [f"# Memory for {project} (most recent first)\n"]
         if last is not None:
             lines.append(
-                f"\nÚltimo resumen de sesión (#{last['id']}): {preview(last['summary'], 600)}\n\n"
+                f"\nLast session summary (#{last['id']}): {preview(last['summary'], 600)}\n\n"
             )
         for obs in items:
             key = f" · {obs.topic_key}" if obs.topic_key else ""

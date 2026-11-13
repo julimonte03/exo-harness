@@ -148,7 +148,7 @@ def test_si_el_proveedor_falla_se_guarda_igual(path: Path, fake: FakeProvider) -
         assert "reindex" in store.semantic_note
         result = store.query("guarda", project=P)
         assert (result.mode, [h.title for h in result.hits]) == ("lexical", ["Sin vector"])
-        assert "no disponible" in result.note
+        assert "unavailable" in result.note
         with pytest.raises(MemoryStoreError):
             store.query("guarda", project=P, mode="hybrid")
         fake.fail = False
@@ -207,10 +207,10 @@ def test_local_sin_extras_es_none(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_criterio_7_proveedor_remoto_sin_permiso_falla(path: Path) -> None:
     with MemoryStore(path) as store:
-        with pytest.raises(embeddings.ProviderError, match="remoto"):
+        with pytest.raises(embeddings.ProviderError, match="remote"):
             store.reindex(provider="openai-compatible")
         assert store.stats().semantic is None
-    with pytest.raises(embeddings.ProviderError, match="desconocido"):
+    with pytest.raises(embeddings.ProviderError, match="unknown"):
         embeddings.create("none")
 
 

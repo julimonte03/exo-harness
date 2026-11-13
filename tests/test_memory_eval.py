@@ -77,11 +77,11 @@ def test_regla_de_decision() -> None:
         ]
     )
     assert winner == "hybrid-b"
-    assert all("pasa" in r for r in reasons)
+    assert all(": passes" in r for r in reasons)
     assert evaluation.decide([lexical, _row("h", "hybrid", 0.59, 1.0, 10)])[0] == "lexical"
     assert evaluation.decide([lexical, _row("h", "hybrid", 0.80, 0.97, 10)])[0] == "lexical"
     winner, reasons = evaluation.decide([lexical, _row("h", "hybrid", 0.80, 1.0, 151)])
-    assert winner == "lexical" and "no pasa" in reasons[0]
+    assert winner == "lexical" and "fails" in reasons[0]
 
 
 def test_distractores_deterministas() -> None:
@@ -107,7 +107,7 @@ def test_evaluate_con_proveedor_falso(fake: None) -> None:
     assert all(r["p95_ms"] is not None for r in report["rows"])
     assert report["winner"] in names
     text = evaluation.render(report)
-    assert "| lexical |" in text and "Regla" not in text and "**Resultado:**" in text
+    assert "| lexical |" in text and "Rule" not in text and "**Result:**" in text
 
 
 def test_cli_eval(fake: None, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -128,7 +128,7 @@ def test_cli_eval(fake: None, tmp_path: Path, capsys: pytest.CaptureFixture[str]
         ]
     )
     assert code == 0
-    assert out.read_text(encoding="utf-8").startswith("# Experimento de memoria")
+    assert out.read_text(encoding="utf-8").startswith("# Memory experiment")
     assert "hybrid-fake" in capsys.readouterr().out
 
 

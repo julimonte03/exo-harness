@@ -330,7 +330,7 @@ def test_reindex_local_sin_extras_es_error(
     with MemoryStore(tmp_path / "m.db") as store:
         store.save(project=P, title="t", content="c")
         store.reindex(provider="fake")
-        with pytest.raises(embeddings.ProviderError, match="no hay un proveedor local"):
+        with pytest.raises(embeddings.ProviderError, match="no local provider"):
             store.reindex(provider="local")
         assert store.stats().semantic["provider"] == "fake"
 
@@ -359,7 +359,7 @@ def test_save_muestra_los_parecidos(fake: FakeProvider, capsys: pytest.CaptureFi
     capsys.readouterr()
     main(["mem", "save", "--project", P, "--title", "Colas", "--content", "colas para pagos!"])
     out = capsys.readouterr().out
-    assert "parecida: #1 Colas" in out
+    assert "similar: #1 Colas" in out
 
 
 def test_salida_a_un_pipe_en_utf8(tmp_path: Path) -> None:
@@ -374,9 +374,9 @@ def test_salida_a_un_pipe_en_utf8(tmp_path: Path) -> None:
 
 def test_ids_enormes_y_sesion_inexistente(tmp_path: Path) -> None:
     context = registry.Context(tmp_path, memory_db=tmp_path / "m.db")
-    with pytest.raises(InputError, match="entre"):
+    with pytest.raises(InputError, match="between"):
         registry.call("mem_get", {"id": 2**70}, context)
-    with pytest.raises(InputError, match="no existe la sesión"):
+    with pytest.raises(InputError, match=r"session \d+ not found"):
         registry.call(
             "mem_save", {"project": P, "title": "t", "content": "c", "session_id": 99}, context
         )
@@ -444,4 +444,4 @@ def test_doctor_avisa_si_falta_el_extra(monkeypatch: pytest.MonkeyPatch) -> None
     conn.close()
     monkeypatch.setattr(embeddings, "installed", lambda provider: False)
     check = {c.name: c for c in doctor.run_checks(Path("."))}["memory-semantic"]
-    assert check.status == "warn" and "falta el extra" in check.detail
+    assert check.status == "warn" and "[vector]" in check.detail

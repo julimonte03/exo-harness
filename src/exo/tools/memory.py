@@ -31,12 +31,12 @@ _PROJECT = {
     "project": {
         "type": "string",
         "maxLength": 300,
-        "description": "proyecto de la memoria; si falta, se detecta desde cwd",
+        "description": "memory project; detected from cwd if missing",
     }
 }
-_ALL = {"all_projects": {"type": "boolean", "description": "en todos los proyectos"}}
+_ALL = {"all_projects": {"type": "boolean", "description": "across all projects"}}
 _FILTERS = {
-    "type": {"type": "string", "description": f"tipo ({', '.join(COMMON_TYPES)}…)"},
+    "type": {"type": "string", "description": f"type ({', '.join(COMMON_TYPES)}…)"},
     "scope": {"type": "string", "enum": list(SCOPES)},
 }
 MAX_ID = 2**63 - 1  # el mayor entero de SQLite
@@ -46,7 +46,7 @@ _ID = {
         "type": "integer",
         "minimum": 1,
         "maximum": MAX_ID,
-        "description": "id de la observación",
+        "description": "observation id",
     }
 }
 _SESSION = {"session_id": {"type": "integer", "minimum": 1, "maximum": MAX_ID}}
@@ -232,8 +232,8 @@ def _detect_project(store: MemoryStore, context: Context, args: dict[str, Any]) 
 TOOLS: tuple[Tool, ...] = (
     Tool(
         "mem_save",
-        "Guarda una observación (decisión, bug resuelto, descubrimiento). Con topic_key, "
-        "actualiza la existente en lugar de duplicar.",
+        "Saves an observation (decision, fixed bug, discovery). With topic_key, "
+        "updates the existing one instead of duplicating it.",
         schema(
             {
                 **CWD,
@@ -252,7 +252,7 @@ TOOLS: tuple[Tool, ...] = (
     ),
     Tool(
         "mem_search",
-        "Busca en la memoria y devuelve previews; el contenido completo sale de mem_get.",
+        "Searches the memory and returns previews; get the full content with mem_get.",
         schema(
             {
                 **CWD,
@@ -262,7 +262,7 @@ TOOLS: tuple[Tool, ...] = (
                 "mode": {
                     "type": "string",
                     "enum": list(SEARCH_MODES),
-                    "description": "auto: híbrida si hay índice semántico, si no léxica",
+                    "description": "auto: hybrid if there is a semantic index, otherwise lexical",
                 },
                 **_FILTERS,
                 **_LIMIT,
@@ -274,7 +274,7 @@ TOOLS: tuple[Tool, ...] = (
     ),
     Tool(
         "mem_list",
-        "Lista las observaciones más recientes, sin el contenido.",
+        "Lists the most recent observations, without their content.",
         schema(
             {
                 **CWD,
@@ -290,36 +290,35 @@ TOOLS: tuple[Tool, ...] = (
     ),
     Tool(
         "mem_get",
-        "Una observación completa, por id.",
+        "Gets a full observation by id.",
         schema(_ID, ["id"]),
         _with(_get),
         ("mem", "get"),
     ),
     Tool(
         "mem_context",
-        "Contexto reciente del proyecto para empezar una sesión: últimas observaciones y "
-        "último resumen.",
+        "Recent project context to start a session: latest observations and last summary.",
         schema({**CWD, **_PROJECT, **_LIMIT}),
         _with(_context),
         ("mem", "context"),
     ),
     Tool(
         "mem_delete",
-        "Borra una observación por id.",
+        "Deletes an observation by id.",
         schema(_ID, ["id"]),
         _with(_delete),
         ("mem", "delete"),
     ),
     Tool(
         "mem_session_start",
-        "Abre una sesión de trabajo en el proyecto.",
+        "Opens a work session in the project.",
         schema({**CWD, **_PROJECT, "agent": {"type": "string", "maxLength": 100}}),
         _with(_session_start),
         ("mem", "session", "start"),
     ),
     Tool(
         "mem_session_end",
-        "Cierra una sesión, opcionalmente con su resumen.",
+        "Closes a session, optionally with its summary.",
         schema(
             {**_SESSION, "summary": {"type": "string", "maxLength": MAX_CONTENT}},
             ["session_id"],
@@ -329,7 +328,7 @@ TOOLS: tuple[Tool, ...] = (
     ),
     Tool(
         "mem_session_summary",
-        "Guarda el resumen de la sesión (la abierta más reciente del proyecto, o una nueva).",
+        "Saves the session summary (in the project's most recent open session, or a new one).",
         schema(
             {
                 **CWD,
@@ -344,21 +343,22 @@ TOOLS: tuple[Tool, ...] = (
     ),
     Tool(
         "mem_session_show",
-        "Una sesión con su resumen y sus observaciones; sin id, la más reciente.",
+        "Shows a session with its summary and observations; without an id, the most recent one.",
         schema({**CWD, **_PROJECT, **_ALL, **_SESSION}),
         _with(_session_show),
         ("mem", "session", "show"),
     ),
     Tool(
         "mem_projects_list",
-        "Proyectos de la memoria, con cantidad de observaciones y sesiones.",
+        "Lists the memory projects, with their observation and session counts.",
         schema(),
         _with(_projects_list),
         ("mem", "projects", "list"),
     ),
     Tool(
         "mem_projects_merge",
-        "Mueve todo de un proyecto a otro; si un topic_key está en los dos, queda el más reciente.",
+        "Moves everything from one project to another; if a topic_key is in both, the most "
+        "recent one is kept.",
         schema(
             {
                 "source": {"type": "string", "minLength": 1, "maxLength": 300},
@@ -371,21 +371,21 @@ TOOLS: tuple[Tool, ...] = (
     ),
     Tool(
         "mem_projects_consolidate",
-        "Une los proyectos que son variantes del mismo remoto de git.",
-        schema({"dry_run": {"type": "boolean", "description": "solo muestra qué uniría"}}),
+        "Merges the projects that are variants of the same git remote.",
+        schema({"dry_run": {"type": "boolean", "description": "only show what would be merged"}}),
         _with(_projects_consolidate),
         ("mem", "projects", "consolidate"),
     ),
     Tool(
         "mem_stats",
-        "Estadísticas de la memoria: cantidades, por tipo y por proyecto, y tamaño.",
+        "Memory statistics: counts (total, by type and by project) and size.",
         schema(),
         _with(_stats),
         ("mem", "stats"),
     ),
     Tool(
         "mem_detect_project",
-        "Proyecto que se detecta desde cwd (git remote origin normalizado).",
+        "Detects the memory project from cwd (normalized git remote origin).",
         schema(CWD),
         _with(_detect_project),
         ("mem", "projects", "detect"),
