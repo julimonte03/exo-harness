@@ -113,8 +113,30 @@ def set_meta(conn: sqlite3.Connection, key: str, value: str) -> None:
     )
 
 
+def _table(conn: sqlite3.Connection, name: str) -> bool:
+    return (
+        conn.execute("SELECT 1 FROM sqlite_master WHERE name = ?", (name,)).fetchone() is not None
+    )
+
+
+def _up_to_date(conn: sqlite3.Connection, *, fts: bool) -> bool:
+    """Sin tomar el lock de escritura: abrir para leer no escribe nada."""
+    if not _table(conn, "meta"):
+        return False
+    raw = get_meta(conn, "schema_version")
+    version = int(raw) if raw is not None else 0
+    if version > SCHEMA_VERSION:
+        raise MemoryStoreError(
+            f"la memoria es del esquema {version} y este motor entiende hasta el "
+            f"{SCHEMA_VERSION}; actualizá {_meta.NAME}"
+        )
+    return version == SCHEMA_VERSION and (not fts or _table(conn, "observations_fts"))
+
+
 def migrate(conn: sqlite3.Connection, *, fts: bool) -> None:
     """Crea o actualiza el esquema. Con `fts`, crea el índice FTS5 si falta."""
+    if _up_to_date(conn, fts=fts):
+        return
     with write(conn):
         conn.execute("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
         raw = get_meta(conn, "schema_version")

@@ -11,7 +11,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from exo import _meta
@@ -60,13 +60,17 @@ def export(
 
 
 def _timestamp(value: Any, where: str) -> str:
+    """Fecha ISO 8601 normalizada a UTC con microsegundos, como las que guarda el store:
+    así se pueden comparar como texto. Sin zona, se toma como UTC."""
     if not isinstance(value, str):
         raise MemoryStoreError(f"{where}: falta la fecha o no es texto")
     try:
-        datetime.fromisoformat(value)
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as exc:
         raise MemoryStoreError(f"{where}: fecha inválida {value!r}") from exc
-    return value
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc).isoformat(timespec="microseconds")
 
 
 def _row(raw: Any, index: int, project: str | None) -> tuple[Any, ...]:
@@ -74,6 +78,9 @@ def _row(raw: Any, index: int, project: str | None) -> tuple[Any, ...]:
     if not isinstance(raw, dict):
         raise MemoryStoreError(f"{where}: tiene que ser un objeto")
     missing = [name for name in ("title", "content") if not isinstance(raw.get(name), str)]
+    for name in ("type", "topic_key", "scope"):
+        if raw.get(name) is not None and not isinstance(raw[name], str):
+            missing.append(name)
     scope = raw.get("scope", "project")
     target = project if project is not None else raw.get("project")
     if scope == "project" and not isinstance(target, str):
@@ -91,8 +98,7 @@ def _row(raw: Any, index: int, project: str | None) -> tuple[Any, ...]:
         )
     except MemoryStoreError as exc:
         raise MemoryStoreError(f"{where}: {exc}") from exc
-    stamp = now()
-    created = _timestamp(raw.get("created_at", stamp), f"{where}.created_at")
+    created = _timestamp(raw.get("created_at", now()), f"{where}.created_at")
     updated = _timestamp(raw.get("updated_at", created), f"{where}.updated_at")
     return (*fields, created, updated)
 

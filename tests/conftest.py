@@ -28,11 +28,14 @@ def _datos_de_usuario_aislados(tmp_path_factory: pytest.TempPathFactory) -> Iter
     Usa un MonkeyPatch propio: si un test hace `monkeypatch.undo()`, no deshace esto.
     """
     from exo import paths
+    from exo.memory import embeddings
 
     patch = pytest.MonkeyPatch()
     patch.setenv(paths.ENV_DATA_DIR, str(tmp_path_factory.mktemp("datos-usuario")))
     patch.delenv(paths.ENV_MEMORY_DB, raising=False)
+    embeddings._CACHE.clear()
     yield
+    embeddings._CACHE.clear()
     patch.undo()
 
 

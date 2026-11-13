@@ -290,6 +290,16 @@ def _memory_semantic(project: Path) -> Check:
             name = f"{config_.provider}:{config_.model}"
             if store.semantic is None:
                 return Check("memory-semantic", "warn", f"{name}: {store.semantic_note}")
+            if config_.provider in embeddings.DEFAULT_MODELS and not embeddings.installed(
+                config_.provider
+            ):
+                extra = "vector" if config_.provider == "onnx" else "static"
+                return Check(
+                    "memory-semantic",
+                    "warn",
+                    f"{name}: falta el extra; pip install {_meta.DIST_NAME}[{extra}]. "
+                    "Mientras tanto, las búsquedas son léxicas",
+                )
             if (
                 config_.provider in embeddings.DEFAULT_MODELS
                 and not embeddings.model_path(config_.provider, config_.model).is_dir()

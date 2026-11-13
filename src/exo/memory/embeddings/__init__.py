@@ -115,13 +115,50 @@ def check_remote(name: str, allow_remote: bool) -> None:
         )
 
 
+# Proveedores locales ya creados en este proceso: el servidor MCP carga el modelo una vez.
+_CACHE: dict[tuple[str, str], EmbeddingProvider] = {}
+
+
 def create(name: str, model: str | None = None, *, allow_remote: bool = False) -> EmbeddingProvider:
-    """Proveedor listo para usar (carga el modelo recién en el primer `embed`)."""
+    """Proveedor listo para usar (carga el modelo recién en el primer `embed`). Los locales
+    se reutilizan dentro del proceso."""
     name = resolve(name)
     if name == "none" or name not in FACTORIES:
         raise ProviderError(f"proveedor de embeddings desconocido o vacío: {name!r}")
     check_remote(name, allow_remote)
+    if name in DEFAULT_MODELS:
+        key = (name, model or DEFAULT_MODELS[name])
+        if key not in _CACHE:
+            _CACHE[key] = FACTORIES[name](model, allow_remote)
+        return _CACHE[key]
     return FACTORIES[name](model, allow_remote)
+
+
+def staged(target: Path) -> Path:
+    """Carpeta temporal al lado de `target` para bajar un modelo; ver `promote`."""
+    partial = target.with_name(target.name + ".partial")
+    if partial.exists():
+        import shutil
+
+        shutil.rmtree(partial)
+    partial.parent.mkdir(parents=True, exist_ok=True)
+    return partial
+
+
+def promote(partial: Path, target: Path) -> Path:
+    """Reemplaza `target` por la descarga completa: un corte deja el modelo anterior o nada."""
+    import shutil
+
+    old = target.with_name(target.name + ".old")
+    if old.exists():
+        shutil.rmtree(old)
+    if target.exists():
+        target.rename(old)
+    partial.rename(target)
+    if old.exists():
+        shutil.rmtree(old)
+    _CACHE.clear()
+    return target
 
 
 def pull(provider: str, model: str | None = None) -> tuple[str, str, Path]:
@@ -146,5 +183,7 @@ def list_models() -> list[tuple[str, str, Path]]:
         folder = models_dir() / provider
         if folder.is_dir():
             for path in sorted(p for p in folder.iterdir() if p.is_dir()):
+                if path.suffix in (".partial", ".old"):
+                    continue
                 found.append((provider, path.name.replace("--", "/"), path))
     return found

@@ -54,6 +54,9 @@ def _azure(host: str, segments: list[str]) -> list[str] | None:
     """Formas de Azure DevOps a `[org, proyecto, repo]`, o None si no es Azure."""
     if host == "dev.azure.com" and len(segments) == 4 and segments[2] == "_git":
         return [segments[0], segments[1], segments[3]]
+    if host == "dev.azure.com" and len(segments) == 3 and segments[1] == "_git":
+        # Forma corta: el proyecto se llama como el repo.
+        return [segments[0], segments[2], segments[2]]
     if host == "ssh.dev.azure.com" and len(segments) == 4 and segments[0] == "v3":
         return segments[1:]
     if host == "vs-ssh.visualstudio.com" and len(segments) == 4 and segments[0] == "v3":
@@ -63,6 +66,8 @@ def _azure(host: str, segments: list[str]) -> list[str] | None:
         rest = [s for s in segments if s != "defaultcollection"]
         if len(rest) == 3 and rest[1] == "_git":
             return [org, rest[0], rest[2]]
+        if len(rest) == 2 and rest[0] == "_git":
+            return [org, rest[1], rest[1]]
     return None
 
 
@@ -101,13 +106,14 @@ def _git_remote(root: Path) -> str | None:
         result = subprocess.run(
             ["git", "-C", str(root), "remote", "get-url", "origin"],
             capture_output=True,
-            text=True,
             timeout=5,
             check=False,
         )
     except (OSError, subprocess.SubprocessError):
         return None
-    url = result.stdout.strip()
+    # git escribe la config en UTF-8; decodificar con la página de códigos de la consola
+    # rompía los remotos con acentos.
+    url = (result.stdout or b"").decode("utf-8", errors="replace").strip()
     return url if result.returncode == 0 and url else None
 
 

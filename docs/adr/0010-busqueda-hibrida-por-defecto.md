@@ -59,6 +59,14 @@ Las dos híbridas pasan: +15,6 y +17,8 puntos, sin pérdida en las exactas. Gana
 - **Idioma cruzado:** la fusión RRF con pesos iguales diluye lo semántico. La híbrida acierta el 40 % y la semántica sola, el 80 %. Ajustar los pesos (`weights` en `MemoryStore.query`) podría mejorarlo; queda como trabajo futuro, con su propio experimento.
 - **Falsos positivos de la léxica:** son altos porque cada palabra suma (OR) y las comunes coinciden siempre. Un filtro de palabras vacías podría bajarlos. También queda para más adelante.
 - **Cobertura:** solo se midió en Windows y en CPU. Con Python 3.10, pip resuelve un onnxruntime anterior, porque el último exige 3.11 o más.
+- **La latencia es con el modelo cargado** (agregado en la revisión de F3):
+  - El p95 de 67 ms, 85 ms al repetir la corrida, se mide con la base abierta y el modelo en memoria.
+  - Es la latencia del servidor MCP, que desde la revisión reutiliza el proveedor dentro del proceso.
+  - Cada llamada del CLI es un proceso nuevo y carga el modelo. Con onnx, `exo mem search` y `exo mem save` tardan entre 1,3 y 2,1 s; es la columna de arranque en frío.
+  - El criterio 6 de F3 («p95 de búsqueda < 150 ms con 5 000 memorias») se cumple para la búsqueda en sí. Para un agente que usa el CLI, el costo real por llamada es el del arranque.
+- **Los falsos positivos de la tabla no son un filtro** (agregado en la revisión):
+  - El umbral se calibra con las mismas consultas y no se aplica al buscar, así que la híbrida igual devuelve resultados para las consultas sin respuesta.
+  - El 0 % significa que ninguna tuvo un primer resultado con una confianza tan alta como la de un acierto.
 
 ## Consecuencias
 

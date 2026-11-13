@@ -49,6 +49,21 @@ from exo.memory import embeddings
 from exo.memory.store import MemoryStore
 
 KINDS = ("exact", "paraphrase", "cross")
+NOTES = f"""## Cómo leer la tabla
+
+- **Latencia:** p50 y p95 se miden con la base abierta y el modelo ya cargado. Es la latencia
+  del servidor MCP, que reutiliza el proveedor dentro del proceso, y la de cualquier uso
+  repetido.
+- **Costo por llamada del CLI:** cada `{_meta.NAME} mem …` del CLI es un proceso nuevo, así
+  que abre la base y carga el modelo. Ese costo es el de la columna «Arranque».
+- **Falsos positivos:**
+  - El umbral τ se calibra con las mismas consultas (percentil 10 de la confianza de los
+    aciertos) y **no se aplica al buscar**.
+  - La columna mide si el primer resultado de una consulta sin respuesta tendría una confianza
+    tan alta como la de un acierto.
+  - No mide si la búsqueda devuelve vacío: la híbrida devuelve resultados igual.
+  - La confianza no es comparable entre configuraciones: BM25 en la léxica, coseno en las otras.
+"""
 PROJECT = "eval/acme-pagos"
 LATENCY_SIZE = 5000
 RECALL_GAIN = 0.10
@@ -475,7 +490,7 @@ def render(report: dict[str, Any]) -> str:
     lines += ["", "## Decisión (regla congelada antes de correr)", ""]
     lines += [f"- {reason}" for reason in report["reasons"]]
     lines += ["", f"**Resultado:** {report['winner']}.", ""]
-    lines += ["## Consultas sin acierto en el top 5", ""]
+    lines += [NOTES, "## Consultas sin acierto en el top 5", ""]
     for row in report["rows"]:
         lines.append(f"- {row['config']['name']}: {', '.join(row['misses']) or '-'}")
     return "\n".join(lines) + "\n"

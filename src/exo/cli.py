@@ -28,10 +28,15 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _tolerant_streams() -> None:
-    # Una consola Windows en cp1252 no debe cortar la salida por un carácter.
+    # Una consola Windows en cp1252 no debe cortar la salida por un carácter. Si la salida
+    # va a un pipe o a un archivo (un agente leyendo `exo mem context`, por ejemplo), sale
+    # en UTF-8, como --json: con la página de códigos se perdían acentos y símbolos.
     for stream in (sys.stdout, sys.stderr):
-        with contextlib.suppress(AttributeError, ValueError):
-            stream.reconfigure(errors="replace")
+        with contextlib.suppress(AttributeError, ValueError, OSError):
+            if stream.isatty():
+                stream.reconfigure(errors="replace")
+            else:
+                stream.reconfigure(encoding="utf-8", errors="replace")
 
 
 def main(argv: Sequence[str] | None = None) -> int:

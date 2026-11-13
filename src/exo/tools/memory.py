@@ -9,6 +9,8 @@ normalizado, o `local/<carpeta>`).
 
 from __future__ import annotations
 
+import hashlib
+import os
 from collections.abc import Callable
 from dataclasses import asdict
 from typing import Any
@@ -37,9 +39,17 @@ _FILTERS = {
     "type": {"type": "string", "description": f"tipo ({', '.join(COMMON_TYPES)}…)"},
     "scope": {"type": "string", "enum": list(SCOPES)},
 }
+MAX_ID = 2**63 - 1  # el mayor entero de SQLite
 _LIMIT = {"limit": {"type": "integer", "minimum": 1, "maximum": MAX_LIMIT}}
-_ID = {"id": {"type": "integer", "minimum": 1, "description": "id de la observación"}}
-_SESSION = {"session_id": {"type": "integer", "minimum": 1}}
+_ID = {
+    "id": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": MAX_ID,
+        "description": "id de la observación",
+    }
+}
+_SESSION = {"session_id": {"type": "integer", "minimum": 1, "maximum": MAX_ID}}
 
 
 def _open(context: Context) -> MemoryStore:
@@ -50,13 +60,26 @@ def _detected(context: Context, args: dict[str, Any]) -> projects.DetectedProjec
     return projects.detect(project_dir(context, args))
 
 
+def _resolved(store: MemoryStore, found: projects.DetectedProject) -> str:
+    """Sin remoto, dos repos con la misma carpeta (`a/api` y `b/api`) no comparten memoria:
+    el primero se queda con `local/api` y el otro suma un hash de su ruta."""
+    if found.source != "folder":
+        return found.name
+    known = store.project_path(found.name)
+    if known is None or os.path.normcase(known) == os.path.normcase(str(found.path)):
+        return found.name
+    digest = hashlib.sha256(os.path.normcase(str(found.path)).encode("utf-8")).hexdigest()
+    return f"{found.name}-{digest[:8]}"
+
+
 def _project(context: Context, args: dict[str, Any], store: MemoryStore) -> str:
     """Proyecto pedido o detectado; si se detecta, queda registrado con su remoto."""
     if "project" in args:
         return str(args["project"])
     found = _detected(context, args)
-    store.register_project(found.name, remote=found.remote, path=found.path)
-    return found.name
+    name = _resolved(store, found)
+    store.register_project(name, remote=found.remote, path=found.path)
+    return name
 
 
 def _scoped(context: Context, args: dict[str, Any], store: MemoryStore) -> str | None:
@@ -196,10 +219,10 @@ def _stats(store: MemoryStore, context: Context, args: dict[str, Any]) -> dict[s
     return asdict(store.stats())
 
 
-def _detect_project(context: Context, args: dict[str, Any]) -> dict[str, Any]:
+def _detect_project(store: MemoryStore, context: Context, args: dict[str, Any]) -> dict[str, Any]:
     found = _detected(context, args)
     return {
-        "name": found.name,
+        "name": _resolved(store, found),
         "source": found.source,
         "remote": found.remote,
         "path": str(found.path),
@@ -259,7 +282,7 @@ TOOLS: tuple[Tool, ...] = (
                 **_ALL,
                 **_FILTERS,
                 **_LIMIT,
-                "offset": {"type": "integer", "minimum": 0},
+                "offset": {"type": "integer", "minimum": 0, "maximum": MAX_ID},
             }
         ),
         _with(_list),
@@ -364,7 +387,7 @@ TOOLS: tuple[Tool, ...] = (
         "mem_detect_project",
         "Proyecto que se detecta desde cwd (git remote origin normalizado).",
         schema(CWD),
-        _detect_project,
+        _with(_detect_project),
         ("mem", "projects", "detect"),
     ),
 )

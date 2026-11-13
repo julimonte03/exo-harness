@@ -23,7 +23,18 @@ ENV_KEY = f"{_meta.ENV_PREFIX}EMBEDDINGS_API_KEY"
 _LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
 
-def _post(url: str, payload: dict[str, Any], headers: dict[str, str] | None = None) -> Any:
+# Sin proxies: para un servicio local, un proxy del sistema (HTTP_PROXY o el del registro de
+# Windows) sacaría el texto de las memorias de la máquina (invariante 11).
+_DIRECT = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
+def _post(
+    url: str,
+    payload: dict[str, Any],
+    headers: dict[str, str] | None = None,
+    *,
+    direct: bool = False,
+) -> Any:
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
@@ -31,7 +42,8 @@ def _post(url: str, payload: dict[str, Any], headers: dict[str, str] | None = No
         method="POST",
     )
     try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:  # noqa: S310
+        opener = _DIRECT.open if direct else urllib.request.urlopen
+        with opener(request, timeout=TIMEOUT) as response:  # noqa: S310
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         raise ProviderError(f"{url} respondió {exc.code}: {exc.reason}") from exc
@@ -75,8 +87,11 @@ class OllamaProvider(_Http):
         super().__init__()
         self.model = model or self.DEFAULT_MODEL
         host = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
-        self.url = host if "://" in host else f"http://{host}"
-        if (urlsplit(self.url).hostname or "") not in _LOCAL_HOSTS and not allow_remote:
+        url = host if "://" in host else f"http://{host}"
+        # 0.0.0.0 es la dirección en la que escucha Ollama; los clientes van a 127.0.0.1.
+        self.url = url.replace("//0.0.0.0", "//127.0.0.1", 1)
+        self.local = (urlsplit(self.url).hostname or "") in _LOCAL_HOSTS
+        if not self.local and not allow_remote:
             raise ProviderError(
                 f"OLLAMA_HOST apunta a {self.url}, que no es esta máquina: mandaría el texto de "
                 f"las memorias afuera. Usá un Ollama local o pedilo con --allow-remote"
@@ -84,7 +99,7 @@ class OllamaProvider(_Http):
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         url = f"{self.url.rstrip('/')}/api/embed"
-        data = _post(url, {"model": self.model, "input": list(texts)})
+        data = _post(url, {"model": self.model, "input": list(texts)}, direct=self.local)
         return _vectors(data.get("embeddings") if isinstance(data, dict) else None, url, len(texts))
 
 

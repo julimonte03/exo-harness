@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from exo import _meta
-from exo.memory.embeddings import ProviderError, model_path
+from exo.memory.embeddings import ProviderError, model_path, promote, staged
 
 
 def _missing_extra() -> ProviderError:
@@ -32,9 +32,15 @@ class OnnxProvider:
                 from fastembed import TextEmbedding
             except ImportError as exc:
                 raise _missing_extra() from exc
-            self._loaded = TextEmbedding(
-                model_name=self.model, cache_dir=str(path), local_files_only=True
-            )
+            try:
+                self._loaded = TextEmbedding(
+                    model_name=self.model, cache_dir=str(path), local_files_only=True
+                )
+            except Exception as exc:  # noqa: BLE001 - archivos rotos dan errores de todo tipo
+                raise ProviderError(
+                    f"no se pudo cargar el modelo {self.model} de {path} ({exc}); bajalo de "
+                    f"nuevo con `{_meta.NAME} mem model pull onnx`"
+                ) from exc
         return self._loaded
 
     @property
@@ -44,7 +50,11 @@ class OnnxProvider:
         return self._dim
 
     def embed(self, texts: list[str]) -> list[list[float]]:
-        return [[float(x) for x in row] for row in self._load().embed(list(texts))]
+        model = self._load()
+        try:
+            return [[float(x) for x in row] for row in model.embed(list(texts))]
+        except Exception as exc:  # noqa: BLE001
+            raise ProviderError(f"FastEmbed falló al calcular vectores ({exc})") from exc
 
 
 def pull(model: str) -> Path:
@@ -53,6 +63,6 @@ def pull(model: str) -> Path:
     except ImportError as exc:
         raise _missing_extra() from exc
     path = model_path("onnx", model)
-    path.mkdir(parents=True, exist_ok=True)
-    TextEmbedding(model_name=model, cache_dir=str(path))
-    return path
+    partial = staged(path)
+    TextEmbedding(model_name=model, cache_dir=str(partial))
+    return promote(partial, path)

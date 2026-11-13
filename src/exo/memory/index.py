@@ -18,6 +18,7 @@ from exo.memory import db
 from exo.memory.backends import VectorBackend
 from exo.memory.backends.python import pack
 from exo.memory.embeddings import EmbeddingProvider, ProviderError
+from exo.memory.model import MemoryStoreError
 
 MAX_EMBED_CHARS = 2000
 BATCH = 64
@@ -71,18 +72,43 @@ def ensure_table(conn: sqlite3.Connection) -> None:
 
 class SemanticIndex:
     def __init__(
-        self, provider: EmbeddingProvider, backend: VectorBackend, *, dim: int | None = None
+        self,
+        provider: EmbeddingProvider,
+        backend: VectorBackend,
+        *,
+        dim: int | None = None,
+        config: IndexConfig | None = None,
     ) -> None:
         self.provider = provider
         self.backend = backend
         self.dim = dim
+        # La config de `meta` con la que se abrió; None para un índice armado a mano (tests).
+        self.config = config
+
+    def matches(self, conn: sqlite3.Connection) -> bool:
+        """El índice de la base sigue siendo este (otro proceso pudo hacer `reindex`)."""
+        if self.config is None:
+            return True
+        current = read_config(conn)
+        return (
+            current is not None
+            and (current.provider, current.model) == (self.config.provider, self.config.model)
+            and (current.dim is None or self.dim is None or current.dim == self.dim)
+        )
 
     @property
     def model_id(self) -> str:
         return f"{self.provider.name}:{self.provider.model}"
 
     def prepare(self, conn: sqlite3.Connection) -> None:
-        self.backend.prepare(conn)
+        """Carga el backend; si sqlite-vec no carga en este Python, usa el de Python."""
+        try:
+            self.backend.prepare(conn)
+        except MemoryStoreError:
+            from exo.memory.backends.python import PythonBackend
+
+            self.backend = PythonBackend()
+            self.backend.prepare(conn)
         ensure_table(conn)
 
     def vectors(self, texts: list[str]) -> list[bytes]:
@@ -112,8 +138,9 @@ class SemanticIndex:
             f"SELECT o.id, {self.backend.distance}(v.embedding, ?) AS distance "
             "FROM observation_vectors v JOIN observations o ON o.id = v.id "
             f"WHERE {where} AND v.content_hash = o.content_hash "
+            "AND length(v.embedding) = ? "
             "ORDER BY distance, o.id LIMIT ?",
-            (blob, *args, k),
+            (blob, *args, len(blob), k),
         ).fetchall()
         return [
             (int(row["id"]), float(row["distance"])) for row in rows if row["distance"] is not None
@@ -121,9 +148,13 @@ class SemanticIndex:
 
     def missing(self, conn: sqlite3.Connection) -> int:
         """Observaciones sin vector, o con un vector de otro contenido."""
+        config = read_config(conn)
+        size = 4 * (config.dim or self.dim or 0) if config else 4 * (self.dim or 0)
         row = conn.execute(
             "SELECT count(*) FROM observations o LEFT JOIN observation_vectors v ON v.id = o.id "
-            "WHERE v.id IS NULL OR v.content_hash != o.content_hash"
+            "WHERE v.id IS NULL OR v.content_hash != o.content_hash "
+            "OR (? > 0 AND length(v.embedding) != ?)",
+            (size, size),
         ).fetchone()
         return int(row[0])
 
@@ -153,10 +184,8 @@ class SemanticIndex:
                 "SELECT ?, ?, ? WHERE EXISTS (SELECT 1 FROM observations WHERE id = ?)",
                 [(obs_id, digest, blob, obs_id) for obs_id, digest, blob in computed],
             )
-            write_config(
-                conn,
-                IndexConfig(
-                    config.provider, config.model, self.dim or config.dim, config.allow_remote
-                ),
+            self.config = IndexConfig(
+                config.provider, config.model, self.dim or config.dim, config.allow_remote
             )
+            write_config(conn, self.config)
         return len(computed)

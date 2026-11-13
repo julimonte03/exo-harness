@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import locale
+import sqlite3
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -32,7 +34,17 @@ def _opt(**values: Any) -> dict[str, Any]:
 
 
 def _text(value: str) -> str:
-    return sys.stdin.read() if value == "-" else value
+    """`-` lee stdin en UTF-8 (con o sin BOM); si no lo es, con la codificación del sistema."""
+    if value != "-":
+        return value
+    buffer = getattr(sys.stdin, "buffer", None)
+    if buffer is None:
+        return sys.stdin.read()
+    data = buffer.read()
+    try:
+        return data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return data.decode(locale.getpreferredencoding(False), errors="replace")
 
 
 def _common(parser: argparse.ArgumentParser, *, project: bool = True) -> None:
@@ -80,6 +92,14 @@ def _print_hits(result: dict[str, Any]) -> None:
             print(f"\t{item['preview']}")
     if not items:
         print("sin resultados")
+
+
+def _print_saved(result: dict[str, Any]) -> None:
+    print(f"guardada #{result['id']} ({result['action']})")
+    for hit in result.get("similar", []):
+        print(f"parecida: #{hit['id']} {hit['title']} (similitud {hit['score']:.2f})")
+    if result.get("similar"):
+        print("si es lo mismo, actualizá esa en lugar de tener dos; si se contradicen, preguntá")
 
 
 def _print_observation(obs: dict[str, Any]) -> None:
@@ -141,7 +161,7 @@ def _export(args: argparse.Namespace) -> int:
                     )["name"]
                 )
             data = exchange.export(store, project=project, scope=args.scope)
-    except (InputError, ValueError, OSError) as exc:
+    except (InputError, ValueError, OSError, sqlite3.Error) as exc:
         return error(str(exc))
     text = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
     count = len(data["observations"])
@@ -204,7 +224,7 @@ def _reindex(args: argparse.Namespace) -> int:
                 allow_remote=args.allow_remote,
                 progress=None if args.json else _progress,
             )
-    except (ValueError, ImportError, OSError) as exc:
+    except (ValueError, ImportError, OSError, sqlite3.Error) as exc:
         return error(str(exc))
     if args.json:
         emit_json(vars(result))
@@ -254,7 +274,7 @@ def _import(args: argparse.Namespace) -> int:
     try:
         with MemoryStore() as store:
             result = exchange.import_(store, data, project=args.project)
-    except (ValueError, OSError) as exc:
+    except (ValueError, OSError, sqlite3.Error) as exc:
         return error(str(exc))
     if args.json:
         emit_json(vars(result))
@@ -302,7 +322,7 @@ def register(sub: argparse._SubParsersAction) -> None:
                 scope=a.scope,
                 session_id=a.session,
             ),
-            lambda r: print(f"guardada #{r['id']} ({r['action']})"),
+            _print_saved,
         )
     )
 
