@@ -58,7 +58,7 @@ def test_esquema_mas_nuevo_da_error_claro(tmp_path: Path) -> None:
     conn.execute("UPDATE meta SET value = '99' WHERE key = 'schema_version'")
     conn.commit()
     conn.close()
-    with pytest.raises(MemoryStoreError, match="esquema 99"):
+    with pytest.raises(MemoryStoreError, match="schema 99"):
         MemoryStore(path)
 
 
@@ -214,7 +214,7 @@ def test_contexto_reciente_con_tope(store: MemoryStore) -> None:
 
 def test_contexto_sin_memorias(store: MemoryStore) -> None:
     text = store.context(P)
-    assert "sin memorias" in text
+    assert "no memories" in text
 
 
 def test_lo_guardado_sin_fts5_se_reindexa_al_abrir_con_fts5(tmp_path: Path) -> None:

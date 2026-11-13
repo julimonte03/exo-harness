@@ -10,7 +10,7 @@ from exo.memory.embeddings import ProviderError, model_path, promote, staged
 
 
 def _missing_extra() -> ProviderError:
-    return ProviderError(f"falta el extra [vector]: pip install {_meta.DIST_NAME}[vector]")
+    return ProviderError(f"missing the [vector] extra: pip install {_meta.DIST_NAME}[vector]")
 
 
 class OnnxProvider:
@@ -26,7 +26,8 @@ class OnnxProvider:
             path = model_path(self.name, self.model)
             if not path.is_dir():
                 raise ProviderError(
-                    f"falta el modelo {self.model}; bajalo con `{_meta.NAME} mem model pull onnx`"
+                    f"model {self.model} is missing; download it with "
+                    f"`{_meta.NAME} mem model pull onnx`"
                 )
             try:
                 from fastembed import TextEmbedding
@@ -38,8 +39,8 @@ class OnnxProvider:
                 )
             except Exception as exc:  # noqa: BLE001 - archivos rotos dan errores de todo tipo
                 raise ProviderError(
-                    f"no se pudo cargar el modelo {self.model} de {path} ({exc}); bajalo de "
-                    f"nuevo con `{_meta.NAME} mem model pull onnx`"
+                    f"could not load model {self.model} from {path} ({exc}); download it "
+                    f"again with `{_meta.NAME} mem model pull onnx`"
                 ) from exc
         return self._loaded
 
@@ -54,7 +55,7 @@ class OnnxProvider:
         try:
             return [[float(x) for x in row] for row in model.embed(list(texts))]
         except Exception as exc:  # noqa: BLE001
-            raise ProviderError(f"FastEmbed falló al calcular vectores ({exc})") from exc
+            raise ProviderError(f"FastEmbed failed to compute vectors ({exc})") from exc
 
 
 def pull(model: str) -> Path:

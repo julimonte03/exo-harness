@@ -11,7 +11,7 @@ from exo.memory.embeddings import ProviderError, model_path, promote, staged
 
 
 def _missing_extra() -> ProviderError:
-    return ProviderError(f"falta el extra [static]: pip install {_meta.DIST_NAME}[static]")
+    return ProviderError(f"missing the [static] extra: pip install {_meta.DIST_NAME}[static]")
 
 
 class StaticProvider:
@@ -26,7 +26,8 @@ class StaticProvider:
             path = model_path(self.name, self.model)
             if not path.is_dir():
                 raise ProviderError(
-                    f"falta el modelo {self.model}; bajalo con `{_meta.NAME} mem model pull static`"
+                    f"model {self.model} is missing; download it with "
+                    f"`{_meta.NAME} mem model pull static`"
                 )
             try:
                 from model2vec import StaticModel
@@ -36,8 +37,8 @@ class StaticProvider:
                 self._loaded = StaticModel.from_pretrained(str(path), force_download=False)
             except Exception as exc:  # noqa: BLE001 - archivos rotos dan errores de todo tipo
                 raise ProviderError(
-                    f"no se pudo cargar el modelo {self.model} de {path} ({exc}); bajalo de "
-                    f"nuevo con `{_meta.NAME} mem model pull static`"
+                    f"could not load model {self.model} from {path} ({exc}); download it "
+                    f"again with `{_meta.NAME} mem model pull static`"
                 ) from exc
         return self._loaded
 
@@ -50,7 +51,7 @@ class StaticProvider:
         try:
             vectors = model.encode(list(texts), use_multiprocessing=False)
         except Exception as exc:  # noqa: BLE001
-            raise ProviderError(f"model2vec falló al calcular vectores ({exc})") from exc
+            raise ProviderError(f"model2vec failed to compute vectors ({exc})") from exc
         return [[float(x) for x in row] for row in vectors]
 
 

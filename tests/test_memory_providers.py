@@ -78,7 +78,7 @@ def test_ollama_local(server, monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_ollama_en_otro_host_es_remoto(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OLLAMA_HOST", "http://ollama.empresa.com:11434")
-    with pytest.raises(ProviderError, match="no es esta máquina"):
+    with pytest.raises(ProviderError, match="not this machine"):
         embeddings.create("ollama")
     assert embeddings.create("ollama", allow_remote=True).url == "http://ollama.empresa.com:11434"
 
@@ -104,7 +104,7 @@ def test_openai_compatible_sin_clave_o_sin_permiso(monkeypatch: pytest.MonkeyPat
     monkeypatch.delenv(http.ENV_KEY, raising=False)
     with pytest.raises(ProviderError, match=http.ENV_KEY):
         embeddings.create("openai-compatible", allow_remote=True).embed(["x"])
-    with pytest.raises(ProviderError, match="remoto"):
+    with pytest.raises(ProviderError, match="remote"):
         http.OpenAICompatibleProvider(None)
 
 
@@ -112,8 +112,8 @@ def test_openai_compatible_sin_clave_o_sin_permiso(monkeypatch: pytest.MonkeyPat
     ("reply", "fragment"),
     [
         ((500, {"error": "boom"}), "500"),
-        ((200, {"embeddings": [[1.0]]}), "1 vectores"),
-        ((200, {"embeddings": [["x"]] * 2}), "inválidos"),
+        ((200, {"embeddings": [[1.0]]}), "1 vectors"),
+        ((200, {"embeddings": [["x"]] * 2}), "invalid"),
     ],
 )
 def test_errores_http(server, monkeypatch: pytest.MonkeyPatch, reply, fragment: str) -> None:
@@ -126,7 +126,7 @@ def test_errores_http(server, monkeypatch: pytest.MonkeyPatch, reply, fragment: 
 
 def test_ollama_sin_servidor(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OLLAMA_HOST", "http://127.0.0.1:9")
-    with pytest.raises(ProviderError, match="no se pudo conectar"):
+    with pytest.raises(ProviderError, match="could not connect"):
         embeddings.create("ollama").embed(["a"])
 
 
@@ -143,7 +143,7 @@ def test_sin_modelo_bajado_pide_model_pull() -> None:
 def test_pull_de_ollama_o_remoto() -> None:
     with pytest.raises(ProviderError, match="ollama pull"):
         embeddings.pull("ollama")
-    with pytest.raises(ProviderError, match="no tiene modelos"):
+    with pytest.raises(ProviderError, match="no models to download"):
         embeddings.pull("openai-compatible")
 
 

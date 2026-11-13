@@ -75,7 +75,7 @@ def connect(path: Path) -> sqlite3.Connection:
         conn.execute("PRAGMA synchronous = NORMAL")
         conn.execute("PRAGMA foreign_keys = ON")
     except sqlite3.Error as exc:
-        raise MemoryStoreError(f"no se pudo abrir la memoria en {path} ({exc})") from exc
+        raise MemoryStoreError(f"could not open the memory at {path} ({exc})") from exc
     return conn
 
 
@@ -127,8 +127,8 @@ def _up_to_date(conn: sqlite3.Connection, *, fts: bool) -> bool:
     version = int(raw) if raw is not None else 0
     if version > SCHEMA_VERSION:
         raise MemoryStoreError(
-            f"la memoria es del esquema {version} y este motor entiende hasta el "
-            f"{SCHEMA_VERSION}; actualizá {_meta.NAME}"
+            f"the memory uses schema {version} and this engine supports up to "
+            f"{SCHEMA_VERSION}; upgrade {_meta.NAME}"
         )
     return version == SCHEMA_VERSION and (not fts or _table(conn, "observations_fts"))
 
@@ -143,8 +143,8 @@ def migrate(conn: sqlite3.Connection, *, fts: bool) -> None:
         version = int(raw) if raw is not None else 0
         if version > SCHEMA_VERSION:
             raise MemoryStoreError(
-                f"la memoria es del esquema {version} y este motor entiende hasta el "
-                f"{SCHEMA_VERSION}; actualizá {_meta.NAME}"
+                f"the memory uses schema {version} and this engine supports up to "
+                f"{SCHEMA_VERSION}; upgrade {_meta.NAME}"
             )
         if version == 0:
             # Sentencia por sentencia: executescript cerraría la transacción.

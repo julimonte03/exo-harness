@@ -19,47 +19,47 @@ from exo.tools.validation import InputError
 
 
 def _project_arg(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--project", type=Path, default=Path("."), help="raíz del proyecto")
-    parser.add_argument("--json", action="store_true", help="salida JSON")
+    parser.add_argument("--project", type=Path, default=Path("."), help="project root")
+    parser.add_argument("--json", action="store_true", help="JSON output")
 
 
 def _group(sub: argparse._SubParsersAction, name: str, helptext: str) -> argparse._SubParsersAction:
     group = sub.add_parser(name, help=helptext)
     group.set_defaults(handler=lambda _args: (group.print_help(), 0)[1])
-    return group.add_subparsers(dest=f"{name}_command", metavar="<acción>")
+    return group.add_subparsers(dest=f"{name}_command", metavar="<action>")
 
 
 def register(sub: argparse._SubParsersAction) -> None:
-    skills = _group(sub, "skills", "skills del contenido del motor")
-    listing = skills.add_parser("list", help="lista las skills")
-    listing.add_argument("--pack", help="solo las de un pack")
+    skills = _group(sub, "skills", "skills in the engine content")
+    listing = skills.add_parser("list", help="list the skills")
+    listing.add_argument("--pack", help="only the skills of one pack")
     _project_arg(listing)
     listing.set_defaults(handler=_run("skills_list", lambda a: _opt(pack=a.pack)))
-    info = skills.add_parser("info", help="detalle de una skill")
+    info = skills.add_parser("info", help="show the details of a skill")
     info.add_argument("name")
     _project_arg(info)
     info.set_defaults(handler=_run("skill_info", lambda a: {"name": a.name}))
-    diff = skills.add_parser("diff", help="compara con las skills instaladas en el proyecto")
-    diff.add_argument("--target", help=f"directorio de skills ({registry.DEFAULT_SKILLS_TARGET})")
+    diff = skills.add_parser("diff", help="compare with the skills installed in the project")
+    diff.add_argument("--target", help=f"skills directory ({registry.DEFAULT_SKILLS_TARGET})")
     _project_arg(diff)
     diff.set_defaults(handler=_run("skills_diff", lambda a: _opt(target=a.target)))
 
-    change = _group(sub, "change", "estado de los changes SDD (solo lectura)")
-    clist = change.add_parser("list", help="lista los changes")
-    clist.add_argument("--no-archived", action="store_true", help="omite archive/")
+    change = _group(sub, "change", "state of the SDD changes (read-only)")
+    clist = change.add_parser("list", help="list the changes")
+    clist.add_argument("--no-archived", action="store_true", help="skip archive/")
     _project_arg(clist)
     clist.set_defaults(
         handler=_run("list_changes", lambda a: {"include_archived": not a.no_archived})
     )
     for action, tool, helptext in (
-        ("status", "get_change_state", "estado de un change"),
-        ("ai-usage", "get_ai_usage_record", "AI Usage Record de un change"),
+        ("status", "get_change_state", "state of a change"),
+        ("ai-usage", "get_ai_usage_record", "AI Usage Record of a change"),
     ):
         parser = change.add_parser(action, help=helptext)
         parser.add_argument("change_name")
         _project_arg(parser)
         parser.set_defaults(handler=_run(tool, lambda a: {"change_name": a.change_name}))
-    followups = change.add_parser("followups", help="followups de los jueces")
+    followups = change.add_parser("followups", help="judge followups")
     followups.add_argument("change_name")
     followups.add_argument("--status", choices=("open", "dismissed", "all"), default="open")
     _project_arg(followups)
@@ -69,11 +69,11 @@ def register(sub: argparse._SubParsersAction) -> None:
 
     mcp = sub.add_parser(
         "mcp",
-        help="servidor MCP por stdio (opcional; ver ADR-0005)",
-        description="JSON-RPC 2.0 por stdio. stdout solo lleva el protocolo; logs a stderr.",
+        help="MCP server over stdio (optional; see ADR-0005)",
+        description="JSON-RPC 2.0 over stdio. stdout carries only the protocol; logs go to stderr.",
     )
-    mcp.add_argument("--project", type=Path, default=Path("."), help="raíz del proyecto")
-    mcp.add_argument("--verbose", action="store_true", help="logs de depuración en stderr")
+    mcp.add_argument("--project", type=Path, default=Path("."), help="project root")
+    mcp.add_argument("--verbose", action="store_true", help="debug logs on stderr")
     mcp.set_defaults(handler=_serve)
 
 
@@ -106,15 +106,15 @@ def _print_human(tool: str, result: dict[str, Any]) -> None:
                 print(f"{status}\t{item['name'] if isinstance(item, dict) else item}")
     elif tool == "list_changes":
         for change in result["changes"]:
-            where = "archivado" if change["archived"] else "activo"
+            where = "archived" if change["archived"] else "active"
             print(f"{change['name']}\t{change['phase']}\t{where}\t{change['path']}")
         if not result["changes"]:
-            print("sin changes")
+            print("no changes")
     elif tool == "get_followups":
         for item in result["followups"]:
             print(f"{item.get('id', '-')}\t{item['status']}\t{item.get('summary', '')}")
         if not result["followups"]:
-            print("sin followups")
+            print("no followups")
     else:
         for key, value in result.items():
             print(f"{key}: {value}")
