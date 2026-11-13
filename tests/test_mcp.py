@@ -131,7 +131,8 @@ def test_criterio_5_por_subprocess(tmp_path: Path) -> None:
     assert sorted(by_id) == [1, 2, 3, 4]
     assert by_id[1]["result"]["protocolVersion"] == "2025-06-18"
     tools = by_id[2]["result"]["tools"]
-    assert len(tools) == 7
+    assert [t["name"] for t in tools] == [t.name for t in registry.TOOLS]
+    assert {"skills_list", "get_change_state", "mem_save"} <= {t["name"] for t in tools}
     assert all("inputSchema" in t and t["inputSchema"]["type"] == "object" for t in tools)
     assert by_id[3]["result"]["isError"] is True
     assert "inválido" in by_id[3]["result"]["content"][0]["text"], "tiene que rechazarlo S2"

@@ -11,6 +11,7 @@ import json
 import platform
 import re
 import shutil
+import sqlite3
 import subprocess
 import sys
 import sysconfig
@@ -19,7 +20,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from exo import _meta, content, packs
+from exo import _meta, content, packs, paths
 from exo.core import config, filemerge, lock, snapshots
 
 MIN_PYTHON = (3, 10)
@@ -228,6 +229,116 @@ def _claude_trust(project: Path) -> Check:
     )
 
 
+# -- memoria (F3, ADR-0009 y ADR-0010) --------------------------------------------------
+
+
+def _memory_fts5(project: Path) -> Check:
+    from exo.memory import db
+
+    conn = sqlite3.connect(":memory:")
+    try:
+        available = db.fts5_available(conn)
+    finally:
+        conn.close()
+    if available:
+        return Check("memory-fts5", "ok", f"FTS5 disponible (SQLite {sqlite3.sqlite_version})")
+    return Check(
+        "memory-fts5",
+        "warn",
+        "este Python no trae FTS5: la búsqueda léxica rankea en Python y es más lenta. "
+        "Usá un Python de python.org o de uv",
+    )
+
+
+def _memory(project: Path) -> Check:
+    from exo.memory.store import MemoryStore, MemoryStoreError
+
+    path = paths.memory_db_path()
+    if not path.exists():
+        return Check(
+            "memory", "info", f"todavía no hay memoria en {path}; se crea con el primer `mem save`"
+        )
+    try:
+        with MemoryStore(path, semantic=None) as store:
+            stats = store.stats()
+    except (MemoryStoreError, sqlite3.Error) as exc:
+        return Check("memory", "error", str(exc))
+    return Check(
+        "memory",
+        "ok",
+        f"{stats.observations} observaciones en {stats.projects} proyectos, "
+        f"{stats.sessions} sesiones ({path}, esquema {stats.schema_version})",
+    )
+
+
+def _memory_semantic(project: Path) -> Check:
+    from exo.memory import embeddings, index
+    from exo.memory.store import MemoryStore, MemoryStoreError
+
+    how = (
+        f"Para la búsqueda híbrida (ADR-0010): pip install {_meta.DIST_NAME}[vector], "
+        f"`{_meta.NAME} mem model pull` y `{_meta.NAME} mem reindex --provider local`"
+    )
+    path = paths.memory_db_path()
+    if not path.exists():
+        return Check("memory-semantic", "info", f"solo búsqueda léxica. {how}")
+    try:
+        with MemoryStore(path) as store:
+            config_ = index.read_config(store.conn)
+            if config_ is None:
+                return Check("memory-semantic", "info", f"solo búsqueda léxica. {how}")
+            name = f"{config_.provider}:{config_.model}"
+            if store.semantic is None:
+                return Check("memory-semantic", "warn", f"{name}: {store.semantic_note}")
+            if config_.provider in embeddings.DEFAULT_MODELS and not embeddings.installed(
+                config_.provider
+            ):
+                extra = "vector" if config_.provider == "onnx" else "static"
+                return Check(
+                    "memory-semantic",
+                    "warn",
+                    f"{name}: falta el extra; pip install {_meta.DIST_NAME}[{extra}]. "
+                    "Mientras tanto, las búsquedas son léxicas",
+                )
+            if (
+                config_.provider in embeddings.DEFAULT_MODELS
+                and not embeddings.model_path(config_.provider, config_.model).is_dir()
+            ):
+                return Check(
+                    "memory-semantic",
+                    "warn",
+                    f"{name}: falta el modelo; `{_meta.NAME} mem model pull {config_.provider}`",
+                )
+            missing = store.semantic.missing(store.conn)
+            backend = store.semantic.backend.name
+    except (MemoryStoreError, sqlite3.Error) as exc:
+        return Check("memory-semantic", "error", str(exc))
+    detail = f"híbrida con {name} (dim {config_.dim}, backend {backend})"
+    problems = []
+    if backend == "python":
+        problems.append(
+            "sqlite-vec no carga en este Python (falta el extra o el Python no permite "
+            "extensiones de SQLite), así que la búsqueda semántica corre en Python y es lenta"
+        )
+    if missing:
+        problems.append(f"{missing} observaciones sin vector; corré `{_meta.NAME} mem reindex`")
+    if problems:
+        return Check("memory-semantic", "warn", f"{detail}: {'; '.join(problems)}")
+    return Check("memory-semantic", "ok", detail)
+
+
+def _memory_config(project: Path) -> Check:
+    loaded = config.load(project)
+    if loaded.source is not None and loaded.config.get("memory") != config.defaults()["memory"]:
+        return Check(
+            "memory-config",
+            "info",
+            "la sección memory de la config del proyecto no tiene efecto: la memoria es por "
+            f"usuario y se configura con `{_meta.NAME} mem reindex` (ADR-0009)",
+        )
+    return Check("memory-config", "ok", "la memoria se configura por usuario")
+
+
 CHECKS: tuple[Callable[[Path], Check], ...] = (
     _python,
     _platform,
@@ -242,10 +353,17 @@ CHECKS: tuple[Callable[[Path], Check], ...] = (
     _install,
     _claude_code,
     _claude_trust,
+    _memory_fts5,
+    _memory,
+    _memory_semantic,
+    _memory_config,
 )
 _NAMES = {
     _selftest_filemerge: "filemerge",
     _selftest_snapshots: "snapshots",
+    _memory_fts5: "memory-fts5",
+    _memory_semantic: "memory-semantic",
+    _memory_config: "memory-config",
 }
 
 

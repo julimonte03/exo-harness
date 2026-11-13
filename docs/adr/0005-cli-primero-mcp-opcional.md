@@ -39,6 +39,7 @@ En la prueba de F0 (`docs/spikes/agent-probe.md`), Claude Code respondió `MCP s
 - **F3:**
   - La memoria se usa con `exo mem …`. La skill `memory-protocol` y `AGENTS.base.md` dicen cuándo guardar y cuándo buscar.
   - El contexto al iniciar sesión se inyecta con un hook que corre `exo mem context`.
+  - **Resultado de la planificación de F3 (ADR-0009):** la política de la organización sí bloquea los hooks de proyecto de Claude Code (`allowManagedHooksOnly: true`). No se generan hooks: la regla de `AGENTS.base.md` le dice al agente que corra `exo mem context` al empezar.
 - **F6:** el bucle de discovery usa `exo discover next|claim|done`. El estado sigue en el motor (`state.json`), así que sobrevive a la compactación de contexto y a cortes.
 - **Costo aceptado:** sin MCP, las herramientas no aparecen en la lista del agente, y puede usar la memoria con menos iniciativa propia. Se compensa con reglas explícitas y se mide en los evals de F8.
 - La salida `--json` de cada comando lleva un campo de versión de esquema, para poder evolucionarla sin romper skills.
