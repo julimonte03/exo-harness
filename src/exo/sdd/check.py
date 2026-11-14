@@ -43,6 +43,10 @@ class CheckError(ValueError):
     """No se pudo armar la lista de qué revisar (change inexistente, git, config)."""
 
 
+class CheckUsageError(CheckError):
+    """Argumento inválido (por ejemplo `--base`): es un error de uso."""
+
+
 @dataclass(frozen=True)
 class Finding:
     severity: str  # error | warning
@@ -96,8 +100,14 @@ def _git(project: Path, *args: str) -> list[str]:
 def touched(project: Path, base: str) -> list[str]:
     """Rutas (relativas al proyecto) que cambian contra `base`, más las sin trackear."""
     if base.startswith("-") or not _SAFE_REF.match(base):
-        raise CheckError(f"invalid --base {base!r}: use a branch, tag or commit")
-    diff = _git(project, "diff", "--name-only", "-z", "--relative", base, "--")
+        raise CheckUsageError(f"invalid --base {base!r}: use a branch, tag or commit")
+    # Contra el punto donde la rama salió de la base, no contra la punta de la base: si no,
+    # lo que la base cambió después parece tocado por la rama.
+    found = _git(project, "merge-base", base, "HEAD")
+    if not found:
+        raise CheckError(f"{base} and HEAD have no common history; pass the branch the PR goes to")
+    fork = found[0].strip()
+    diff = _git(project, "diff", "--name-only", "-z", "--relative", fork, "--")
     untracked = _git(project, "ls-files", "--others", "--exclude-standard", "-z")
     return sorted(set(diff) | set(untracked))
 

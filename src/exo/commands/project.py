@@ -10,6 +10,7 @@ from typing import Any
 from exo import _meta, content, packs
 from exo.adapters import KNOWN_AGENTS, detect
 from exo.commands._output import emit_json, error, usage_error
+from exo.core import tickets
 from exo.installer import engine, project, stack, wizard
 
 
@@ -55,6 +56,11 @@ def register(sub: argparse._SubParsersAction) -> None:
     )
     init.add_argument(
         "--ticket-example", metavar="ID", help="example ticket ID shown in messages"
+    )
+    init.add_argument(
+        "--no-tickets",
+        action="store_true",
+        help="the project has no tickets (same as an empty --ticket-pattern)",
     )
     init.add_argument(
         "--mcp", action="store_true", help="enable the optional MCP server (ADR-0005)"
@@ -183,8 +189,19 @@ def _init(args: argparse.Namespace) -> int:
     interactive = not args.yes and sys.stdin.isatty()
     agents = args.agents
     chosen_packs = args.packs
+    if args.no_tickets and (args.ticket_pattern is not None or args.ticket_example is not None):
+        return usage_error("--no-tickets cannot go with --ticket-pattern or --ticket-example")
+    if args.no_tickets:
+        args.ticket_pattern = ""
     if args.ticket_example is not None and args.ticket_pattern is None:
         return usage_error("--ticket-example needs --ticket-pattern")
+    if args.ticket_pattern:
+        try:
+            tickets.compile_pattern(args.ticket_pattern)
+            if args.ticket_example is not None:
+                tickets.check_example(args.ticket_pattern, args.ticket_example)
+        except tickets.TicketError as exc:
+            return usage_error(str(exc))
     ticket_cfg = (
         wizard.ticket_config(args.ticket_pattern or None, args.ticket_example)
         if args.ticket_pattern is not None

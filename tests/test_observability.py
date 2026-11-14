@@ -53,7 +53,9 @@ def _tree(project: Path, specs: str = "specs") -> Path:
             }
         ),
     )
-    (root / "nuevo").mkdir()
+    # Un change recién creado tiene al menos un artefacto; una carpeta vacía no es un change.
+    _touch(root / "nuevo" / "followups.json", "[]")
+    (root / "vacia").mkdir()
     _touch(root / "solo-tasks" / "tasks.md", "- [ ] pendiente\n")
     _touch(root / "capabilities" / "auth" / "spec.md")
     _touch(root / "archive" / "2026-01-15-viejo" / "proposal.md")
@@ -76,12 +78,12 @@ def test_epicas_por_estructura_con_cualquier_patron(tmp_path: Path) -> None:
     _touch(root / "AB-100" / "AB-101-alta" / "proposal.md")
     _touch(root / "100" / "101-baja" / "ai-usage-record.json", "{}")
     _touch(root / "PROJ-5" / "proposal.md")  # parece una épica, pero tiene artefactos: es un change
-    (root / "100" / "102-vacio").mkdir()
+    (root / "100" / "102-vacio").mkdir()  # vacía: no es un change
     _touch(root / "archive" / "AB-100" / "2026-03-01-AB-103-viejo" / "proposal.md")
     changes = _by_name(tmp_path)
     assert changes["AB-101-alta"].epic == "AB-100"
     assert changes["101-baja"].epic == "100"
-    assert changes["102-vacio"].epic == "100"
+    assert "102-vacio" not in changes
     assert changes["PROJ-5"].epic is None
     assert (changes["AB-103-viejo"].epic, changes["AB-103-viejo"].archived) == ("AB-100", True)
 

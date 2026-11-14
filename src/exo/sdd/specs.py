@@ -373,6 +373,7 @@ def parse_capability(text: str, name: str) -> Capability:
     requirements: dict[str, Block] = {}
     removed: dict[str, Block] = {}
     seen: dict[str, int] = {}
+    sections_seen: dict[str, int] = {}
     for section in _sections(masked):
         title = _norm(section.title)
         if title == _norm(REQUIREMENTS):
@@ -381,6 +382,15 @@ def parse_capability(text: str, name: str) -> Capability:
             target, is_removed = removed, True
         else:
             continue
+        if title in sections_seen:
+            problems.append(
+                Problem(
+                    section.start + 1,
+                    f"section '## {section.title}' appears twice (first on line "
+                    f"{sections_seen[title]}); keep one",
+                )
+            )
+        sections_seen.setdefault(title, section.start + 1)
         for start, end, token, label in section.blocks:
             match = REQUIREMENT_ID.fullmatch(token)
             if match is None:
@@ -472,30 +482,69 @@ def _tombstone(change: str, removed: Block, existing: Block) -> list[str]:
     return [heading, f"Removed by change `{change}`.", *reason]
 
 
+_PIECE = re.compile(r"[^\n]*\n|[^\n]+")
+
+
 @dataclass
 class _Doc:
-    """Texto de una spec de capacidad que se edita por bloques, sin tocar el resto."""
+    """Texto de una spec de capacidad que se edita por bloques, sin tocar el resto.
 
-    lines: list[str]
+    Cada línea guarda su propio fin de línea, así las que no se tocan quedan byte a
+    byte aunque el archivo los mezcle. Las líneas nuevas llevan el más frecuente.
+    """
+
+    lines: list[str]  # sin fin de línea
+    ends: list[str]  # "\r\n", "\n" o "" (la última, si el archivo no termina con uno)
     eol: str
-    final: bool
     bom: bool
+
+    @classmethod
+    def from_text(cls, text: str, bom: bool = False) -> _Doc:
+        lines: list[str] = []
+        ends: list[str] = []
+        for piece in _PIECE.findall(text):
+            end = "\r\n" if piece.endswith("\r\n") else ("\n" if piece.endswith("\n") else "")
+            lines.append(piece[: len(piece) - len(end)])
+            ends.append(end)
+        eol = "\r\n" if ends.count("\r\n") > ends.count("\n") else "\n"
+        return cls(lines, ends, eol, bom)
 
     @classmethod
     def parse(cls, raw: bytes) -> _Doc:
         text = raw.decode("utf-8")
         bom = text.startswith("﻿")
-        lines, eol, final = _split(text[1:] if bom else text)
-        return cls(lines, eol, final, bom)
+        return cls.from_text(text[1:] if bom else text, bom)
 
     @classmethod
     def new(cls, name: str) -> _Doc:
-        lines, eol, final = _split(NEW_CAPABILITY.format(name=name))
-        return cls(lines, eol, final, False)
+        return cls.from_text(NEW_CAPABILITY.format(name=name))
 
     def render(self) -> bytes:
-        text = self.eol.join(self.lines) + (self.eol if self.final else "")
+        text = "".join(line + end for line, end in zip(self.lines, self.ends, strict=True))
         return (("﻿" if self.bom else "") + text).encode("utf-8")
+
+    def _insert(self, index: int, new: list[str]) -> None:
+        at_end = index == len(self.lines)
+        unterminated = bool(self.ends) and self.ends[-1] == ""
+        if index > 0 and self.ends[index - 1] == "":
+            self.ends[index - 1] = self.eol
+        ends = [self.eol] * len(new)
+        if at_end and unterminated and ends:
+            ends[-1] = ""
+        self.lines[index:index] = new
+        self.ends[index:index] = ends
+
+    def _replace(self, start: int, stop: int, new: list[str]) -> None:
+        last_end = self.ends[stop - 1] if stop > start else self.eol
+        ends = [self.eol] * len(new)
+        if ends and stop == len(self.lines) and last_end == "":
+            ends[-1] = ""
+        self.lines[start:stop] = new
+        self.ends[start:stop] = ends
+
+    def _delete(self, start: int, stop: int) -> None:
+        del self.lines[start:stop]
+        del self.ends[start:stop]
 
     def _section(self, title: str) -> _Section | None:
         wanted = _norm(title)
@@ -512,16 +561,21 @@ class _Doc:
     def _append(self, section: _Section, block: list[str]) -> None:
         """Agrega el bloque al final de la sección, separado por una línea vacía."""
         last = self._content_end(section.start, section.end)
-        self.lines[last:last] = ["", *block]
+        self._insert(last, ["", *block])
         after = last + 1 + len(block)
         # Si lo que sigue quedó pegado (el próximo encabezado), se separa con una línea vacía.
         if after < len(self.lines) and self.lines[after].strip():
-            self.lines.insert(after, "")
+            self._insert(after, [""])
+
+    def _trim_end(self) -> None:
+        while self.lines and not self.lines[-1].strip():
+            self._delete(len(self.lines) - 1, len(self.lines))
 
     def add(self, block: list[str]) -> None:
         section = self._section(REQUIREMENTS)
         if section is None:
-            self.lines += ["", f"## {REQUIREMENTS}"]
+            self._trim_end()
+            self._insert(len(self.lines), ["", f"## {REQUIREMENTS}"])
             section = self._section(REQUIREMENTS)
             assert section is not None
         self._append(section, block)
@@ -532,20 +586,18 @@ class _Doc:
         found = self._find(section, block_id)
         assert found is not None
         start, end = found
-        self.lines[start : self._content_end(start, end)] = block
+        self._replace(start, self._content_end(start, end), block)
 
     def remove(self, block_id: str, tombstone: list[str]) -> None:
         section = self._section(REQUIREMENTS)
         assert section is not None
         found = self._find(section, block_id)
         assert found is not None
-        start, end = found
-        del self.lines[start:end]
+        self._delete(*found)
         removed = self._section(REMOVED_REQUIREMENTS)
         if removed is None:
-            while self.lines and not self.lines[-1].strip():
-                self.lines.pop()
-            self.lines += ["", f"## {REMOVED_REQUIREMENTS}"]
+            self._trim_end()
+            self._insert(len(self.lines), ["", f"## {REMOVED_REQUIREMENTS}"])
             removed = self._section(REMOVED_REQUIREMENTS)
             assert removed is not None
         self._append(removed, tombstone)
@@ -615,7 +667,12 @@ def merge(project: Path, change: str, *, dry_run: bool = False) -> MergeResult:
     if not delta_path.is_file():
         note = f"{found.path} has no spec.md: nothing to merge (the change must not alter behavior)"
         return MergeResult(change, [], False, notes=[note])
-    delta = parse_delta(delta_path.read_bytes().decode("utf-8-sig"))
+    try:
+        delta = parse_delta(delta_path.read_bytes().decode("utf-8-sig"))
+    except UnicodeDecodeError as exc:
+        rel = f"{found.path}/{SPEC_FILE}"
+        problem = f"{rel}: not UTF-8 text ({exc.reason}); save it as UTF-8"
+        raise MergeError(change, [problem]) from exc
     if delta.problems:
         rel = f"{found.path}/{SPEC_FILE}"
         raise MergeError(change, [f"{rel}:{p.line}: {p.message}" for p in delta.problems])
@@ -635,8 +692,13 @@ def merge(project: Path, change: str, *, dry_run: bool = False) -> MergeResult:
             docs[name] = None
             continue
         raw = path.read_bytes()
-        doc = _Doc.parse(raw)
-        cap = parse_capability(raw.decode("utf-8-sig"), name)
+        try:
+            doc = _Doc.parse(raw)
+            cap = parse_capability(raw.decode("utf-8-sig"), name)
+        except UnicodeDecodeError as exc:
+            rel = _relative(project, path)
+            problems.append(f"{rel}: not UTF-8 text ({exc.reason}); save it as UTF-8")
+            continue
         if cap.problems:
             rel = _relative(project, path)
             problems += [f"{rel}:{p.line}: {p.message}" for p in cap.problems]

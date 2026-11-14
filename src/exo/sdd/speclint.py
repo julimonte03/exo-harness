@@ -137,6 +137,20 @@ def _check_structure(sections: list[_Section], template: str, errors: list[Issue
             errors.append(Issue(section.line, f"section '{section.title}' is empty"))
 
 
+_EMPTY_REQUIREMENTS = "section 'Requirements' is empty"
+
+
+def verdict(text: str) -> str | None:
+    """La primera palabra de la sección Verdict, si es un veredicto válido."""
+    section = _find(_sections(text), "Verdict")
+    if section is None or not section.text().strip():
+        return None
+    first = next(line for line in section.text().splitlines() if line.strip())
+    match = _VERDICT_WORD.match(first)
+    word = match.group(1).lower() if match else None
+    return word if word in VERDICTS else None
+
+
 def _check_delta(text: str, errors: list[Issue]) -> dict[str, int]:
     delta = specs.parse_delta(text)
     errors.extend(Issue(p.line, p.message) for p in delta.problems)
@@ -150,16 +164,15 @@ def _check_capability(text: str, name: str, errors: list[Issue]) -> dict[str, in
 
 
 def _check_verify(sections: list[_Section], errors: list[Issue]) -> None:
-    verdict = _find(sections, "Verdict")
-    if verdict is not None and verdict.text().strip():
-        first = next(line for line in verdict.text().splitlines() if line.strip())
-        match = _VERDICT_WORD.match(first)
-        if match is None or match.group(1).lower() not in VERDICTS:
+    section = _find(sections, "Verdict")
+    if section is not None and section.text().strip():
+        text = "\n".join(f"## {s.title}\n{s.text(comments=True)}" for s in sections)
+        if verdict(text) is None:
             message = (
                 "Verdict must be ready, needs-rework or blocked (the first word of the section; "
                 "the reason can follow)"
             )
-            errors.append(Issue(verdict.line, message))
+            errors.append(Issue(section.line, message))
     gate = _find(sections, "Gate summary")
     if gate is not None and not GATE_MARKER.search(gate.text(comments=True)):
         marker = f"<!-- {_meta.BLOCK_PREFIX}-gate:<gate> -->"
@@ -186,7 +199,7 @@ def _template_for(path: Path, kind: str | None) -> str:
 
 
 def _lint_file(path: Path, template: str) -> tuple[FileReport, list[_Section], dict[str, int]]:
-    text = path.read_text(encoding="utf-8")
+    text = path.read_text(encoding="utf-8-sig")
     sections = _sections(text)
     report = FileReport(path, KIND_OF[template], template)
     defined: dict[str, int] = {}
@@ -196,6 +209,9 @@ def _lint_file(path: Path, template: str) -> tuple[FileReport, list[_Section], d
         _check_structure(sections, template, report.errors)
     if template == "capability-spec":
         defined = _check_capability(text, path.parent.name, report.errors)
+        if specs.parse_capability(text, path.parent.name).removed:
+            # Todos los requisitos se borraron: quedan las lápidas, y vale.
+            report.errors = [e for e in report.errors if e.message != _EMPTY_REQUIREMENTS]
     elif template == "verify-record":
         _check_verify(sections, report.errors)
     return report, sections, defined
@@ -207,7 +223,8 @@ def _lint_file(path: Path, template: str) -> tuple[FileReport, list[_Section], d
 def _references(path: Path) -> list[tuple[int, str]]:
     refs: list[tuple[int, str]] = []
     in_code = False
-    text = _COMMENT.sub(lambda m: "\n" * m.group(0).count("\n"), path.read_text(encoding="utf-8"))
+    raw = path.read_text(encoding="utf-8-sig")
+    text = _COMMENT.sub(lambda m: "\n" * m.group(0).count("\n"), raw)
     for number, line in enumerate(text.splitlines(), start=1):
         if _FENCE.match(line):
             in_code = not in_code
@@ -225,7 +242,9 @@ def _living_ids(change: Path) -> set[str]:
             found: set[str] = set()
             for path in sorted(root.glob(f"*/{specs.SPEC_FILE}")):
                 text = path.read_text(encoding="utf-8-sig", errors="replace")
-                found.update(specs.parse_capability(text, path.parent.name).requirements)
+                cap = specs.parse_capability(text, path.parent.name)
+                found.update(cap.requirements)
+                found.update(cap.removed)
             return found
     return set()
 
@@ -257,7 +276,7 @@ def _cross_check(
     if "test-spec.md" in reports:
         report = reports["test-spec.md"][0]
         mentioned = {token for _, token in _references(report.path)}
-        delta = specs.parse_delta((folder / "spec.md").read_text(encoding="utf-8"))
+        delta = specs.parse_delta((folder / "spec.md").read_text(encoding="utf-8-sig"))
         covered = [b.id for b in (*delta.added, *delta.modified)] + list(delta.scenarios)
         for token in covered:
             if token not in mentioned:
