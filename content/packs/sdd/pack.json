@@ -3,5 +3,5 @@
   "version": "0.1.0",
   "description": "Spec-driven development: a phased cycle proportional to the risk of the change.",
   "requires": ["core"],
-  "optional": ["quality", "security", "frontend", "java"]
+  "optional": ["quality", "security", "frontend", "java", "product", "design"]
 }

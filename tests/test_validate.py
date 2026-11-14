@@ -55,7 +55,7 @@ def test_contenido_del_motor_es_valido() -> None:
 def test_base_sintetica_es_valida(tmp_path: Path) -> None:
     report = validate(_base(tmp_path))
     assert report.errors == []
-    assert report.counts == {"packs": 2, "skills": 2, "subagents": 1}
+    assert report.counts == {"packs": 2, "skills": 2, "subagents": 1, "shared": 0}
 
 
 Mutation = Callable[[Path], None]
@@ -126,13 +126,91 @@ def test_skill_larga_da_advertencia(tmp_path: Path) -> None:
     assert any("500 lines" in w.message for w in report.warnings)
 
 
-def test_referencia_con_pack_opcional_ausente_es_advertencia(tmp_path: Path) -> None:
+MAP_PATH = Path("packs") / "sdd" / "shared" / "phase-skill-map.md"
+MAP = """# Phase → skill map
+
+## Map
+
+| Phase | Required |
+|---|---|
+| verify | `judge-security` |
+
+## Skills from packs not installed yet
+
+| Skill | Pack | Inline criteria when missing |
+|---|---|---|
+| `judge-security` | quality | Review the diff for security issues, read-only. |
+"""
+
+
+def _optional(root: Path, optional: list[str]) -> None:
+    manifest = {"name": "sdd", "version": "0.1.0", "description": "x", "requires": ["core"], "optional": optional}
+    _write(root / "packs" / "sdd" / "pack.json", json.dumps(manifest))
+
+
+def test_referencia_sin_resolver_es_error_aunque_haya_opcionales(tmp_path: Path) -> None:
+    """Antes era advertencia si el pack declaraba opcionales ausentes: un typo pasaba."""
+    root = _base(tmp_path)
+    _replace(FLUJO, "skill:base", "skill:base y skill:judge-securty")(root)
+    _optional(root, ["quality"])
+    assert any("skill:judge-securty" in m for m in _messages(root))
+
+
+def test_referencia_declarada_en_el_mapa_degrada(tmp_path: Path) -> None:
     root = _base(tmp_path)
     _replace(FLUJO, "skill:base", "skill:base y skill:judge-security")(root)
-    _write(root / "packs" / "sdd" / "pack.json", json.dumps({"name": "sdd", "version": "0.1.0", "description": "x", "requires": ["core"], "optional": ["quality"]}))
+    _optional(root, ["quality"])
+    _write(root / MAP_PATH, MAP)
+    report = validate(root)
+    assert report.errors == [], [f.message for f in report.errors]
+
+
+def test_degradacion_de_un_pack_que_no_se_declara(tmp_path: Path) -> None:
+    root = _base(tmp_path)
+    _replace(FLUJO, "skill:base", "skill:base y skill:judge-security")(root)
+    _write(root / MAP_PATH, MAP)
+    assert any("quality" in m and "optional" in m for m in _messages(root))
+
+
+# -- contratos compartidos --------------------------------------------------
+
+
+def test_contratos_validos_y_contados(tmp_path: Path) -> None:
+    root = _base(tmp_path)
+    _write(root / "packs" / "sdd" / "shared" / "contrato.md", "# Contract\n\nUses skill:base.\n")
+    _write(root / "packs" / "sdd" / "shared" / "schemas" / "x.schema.json", '{"type": "object"}\n')
     report = validate(root)
     assert report.errors == []
-    assert any("judge-security" in w.message and "quality" in w.message for w in report.warnings)
+    assert report.counts["shared"] == 2
+
+
+@pytest.mark.parametrize(
+    ("rel", "text", "fragment"),
+    [
+        ("datos.json", "{ roto", "not valid JSON"),
+        ("schemas/x.schema.json", '{"oneOf": []}', "unsupported keyword"),
+        ("contrato.md", "Escape \\u00f1 literal.\n", "literal Unicode escape"),
+        ("contrato.md", "Uses skill:no-existe.\n", "skill:no-existe"),
+    ],
+)
+def test_reglas_de_los_contratos(tmp_path: Path, rel: str, text: str, fragment: str) -> None:
+    root = _base(tmp_path)
+    _write(root / "packs" / "sdd" / "shared" / rel, text)
+    assert any(fragment in m for m in _messages(root)), _messages(root)
+
+
+def test_rutas_a_contratos_que_no_existen(tmp_path: Path) -> None:
+    root = _base(tmp_path)
+    shared = f"{_meta.PROJECT_DIR}/shared"
+    _write(root / "packs" / "sdd" / "shared" / "contrato.md", "# Contract\n")
+    _replace(
+        FLUJO,
+        "skill:base",
+        f"skill:base, `{shared}/contrato.md`, `{shared}/templates/proposal.md`, `{shared}/templates/`",
+    )(root)
+    assert _messages(root) == []
+    _replace(FLUJO, "skill:base", f"skill:base y `{shared}/no-existe.md`")(root)
+    assert any("no-existe.md" in m and "does not exist" in m for m in _messages(root))
 
 
 def test_cli_validate(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -184,3 +262,10 @@ def test_skill_que_no_es_utf8(tmp_path: Path) -> None:
     root = _base(tmp_path)
     (root / BASE).write_bytes(b"---\nname: base\ndescription: \xff\n---\n")
     assert any("UTF-8" in m for m in _messages(root))
+
+
+def test_las_references_tambien_se_revisan(tmp_path: Path) -> None:
+    root = _base(tmp_path)
+    references = root / "packs" / "sdd" / "skills" / "flujo" / "references"
+    _write(references / "reglas.md", "See skill:no-existe.\n")
+    assert any("skill:no-existe" in m and "reglas.md" in m for m in _messages(root))
