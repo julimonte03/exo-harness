@@ -32,7 +32,7 @@ def test_node_con_react_y_express(tmp_path: Path) -> None:
 def test_python_con_fastapi(tmp_path: Path) -> None:
     _write(tmp_path, "pyproject.toml", '[project]\ndependencies = ["FastAPI>=0.110", "pydantic"]\n')
     report = detect_stack(tmp_path)
-    assert report.signals["backend-python"] == ["dependencia fastapi"]
+    assert report.signals["backend-python"] == ["dependency fastapi"]
     assert report.suggested == ["core", "sdd", "quality", "security", "python"]
 
 

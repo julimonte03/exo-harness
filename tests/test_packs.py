@@ -52,7 +52,7 @@ def test_variable_de_entorno_invalida(tmp_path: Path, monkeypatch: pytest.Monkey
 def test_sin_contenido_disponible(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.delenv(content.ENV_VAR, raising=False)
     monkeypatch.setattr(content, "_CANDIDATES", (tmp_path / "a", tmp_path / "b"))
-    with pytest.raises(content.ContentError, match="no se encontró"):
+    with pytest.raises(content.ContentError, match="not found"):
         content.content_root()
 
 
@@ -74,7 +74,7 @@ def test_packs_del_motor() -> None:
 @pytest.mark.parametrize(
     ("fields", "fragment"),
     [
-        ({"name": "otro"}, "igual a la carpeta"),
+        ({"name": "otro"}, "match the folder name"),
         ({"version": "1.0"}, "semver"),
         ({"version": 1}, "semver"),
         ({"description": ""}, "description"),
@@ -97,7 +97,7 @@ def test_manifiesto_faltante_o_roto(tmp_path: Path) -> None:
     with pytest.raises(PackError, match="JSON"):
         packs.load_pack(folder)
     (folder / "pack.json").write_text("[]", encoding="utf-8")
-    with pytest.raises(PackError, match="objeto"):
+    with pytest.raises(PackError, match="object"):
         packs.load_pack(folder)
 
 
@@ -122,7 +122,7 @@ def test_resolve_detecta_ciclos(tmp_path: Path) -> None:
     _pack(tmp_path, "a", requires=["b"])
     _pack(tmp_path, "b", requires=["c"])
     _pack(tmp_path, "c", requires=["a"])
-    with pytest.raises(PackError, match="ciclo: a -> b -> c -> a"):
+    with pytest.raises(PackError, match="cycle: a -> b -> c -> a"):
         packs.resolve(packs.load_packs(tmp_path), ["a"])
 
 

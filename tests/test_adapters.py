@@ -145,12 +145,12 @@ def test_normalize_agents() -> None:
     assert project.normalize_agents([]) == ("generic",)
     assert project.normalize_agents(["copilot", "claude-code", "copilot"]) == ("copilot", "claude-code")
     assert project.normalize_agents(["generic", "cursor"]) == ("cursor",)
-    with pytest.raises(ProjectError, match="desconocido"):
+    with pytest.raises(ProjectError, match="unknown agent"):
         project.normalize_agents(["windsurf"])
 
 
 def test_pack_inexistente_es_error_de_proyecto(tmp_path: Path) -> None:
-    with pytest.raises(ProjectError, match="no existe"):
+    with pytest.raises(ProjectError, match="does not exist"):
         project.sync(tmp_path, packs=["fantasma"])
 
 

@@ -46,20 +46,20 @@ def _post(
         with opener(request, timeout=TIMEOUT) as response:  # noqa: S310
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
-        raise ProviderError(f"{url} respondió {exc.code}: {exc.reason}") from exc
+        raise ProviderError(f"{url} returned {exc.code}: {exc.reason}") from exc
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise ProviderError(f"no se pudo conectar con {url} ({exc})") from exc
+        raise ProviderError(f"could not connect to {url} ({exc})") from exc
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ProviderError(f"{url} no devolvió JSON ({exc})") from exc
+        raise ProviderError(f"{url} did not return JSON ({exc})") from exc
 
 
 def _vectors(raw: Any, url: str, count: int) -> list[list[float]]:
     if not isinstance(raw, list) or len(raw) != count:
-        raise ProviderError(f"{url} devolvió {len(raw) if isinstance(raw, list) else 0} vectores")
+        raise ProviderError(f"{url} returned {len(raw) if isinstance(raw, list) else 0} vectors")
     try:
         return [[float(x) for x in vector] for vector in raw]
     except (TypeError, ValueError) as exc:
-        raise ProviderError(f"{url} devolvió vectores inválidos") from exc
+        raise ProviderError(f"{url} returned invalid vectors") from exc
 
 
 class _Http:
@@ -93,8 +93,8 @@ class OllamaProvider(_Http):
         self.local = (urlsplit(self.url).hostname or "") in _LOCAL_HOSTS
         if not self.local and not allow_remote:
             raise ProviderError(
-                f"OLLAMA_HOST apunta a {self.url}, que no es esta máquina: mandaría el texto de "
-                f"las memorias afuera. Usá un Ollama local o pedilo con --allow-remote"
+                f"OLLAMA_HOST points to {self.url}, which is not this machine: the memory text "
+                f"would leave it. Use a local Ollama or pass --allow-remote"
             )
 
     def embed(self, texts: list[str]) -> list[list[float]]:
@@ -110,14 +110,14 @@ class OpenAICompatibleProvider(_Http):
     def __init__(self, model: str | None, *, allow_remote: bool = False) -> None:
         super().__init__()
         if not allow_remote:  # create() ya lo valida; esto cubre el uso directo
-            raise ProviderError("openai-compatible es remoto: hace falta --allow-remote")
+            raise ProviderError("openai-compatible is remote: it needs --allow-remote")
         self.model = model or self.DEFAULT_MODEL
         self.url = os.environ.get(ENV_URL, "https://api.openai.com/v1")
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         key = os.environ.get(ENV_KEY)
         if not key:
-            raise ProviderError(f"falta la clave de API en la variable {ENV_KEY}")
+            raise ProviderError(f"missing API key: set the {ENV_KEY} variable")
         url = f"{self.url.rstrip('/')}/embeddings"
         data = _post(
             url, {"model": self.model, "input": list(texts)}, {"Authorization": f"Bearer {key}"}

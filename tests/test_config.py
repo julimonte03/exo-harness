@@ -77,14 +77,14 @@ def test_json_invalido_da_defaults_y_advertencia(tmp_path: Path) -> None:
     result = config.load(tmp_path)
     assert result.config == config.defaults()
     assert len(result.warnings) == 1
-    assert "no es JSON válido" in result.warnings[0]
+    assert "is not valid JSON" in result.warnings[0]
 
 
 def test_raiz_que_no_es_objeto(tmp_path: Path) -> None:
     _write(tmp_path, [1, 2])
     result = config.load(tmp_path)
     assert result.config == config.defaults()
-    assert "objeto JSON" in result.warnings[0]
+    assert "JSON object" in result.warnings[0]
 
 
 def test_campo_invalido_vuelve_a_su_default_y_el_resto_se_conserva(tmp_path: Path) -> None:
@@ -172,7 +172,7 @@ def test_esquema_futuro_desconocido_da_defaults(tmp_path: Path) -> None:
     _write(tmp_path, {"schema": 99, "specs_dir": "otra"})
     result = config.load(tmp_path)
     assert result.config == config.defaults()
-    assert any("esquema 99" in w for w in result.warnings)
+    assert any("schema 99" in w for w in result.warnings)
 
 
 def test_migraciones_encadenadas(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -188,7 +188,7 @@ def test_migraciones_encadenadas(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     result = config.load(tmp_path)
     assert result.config["schema"] == 2
     assert result.config["specs_dir"] == "legacy"
-    assert any("migrada del esquema 1 al 2" in w for w in result.warnings)
+    assert any("migrated from schema 1 to 2" in w for w in result.warnings)
 
 
 def test_migracion_faltante(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -197,7 +197,7 @@ def test_migracion_faltante(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     _write(tmp_path, {"schema": 1, "specs_dir": "x"})
     result = config.load(tmp_path)
     assert result.config == config.defaults()
-    assert any("no hay migración" in w for w in result.warnings)
+    assert any("no migration" in w for w in result.warnings)
 
 
 def test_save_y_load_ida_y_vuelta(tmp_path: Path) -> None:
@@ -228,7 +228,7 @@ def test_save_rechaza_config_invalida(tmp_path: Path) -> None:
 def test_save_no_pisa_una_config_de_esquema_mas_nuevo(tmp_path: Path) -> None:
     path = _write(tmp_path, {"schema": 99, "algo": "del futuro"})
     loaded = config.load(tmp_path)
-    with pytest.raises(ConfigError, match="esquema 99"):
+    with pytest.raises(ConfigError, match="schema 99"):
         config.save(tmp_path, loaded.config)
     assert json.loads(path.read_text(encoding="utf-8")) == {"schema": 99, "algo": "del futuro"}
 

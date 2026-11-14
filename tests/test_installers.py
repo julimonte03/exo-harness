@@ -24,7 +24,7 @@ from exo import _meta
 pytestmark = pytest.mark.installer
 REPO = Path(__file__).resolve().parents[1]
 TIMEOUT = 900
-MARK = f"# agregado por {_meta.DIST_NAME}"
+MARK = f"# added by {_meta.DIST_NAME}"
 
 
 def _env(tmp_path: Path, *, no_uv: bool) -> dict[str, str]:
@@ -110,7 +110,7 @@ def test_install_ps1(tmp_path: Path, no_uv: bool, path_key: str) -> None:
     assert not exe.exists()
     assert _user_path(path_key) == original
     # Una segunda desinstalación no falla (uv sin herramientas escribe en stderr).
-    assert "no estaba instalado" in _run([*shell, str(REPO / "uninstall.ps1")], env).stdout
+    assert "was not installed" in _run([*shell, str(REPO / "uninstall.ps1")], env).stdout
 
 
 def _venv_works() -> bool:
@@ -163,7 +163,7 @@ def test_install_sh_no_pisa_otro_exo(tmp_path: Path) -> None:
         ["sh", str(REPO / "install.sh")], env=env, capture_output=True, text=True, timeout=TIMEOUT
     )
     assert result.returncode == 1
-    assert "no es de este motor" in result.stderr
+    assert "does not belong to this engine" in result.stderr
     assert other.read_text(encoding="utf-8") == "#!/bin/sh\necho otra herramienta\n"
     assert not (tmp_path / "datos" / "venv").exists()
 

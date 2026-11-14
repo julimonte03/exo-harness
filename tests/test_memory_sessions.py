@@ -57,7 +57,7 @@ def test_session_show_y_end_inexistentes(store: MemoryStore) -> None:
         store.session_show(99)
     with pytest.raises(NotFoundError):
         store.session_end(99)
-    with pytest.raises(NotFoundError, match="no hay sesiones"):
+    with pytest.raises(NotFoundError, match="no sessions"):
         store.session_show()
 
 
@@ -105,7 +105,7 @@ def test_merge_conserva_el_mas_reciente(store: MemoryStore) -> None:
 
 
 def test_merge_invalido(store: MemoryStore) -> None:
-    with pytest.raises(MemoryStoreError, match="mismo"):
+    with pytest.raises(MemoryStoreError, match="itself"):
         store.projects_merge(P, P)
     with pytest.raises(NotFoundError):
         store.projects_merge("no/existe", P)

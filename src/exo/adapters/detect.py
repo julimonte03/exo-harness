@@ -103,15 +103,15 @@ def _score(
         env_hits.append(f"AI_AGENT={ai_agent}")
     if env_hits:
         score += ENV_SCORE
-        evidence += [f"variable {name}" for name in env_hits]
+        evidence += [f"env var {name}" for name in env_hits]
     files = [rel for rel in signals.files if (project / rel).exists()]
     if files:
         score += FILE_SCORE
-        evidence += [f"archivo {rel}" for rel in files]
+        evidence += [f"file {rel}" for rel in files]
     exes = [name for name in signals.exes if which(name)]
     if exes:
         score += EXE_SCORE
-        evidence += [f"ejecutable {name}" for name in exes]
+        evidence += [f"executable {name}" for name in exes]
     return Detection(agent, score, tuple(evidence))
 
 

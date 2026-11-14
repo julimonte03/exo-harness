@@ -77,21 +77,21 @@ def check_project(project: str) -> str:
     project = project.strip()
     if not project or len(project) > MAX_PROJECT or "\n" in project:
         raise MemoryStoreError(
-            f"project inválido: {project!r} (texto de 1 a {MAX_PROJECT} caracteres)"
+            f"invalid project: {project!r} (text of 1 to {MAX_PROJECT} characters)"
         )
     return project
 
 
 def check_scope(scope: str) -> str:
     if scope not in SCOPES:
-        raise MemoryStoreError(f"scope inválido: {scope!r} (uno de {', '.join(SCOPES)})")
+        raise MemoryStoreError(f"invalid scope: {scope!r} (one of {', '.join(SCOPES)})")
     return scope
 
 
 def check_type(kind: str) -> str:
     if not _TYPE.match(kind):
         raise MemoryStoreError(
-            f"type inválido: {kind!r} (minúsculas, números y guiones; por ejemplo "
+            f"invalid type: {kind!r} (lowercase letters, digits and hyphens; for example "
             f"{', '.join(COMMON_TYPES[:3])})"
         )
     return kind
@@ -103,17 +103,17 @@ def check_topic_key(topic_key: str | None) -> str | None:
     parts = topic_key.split("/")
     if not _TOPIC_KEY.match(topic_key) or any(p in ("", ".", "..") for p in parts):
         raise MemoryStoreError(
-            f"topic_key inválido: {topic_key!r} (segmentos separados por /, por ejemplo "
-            "sdd/<change>/<fase> o project/profile)"
+            f"invalid topic_key: {topic_key!r} (segments separated by /, for example "
+            "sdd/<change>/<phase> or project/profile)"
         )
     return topic_key
 
 
 def check_text(name: str, value: str, limit: int) -> str:
     if not value.strip():
-        raise MemoryStoreError(f"{name} no puede estar vacío")
+        raise MemoryStoreError(f"{name} cannot be empty")
     if len(value) > limit:
-        raise MemoryStoreError(f"{name} supera los {limit} caracteres")
+        raise MemoryStoreError(f"{name} exceeds {limit} characters")
     return value
 
 

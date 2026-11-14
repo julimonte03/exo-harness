@@ -1,17 +1,17 @@
 #!/bin/sh
-# Desinstala el motor exo de esta máquina (Linux y macOS). No toca los proyectos:
-# para quitarlo de un proyecto, corré `exo uninstall` dentro de ese proyecto.
+# Uninstalls the exo engine from this machine (Linux and macOS). It does not touch
+# projects: to remove it from a project, run `exo uninstall` inside that project.
 #
-# Quita las líneas del PATH que agregó install.sh, solo si ese directorio quedó
-# vacío (~/.local/bin o el de uv pueden tener otras herramientas).
-# Variables: EXO_DATA_DIR, EXO_INSTALL_NO_PATH=1, EXO_INSTALL_NO_UV=1 (las mismas
-# que install.sh).
+# Removes the PATH lines that install.sh added, only if that directory is empty
+# (~/.local/bin or the uv one may hold other tools).
+# Variables: EXO_DATA_DIR, EXO_INSTALL_NO_PATH=1, EXO_INSTALL_NO_UV=1 (the same as
+# install.sh).
 set -eu
 
 DIST=exo-harness
 REMOVED=0
 NO_PATH=${EXO_INSTALL_NO_PATH:-0}
-MARK="# agregado por $DIST"
+MARK="# added by $DIST"
 
 data_dir() {
     if [ -n "${EXO_DATA_DIR:-}" ]; then echo "$EXO_DATA_DIR"
@@ -60,15 +60,15 @@ if [ "$NO_PATH" != 1 ] && [ -f "$MARKER" ]; then
         for rc in "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.bashrc" "$HOME/.zshrc"; do
             strip_marked "$rc"
         done
-        echo "Quité $ADDED del PATH."
+        echo "Removed $ADDED from the PATH."
     else
-        echo "Dejo $ADDED en el PATH: tiene otras herramientas."
+        echo "Keeping $ADDED on the PATH: it holds other tools."
     fi
     rm -f "$MARKER" "$CREATED"
 fi
 
 if [ "$REMOVED" = 1 ]; then
-    echo "Desinstalado $DIST. Los backups de desinstalación de proyectos quedan en $DATA_DIR."
+    echo "Uninstalled $DIST. Project uninstall backups remain in $DATA_DIR."
 else
-    echo "$DIST no estaba instalado."
+    echo "$DIST was not installed."
 fi

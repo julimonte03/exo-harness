@@ -63,11 +63,11 @@ def _timestamp(value: Any, where: str) -> str:
     """Fecha ISO 8601 normalizada a UTC con microsegundos, como las que guarda el store:
     así se pueden comparar como texto. Sin zona, se toma como UTC."""
     if not isinstance(value, str):
-        raise MemoryStoreError(f"{where}: falta la fecha o no es texto")
+        raise MemoryStoreError(f"{where}: missing date or not a string")
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as exc:
-        raise MemoryStoreError(f"{where}: fecha inválida {value!r}") from exc
+        raise MemoryStoreError(f"{where}: invalid date {value!r}") from exc
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc).isoformat(timespec="microseconds")
@@ -76,7 +76,7 @@ def _timestamp(value: Any, where: str) -> str:
 def _row(raw: Any, index: int, project: str | None) -> tuple[Any, ...]:
     where = f"observations[{index}]"
     if not isinstance(raw, dict):
-        raise MemoryStoreError(f"{where}: tiene que ser un objeto")
+        raise MemoryStoreError(f"{where}: must be an object")
     missing = [name for name in ("title", "content") if not isinstance(raw.get(name), str)]
     for name in ("type", "topic_key", "scope"):
         if raw.get(name) is not None and not isinstance(raw[name], str):
@@ -86,7 +86,7 @@ def _row(raw: Any, index: int, project: str | None) -> tuple[Any, ...]:
     if scope == "project" and not isinstance(target, str):
         missing.append("project")
     if missing:
-        raise MemoryStoreError(f"{where}: faltan {', '.join(missing)} o no son texto")
+        raise MemoryStoreError(f"{where}: {', '.join(missing)} missing or not a string")
     try:
         fields = _fields(
             target or "",
@@ -106,14 +106,14 @@ def _row(raw: Any, index: int, project: str | None) -> tuple[Any, ...]:
 def import_(store: MemoryStore, data: Any, *, project: str | None = None) -> ImportResult:
     """Importa un export. Con `project`, todo lo de scope `project` va a ese proyecto."""
     if not isinstance(data, dict) or data.get("format") != FORMAT:
-        raise MemoryStoreError(f"no es un export de memoria (se espera format {FORMAT!r})")
+        raise MemoryStoreError(f"not a memory export (expected format {FORMAT!r})")
     if data.get("schema") != SCHEMA:
         raise MemoryStoreError(
-            f"export del schema {data.get('schema')!r}; este motor entiende el {SCHEMA}"
+            f"export with schema {data.get('schema')!r}; this engine supports {SCHEMA}"
         )
     items = data.get("observations")
     if not isinstance(items, list):
-        raise MemoryStoreError("observations tiene que ser una lista")
+        raise MemoryStoreError("observations must be a list")
     rows = [_row(raw, i, project) for i, raw in enumerate(items)]
     counts = store.import_rows(rows)
     return ImportResult(**counts)

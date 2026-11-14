@@ -38,7 +38,7 @@ def _python(project: Path) -> Check:
     version = ".".join(str(n) for n in sys.version_info[:3])
     if tuple(sys.version_info[:2]) < MIN_PYTHON:
         needed = ".".join(map(str, MIN_PYTHON))
-        return Check("python", "error", f"Python {version}; se necesita {needed} o más")
+        return Check("python", "error", f"Python {version}; {needed} or later is required")
     return Check("python", "ok", f"Python {version} ({sys.executable})")
 
 
@@ -47,14 +47,14 @@ def _platform(project: Path) -> Check:
 
 
 def _encoding(project: Path) -> Check:
-    encoding = (getattr(sys.stdout, "encoding", None) or "desconocido").lower()
+    encoding = (getattr(sys.stdout, "encoding", None) or "unknown").lower()
     if encoding.replace("-", "") in ("utf8",):
         return Check("encoding", "ok", encoding)
     return Check(
         "encoding",
         "warn",
-        f"la consola usa {encoding}; algunos caracteres pueden verse mal. "
-        "La salida --json siempre sale en UTF-8.",
+        f"the console uses {encoding}; some characters may display incorrectly. "
+        "--json output is always UTF-8.",
     )
 
 
@@ -68,15 +68,15 @@ def _path(project: Path) -> Check:
         return Check(
             "path",
             "warn",
-            f"`{_meta.NAME}` no está en el PATH; activá el entorno o reinstalá el motor",
+            f"`{_meta.NAME}` is not on the PATH; activate the environment or reinstall the engine",
         )
     expected = Path(sysconfig.get_path("scripts")).resolve()
     if Path(found).resolve().parent != expected:
         return Check(
             "path",
             "warn",
-            f"el primer `{_meta.NAME}` del PATH ({found}) no es este motor ({expected}); "
-            "puede ser otro proyecto con el mismo nombre (ADR-0001)",
+            f"the first `{_meta.NAME}` on the PATH ({found}) is not this engine ({expected}); "
+            "it may be another project with the same name (ADR-0001)",
         )
     return Check("path", "ok", found)
 
@@ -90,7 +90,7 @@ def _content(project: Path) -> Check:
     return Check(
         "content",
         "ok",
-        f"{len(collection.packs)} packs y {len(collection.skills)} skills en {root}",
+        f"{len(collection.packs)} packs and {len(collection.skills)} skills in {root}",
     )
 
 
@@ -98,8 +98,8 @@ def _disk(project: Path) -> Check:
     free = shutil.disk_usage(Path.home()).free
     megabytes = free // (1024 * 1024)
     if free < MIN_FREE_BYTES:
-        return Check("disk", "warn", f"quedan {megabytes} MB libres en el directorio de usuario")
-    return Check("disk", "ok", f"{megabytes} MB libres")
+        return Check("disk", "warn", f"only {megabytes} MB free in the home directory")
+    return Check("disk", "ok", f"{megabytes} MB free")
 
 
 def _selftest_filemerge(project: Path) -> Check:
@@ -110,8 +110,8 @@ def _selftest_filemerge(project: Path) -> Check:
         second = filemerge.inject(target, "selftest", "x")
         filemerge.remove(target, "selftest")
         if not first or second or target.read_bytes() != b"# humano\n":
-            return Check("filemerge", "error", "inject/remove no es idempotente o no es reversible")
-    return Check("filemerge", "ok", "inject idempotente y reversible")
+            return Check("filemerge", "error", "inject/remove is not idempotent or not reversible")
+    return Check("filemerge", "ok", "inject is idempotent and reversible")
 
 
 def _selftest_snapshots(project: Path) -> Check:
@@ -122,14 +122,14 @@ def _selftest_snapshots(project: Path) -> Check:
         first = snapshots.build_archive(root, ["a"])
         second = snapshots.build_archive(root, ["a"])
     if first != second:
-        return Check("snapshots", "error", "dos snapshots del mismo árbol difieren")
-    return Check("snapshots", "ok", "snapshots deterministas")
+        return Check("snapshots", "error", "two snapshots of the same tree differ")
+    return Check("snapshots", "ok", "snapshots are deterministic")
 
 
 def _config(project: Path) -> Check:
     result = config.load(project)
     if result.source is None:
-        return Check("config", "info", f"sin config del proyecto en {config.config_path(project)}")
+        return Check("config", "info", f"no project config at {config.config_path(project)}")
     if result.warnings:
         return Check("config", "warn", "; ".join(result.warnings))
     return Check("config", "ok", str(result.source))
@@ -142,17 +142,17 @@ CLAUDE_AGENTS_MD = (2, 1, 281)
 def _install(project: Path) -> Check:
     data = lock.read(project)
     if data is None:
-        return Check("install", "info", f"el motor no está instalado en {project.resolve()}")
+        return Check("install", "info", f"the engine is not installed in {project.resolve()}")
     drift = lock.drift(project, data)
     if drift:
         listed = ", ".join(f"{d.entry.path} ({d.status})" for d in drift[:5])
-        more = f" y {len(drift) - 5} más" if len(drift) > 5 else ""
+        more = f" and {len(drift) - 5} more" if len(drift) > 5 else ""
         return Check(
             "install",
             "warn",
-            f"cambios manuales sobre lo generado: {listed}{more}; mirá `{_meta.NAME} status`",
+            f"manual changes to generated files: {listed}{more}; see `{_meta.NAME} status`",
         )
-    return Check("install", "ok", f"{len(data.files)} unidades gestionadas, sin cambios manuales")
+    return Check("install", "ok", f"{len(data.files)} managed units, no manual changes")
 
 
 def _claude_version() -> tuple[int, ...] | None:
@@ -172,26 +172,26 @@ def _claude_version() -> tuple[int, ...] | None:
 def _claude_code(project: Path) -> Check:
     agents = config.load(project).config["agents"]
     if "claude-code" not in agents:
-        return Check("claude-code", "info", "no es agente destino del proyecto")
+        return Check("claude-code", "info", "not a target agent of the project")
     if (project / "CLAUDE.md").exists():
-        return Check("claude-code", "ok", "CLAUDE.md importa AGENTS.md con @AGENTS.md")
+        return Check("claude-code", "ok", "CLAUDE.md imports AGENTS.md with @AGENTS.md")
     version = _claude_version()
     needed = ".".join(map(str, CLAUDE_AGENTS_MD))
     if version is None:
         return Check(
             "claude-code",
             "info",
-            f"no se pudo leer la versión de Claude Code; sin CLAUDE.md necesita {needed} o más",
+            f"could not read the Claude Code version; without CLAUDE.md it needs {needed} or later",
         )
     shown = ".".join(map(str, version))
     if version < CLAUDE_AGENTS_MD:
         return Check(
             "claude-code",
             "warn",
-            f"Claude Code {shown} puede no leer AGENTS.md sin CLAUDE.md: actualizalo a {needed} "
-            f"o corré `{_meta.NAME} init --claude-md --yes`",
+            f"Claude Code {shown} may not read AGENTS.md without CLAUDE.md: update it to {needed} "
+            f"or run `{_meta.NAME} init --claude-md --yes`",
         )
-    return Check("claude-code", "ok", f"Claude Code {shown} lee AGENTS.md sin CLAUDE.md")
+    return Check("claude-code", "ok", f"Claude Code {shown} reads AGENTS.md without CLAUDE.md")
 
 
 def _claude_trusted(project: Path) -> bool | None:
@@ -215,17 +215,15 @@ def _claude_trusted(project: Path) -> bool | None:
 
 def _claude_trust(project: Path) -> Check:
     if "claude-code" not in config.load(project).config["agents"]:
-        return Check("claude-trust", "info", "no es agente destino del proyecto")
+        return Check("claude-trust", "info", "not a target agent of the project")
     trusted = _claude_trusted(project)
     if trusted:
-        return Check(
-            "claude-trust", "ok", "workspace confiable: se aplican los permisos del proyecto"
-        )
+        return Check("claude-trust", "ok", "workspace trusted: the project permissions apply")
     return Check(
         "claude-trust",
         "info",
-        "abrí Claude Code una vez en el proyecto y aceptá la confianza del workspace: hasta "
-        f"entonces ignora el permiso para `{_meta.NAME}` de .claude/settings.json",
+        "open Claude Code once in the project and accept the workspace trust dialog: until "
+        f"then it ignores the `{_meta.NAME}` permission in .claude/settings.json",
     )
 
 
@@ -241,12 +239,12 @@ def _memory_fts5(project: Path) -> Check:
     finally:
         conn.close()
     if available:
-        return Check("memory-fts5", "ok", f"FTS5 disponible (SQLite {sqlite3.sqlite_version})")
+        return Check("memory-fts5", "ok", f"FTS5 available (SQLite {sqlite3.sqlite_version})")
     return Check(
         "memory-fts5",
         "warn",
-        "este Python no trae FTS5: la búsqueda léxica rankea en Python y es más lenta. "
-        "Usá un Python de python.org o de uv",
+        "this Python lacks FTS5: lexical search ranks results in Python and is slower. "
+        "Use a Python from python.org or uv",
     )
 
 
@@ -255,9 +253,7 @@ def _memory(project: Path) -> Check:
 
     path = paths.memory_db_path()
     if not path.exists():
-        return Check(
-            "memory", "info", f"todavía no hay memoria en {path}; se crea con el primer `mem save`"
-        )
+        return Check("memory", "info", f"no memory at {path} yet; the first `mem save` creates it")
     try:
         with MemoryStore(path, semantic=None) as store:
             stats = store.stats()
@@ -266,8 +262,8 @@ def _memory(project: Path) -> Check:
     return Check(
         "memory",
         "ok",
-        f"{stats.observations} observaciones en {stats.projects} proyectos, "
-        f"{stats.sessions} sesiones ({path}, esquema {stats.schema_version})",
+        f"observations: {stats.observations}, projects: {stats.projects}, "
+        f"sessions: {stats.sessions} ({path}, schema {stats.schema_version})",
     )
 
 
@@ -276,17 +272,17 @@ def _memory_semantic(project: Path) -> Check:
     from exo.memory.store import MemoryStore, MemoryStoreError
 
     how = (
-        f"Para la búsqueda híbrida (ADR-0010): pip install {_meta.DIST_NAME}[vector], "
-        f"`{_meta.NAME} mem model pull` y `{_meta.NAME} mem reindex --provider local`"
+        f"For hybrid search (ADR-0010): pip install {_meta.DIST_NAME}[vector], "
+        f"`{_meta.NAME} mem model pull` and `{_meta.NAME} mem reindex --provider local`"
     )
     path = paths.memory_db_path()
     if not path.exists():
-        return Check("memory-semantic", "info", f"solo búsqueda léxica. {how}")
+        return Check("memory-semantic", "info", f"lexical search only. {how}")
     try:
         with MemoryStore(path) as store:
             config_ = index.read_config(store.conn)
             if config_ is None:
-                return Check("memory-semantic", "info", f"solo búsqueda léxica. {how}")
+                return Check("memory-semantic", "info", f"lexical search only. {how}")
             name = f"{config_.provider}:{config_.model}"
             if store.semantic is None:
                 return Check("memory-semantic", "warn", f"{name}: {store.semantic_note}")
@@ -297,8 +293,8 @@ def _memory_semantic(project: Path) -> Check:
                 return Check(
                     "memory-semantic",
                     "warn",
-                    f"{name}: falta el extra; pip install {_meta.DIST_NAME}[{extra}]. "
-                    "Mientras tanto, las búsquedas son léxicas",
+                    f"{name}: missing extra; pip install {_meta.DIST_NAME}[{extra}]. "
+                    "Until then, searches are lexical",
                 )
             if (
                 config_.provider in embeddings.DEFAULT_MODELS
@@ -307,21 +303,21 @@ def _memory_semantic(project: Path) -> Check:
                 return Check(
                     "memory-semantic",
                     "warn",
-                    f"{name}: falta el modelo; `{_meta.NAME} mem model pull {config_.provider}`",
+                    f"{name}: missing model; `{_meta.NAME} mem model pull {config_.provider}`",
                 )
             missing = store.semantic.missing(store.conn)
             backend = store.semantic.backend.name
     except (MemoryStoreError, sqlite3.Error) as exc:
         return Check("memory-semantic", "error", str(exc))
-    detail = f"híbrida con {name} (dim {config_.dim}, backend {backend})"
+    detail = f"hybrid with {name} (dim {config_.dim}, backend {backend})"
     problems = []
     if backend == "python":
         problems.append(
-            "sqlite-vec no carga en este Python (falta el extra o el Python no permite "
-            "extensiones de SQLite), así que la búsqueda semántica corre en Python y es lenta"
+            "sqlite-vec does not load in this Python (the extra is missing or this Python "
+            "does not allow SQLite extensions), so semantic search runs in Python and is slow"
         )
     if missing:
-        problems.append(f"{missing} observaciones sin vector; corré `{_meta.NAME} mem reindex`")
+        problems.append(f"{missing} observations without a vector; run `{_meta.NAME} mem reindex`")
     if problems:
         return Check("memory-semantic", "warn", f"{detail}: {'; '.join(problems)}")
     return Check("memory-semantic", "ok", detail)
@@ -333,10 +329,10 @@ def _memory_config(project: Path) -> Check:
         return Check(
             "memory-config",
             "info",
-            "la sección memory de la config del proyecto no tiene efecto: la memoria es por "
-            f"usuario y se configura con `{_meta.NAME} mem reindex` (ADR-0009)",
+            "the memory section of the project config has no effect: memory is per "
+            f"user and is configured with `{_meta.NAME} mem reindex` (ADR-0009)",
         )
-    return Check("memory-config", "ok", "la memoria se configura por usuario")
+    return Check("memory-config", "ok", "memory is configured per user")
 
 
 CHECKS: tuple[Callable[[Path], Check], ...] = (
@@ -374,5 +370,5 @@ def run_checks(project: Path) -> list[Check]:
             results.append(check(Path(project)))
         except Exception as exc:  # un chequeo roto no corta el diagnóstico
             name = _NAMES.get(check, check.__name__.lstrip("_"))
-            results.append(Check(name, "error", f"el chequeo falló: {exc}"))
+            results.append(Check(name, "error", f"the check failed: {exc}"))
     return results
