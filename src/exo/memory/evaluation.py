@@ -49,20 +49,21 @@ from exo.memory import embeddings
 from exo.memory.store import MemoryStore
 
 KINDS = ("exact", "paraphrase", "cross")
-NOTES = f"""## Cómo leer la tabla
+NOTES = f"""## How to read the table
 
-- **Latencia:** p50 y p95 se miden con la base abierta y el modelo ya cargado. Es la latencia
-  del servidor MCP, que reutiliza el proveedor dentro del proceso, y la de cualquier uso
-  repetido.
-- **Costo por llamada del CLI:** cada `{_meta.NAME} mem …` del CLI es un proceso nuevo, así
-  que abre la base y carga el modelo. Ese costo es el de la columna «Arranque».
-- **Falsos positivos:**
-  - El umbral τ se calibra con las mismas consultas (percentil 10 de la confianza de los
-    aciertos) y **no se aplica al buscar**.
-  - La columna mide si el primer resultado de una consulta sin respuesta tendría una confianza
-    tan alta como la de un acierto.
-  - No mide si la búsqueda devuelve vacío: la híbrida devuelve resultados igual.
-  - La confianza no es comparable entre configuraciones: BM25 en la léxica, coseno en las otras.
+- **Latency:** p50 and p95 are measured with the database open and the model already loaded.
+  That is the latency of the MCP server, which reuses the provider within the process, and of
+  any repeated use.
+- **Cost per CLI call:** each `{_meta.NAME} mem …` CLI call is a new process, so it opens the
+  database and loads the model. That cost is the one in the "Cold start" column.
+- **False positives:**
+  - The threshold τ is calibrated on the same queries (10th percentile of the confidence of the
+    hits) and **is not applied when searching**.
+  - The column measures whether the top result of a query with no answer would have a
+    confidence as high as that of a hit.
+  - It does not measure whether the search returns nothing: the hybrid search returns results
+    anyway.
+  - Confidence is not comparable across configurations: BM25 for lexical, cosine for the others.
 """
 PROJECT = "eval/acme-pagos"
 LATENCY_SIZE = 5000
@@ -110,7 +111,7 @@ def load(dataset: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     for query in queries:
         unknown = set(query["relevant"]) - known
         if unknown:
-            raise ValueError(f"{query['id']}: memorias inexistentes {sorted(unknown)}")
+            raise ValueError(f"{query['id']}: unknown memories {sorted(unknown)}")
     return memories, queries
 
 
@@ -398,15 +399,15 @@ def decide(rows: list[Row]) -> tuple[str, list[str]]:
         gain = row.recall5 - lexical.recall5
         loss = lexical.recall5_by_kind["exact"] - row.recall5_by_kind["exact"]
         checks = {
-            f"Recall@5 global +{gain * 100:.1f} pts (pide ≥ {RECALL_GAIN * 100:.0f})": gain
+            f"global Recall@5 +{gain * 100:.1f} pts (needs ≥ {RECALL_GAIN * 100:.0f})": gain
             >= RECALL_GAIN - 1e-9,
-            f"exactas −{max(loss, 0) * 100:.1f} pts (pide ≤ {EXACT_LOSS * 100:.0f})": loss
+            f"exact −{max(loss, 0) * 100:.1f} pts (needs ≤ {EXACT_LOSS * 100:.0f})": loss
             <= EXACT_LOSS + 1e-9,
-            f"p95 {row.p95_ms:.1f} ms (pide < {P95_LIMIT_MS:.0f})": row.p95_ms is not None
+            f"p95 {row.p95_ms:.1f} ms (needs < {P95_LIMIT_MS:.0f})": row.p95_ms is not None
             and row.p95_ms < P95_LIMIT_MS,
         }
-        verdict = "pasa" if all(checks.values()) else "no pasa"
-        detail = "; ".join(f"{text}: {'sí' if ok else 'no'}" for text, ok in checks.items())
+        verdict = "passes" if all(checks.values()) else "fails"
+        detail = "; ".join(f"{text}: {'yes' if ok else 'no'}" for text, ok in checks.items())
         reasons.append(f"{row.config.name}: {verdict} ({detail})")
         if all(checks.values()):
             passing.append(row)
@@ -429,11 +430,11 @@ def evaluate(
     rows: list[Row] = []
     with tempfile.TemporaryDirectory(prefix=f"{_meta.NAME}-eval-") as tmp:
         for config in configs:
-            say(f"{config.name}: base de {len(memories)} memorias")
+            say(f"{config.name}: database with {len(memories)} memories")
             small = Path(tmp) / f"{config.name}-small.db"
             keys = _build(small, memories, config)
             row = _quality(small, queries, keys, config)
-            say(f"{config.name}: latencia con {latency_size} memorias")
+            say(f"{config.name}: latency with {latency_size} memories")
             big = Path(tmp) / f"{config.name}-big.db"
             _build(big, memories, config, extra=max(latency_size - len(memories), 0))
             row.p50_ms, row.p95_ms = _latency(big, queries, config)
@@ -467,15 +468,15 @@ def _num(value: float | None, digits: int = 1) -> str:
 def render(report: dict[str, Any]) -> str:
     """Tabla de métricas en Markdown para `docs/evals/memory-<fecha>.md`."""
     lines = [
-        f"# Experimento de memoria — {report['date']}",
+        f"# Memory experiment — {report['date']}",
         "",
-        f"Motor {report['engine_version']}, Python {report['python']} ({report['platform']}). "
-        f"Dataset sintético: {report['memories']} memorias; consultas: "
+        f"Engine {report['engine_version']}, Python {report['python']} ({report['platform']}). "
+        f"Synthetic dataset: {report['memories']} memories; queries: "
         + ", ".join(f"{n} {kind}" for kind, n in report["queries"].items())
-        + f". Latencia con {report['latency_size']} memorias.",
+        + f". Latency with {report['latency_size']} memories.",
         "",
-        "| Configuración | Recall@5 | exactas | paráfrasis | cruzadas | MRR@10 | nDCG@10 "
-        "| FP sin respuesta | p50 ms | p95 ms | Instalado MB | Arranque s |",
+        "| Configuration | Recall@5 | exact | paraphrase | cross | MRR@10 | nDCG@10 "
+        "| FP with no answer | p50 ms | p95 ms | Installed MB | Cold start s |",
         "|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for row in report["rows"]:
@@ -487,10 +488,10 @@ def render(report: dict[str, Any]) -> str:
             f"{_num(row['p95_ms'])} | {_num(row['installed_mb'], 0)} | "
             f"{_num(row['cold_start_s'], 2)} |"
         )
-    lines += ["", "## Decisión (regla congelada antes de correr)", ""]
+    lines += ["", "## Decision (rule frozen before the run)", ""]
     lines += [f"- {reason}" for reason in report["reasons"]]
-    lines += ["", f"**Resultado:** {report['winner']}.", ""]
-    lines += [NOTES, "## Consultas sin acierto en el top 5", ""]
+    lines += ["", f"**Result:** {report['winner']}.", ""]
+    lines += [NOTES, "## Queries with no hit in the top 5", ""]
     for row in report["rows"]:
         lines.append(f"- {row['config']['name']}: {', '.join(row['misses']) or '-'}")
     return "\n".join(lines) + "\n"

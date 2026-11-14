@@ -66,7 +66,7 @@ def test_save_search_get_delete(ctx: registry.Context) -> None:
         "bugfix",
     )
     assert call(ctx, "mem_delete", id=saved["id"]) == {"id": saved["id"], "deleted": True}
-    with pytest.raises(InputError, match="no existe"):
+    with pytest.raises(InputError, match="not found"):
         call(ctx, "mem_get", id=saved["id"])
 
 
@@ -121,14 +121,14 @@ def test_merge_y_consolidate(ctx: registry.Context) -> None:
 @pytest.mark.parametrize(
     ("tool", "args", "fragment"),
     [
-        ("mem_get", {"id": "7"}, "entero"),
-        ("mem_get", {"id": True}, "entero"),
-        ("mem_get", {}, "falta"),
+        ("mem_get", {"id": "7"}, "integer"),
+        ("mem_get", {"id": True}, "integer"),
+        ("mem_get", {}, "missing"),
         ("mem_search", {"query": "x", "limit": 0}, "limit"),
         ("mem_search", {"query": "x", "limit": 101}, "limit"),
         ("mem_save", {"title": "t", "content": "c", "scope": "equipo"}, "scope"),
         ("mem_save", {"title": "t" * 201, "content": "c"}, "title"),
-        ("mem_save", {"title": "t", "content": "c", "extra": 1}, "desconocidos"),
+        ("mem_save", {"title": "t", "content": "c", "extra": 1}, "unknown"),
         ("mem_search", {"query": ""}, "query"),
     ],
 )
@@ -145,7 +145,7 @@ def test_check_arguments_enteros() -> None:
         "properties": {"n": {"type": "integer", "minimum": 1, "maximum": 3}},
     }
     assert check_arguments(schema, {"n": 2}) == {"n": 2}
-    with pytest.raises(InputError, match="entre 1 y 3"):
+    with pytest.raises(InputError, match="between 1 and 3"):
         check_arguments(schema, {"n": 4})
 
 
