@@ -95,6 +95,18 @@ fitness_signal:       # optional: only when the evidence contradicts the tier
 
 ## G. Delegation
 
+- **Who runs each phase:**
+
+  | Phase | Runs in | Writes the artifact |
+  |---|---|---|
+  | new, propose, spec, design, tasks, archive, status, init | the orchestrator's session (inline), because they talk with the person | the phase itself |
+  | risk | inline; `sdd-explorer` gathers the evidence | `exo fitness classify --change` |
+  | explore | `sdd-explorer` (read-only) | the orchestrator, from the explorer's answer |
+  | apply | `sdd-implementer` | the implementer (code, tests, `tasks.md` boxes) |
+  | verify | `sdd-verifier`, in fresh context (read-only, runs the tests) | the orchestrator, from the verifier's answer |
+  | judges, judgment-day | `sdd-judge` (read-only) | the orchestrator records the outcome |
+
+  A read-only subagent returns the full text of its document in its answer; it never writes files.
 - **Read 1 to 3 files inline; 4 or more, delegate** to `sdd-explorer`. Running tests or a build: delegate. Git state commands (`git status`, `git diff --stat`) run inline.
 - **Permissions are denied by default.** The explorer and every reviewer are read-only; the implementer writes only what the frozen plan (`tasks.md`, or the proposal in Tier 1) says. Nobody re-delegates: a subagent never launches another one.
 - **Mandatory delegation triggers:**
