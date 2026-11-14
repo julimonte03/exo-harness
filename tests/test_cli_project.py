@@ -234,8 +234,8 @@ def test_config_rota_aborta_sin_tocar_nada(tmp_path: Path, broken: str, capsys: 
 
 
 def test_config_invalida_por_flags_no_escribe_nada(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert _init(tmp_path, "--ticket-pattern", "(") == 1
-    assert "tickets.pattern" in capsys.readouterr().err
+    assert _init(tmp_path, "--ticket-pattern", "(") == 2
+    assert "not a valid regular expression" in capsys.readouterr().err
     assert list(tmp_path.iterdir()) == []
 
 

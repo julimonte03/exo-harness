@@ -38,6 +38,19 @@ LIST_FIELDS = (
     "gates",
 )
 SET_FIELDS = ("purpose",)
+PHASES = (
+    "risk",
+    "new",
+    "explore",
+    "propose",
+    "spec",
+    "design",
+    "tasks",
+    "apply",
+    "verify",
+    "judgment",
+    "archive",
+)
 
 
 class ChangeError(ValueError):
@@ -92,6 +105,14 @@ def _get(project: Path, name: str) -> observability.Change:
     try:
         return observability.get_change(project, name)
     except observability.ObservabilityError as exc:
+        raise ChangeError(str(exc)) from exc
+
+
+def _within(project: Path, rel: str) -> Path:
+    """La ruta dentro del proyecto, sin pasar por links: el motor no escribe a través de ellos."""
+    try:
+        return fsutil.join_within(project, rel)
+    except fsutil.UnsafePathError as exc:
         raise ChangeError(str(exc)) from exc
 
 
@@ -176,12 +197,15 @@ def update_record(
     *,
     add: Iterable[tuple[str, Any]] = (),
     set_: Iterable[tuple[str, Any]] = (),
+    phase_done: str | None = None,
     now: datetime | None = None,
 ) -> RecordUpdate:
     project = Path(project)
     found = _get(project, change)
     rel = f"{found.path}/{record.FILENAME}"
-    path = project / rel
+    path = _within(project, rel)
+    if phase_done is not None and phase_done not in PHASES:
+        raise ChangeError(f"{phase_done!r} is not a phase (one of: {', '.join(PHASES)})")
     try:
         data = json.loads(fsutil.read_bytes(path).decode("utf-8"))
     except FileNotFoundError as exc:
@@ -207,9 +231,17 @@ def update_record(
                 f"{field} cannot be set (only: {', '.join(SET_FIELDS)}); list fields take --add"
             )
         data[field] = value
+    stamp = _stamp(now)
+    if phase_done is not None:
+        log = data.setdefault("phases_done", [])
+        if not isinstance(log, list):
+            raise ChangeError(f"phases_done in {rel} is not a list; fix it by hand first")
+        last = log[-1] if log and isinstance(log[-1], dict) else {}
+        if last.get("phase") != phase_done:
+            log.append({"phase": phase_done, "at": stamp})
     if data == before:
         return RecordUpdate(False, rel, data)
-    data["updated_at"] = _stamp(now)
+    data["updated_at"] = stamp
     errors = record.validate(data)
     if errors:
         raise ChangeError(
@@ -252,9 +284,16 @@ def record_assessment(
 ) -> Assessment:
     project = Path(project)
     found = _get(project, change)
-    folder = project / found.path
-    path = folder / ASSESSMENT
     rel = f"{found.path}/{ASSESSMENT}"
+    path = _within(project, rel)
+    folder = path.parent
+    _, problems = fitness.parse_evidence(evidence)
+    malformed = [p for p in problems if not p.startswith("missing ")]
+    if malformed:
+        raise ChangeError(
+            "the evidence is malformed (" + "; ".join(malformed) + "), so nothing was recorded: "
+            "fix it and run again. A missing dimension is fine: it gives Tier 4 (FM-00)"
+        )
     decision = fitness.classify(evidence)
     exists = path.exists()
     previous = read_tier(folder) if exists else None

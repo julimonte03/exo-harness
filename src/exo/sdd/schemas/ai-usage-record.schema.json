@@ -116,6 +116,19 @@
         }
       }
     },
+    "phases_done": {
+      "description": "Ordered log of the phases that finished with status ok, written with `exo change record <change> --phase-done <phase>`. The next phase is derived from it.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["phase", "at"],
+        "additionalProperties": false,
+        "properties": {
+          "phase": {"enum": ["risk", "new", "explore", "propose", "spec", "design", "tasks", "apply", "verify", "judgment", "archive"]},
+          "at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"}
+        }
+      }
+    },
     "gates": {
       "description": "Gate results (F5).",
       "type": "array",

@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 from exo.commands._output import emit_json, error, usage_error
+from exo.core import fsutil
 from exo.sdd import changes, fitness
 
 
@@ -50,19 +51,12 @@ def register(sub: argparse._SubParsersAction) -> None:
     classify.set_defaults(handler=run)
 
 
-def _evidence(text: str) -> object:
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        return text  # classify la trata como ilegible: Tier 4
-
-
 def _read_evidence(args: argparse.Namespace) -> str | None:
     if args.evidence_file is None:
         return args.evidence_json
     if str(args.evidence_file) == "-":
         return sys.stdin.read()
-    return args.evidence_file.read_text(encoding="utf-8-sig")
+    return fsutil.read_text_auto(args.evidence_file)
 
 
 def run(args: argparse.Namespace) -> int:
@@ -78,16 +72,25 @@ def run(args: argparse.Namespace) -> int:
         return usage_error(
             f"cannot read --evidence-file {args.evidence_file}: {exc.strerror or exc}"
         )
+    except ValueError as exc:
+        return usage_error(str(exc))
     assert text is not None
     args.evidence_json = text
     decision = fitness.classify_json(text)
     assessment = None
     if args.change is not None:
         try:
+            evidence = json.loads(text)
+        except json.JSONDecodeError as exc:
+            return usage_error(
+                f"the evidence is not valid JSON ({exc.msg}, position {exc.pos}); nothing was "
+                "recorded. In Windows PowerShell 5.1 pass it with --evidence-file"
+            )
+        try:
             assessment = changes.record_assessment(
                 args.project,
                 args.change,
-                _evidence(args.evidence_json),
+                evidence,
                 confirm_downgrade=args.confirm_downgrade,
             )
         except (changes.ChangeError, OSError) as exc:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from exo.commands._output import emit_json, error
+from exo.commands._output import emit_json, error, usage_error
 from exo.sdd import check
 
 
@@ -31,6 +31,8 @@ def register(sub: argparse._SubParsersAction) -> None:
 def run(args: argparse.Namespace) -> int:
     try:
         result = check.check(args.project, base=args.base, names=args.names)
+    except check.CheckUsageError as exc:
+        return usage_error(str(exc))
     except (check.CheckError, ValueError, OSError) as exc:
         return error(str(exc))
     if args.json:

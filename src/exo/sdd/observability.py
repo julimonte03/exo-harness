@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from exo.core import config, fsutil
+from exo.sdd import speclint
 
 ARCHIVE = "archive"
 CAPABILITIES = "capabilities"
@@ -57,6 +58,7 @@ ARTIFACT_ORDER = (
 FOLLOWUP_STATUSES = ("open", "dismissed", "all")
 _ARCHIVED = re.compile(r"^(\d{4}-\d{2}-\d{2})-(.+)$")
 _CHECKED = re.compile(r"^\s*[-*+]\s+\[[xX]\]", re.MULTILINE)
+_UNCHECKED = re.compile(r"^\s*[-*+]\s+\[ \]", re.MULTILINE)
 
 
 class ObservabilityError(ValueError):
@@ -112,10 +114,12 @@ def _children(folder: Path) -> list[Path]:
     return [p for p in sorted(folder.iterdir()) if p.is_dir() and p.name[0] not in "._"]
 
 
+def _has_artifacts(folder: Path) -> bool:
+    return any((folder / artifact).is_file() for artifact in ARTIFACT_ORDER)
+
+
 def _is_epic(folder: Path) -> bool:
-    if any((folder / artifact).is_file() for artifact in ARTIFACT_ORDER):
-        return False
-    return bool(_children(folder))
+    return not _has_artifacts(folder) and bool(_children(folder))
 
 
 def _walk(project: Path, root: Path, archived: bool) -> list[Change]:
@@ -125,9 +129,13 @@ def _walk(project: Path, root: Path, archived: bool) -> list[Change]:
             continue
         if _is_epic(entry):
             found.extend(
-                _change(project, child, entry.name, archived) for child in _children(entry)
+                _change(project, child, entry.name, archived)
+                for child in _children(entry)
+                if _has_artifacts(child)
             )
-        else:
+        elif _has_artifacts(entry):
+            # Sin artefactos ni subcarpetas no es un change: por ejemplo, la carpeta de una
+            # épica que quedó vacía al archivar su último change.
             found.append(_change(project, entry, None, archived))
     return found
 
@@ -242,6 +250,73 @@ def tier_of(folder: Path) -> tuple[int, str]:
     return tier, "assessment"
 
 
+UNKNOWN_AREA = "the area is unknown"
+
+
+def _text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8-sig", errors="replace")
+    except OSError:
+        return ""
+
+
+def next_phase(
+    project: Path, change: Change, tier: int, source: str, record: dict[str, Any] | None
+) -> tuple[str, str]:
+    """`(fase siguiente, motivo)`, con las reglas del contrato de estado, sin adivinar."""
+    if change.archived:
+        return "none", "the change is archived"
+    if source != "assessment":
+        detail = "is unreadable" if source == "unreadable" else "is missing"
+        return "risk", f"fitness-assessment.json {detail}: classify the risk first"
+    folder = Path(project) / change.path
+    has = set(change.artifacts)
+    raw = (record or {}).get("phases_done")
+    done = [p.get("phase") for p in raw if isinstance(p, dict)] if isinstance(raw, list) else []
+    judges = (record or {}).get("judges_invoked")
+    judges = judges if isinstance(judges, list) else []
+    if "proposal.md" not in has:
+        return "new", "there is no proposal.md"
+    if tier >= 3:
+        unknown = UNKNOWN_AREA in _text(folder / "proposal.md").casefold()
+        if unknown and "exploration.md" not in has:
+            return "explore", "the proposal says the area is unknown and there is no exploration.md"
+        if "propose" not in done:
+            return "propose", "the proposal is not refined yet (no propose in phases_done)"
+    if tier >= 2 and "spec.md" not in has:
+        return "spec", f"Tier {tier} needs spec.md"
+    if tier == 2 and "test-spec.md" not in has:
+        return "spec", "Tier 2 needs test-spec.md, written in the spec phase"
+    if tier >= 3 and "design.md" not in has:
+        return "design", f"Tier {tier} needs design.md"
+    if tier >= 3 and ("tasks.md" not in has or "test-spec.md" not in has):
+        return "tasks", f"Tier {tier} needs tasks.md and test-spec.md"
+    result = None
+    if "verify-record.md" in has:
+        result = speclint.verdict(_text(folder / "verify-record.md"))
+    if result == "needs-rework":
+        if (done[-1] if done else None) != "apply":
+            return "apply", "the verify said needs-rework: fix what Issues Found lists"
+        return "verify", "the rework is applied: verify again"
+    if tier >= 3 and _UNCHECKED.search(_text(folder / "tasks.md")):
+        return "apply", "tasks.md has unchecked tasks"
+    if tier <= 2 and "apply" not in done:
+        return "apply", "the code is not applied yet (no apply in phases_done)"
+    if "verify-record.md" not in has:
+        return "verify", "there is no verify-record.md"
+    if result is None:
+        return "verify", "verify-record.md has no valid Verdict"
+    if result == "blocked":
+        return "verify", "the verify is blocked: solve what it reports, then verify again"
+    approved = any(
+        isinstance(j, dict) and j.get("name") == "judgment-day" and j.get("result") == "approved"
+        for j in judges
+    )
+    if tier == 4 and not approved:
+        return "judgment", "Tier 4 needs an approved judgment-day before archive"
+    return "archive", "the verify is ready"
+
+
 def change_state(project: Path, name: str) -> dict[str, Any]:
     return state_of(project, get_change(project, name))
 
@@ -249,6 +324,7 @@ def change_state(project: Path, name: str) -> dict[str, Any]:
 def state_of(project: Path, change: Change) -> dict[str, Any]:
     warnings: list[str] = []
     tier, source = tier_of(Path(project) / change.path)
+    following, reason = next_phase(project, change, tier, source, _record(project, change, []))
     record = _record(project, change, warnings)
     items = _followups(project, change, warnings)
     return {
@@ -260,6 +336,8 @@ def state_of(project: Path, change: Change) -> dict[str, Any]:
         "phase": change.phase,
         "tier": tier,
         "tier_source": source,
+        "next_phase": following,
+        "next_reason": reason,
         "artifacts": list(change.artifacts),
         **_projection(record),
         "followups": {

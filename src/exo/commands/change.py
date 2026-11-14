@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from exo.commands._output import emit_json, error, usage_error
+from exo.core import fsutil
 from exo.sdd import changes
 
 
@@ -63,6 +64,14 @@ def register_actions(actions: argparse._SubParsersAction) -> None:
         metavar=("FIELD", "JSON"),
         help=f"set a field ({', '.join(changes.SET_FIELDS)})",
     )
+    rec.add_argument(
+        "--phase-done",
+        metavar="PHASE",
+        help=(
+            "log that a phase finished with status ok (" + ", ".join(changes.PHASES) + "); "
+            "the next phase is derived from this log"
+        ),
+    )
     _common(rec)
     rec.set_defaults(handler=_record)
 
@@ -98,11 +107,17 @@ def _new(args: argparse.Namespace) -> int:
 def _parse(pairs: list[list[str]], option: str) -> list[tuple[str, Any]] | str:
     parsed: list[tuple[str, Any]] = []
     for field, raw in pairs:
+        allowed = changes.LIST_FIELDS if option == "--add" else changes.SET_FIELDS
+        if field not in allowed:
+            hint = "list fields take --add" if option == "--set" else "a scalar field takes --set"
+            return f"{option} {field}: not one of {', '.join(allowed)} ({hint})"
         if raw.startswith("@"):
             try:
-                raw = Path(raw[1:]).read_text(encoding="utf-8-sig")
+                raw = fsutil.read_text_auto(Path(raw[1:]))
             except OSError as exc:
                 return f"{option} {field}: cannot read {raw[1:]} ({exc.strerror or exc})"
+            except ValueError as exc:
+                return f"{option} {field}: {exc}"
         try:
             parsed.append((field, json.loads(raw)))
         except json.JSONDecodeError as exc:
@@ -119,11 +134,15 @@ def _record(args: argparse.Namespace) -> int:
     for parsed in (add, set_):
         if isinstance(parsed, str):
             return usage_error(parsed)
-    if not add and not set_:
-        return usage_error("nothing to record: pass --add or --set")
+    if args.phase_done is not None and args.phase_done not in changes.PHASES:
+        return usage_error(f"--phase-done {args.phase_done}: one of {', '.join(changes.PHASES)}")
+    if not add and not set_ and args.phase_done is None:
+        return usage_error("nothing to record: pass --add, --set or --phase-done")
     assert not isinstance(add, str) and not isinstance(set_, str)
     try:
-        result = changes.update_record(args.project, args.change, add=add, set_=set_)
+        result = changes.update_record(
+            args.project, args.change, add=add, set_=set_, phase_done=args.phase_done
+        )
     except (changes.ChangeError, OSError) as exc:
         return error(str(exc))
     if args.json:
