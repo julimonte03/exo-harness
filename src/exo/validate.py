@@ -11,8 +11,14 @@ Reglas de §10.5 del reporte, adaptadas al plan (`docs/plan/fases/F1-nucleo.md`)
   escapes `\\uXXXX` literales, `references/` citados existentes y advertencia si
   `SKILL.md` supera 500 líneas.
 - Referencias `skill:<nombre>` resolubles y declaradas en `requires`/`optional`.
-  Si no resuelven pero el pack declara opcionales ausentes de la colección, es
-  advertencia: la skill degrada inline.
+  Una que no resuelve es error, salvo que el mapa fase → skills la declare entre
+  las skills de packs que todavía no existen (`phase_map`), con un pack que el
+  pack de la referencia declare: ahí la skill degrada inline (F4).
+- Contratos compartidos (`packs/<pack>/shared/`): los JSON parsean y los de
+  `schemas/` usan solo lo que soporta `core/jsonschema`; los `.md` siguen las
+  mismas reglas de cuerpo que las skills. Toda ruta a un contrato instalado
+  (`<carpeta del motor>/shared/...`) que citen las skills, sus `references/` o los
+  contratos tiene que existir.
 - Subagentes con `name` y `description`, sin repetir.
 - `rules/AGENTS.base.md` de hasta 60 líneas.
 - Sin patrones de secretos fuera de bloques de código.
@@ -20,12 +26,15 @@ Reglas de §10.5 del reporte, adaptadas al plan (`docs/plan/fases/F1-nucleo.md`)
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from exo.core import frontmatter, secrets
+from exo import _meta, phase_map
+from exo.core import frontmatter, fsutil, jsonschema, secrets
 from exo.packs import MANIFEST, SKILL_FILE, Pack, PackError, load_pack, resolve
+from exo.sdd import record, speclint
 
 STANDARD_FIELDS = ("name", "description", "license", "compatibility", "metadata", "allowed-tools")
 MAX_NAME = 64
@@ -41,6 +50,8 @@ _SKILL_REF = re.compile(r"\bskill:([a-z0-9][a-z0-9-]*)")
 # Rutas relativas a la skill; no cuenta dentro de URLs ni de otras rutas (x/references/...).
 _REFERENCE_FILE = re.compile(r"(?<![\w/.:-])references/[^\s)\]'\"`<>]+")
 _FENCE = re.compile(r"^\s*(```|~~~)")
+SHARED_DIR = "shared"
+_SHARED_PATH = re.compile(rf"{re.escape(_meta.PROJECT_DIR)}/shared/([A-Za-z0-9._/-]+)")
 
 
 @dataclass(frozen=True)
@@ -77,6 +88,10 @@ class _Validator:
         self.skills: dict[str, list[tuple[str, str]]] = {}
         self.refs: list[_Ref] = []
         self.subagents: dict[str, list[str]] = {}
+        self.citations: list[tuple[Path, int, str]] = []
+        self.shared: set[str] = set()
+        self.shared_count = 0
+        self.map = phase_map.load(self.root)
 
     def rel(self, path: Path) -> str:
         return path.relative_to(self.root).as_posix()
@@ -145,6 +160,11 @@ class _Validator:
             self.error(path, 0, f"not valid UTF-8 ({exc.reason})")
             return
         self.check_body(path, text, folder, pack)
+        references = folder / "references"
+        if references.is_dir():
+            for extra in fsutil.walk_files(references):
+                if extra.suffix == ".md":
+                    self.check_body(extra, extra.read_text(encoding="utf-8"), folder, pack)
         try:
             data, _ = frontmatter.parse(text, strict=True)
         except frontmatter.FrontmatterError as exc:
@@ -225,6 +245,53 @@ class _Validator:
                 cited = cited.rstrip(".,;:")
                 if not (folder / cited).is_file():
                     self.error(path, number, f"cites {cited}, which does not exist")
+            for cited in _SHARED_PATH.findall(line):
+                self.citations.append((path, number, cited.rstrip(".,;:")))
+
+    # -- contratos compartidos ------------------------------------------------
+
+    def check_shared(self) -> None:
+        engine = [
+            ("templates", speclint.TEMPLATES_DIR, "*.md"),
+            ("schemas", record.SCHEMAS_DIR, "*.json"),
+        ]
+        for folder_name, source, pattern in engine:
+            self.shared.update(f"{folder_name}/{p.name}" for p in source.glob(pattern))
+        for pack in self.packs.values():
+            folder = pack.path / SHARED_DIR
+            if not folder.is_dir():
+                continue
+            for path in fsutil.walk_files(folder):
+                rel = path.relative_to(folder).as_posix()
+                self.shared.add(rel)
+                self.shared_count += 1
+                if path.suffix == ".json":
+                    self.check_json(path, rel)
+                elif path.suffix == ".md":
+                    self.check_body(path, path.read_text(encoding="utf-8"), path.parent, pack)
+
+    def check_json(self, path: Path, rel: str) -> None:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            self.error(path, 0, f"not valid JSON ({exc})")
+            return
+        if rel.startswith("schemas/"):
+            try:
+                jsonschema.check_schema(data)
+            except jsonschema.SchemaError as exc:
+                self.error(path, 0, f"schema not supported by the engine validator: {exc}")
+
+    def check_citations(self) -> None:
+        for path, number, cited in self.citations:
+            folder = cited.endswith("/") and any(rel.startswith(cited) for rel in self.shared)
+            if cited not in self.shared and not folder:
+                self.error(
+                    path,
+                    number,
+                    f"cites {_meta.PROJECT_DIR}/shared/{cited}, which does not exist in any "
+                    "pack's shared/ folder",
+                )
 
     def check_refs(self) -> None:
         for ref in self.refs:
@@ -242,19 +309,25 @@ class _Validator:
                         )
                     )
                 continue
-            absent = [p for p in pack.optional if p not in self.packs]
-            if absent:
-                self.report.warnings.append(
+            declared = self.map.degradations.get(ref.target) if self.map else None
+            if declared is None:
+                self.report.errors.append(
                     Finding(
                         ref.source,
                         ref.line,
-                        f"skill:{ref.target} cannot be resolved: the optional packs "
-                        f"{', '.join(absent)} are not in the collection (degrades inline)",
+                        f"skill:{ref.target} is not in the collection; if it ships in a "
+                        f"later pack, declare it in {phase_map.MAP_FILE} "
+                        f"({phase_map.DEGRADATIONS_SECTION})",
                     )
                 )
-            else:
+            elif declared.pack not in (ref.pack, *pack.requires, *pack.optional):
                 self.report.errors.append(
-                    Finding(ref.source, ref.line, f"skill:{ref.target} is not in the collection")
+                    Finding(
+                        ref.source,
+                        ref.line,
+                        f"skill:{ref.target} degrades to pack {declared.pack}, which {ref.pack} "
+                        "does not declare in requires or optional",
+                    )
                 )
 
     # -- subagentes, reglas y secretos --------------------------------------
@@ -303,8 +376,10 @@ class _Validator:
 
     def run(self) -> ValidationReport:
         self.check_packs()
+        self.check_shared()
         self.check_skills()
         self.check_refs()
+        self.check_citations()
         self.check_subagents()
         self.check_rules()
         self.check_secrets()
@@ -312,6 +387,7 @@ class _Validator:
             "packs": len(self.packs),
             "skills": sum(len(v) for v in self.skills.values()),
             "subagents": sum(len(v) for v in self.subagents.values()),
+            "shared": self.shared_count,
         }
         return self.report
 
