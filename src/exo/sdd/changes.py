@@ -26,7 +26,7 @@ from exo import _meta
 from exo.core import config, fsutil, tickets
 from exo.sdd import fitness, observability, record
 
-ASSESSMENT = "fitness-assessment.json"
+ASSESSMENT = observability.ASSESSMENT
 ASSESSMENT_SCHEMA = 1
 LIST_FIELDS = (
     "skills_used",
@@ -232,11 +232,8 @@ def _read_assessment(path: Path) -> dict[str, Any] | None:
 
 def read_tier(folder: Path) -> int | None:
     """El tier registrado, o None si falta o no se puede leer."""
-    data = _read_assessment(Path(folder) / ASSESSMENT)
-    tier = data.get("tier") if data else None
-    if isinstance(tier, bool) or not isinstance(tier, int) or not 1 <= tier <= 4:
-        return None
-    return tier
+    tier, source = observability.tier_of(folder)
+    return tier if source == "assessment" else None
 
 
 def effective_tier(folder: Path) -> int:

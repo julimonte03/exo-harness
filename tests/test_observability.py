@@ -252,3 +252,16 @@ def test_specs_que_sale_del_proyecto_por_un_link_no_se_lee(tmp_path: Path, make_
     project.mkdir()
     make_dir_link(project / "specs", outside)
     assert observability.find_changes(project) == []
+
+
+def test_change_state_incluye_el_tier(tmp_path: Path) -> None:
+    """Sin fitness-assessment.json legible el tier es 4 (§6.3); el contrato de estado lo usa."""
+    _tree(tmp_path)
+    login = observability.change_state(tmp_path, "PROJ-1-login")
+    assert (login["tier"], login["tier_source"]) == (4, "missing")
+    pagos = observability.change_state(tmp_path, "PROJ-11-pagos")  # el archivo dice "x"
+    assert (pagos["tier"], pagos["tier_source"]) == (4, "unreadable")
+    folder = tmp_path / "specs" / "PROJ-10" / "PROJ-11-pagos"
+    (folder / "fitness-assessment.json").write_text(json.dumps({"tier": 2}), encoding="utf-8")
+    pagos = observability.change_state(tmp_path, "PROJ-11-pagos")
+    assert (pagos["tier"], pagos["tier_source"]) == (2, "assessment")
