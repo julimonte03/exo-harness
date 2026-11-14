@@ -7,8 +7,8 @@ compartidos.
 
 Los contratos viven en `packs/<pack>/shared/` y se instalan solo con su pack:
 sin `sdd`, un proyecto no recibe los contratos del ciclo. Con `sdd` van además
-las plantillas de speclint (`templates/`), que siguen teniendo una sola fuente
-en `exo/sdd/templates/`.
+las plantillas de speclint (`templates/`) y los esquemas JSON (`schemas/`), que
+siguen teniendo una sola fuente en `exo/sdd/` porque el runtime los usa.
 """
 
 from __future__ import annotations
@@ -18,12 +18,16 @@ from pathlib import Path
 
 from exo import packs
 from exo.core import fsutil
-from exo.sdd import speclint
+from exo.sdd import record, speclint
 
 RULES_FILE = Path("rules") / "AGENTS.base.md"
 SHARED_DIR = "shared"
-TEMPLATES_PACK = "sdd"
-TEMPLATES_DIR = "templates"
+ENGINE_SHARED_PACK = "sdd"
+# Archivos del runtime que se instalan con el pack: (carpeta en shared/, origen, patrón).
+ENGINE_SHARED = (
+    ("templates", speclint.TEMPLATES_DIR, "*.md"),
+    ("schemas", record.SCHEMAS_DIR, "*.json"),
+)
 
 
 @dataclass(frozen=True)
@@ -72,9 +76,10 @@ def _shared(collection: packs.Collection, order: list[str]) -> dict[str, bytes]:
         if folder.is_dir():
             for rel, data in _files(folder).items():
                 add(rel, data, f"pack {name}")
-    if TEMPLATES_PACK in order:
-        for path in sorted(speclint.TEMPLATES_DIR.glob("*.md")):
-            add(f"{TEMPLATES_DIR}/{path.name}", path.read_bytes(), "the speclint templates")
+    if ENGINE_SHARED_PACK in order:
+        for folder_name, source, pattern in ENGINE_SHARED:
+            for path in sorted(source.glob(pattern)):
+                add(f"{folder_name}/{path.name}", path.read_bytes(), f"the engine {folder_name}")
     return dict(sorted(shared.items()))
 
 

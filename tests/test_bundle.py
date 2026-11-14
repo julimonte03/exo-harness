@@ -11,7 +11,7 @@ import _content
 from exo import content
 from exo.installer.bundle import build_bundle
 from exo.packs import PackError
-from exo.sdd import speclint
+from exo.sdd import record, speclint
 
 
 def test_bundle_del_contenido_real() -> None:
@@ -57,6 +57,13 @@ def test_las_plantillas_de_speclint_van_con_sdd(tmp_path: Path) -> None:
     for path in templates:
         assert shared[f"templates/{path.name}"] == path.read_bytes()
     assert not any(rel.startswith("templates/") for rel in build_bundle(root, ["core"]).shared)
+
+
+def test_los_esquemas_del_runtime_van_con_sdd(tmp_path: Path) -> None:
+    root = _content.build(tmp_path / "c")
+    shared = build_bundle(root, ["sdd"]).shared
+    assert shared["schemas/ai-usage-record.schema.json"] == record.SCHEMA_FILE.read_bytes()
+    assert "schemas/demo.schema.json" in shared  # el del pack sigue estando
 
 
 def test_dos_packs_con_el_mismo_contrato(tmp_path: Path) -> None:
