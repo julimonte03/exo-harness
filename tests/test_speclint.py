@@ -28,22 +28,52 @@ Hacer B.
 
 SPEC = """# Spec: demo
 
-## Requirements
-- **FR-1** The system shall do A.
-- **FR-2** The system shall do B.
-- **NFR-1** It responds in under 1 s.
+## ADDED Requirements
 
-## Scenarios
+### CAP-demo-FR-1: Do A
+The system shall do A.
 
-### S-1 Happy path
+#### Scenario S-1: Happy path
 - Given a user
 - When it does A
 - Then it sees B
 
-### S-2 Error
+### CAP-demo-NFR-1: Fast
+It responds in under 1 s.
+
+## MODIFIED Requirements
+
+### CAP-demo-FR-2: Do B
+The system shall do B.
+
+#### Scenario S-2: Error
 - Given a broken input
 - When it does A
 - Then it sees an error
+"""
+
+CAPABILITY = """# Capability: demo
+
+## Purpose
+Do things.
+
+## Requirements
+
+### CAP-demo-FR-2: Do B
+The system shall do B, the old way.
+
+#### Scenario: Old
+- Given a user
+- When it does B
+- Then it works
+
+### CAP-demo-FR-3: Do C
+The system shall do C.
+
+#### Scenario: C
+- Given a user
+- When it does C
+- Then it works
 """
 
 DESIGN = """# Design: demo
@@ -64,8 +94,8 @@ None.
 Raise ValueError.
 
 ## Test Plan
-- S-1 -> test_happy (covers FR-1)
-- S-2 -> test_error (covers FR-2)
+- S-1 -> test_happy (covers CAP-demo-FR-1)
+- S-2 -> test_error (covers CAP-demo-FR-2)
 
 ## Migration / Backwards Compatibility
 None.
@@ -82,10 +112,10 @@ Unit.
 ## Test Cases
 | ID | Covers | Level | Description | Command |
 |---|---|---|---|---|
-| T-1 | S-1, FR-1 | unit | happy | pytest -k happy |
+| T-1 | S-1, CAP-demo-FR-1 | unit | happy | pytest -k happy |
 
 ## Traceability
-- FR-1, S-1: T-1
+- CAP-demo-FR-1, S-1: T-1
 """
 
 MARKER = f"<!-- {_meta.BLOCK_PREFIX}-gate:contract_check -->"
@@ -96,7 +126,7 @@ VERIFY = f"""# Verify Record: demo
 ready
 
 ## Spec Coverage
-FR-1 -> test_happy
+CAP-demo-FR-1 -> test_happy
 
 ## Scenario Coverage
 S-1 -> test_happy
@@ -152,7 +182,7 @@ def _messages(result: speclint.LintReport) -> list[str]:
     ("name", "text", "kind"),
     [
         ("proposal.md", PROPOSAL, "functional"),
-        ("spec.md", SPEC, "functional"),
+        ("spec.md", SPEC, "delta"),
         ("design.md", DESIGN, "technical"),
         ("test-spec.md", TEST_SPEC, "test-spec"),
         ("verify-record.md", VERIFY, "verify-record"),
@@ -170,7 +200,32 @@ def test_plantillas_sin_completar_no_pasan(tmp_path: Path, name: str) -> None:
     template = speclint.template_text(speclint.ARTIFACTS[name])
     report = speclint.lint_path(_write(tmp_path, name, template))
     assert not report.ok
-    assert any("is empty" in m for m in _messages(report))
+    expected = "has no requirements" if name == "spec.md" else "is empty"
+    assert any(expected in m for m in _messages(report)), _messages(report)
+
+
+def test_plantilla_de_capacidad_sin_completar(tmp_path: Path) -> None:
+    folder = tmp_path / "specs" / "capabilities" / "demo"
+    report = speclint.lint_path(_write(folder, "spec.md", speclint.template_text("capability-spec")))
+    assert report.files[0].kind == "capability"
+    assert "section 'Purpose' is empty" in _messages(report)
+
+
+def test_spec_de_capacidad(tmp_path: Path) -> None:
+    folder = tmp_path / "specs" / "capabilities" / "demo"
+    report = speclint.lint_path(_write(folder, "spec.md", CAPABILITY))
+    assert report.ok, _messages(report)
+    assert report.files[0].kind == "capability"
+    bad = CAPABILITY.replace("### CAP-demo-FR-3:", "### CAP-otra-FR-3:")
+    messages = _messages(speclint.lint_path(_write(folder, "spec.md", bad)))
+    assert any("belongs to capability otra" in m for m in messages)
+    assert speclint.lint_path(folder).files[0].kind == "capability"
+
+
+def test_tipo_forzado_delta_y_capacidad(tmp_path: Path) -> None:
+    assert speclint.lint_path(_write(tmp_path, "cambio.md", SPEC), kind="delta").ok
+    folder = tmp_path / "demo"
+    assert speclint.lint_path(_write(folder, "cap.md", CAPABILITY), kind="capability").ok
 
 
 def test_marcador_de_gate_de_la_plantilla_coincide_con_el_codigo() -> None:
@@ -199,24 +254,23 @@ def test_encabezados_dentro_de_bloques_de_codigo_no_cuentan(tmp_path: Path) -> N
 @pytest.mark.parametrize(
     ("old", "new", "fragment"),
     [
-        ("- **FR-2** The system", "- **FR-1** The system", "FR-1 defined twice"),
-        ("- **FR-2** The system", "- **FR-02** The system", "malformed ID: FR-02"),
-        ("- **FR-2** The system", "- **fr-2** The system", "malformed ID: fr-2"),
-        ("### S-2 Error", "### S-1 Error", "S-1 defined twice"),
+        ("### CAP-demo-FR-2: Do B", "### CAP-demo-FR-1: Do B", "CAP-demo-FR-1 appears twice"),
+        ("### CAP-demo-FR-2: Do B", "### FR-2: Do B", "malformed requirement ID: FR-2"),
+        ("#### Scenario S-2: Error", "#### Scenario S-1: Error", "S-1 appears twice"),
         ("- Then it sees an error\n", "", "S-2 has no Then"),
         ("- Given a user\n", "", "S-1 has no Given"),
     ],
 )
-def test_reglas_de_ids_en_spec(tmp_path: Path, old: str, new: str, fragment: str) -> None:
+def test_reglas_del_delta_en_speclint(tmp_path: Path, old: str, new: str, fragment: str) -> None:
+    """Las reglas del formato están en test_specs.py; acá, que speclint las reporta."""
     report = speclint.lint_path(_write(tmp_path, "spec.md", SPEC.replace(old, new)))
     assert any(fragment in m for m in _messages(report)), _messages(report)
 
 
-def test_spec_sin_requisitos_ni_escenarios(tmp_path: Path) -> None:
-    text = "# Spec\n\n## Requirements\nTexto libre.\n\n## Scenarios\nTexto libre.\n"
+def test_spec_con_el_formato_viejo(tmp_path: Path) -> None:
+    text = "# Spec\n\n## Requirements\n- **FR-1** A.\n\n## Scenarios\n### S-1 x\n"
     messages = _messages(speclint.lint_path(_write(tmp_path, "spec.md", text)))
-    assert "no FR-n requirements in 'Requirements'" in messages
-    assert "no S-n scenarios in 'Scenarios'" in messages
+    assert any("unknown section '## Requirements'" in m and "ADR-0013" in m for m in messages)
 
 
 @pytest.mark.parametrize(
@@ -232,9 +286,9 @@ def test_reglas_del_verify_record(tmp_path: Path, old: str, new: str, fragment: 
 
 
 def test_errores_llevan_numero_de_linea(tmp_path: Path) -> None:
-    report = speclint.lint_path(_write(tmp_path, "spec.md", SPEC.replace("**FR-2**", "**FR-1**")))
-    issue = report.files[0].errors[0]
-    assert issue.line == 5
+    text = SPEC.replace("### CAP-demo-FR-2: Do B", "### CAP-demo-FR-1: Do B")
+    issue = speclint.lint_path(_write(tmp_path, "spec.md", text)).files[0].errors[0]
+    assert issue.line == 18
 
 
 # -- carpeta de change --------------------------------------------------------
@@ -255,16 +309,31 @@ def test_carpeta_completa_valida(tmp_path: Path) -> None:
 
 def test_escenario_sin_test_en_el_plan(tmp_path: Path) -> None:
     folder = _change(tmp_path)
-    _write(folder, "design.md", DESIGN.replace("- S-2 -> test_error (covers FR-2)\n", ""))
+    _write(folder, "design.md", DESIGN.replace("- S-2 -> test_error (covers CAP-demo-FR-2)\n", ""))
     assert "S-2 from spec.md does not appear in the Test Plan of design.md" in _messages(speclint.lint_path(folder))
 
 
 def test_referencia_a_id_inexistente(tmp_path: Path) -> None:
     folder = _change(tmp_path)
-    _write(folder, "test-spec.md", TEST_SPEC.replace("- FR-1, S-1: T-1", "- FR-9, S-7: T-1"))
+    _write(folder, "test-spec.md", TEST_SPEC.replace("- CAP-demo-FR-1, S-1: T-1", "- CAP-demo-FR-9, S-7: T-1"))
     messages = _messages(speclint.lint_path(folder))
-    assert "FR-9 is not defined in spec.md" in messages
+    assert "CAP-demo-FR-9 is not defined in spec.md nor in the living specs" in messages
     assert "S-7 is not defined in spec.md" in messages
+
+
+def test_referencia_a_un_requisito_vigente_que_el_delta_no_toca(tmp_path: Path) -> None:
+    folder = _change(tmp_path)
+    _write(folder, "design.md", DESIGN.replace("None.\n\n## Sequence", "Keeps CAP-demo-FR-3 as is.\n\n## Sequence", 1))
+    assert "CAP-demo-FR-3 is not defined in spec.md nor in the living specs" in _messages(speclint.lint_path(folder))
+    _write(tmp_path / "specs" / "capabilities" / "demo", "spec.md", CAPABILITY)
+    assert speclint.lint_path(folder).ok, _messages(speclint.lint_path(folder))
+
+
+def test_el_id_dentro_de_un_cap_no_se_lee_como_otro(tmp_path: Path) -> None:
+    """`CAP-demo-FR-12` no es una referencia a `FR-12` ni a `S-…`."""
+    folder = _change(tmp_path)
+    _write(folder, "design.md", DESIGN.replace("Low.", "Low. See CAP-demo-FR-1 and CAP-demo-NFR-1."))
+    assert speclint.lint_path(folder).ok, _messages(speclint.lint_path(folder))
 
 
 def test_carpeta_sin_artefactos(tmp_path: Path) -> None:
@@ -309,11 +378,9 @@ def test_cli_speclint_errores_de_uso(tmp_path: Path, capsys: pytest.CaptureFixtu
     assert main(["speclint", str(path), "--type", "technical"]) == 0
 
 
-def test_ids_dentro_de_codigo_no_cuentan_y_lo_que_sigue_si(tmp_path: Path) -> None:
+def test_ids_dentro_de_codigo_no_cuentan(tmp_path: Path) -> None:
     text = SPEC.replace(
-        "- **FR-2** The system shall do B.\n",
-        "```\n- **FR-1** ejemplo dentro de código\n```\n- **FR-2** The system shall do B.\n- **FR-2** repetido\n",
+        "## MODIFIED Requirements",
+        "```\n### CAP-demo-FR-1: inside code\n```\n\n## MODIFIED Requirements",
     )
-    messages = _messages(speclint.lint_path(_write(tmp_path, "spec.md", text)))
-    assert not any("FR-1 defined twice" in m for m in messages)
-    assert any("FR-2 defined twice" in m for m in messages)
+    assert speclint.lint_path(_write(tmp_path, "spec.md", text)).ok

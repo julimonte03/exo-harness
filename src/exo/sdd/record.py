@@ -1,9 +1,11 @@
 """AI Usage Record de un change (`<change-root>/ai-usage-record.json`, §7.7 del reporte).
 
-El esquema vive en `exo/sdd/schemas/` y se instala en `.exo/shared/schemas/`
-para que los agentes lo lean. Adaptaciones al reporte (definición propia):
-`ticket_key` y `epic_key` en lugar de `jira_key` (ADR-0012), sin `playbook`
-(el plan descartó los playbooks) y `activation` con `requested|auto`.
+El esquema vive en `sdd/schemas/` y se instala en `shared/schemas/`, dentro
+de la carpeta del motor del proyecto, para que los agentes lo lean.
+
+Adaptaciones al reporte (definición propia): `ticket_key` y `epic_key` en lugar
+de `jira_key` (ADR-0012), sin `playbook` (el plan descartó los playbooks) y
+`activation` con `requested|auto`.
 """
 
 from __future__ import annotations
