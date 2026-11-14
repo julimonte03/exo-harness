@@ -95,47 +95,47 @@ def hash_json_value(value: Any) -> str:
 def _entry(raw: Any, index: int) -> LockEntry:
     where = f"files[{index}]"
     if not isinstance(raw, dict):
-        raise LockError(f"{where}: tiene que ser un objeto")
+        raise LockError(f"{where}: must be an object")
     for name in ("path", "kind", "owner", "sha256"):
         if not isinstance(raw.get(name), str) or not raw[name]:
-            raise LockError(f"{where}: falta {name!r} o no es texto")
+            raise LockError(f"{where}: {name!r} is missing or not a string")
     try:
         path = str(fsutil.safe_relpath(raw["path"]))
     except fsutil.UnsafePathError as exc:
-        raise LockError(f"{where}: ruta insegura ({exc})") from exc
+        raise LockError(f"{where}: unsafe path ({exc})") from exc
     kind = raw["kind"]
     if kind not in KINDS:
-        raise LockError(f"{where}: kind desconocido {kind!r} (uno de {', '.join(KINDS)})")
+        raise LockError(f"{where}: unknown kind {kind!r} (one of {', '.join(KINDS)})")
     block_id, key = raw.get("block_id"), raw.get("key")
     if kind == "block" and not isinstance(block_id, str):
-        raise LockError(f"{where}: una entrada block necesita block_id")
+        raise LockError(f"{where}: a block entry needs block_id")
     if kind in ("key", "item") and not isinstance(key, str):
-        raise LockError(f"{where}: una entrada {kind} necesita key")
+        raise LockError(f"{where}: a {kind} entry needs key")
     item = raw.get("item")
     if kind == "item" and not isinstance(item, str):
-        raise LockError(f"{where}: una entrada item necesita item")
+        raise LockError(f"{where}: an item entry needs item")
     style = raw.get("style")
     if style is not None and style not in (filemerge.STYLE_HTML, filemerge.STYLE_HASH):
-        raise LockError(f"{where}: style desconocido {style!r}")
+        raise LockError(f"{where}: unknown style {style!r}")
     return LockEntry(path, kind, raw["owner"], raw["sha256"], block_id, key, style, item)
 
 
 def _created(raw: Any, index: int) -> Created:
     where = f"created[{index}]"
     if not isinstance(raw, dict) or not isinstance(raw.get("path"), str):
-        raise LockError(f"{where}: tiene que ser un objeto con path")
+        raise LockError(f"{where}: must be an object with path")
     try:
         path = str(fsutil.safe_relpath(raw["path"]))
     except fsutil.UnsafePathError as exc:
-        raise LockError(f"{where}: ruta insegura ({exc})") from exc
+        raise LockError(f"{where}: unsafe path ({exc})") from exc
     file = raw.get("file", False)
     if not isinstance(file, bool):
-        raise LockError(f"{where}: file tiene que ser true o false")
+        raise LockError(f"{where}: file must be true or false")
     containers = raw.get("containers", [])
     if not isinstance(containers, list) or not all(
         isinstance(c, str) and c for c in containers
     ):
-        raise LockError(f"{where}: containers tiene que ser una lista de claves")
+        raise LockError(f"{where}: containers must be a list of keys")
     return Created(path, file, tuple(containers))
 
 
@@ -146,17 +146,17 @@ def read(project: Path) -> Lock | None:
     except FileNotFoundError:
         return None
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise LockError(f"{path}: no es JSON válido ({exc})") from exc
+        raise LockError(f"{path}: not valid JSON ({exc})") from exc
     if not isinstance(raw, dict):
-        raise LockError(f"{path}: la raíz tiene que ser un objeto")
+        raise LockError(f"{path}: the root must be an object")
     if raw.get("schema") != SCHEMA:
-        raise LockError(f"{path}: esquema {raw.get('schema')!r} no soportado (se espera {SCHEMA})")
+        raise LockError(f"{path}: unsupported schema {raw.get('schema')!r} (expected {SCHEMA})")
     files = raw.get("files", [])
     if not isinstance(files, list):
-        raise LockError(f"{path}: files tiene que ser una lista")
+        raise LockError(f"{path}: files must be a list")
     created = raw.get("created", [])
     if not isinstance(created, list):
-        raise LockError(f"{path}: created tiene que ser una lista")
+        raise LockError(f"{path}: created must be a list")
     return Lock(
         engine_version=str(raw.get("engine_version", "")),
         agents=[str(a) for a in raw.get("agents", [])],

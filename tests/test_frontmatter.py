@@ -141,26 +141,26 @@ def test_sin_frontmatter_en_modo_tolerante() -> None:
 @pytest.mark.parametrize(
     ("text", "line", "fragment"),
     [
-        ("# solo cuerpo\n", 1, "falta el frontmatter"),
-        ("---\nname: x\n", 1, "no se cierra"),
-        ("---\nname: x\nname: y\n---\n", 3, "clave repetida"),
-        ("---\nname:\tx\n---\n", 2, "tabulación"),
-        ("---\n\tname: x\n---\n", 2, "tabulación"),
-        ("---\nname: &ancla x\n---\n", 2, "no soportado"),
-        ("---\nname: *alias\n---\n", 2, "no soportado"),
-        ("---\nname: !!str x\n---\n", 2, "no soportado"),
-        ("---\nname: {a: 1}\n---\n", 2, "no soportado"),
-        ("---\nname: \"sin cerrar\n---\n", 2, "comilla"),
-        ("---\nname: 'sin cerrar\n---\n", 2, "comilla"),
+        ("# solo cuerpo\n", 1, "missing frontmatter"),
+        ("---\nname: x\n", 1, "is not closed"),
+        ("---\nname: x\nname: y\n---\n", 3, "duplicate key"),
+        ("---\nname:\tx\n---\n", 2, "tabs"),
+        ("---\n\tname: x\n---\n", 2, "tabs"),
+        ("---\nname: &ancla x\n---\n", 2, "not supported"),
+        ("---\nname: *alias\n---\n", 2, "not supported"),
+        ("---\nname: !!str x\n---\n", 2, "not supported"),
+        ("---\nname: {a: 1}\n---\n", 2, "not supported"),
+        ("---\nname: \"sin cerrar\n---\n", 2, "quote"),
+        ("---\nname: 'sin cerrar\n---\n", 2, "quote"),
         ("---\nname: \"mal \\u00f1\"\n---\n", 2, "escape"),
-        ("---\nsolo texto\n---\n", 2, "clave"),
-        ("---\nmeta:\n  a:\n    b: 1\n---\n", 4, "un nivel"),
-        ("---\nmeta:\n  a: |\n    x\n---\n", 3, "un nivel"),
-        ("---\nlista:\n  - a\n  b: 1\n---\n", 4, "mezcla"),
-        ("---\nname: x\n  suelto: 1\n---\n", 3, "indentación"),
-        ("---\nfold: |+\n  x\n---\n", 2, "no soportado"),
-        ("---\nflow: [a, [b]]\n---\n", 2, "no soportado"),
-        ("---\nflow: [a, b\n---\n", 2, "corchete"),
+        ("---\nsolo texto\n---\n", 2, "expected 'key: value'"),
+        ("---\nmeta:\n  a:\n    b: 1\n---\n", 4, "one nesting level"),
+        ("---\nmeta:\n  a: |\n    x\n---\n", 3, "one nesting level"),
+        ("---\nlista:\n  - a\n  b: 1\n---\n", 4, "mixed"),
+        ("---\nname: x\n  suelto: 1\n---\n", 3, "indentation"),
+        ("---\nfold: |+\n  x\n---\n", 2, "not supported"),
+        ("---\nflow: [a, [b]]\n---\n", 2, "not supported"),
+        ("---\nflow: [a, b\n---\n", 2, "bracket"),
     ],
 )
 def test_errores_estrictos_con_numero_de_linea(text: str, line: int, fragment: str) -> None:
@@ -168,7 +168,7 @@ def test_errores_estrictos_con_numero_de_linea(text: str, line: int, fragment: s
         parse(text, strict=True)
     assert exc.value.line == line
     assert fragment in str(exc.value)
-    assert f"línea {line}" in str(exc.value)
+    assert f"line {line}" in str(exc.value)
 
 
 def test_modo_tolerante_ignora_lo_que_no_entiende() -> None:
@@ -210,17 +210,17 @@ def test_casos_borde_validos() -> None:
 @pytest.mark.parametrize(
     ("text", "line", "fragment"),
     [
-        ("---\nname: 'x' sobra\n---\n", 2, "después de la comilla"),
-        ("---\nflow: [a] sobra\n---\n", 2, "después de ']'"),
-        ("---\nflow: ['a' b]\n---\n", 2, "',' o ']'"),
-        ("---\nmeta:\n  a: 1\n  a: 2\n---\n", 4, "clave repetida"),
-        ("---\nmeta:\n    a: 1\n  b: 2\n---\n", 4, "inconsistente"),
-        ("---\nmeta:\n  - a\n  -x\n---\n", 4, "mezcla"),
-        ("---\nmeta:\n  a: 1\n  - b\n---\n", 4, "mezcla"),
-        ("---\nmeta:\n  solo texto\n---\n", 3, "clave"),
-        ("---\nlista:\n  - [a]\n---\n", 3, "listas anidadas"),
-        ("---\nlista:\n  - a\n    - b\n---\n", 4, "un nivel"),
-        ("---\nmeta:\n  a:\tb\n---\n", 3, "tabulación"),
+        ("---\nname: 'x' sobra\n---\n", 2, "after the closing quote"),
+        ("---\nflow: [a] sobra\n---\n", 2, "after ']'"),
+        ("---\nflow: ['a' b]\n---\n", 2, "',' or ']'"),
+        ("---\nmeta:\n  a: 1\n  a: 2\n---\n", 4, "duplicate key"),
+        ("---\nmeta:\n    a: 1\n  b: 2\n---\n", 4, "inconsistent"),
+        ("---\nmeta:\n  - a\n  -x\n---\n", 4, "mixed"),
+        ("---\nmeta:\n  a: 1\n  - b\n---\n", 4, "mixed"),
+        ("---\nmeta:\n  solo texto\n---\n", 3, "expected 'key: value'"),
+        ("---\nlista:\n  - [a]\n---\n", 3, "nested lists"),
+        ("---\nlista:\n  - a\n    - b\n---\n", 4, "one nesting level"),
+        ("---\nmeta:\n  a:\tb\n---\n", 3, "tabs"),
     ],
 )
 def test_mas_errores_estrictos(text: str, line: int, fragment: str) -> None:

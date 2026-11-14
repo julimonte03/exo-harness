@@ -1,20 +1,20 @@
 ﻿<#
 .SYNOPSIS
-    Instala el motor exo desde este clon (Windows).
+    Installs the exo engine from this clone (Windows).
 
 .DESCRIPTION
-    Verifica Python 3.10 o más. Con uv usa `uv tool install`; si no, crea un venv
-    en %LOCALAPPDATA%\exo-harness\venv. Deja `exo` en el PATH de usuario (avisa si
-    lo agrega y conserva el tipo del valor en el registro), corre `exo doctor` y,
-    con -Init, adopta un proyecto. Re-ejecutarlo actualiza la instalación.
+    Requires Python 3.10 or later. With uv it uses `uv tool install`; otherwise it
+    creates a venv in %LOCALAPPDATA%\exo-harness\venv. Puts `exo` on the user PATH
+    (says so when it adds it and keeps the registry value type), runs `exo doctor`
+    and, with -Init, adopts a project. Running it again updates the installation.
 
-    Variables: EXO_DATA_DIR (carpeta de datos), EXO_INSTALL_NO_PATH=1 (no tocar el
-    PATH), EXO_INSTALL_NO_UV=1 (no usar uv aunque esté instalado). Los tests usan
-    EXO_INSTALL_ENV_SUBKEY para leer y escribir el PATH en otra clave de HKCU.
+    Variables: EXO_DATA_DIR (data folder), EXO_INSTALL_NO_PATH=1 (leave the PATH
+    alone), EXO_INSTALL_NO_UV=1 (do not use uv even if it is installed). The tests
+    use EXO_INSTALL_ENV_SUBKEY to read and write the PATH under another HKCU key.
 
 .EXAMPLE
     .\install.ps1
-    .\install.ps1 -Init C:\code\mi-proyecto
+    .\install.ps1 -Init C:\code\my-project
     .\install.ps1 -WithVector
 #>
 [CmdletBinding()]
@@ -65,13 +65,13 @@ function Find-Python {
             return , $found
         }
     }
-    throw 'No encontré Python 3.10 o más. Instalalo desde https://www.python.org o con winget, y volvé a correr este script.'
+    throw 'Python 3.10 or later not found. Install it from https://www.python.org or with winget, then run this script again.'
 }
 
 function Invoke-Checked {
     param([string]$Exe, [string[]]$Arguments)
     & $Exe @Arguments
-    if ($LASTEXITCODE -ne 0) { throw "Falló: $Exe $($Arguments -join ' ')" }
+    if ($LASTEXITCODE -ne 0) { throw "Failed: $Exe $($Arguments -join ' ')" }
 }
 
 function Get-UserPath {
@@ -114,14 +114,14 @@ function Test-SameDir {
 
 $uv = Get-Command uv -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($uv -and $env:EXO_INSTALL_NO_UV -ne '1') {
-    Write-Host "Instalando $Dist con uv tool..."
+    Write-Host "Installing $Dist with uv tool..."
     # Sin --force: si ya hay otro exo en el directorio de uv, uv no lo pisa (ADR-0001).
     Invoke-Checked $uv.Source @('tool', 'install', '--reinstall', $Spec)
     $BinDir = (& $uv.Source tool dir --bin).Trim()
 } else {
     $Python = Find-Python
     $Venv = Join-Path $DataDir 'venv'
-    Write-Host "Instalando $Dist en $Venv..."
+    Write-Host "Installing $Dist into $Venv..."
     $pyArgs = @($Python | Select-Object -Skip 1) + @('-m', 'venv', $Venv)
     Invoke-Checked $Python[0] $pyArgs
     Invoke-Checked (Join-Path $Venv 'Scripts\python.exe') @('-m', 'pip', 'install', '--upgrade', '--quiet', '--disable-pip-version-check', $Spec)
@@ -129,7 +129,7 @@ if ($uv -and $env:EXO_INSTALL_NO_UV -ne '1') {
 }
 
 $Exe = Join-Path $BinDir 'exo.exe'
-if (-not (Test-Path $Exe)) { throw "La instalación no dejó $Exe" }
+if (-not (Test-Path $Exe)) { throw "The installation did not produce $Exe" }
 
 if (-not $NoPath) {
     $userPath = Get-UserPath
@@ -138,7 +138,7 @@ if (-not $NoPath) {
         Set-UserPath (($entries + $BinDir) -join ';') $userPath.Kind
         New-Item -ItemType Directory -Force -Path $DataDir | Out-Null
         Set-Content -LiteralPath $PathMarker -Value $BinDir -Encoding UTF8
-        Write-Host "Agregué $BinDir al PATH de usuario. Abrí una terminal nueva para usar 'exo'."
+        Write-Host "Added $BinDir to the user PATH. Open a new terminal to use 'exo'."
     }
     if (-not (($env:Path -split ';') | Where-Object { $_ -and (Test-SameDir $_ $BinDir) })) {
         $env:Path = "$env:Path;$BinDir"
@@ -146,10 +146,10 @@ if (-not $NoPath) {
 }
 
 & $Exe doctor
-if ($LASTEXITCODE -ne 0) { throw 'exo doctor encontró errores; revisá la salida de arriba.' }
+if ($LASTEXITCODE -ne 0) { throw 'exo doctor found errors; check the output above.' }
 
 if ($Init) {
     & $Exe init --project $Init --yes
-    if ($LASTEXITCODE -ne 0) { throw "exo init falló en $Init" }
+    if ($LASTEXITCODE -ne 0) { throw "exo init failed in $Init" }
 }
-Write-Host "Listo: $Exe"
+Write-Host "Done: $Exe"

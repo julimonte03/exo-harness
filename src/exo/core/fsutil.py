@@ -179,15 +179,15 @@ def safe_relpath(raw: str | PurePath) -> PurePosixPath:
     """
     text = str(raw)
     if not text or "\x00" in text:
-        raise UnsafePathError(f"ruta vacía o con bytes nulos: {text!r}")
+        raise UnsafePathError(f"empty path or path with null bytes: {text!r}")
     windows = PureWindowsPath(text)
     if windows.drive or windows.root or text.startswith(("/", "\\")):
-        raise UnsafePathError(f"la ruta tiene que ser relativa, sin unidad ni raíz: {text!r}")
+        raise UnsafePathError(f"the path must be relative, with no drive or root: {text!r}")
     parts = [part for part in text.replace("\\", "/").split("/") if part not in ("", ".")]
     if not parts:
-        raise UnsafePathError(f"la ruta no apunta a nada: {text!r}")
+        raise UnsafePathError(f"the path points to nothing: {text!r}")
     if ".." in parts:
-        raise UnsafePathError(f"la ruta no puede contener '..': {text!r}")
+        raise UnsafePathError(f"the path cannot contain '..': {text!r}")
     return PurePosixPath(*parts)
 
 
@@ -202,7 +202,8 @@ def join_within(root: Path, raw: str | PurePath) -> Path:
         current = current / part
         if is_link(current):
             raise UnsafePathError(
-                f"{raw}: {current} es un symlink o junction; el motor no gestiona rutas con links"
+                f"{raw}: {current} is a symlink or junction; the engine does not manage paths "
+                "through links"
             )
     return current
 
@@ -212,5 +213,5 @@ def resolve_within(root: Path, raw: str | PurePath) -> Path:
     base = Path(root).resolve()
     candidate = base.joinpath(*safe_relpath(raw).parts).resolve()
     if not candidate.is_relative_to(base):
-        raise UnsafePathError(f"la ruta sale de {base}: {raw!r}")
+        raise UnsafePathError(f"the path escapes {base}: {raw!r}")
     return candidate

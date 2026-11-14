@@ -94,7 +94,7 @@ BASE = "packs/core/skills/base/SKILL.md"
         (_replace(BASE, "# base\n", "# base\nCuerpo con ense\\u00f1anza.\n"), "Unicode escape"),
         (_replace(BASE, "---\n\n# base", "triggers: [a]\n---\n\n# base"), "not part of the Agent Skills standard"),
         (_replace(FLUJO, f"  {PREFIX}pack: sdd\n", f"  {PREFIX}pack: [sdd]\n"), "string"),
-        (_replace(BASE, "name: base\n", "name: base\nname: base\n"), "clave repetida"),
+        (_replace(BASE, "name: base\n", "name: base\nname: base\n"), "duplicate key"),
         (_replace(BASE, "---\nname", "name"), "frontmatter"),
         (_replace(FLUJO, "skill:base", "skill:inexistente"), "inexistente"),
         (_replace("packs/sdd/pack.json", '"requires": ["core"]', '"requires": []'), "does not declare"),
