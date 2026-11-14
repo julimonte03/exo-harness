@@ -37,6 +37,7 @@ El `spec.md` que valida speclint desde F1 tiene `## Requirements` (ítems `FR-n`
 
 - **ID del requisito:** `CAP-<cap>-FR-n` o `CAP-<cap>-NFR-n`, donde `<cap>` es el nombre kebab-case de la carpeta.
 - **Bloque:** cada requisito va desde su `###` hasta el próximo `###` o `##`, e incluye sus escenarios.
+- **`## Removed Requirements`:** las lápidas de los requisitos borrados (ver Integración).
 - **Fuera de los bloques:** el título, `Purpose` y cualquier otra sección se preservan byte a byte. Ahí entra lo que agregue F6, como el `status` y la procedencia.
 
 **Delta** (el `spec.md` de un cambio):
@@ -66,7 +67,11 @@ Reason: <por qué>
 - **Validación previa:** primero valida todo y después escribe.
 - **ADDED** con un ID que ya existe es error, salvo que el bloque sea idéntico (ya integrado). Si no existe, se agrega al final de `## Requirements`; si la capacidad no existe, se crea su `spec.md`.
 - **MODIFIED** reemplaza el bloque. Con un ID inexistente es error.
-- **REMOVED** borra el bloque. Con un ID inexistente es error, salvo que ya se haya borrado en una integración anterior del mismo delta. Ese caso se detecta porque los ADDED y MODIFIED ya están integrados.
+- **REMOVED** saca el bloque de `## Requirements` y deja una lápida en `## Removed Requirements` (la sección se crea si no existe). La lápida tiene el encabezado del requisito, `Removed by change <change>.` y el `Reason:` del delta. Con un ID que no está ni en los requisitos ni en las lápidas, es error.
+- **Lápidas:**
+  - Si el ID ya tiene lápida, un REMOVED repetido no hace nada.
+  - Un ID con lápida no se reusa: un ADDED o un MODIFIED con ese ID es error.
+  - Así, integrar dos veces el mismo delta no cambia nada, incluso si solo tiene REMOVED, y un ID mal escrito sigue fallando.
 - **Idempotencia:** si nada cambia, no escribe ni crea snapshot. Si cambia algo, hace snapshot de las specs tocadas y escribe de forma atómica, preservando los fines de línea de cada archivo.
 - **Lo que no es mecánico** queda para `sdd-archive`, que lo resuelve con juicio: textos que chocan o una capacidad mal elegida.
 
