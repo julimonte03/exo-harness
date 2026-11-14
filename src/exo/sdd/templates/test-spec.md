@@ -9,9 +9,10 @@
 <!--
 | ID | Covers | Level | Description | Command |
 |---|---|---|---|---|
-| T-1 | S-1, FR-1 | unit | ... | pytest tests/test_x.py::test_y |
+| T-1 | S-1, CAP-<capability>-FR-<n> | unit | ... | pytest tests/test_x.py::test_y |
 -->
 
 ## Traceability
 
-<!-- Every FR-n and S-n of the spec, with the test cases that cover it. -->
+<!-- Every ADDED or MODIFIED requirement (CAP-<capability>-FR-n, CAP-<capability>-NFR-n) and every
+scenario S-n of the delta, with the test cases that cover it. `exo speclint` checks that none is missing. -->

@@ -36,7 +36,9 @@ def _outside_motor(files: dict[str, bytes]) -> dict[str, bytes]:
     return {k: v for k, v in files.items() if not k.startswith(_meta.PROJECT_DIR)}
 
 
-def test_criterio_2_init_por_cli_igual_al_golden(tmp_path: Path, golden, capsys: pytest.CaptureFixture[str]) -> None:
+def test_criterio_2_init_por_cli_igual_al_golden(
+    tmp_path: Path, golden, synthetic_content: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     root = tmp_path / "p"
     root.mkdir()
     assert _init(root) == 0
@@ -62,13 +64,13 @@ def test_criterio_5_conflicto_y_force(tmp_path: Path, capsys: pytest.CaptureFixt
     root = tmp_path / "p"
     root.mkdir()
     _init(root)
-    skill = root / ".claude" / "skills" / "hello-exo" / "SKILL.md"
+    skill = root / ".claude" / "skills" / "memory-protocol" / "SKILL.md"
     original = skill.read_bytes()
     skill.write_bytes(b"editado a mano\n")
     capsys.readouterr()
     assert main(["sync", "--project", str(root)]) == 1
     out = capsys.readouterr().out
-    assert "conflict: .claude/skills/hello-exo/SKILL.md" in out
+    assert "conflict: .claude/skills/memory-protocol/SKILL.md" in out
     assert "nothing was written" in out
     assert skill.read_bytes() == b"editado a mano\n"
     assert main(["sync", "--project", str(root), "--force"]) == 0
@@ -138,7 +140,7 @@ def test_init_sin_agentes_detectados_instala_la_base(tmp_path: Path, capsys: pyt
     assert main(["init", "--project", str(tmp_path), "--yes"]) == 0
     out = capsys.readouterr().out
     assert "generic base" in out
-    assert (tmp_path / ".agents" / "skills" / "hello-exo" / "SKILL.md").is_file()
+    assert (tmp_path / ".agents" / "skills" / "memory-protocol" / "SKILL.md").is_file()
     assert config.load(tmp_path).config["agents"] == ["generic"]
 
 
@@ -156,14 +158,15 @@ def _answers(monkeypatch: pytest.MonkeyPatch, *answers: str) -> None:
 def test_wizard_interactivo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     found = [Detection("copilot", 2, ("file .github/copilot-instructions.md",))]
     monkeypatch.setattr(detect, "detect", lambda project, env=None, which=None: found)
-    _answers(monkeypatch, "", "", "jira", "PROJ", "y")
+    _answers(monkeypatch, "", "", r"[A-Z][A-Z0-9]*-\d+", "", "y")
     assert main(["init", "--project", str(tmp_path)]) == 0
     out = capsys.readouterr().out
     assert "[x] copilot" in out
     assert "About to apply" in out
+    assert "#123" in out  # las sugerencias de ADR-0012
     cfg = config.load(tmp_path).config
     assert cfg["agents"] == ["copilot"]
-    assert cfg["tracker"] == {"type": "jira", "prefix": "PROJ", "prefixes": []}
+    assert cfg["tickets"] == {"pattern": r"[A-Z][A-Z0-9]*-\d+", "example": "PROJ-123"}
 
 
 def test_wizard_cancelado_no_escribe(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
@@ -231,9 +234,23 @@ def test_config_rota_aborta_sin_tocar_nada(tmp_path: Path, broken: str, capsys: 
 
 
 def test_config_invalida_por_flags_no_escribe_nada(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert _init(tmp_path, "--tracker", "jira", "--prefix", "proj") == 1
-    assert "tracker.prefix" in capsys.readouterr().err
+    assert _init(tmp_path, "--ticket-pattern", "(") == 2
+    assert "not a valid regular expression" in capsys.readouterr().err
     assert list(tmp_path.iterdir()) == []
+
+
+def test_flags_de_tickets(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert _init(tmp_path, "--ticket-pattern", r"#\d+") == 0
+    assert config.load(tmp_path).config["tickets"] == {"pattern": r"#\d+", "example": "#123"}
+    assert _init(tmp_path, "--ticket-pattern", r"OPS-\d+", "--ticket-example", "OPS-7") == 0
+    assert config.load(tmp_path).config["tickets"] == {"pattern": r"OPS-\d+", "example": "OPS-7"}
+    assert _init(tmp_path, "--ticket-pattern", r"T\d+") == 0
+    assert config.load(tmp_path).config["tickets"] == {"pattern": r"T\d+", "example": None}
+    assert _init(tmp_path, "--ticket-pattern", "") == 0
+    assert config.load(tmp_path).config["tickets"] == {"pattern": None, "example": None}
+    capsys.readouterr()
+    assert _init(tmp_path, "--ticket-example", "X-1") == 2
+    assert "--ticket-pattern" in capsys.readouterr().err
 
 
 def test_sync_no_reescribe_la_config_del_humano(tmp_path: Path) -> None:
@@ -257,12 +274,12 @@ def test_la_config_y_el_lock_van_en_el_snapshot(tmp_path: Path) -> None:
         assert archive.files[f"{_meta.PROJECT_DIR}/{name}"][0] == data
 
 
-def test_wizard_normaliza_y_repregunta_el_tracker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    _answers(monkeypatch, "claude-code", "", "Trello", "Jira", "1x", "proj", "y")
+def test_wizard_repregunta_el_patron_y_el_ejemplo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    _answers(monkeypatch, "claude-code", "", "(", r"#\d+", "PROJ-1", "#9", "y")
     assert main(["init", "--project", str(tmp_path)]) == 0
     out = capsys.readouterr().out
     assert out.count("invalid value") == 2
-    assert config.load(tmp_path).config["tracker"] == {"type": "jira", "prefix": "PROJ", "prefixes": []}
+    assert config.load(tmp_path).config["tickets"] == {"pattern": r"#\d+", "example": "#9"}
 
 
 def _romper_marcador(root: Path) -> None:
@@ -274,13 +291,13 @@ def _romper_marcador(root: Path) -> None:
 def test_force_informa_lo_que_no_pudo_resolver(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     _init(tmp_path)
     _romper_marcador(tmp_path)
-    skill = tmp_path / ".claude" / "skills" / "hello-exo" / "SKILL.md"
+    skill = tmp_path / ".claude" / "skills" / "memory-protocol" / "SKILL.md"
     original = skill.read_bytes()
     skill.write_bytes(b"editado\n")
     capsys.readouterr()
     assert main(["sync", "--project", str(tmp_path), "--force"]) == 1
     out = capsys.readouterr().out
-    assert "forced: .claude/skills/hello-exo/SKILL.md" in out
+    assert "forced: .claude/skills/memory-protocol/SKILL.md" in out
     assert "unresolved: AGENTS.md" in out
     assert skill.read_bytes() == original
     assert main(["uninstall", "--project", str(tmp_path), "--yes", "--force"]) == 1
@@ -290,13 +307,13 @@ def test_force_informa_lo_que_no_pudo_resolver(tmp_path: Path, capsys: pytest.Ca
 
 def test_force_con_dry_run_muestra_lo_que_haria(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     _init(tmp_path)
-    skill = tmp_path / ".claude" / "skills" / "hello-exo" / "SKILL.md"
+    skill = tmp_path / ".claude" / "skills" / "memory-protocol" / "SKILL.md"
     skill.write_bytes(b"editado\n")
     capsys.readouterr()
     assert main(["sync", "--project", str(tmp_path), "--force", "--dry-run"]) == 0
     out = capsys.readouterr().out
     assert "dry-run" in out
-    assert "would force: .claude/skills/hello-exo/SKILL.md" in out
+    assert "would force: .claude/skills/memory-protocol/SKILL.md" in out
     assert skill.read_bytes() == b"editado\n"
 
 
@@ -330,7 +347,10 @@ def test_init_no_interactivo_informa_las_detecciones_debiles(tmp_path: Path, mon
     assert f"{_meta.NAME} add-agent codex" in out
 
 
-def test_salida_sin_notas_vacias_ni_lineas_repetidas(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_salida_sin_notas_vacias_ni_lineas_repetidas(
+    tmp_path: Path, synthetic_content: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Con el contenido sintético: con más de 30 archivos la salida resume en vez de listar."""
     _init(tmp_path)
     assert "notes" not in capsys.readouterr().out
     assert main(["uninstall", "--project", str(tmp_path), "--yes"]) == 0
@@ -349,7 +369,7 @@ def test_sin_config_pero_con_lock_usa_lo_del_lock(tmp_path: Path, capsys: pytest
     assert "remove" not in capsys.readouterr().out
     assert main(["add-agent", "copilot", "--project", str(tmp_path)]) == 0
     assert config.load(tmp_path).config["agents"] == ["claude-code", "copilot"]
-    assert (tmp_path / ".claude" / "skills" / "hello-exo" / "SKILL.md").is_file()
+    assert (tmp_path / ".claude" / "skills" / "memory-protocol" / "SKILL.md").is_file()
 
 
 def test_uninstall_no_lista_archivos_del_motor(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

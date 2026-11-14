@@ -1,6 +1,6 @@
 # Progreso de construcción
 
-**Fase activa:** F4 (pendiente: aprobar su plan). D-09 → ADR-0012, D-10 → ADR-0011 (el refactor al inglés quedó mergeado el 2026-11-14), D-11 y D-13 decididas con el default.
+**Fase activa:** F5 (pendiente: aprobar su plan). F4 quedó cerrada en local el 2026-11-14.
 
 Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron con el comando exacto, la CI está verde en los tres sistemas operativos y el PR de la fase está mergeado.
 
@@ -14,7 +14,7 @@ Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron 
 | F1 Núcleo | Terminada (local; CI diferida) | `feat/F1-nucleo`, mergeada a `main` en local, sin PR | 2026-10-30 | 2026-10-30 | Criterios 1–8 OK en Windows (3.14 y 3.10) y Linux (WSL). D-23 → ADR-0005 |
 | F2 Adaptadores + instalador | Terminada (local; CI diferida) | `feat/F2-adaptadores`, mergeada a `main` en local, sin PR | 2026-10-30 | 2026-11-07 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL). Criterio 1 sin macOS ni Azure. Criterio 8: Claude Code OK, Copilot pendiente (checklist manual). D-04 → ADR-0006, D-05/D-06 → ADR-0007, D-16 → ADR-0008 |
 | F3 Memoria v2 | Terminada (local; CI diferida) | `feat/F3-memoria`, mergeada a `main` en local, sin PR | 2026-11-13 | 2026-11-13 | Criterios 2–8 OK en Windows (3.14 y 3.10 sin extras) y Linux (WSL, con y sin extras). Criterio 1 fuera de alcance (ADR-0009). D-07/D-08 → ADR-0010; D-20, D-24 y D-25 → ADR-0009; D-12 parcial |
-| F4 Ciclo SDD | Pendiente | | | | |
+| F4 Ciclo SDD | Terminada (local; CI diferida) | `feat/F4-ciclo-sdd`, mergeada a `main` en local, sin PR | 2026-11-14 | 2026-11-14 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL); 4 a 7 con Claude Code real. Criterio 6 sin Copilot (opcional). D-26, D-27 y D-28; D-11 → ADR-0013 |
 | F5 Gobierno y gates | Pendiente | | | | |
 | F6 Ingeniería inversa | Pendiente | | | | |
 | F7 Packs | Pendiente | | | | |
@@ -269,3 +269,98 @@ Se regeneraron los goldens de `tests/golden/` (6 archivos) y se revisó el diff.
 - La documentación del repo, los docstrings y los comentarios (ADR-0011).
 - Las confirmaciones aceptan «sí», además de «yes».
 - El dataset del experimento de memoria (`tests/memory_eval/`), que es bilingüe porque mide el idioma cruzado.
+
+### F4 — Ciclo SDD con specs vivas — 2026-11-14
+
+**Entorno:**
+- Windows 11, con Python 3.14.5 (`.venv`) y Python 3.10.20 (venv con `uv`, sin extras).
+- Linux Ubuntu 24.04 en WSL2, con Python 3.12 de `uv`, sobre un clon limpio de la rama.
+- Claude Code 2.1.325, con `claude -p` sobre copias de `tests/fixtures/repos/toy-python/`.
+- Los datos aislados con `EXO_DATA_DIR` y `EXO_MEMORY_DB`.
+
+**Resultados:**
+
+| Entorno | Resultado |
+|---|---|
+| Windows, Python 3.14 | 1189 passed, cobertura 94,64 % |
+| Windows, Python 3.10 sin extras | 1183 passed |
+| Linux | 1187 passed; `ruff check .` limpio y `exo validate` «all valid» |
+
+| # | Criterio | Comando ejecutado | Resultado |
+|---|---|---|---|
+| 1 | Contenido válido | `exo validate` | OK: «2 packs, 23 skills, 4 subagents, 8 shared contracts: all valid». Son 8 skills de core (7 nuevas, más `memory-protocol`) y 15 de sdd (las 13 de la fase, más `sdd-continue` y `sdd-ff`) |
+| 2 | Mapa consistente | `pytest tests/test_phase_map_consistency.py` | OK (47 passed). Toda skill del mapa existe o declara su degradación. Las skills de fase corren donde dice la tabla de la sección G y nombran las Required de su fila. Los subagentes tienen las tools de su rol |
+| 3 | Deltas deterministas | `pytest -k criterio_3 tests/test_specs.py` | OK (5 passed): resultado esperado byte a byte, idempotencia (sin escritura ni snapshot) y fallo con referencias inexistentes sin escribir nada |
+| 4 | Tier 1 con subagentes | Claude Code sobre `toy-python`: `--version` en el CLI | OK. Tier 1 (FM-30). La evidencia del riesgo, en `sdd-explorer`; apply, en `sdd-implementer`; verify, en `sdd-verifier` con contexto fresco. Fase siguiente `risk → new → apply → verify → archive → none`. Delta integrado en `specs/capabilities/cli/`. `exo check --base master` y `speclint`, con 0 errores (`docs/checklists/F4-ciclo.md`) |
+| 5 | Tier 3 | Claude Code: tareas en SQLite, con ticket `PROJ-42` | OK. Tier 3 (FM-10). Aparecen exploration, proposal, spec, design, tasks y test-spec. Los jueces corrieron en `sdd-judge` y apply en dos corridas de `sdd-implementer`. Verify, en `sdd-verifier` con contexto fresco: dio `blocked` por el arnés de prueba (un commit de `exo sync` en la rama y un permiso de la prueba) y el ciclo se frenó como manda el contrato. Archive quedó pendiente de esos dos puntos |
+| 6 | Sin subagentes | Claude Code con `--disallowedTools "Task Agent"` | OK. Todo inline, con «no isolation» declarado en cada fase. Mismos artefactos y chequeos (Tier 2 por la evidencia). Copilot queda opcional: lo prueba el dueño |
+| 7 | Reglas de tier | `pytest -k criterio_7 tests/test_changes.py`, más una conversación | OK. Tests: evidencia faltante da Tier 4, un tier ilegible cuenta como 4 y el downgrade sin `--confirm-downgrade` sale con 1. En la conversación, el orquestador no bajó un Tier 3: la evidencia no lo sostenía, y distinguió el pedido de la confirmación literal |
+
+**Extras:**
+- `ruff check .` limpio.
+- **Claude Code en `claude -p`:** el workspace no es confiable y `permissions.allow` no aplica (lo mismo de F2). Las corridas pasan las herramientas con `--allowedTools`.
+- **La primera sesión de Tier 3 se cortó a los 50 minutos.** La segunda la retomó desde `exo change status` (`next_phase: apply`): el estado sobrevive entre sesiones.
+
+**Tres subagentes escribieron el contenido** (worktrees manuales; el aislamiento automático falla en esta máquina):
+- Escribieron las skills de core, las de sdd y los subagentes contra los contratos ya mergeados, y cada uno reportó las lagunas que encontró.
+- **Ajustes del runtime:**
+  - `exo check` ve los changes archivados que se nombran o que toca el diff.
+  - Speclint exige que `test-spec.md` cubra el delta y toma el veredicto de la primera palabra.
+  - JSON desde un archivo, para PowerShell 5.1.
+- **Ajustes de los contratos:**
+  - Pasan a core.
+  - Se definen el plan congelado de Tier 1 y 2, quién registra y la propiedad de `spec.md` y `test-spec.md` cuando sube el tier.
+
+**Revisión final con contexto fresco** (subagente, sobre `main...feat/F4-ciclo-sdd`):
+- Encontró 9 problemas del runtime y 7 inconsistencias entre contratos y skills. Todo se corrigió con su test (`tests/test_f4_regresiones.py`, 25 tests).
+- **Runtime:**
+  - la carpeta vacía de una épica archivada aparecía como change y `exo check` fallaba;
+  - el JSON en UTF-16 de PowerShell daba un traceback;
+  - la evidencia mal formada se registraba como Tier 4, y después había que confirmar un downgrade;
+  - la capacidad quedaba sin requisitos tras un REMOVED;
+  - había secciones repetidas;
+  - la merge reescribía los fines de línea mezclados;
+  - speclint y la merge leían distinto un archivo con BOM;
+  - `--base` comparaba contra la punta y no contra el merge-base;
+  - había escrituras a través de links;
+  - los errores de uso salían con 1.
+- **Contratos:**
+  - un `needs-rework` volvía a verify sin arreglar nada;
+  - la marca de «apply terminado» se registraba aunque apply no terminara;
+  - nadie escribía `followups.json`;
+  - `branch-pr` y `pr.md` estaban desactualizados;
+  - `sdd-new` negaba su fila del mapa;
+  - los tickets con `#` iban sin comillas.
+- **La fase siguiente salió de la prosa al runtime:** `exo change status` calcula `next_phase` con un registro ordenado de fases (`exo change record --phase-done`).
+- **El test de consistencia lee la tabla de la sección G** en vez de repetirla.
+
+**Incidente:**
+- Un `exo uninstall` manual sobre un proyecto de prueba escribió un backup en la carpeta de datos real del usuario (`uninstall-backups/`). Solo tenía ese proyecto de prueba y se borró enseguida.
+- Desde entonces, toda corrida manual o de agente aísla `EXO_DATA_DIR` y `EXO_MEMORY_DB` (anotado en el checklist).
+
+**Decisiones tomadas durante la fase:**
+- **D-26** (del dueño): el ticket va normalizado en los nombres de cambio y épica.
+- **D-27** (del dueño): artefactos por tier; Tier 1 sin delta si no cambia comportamiento.
+- **D-28:** los meta-comandos son skills.
+- **ADR-0013:** formato de specs vivas y deltas, integración por ID y lápidas.
+
+**Desvíos respecto del plan y por qué:**
+- **Contratos en `content/packs/core/shared/`**, no en `content/shared/`:
+  - las skills de core los citan y core se instala siempre;
+  - `exo validate` exige que un pack cite solo contratos suyos o de lo que requiere.
+  - Las plantillas y el esquema del AI Usage Record se instalan como contratos (`.exo/shared/templates/` y `schemas/`), con una sola fuente en `src/exo/sdd/`.
+- **`core/tickets.py`** en lugar de `sdd/tickets.py`: lo usa la config, que es de core.
+- **Dónde corre cada fase** (definición propia sobre §6.1, sección G del contrato común):
+  - la planificación corre inline porque habla con la persona;
+  - explore, verify y los jueces corren en subagentes de solo lectura que devuelven el documento;
+  - apply corre en `sdd-implementer`.
+- **Comandos que el plan no nombraba:** `exo change record` (§7.7: escritura atómica e idempotente del registro), `--evidence-file`, `@<archivo>` y `--no-tickets` (PowerShell 5.1), y `exo change status` con `next_phase`. `exo change new/record`, `exo specs` y `exo check` no son tools del registro: escriben, y el MCP está bloqueado por la política.
+- **Lápidas** (`## Removed Requirements`): un REMOVED repetido no hace nada y los IDs no se reusan.
+- **`followups.json`:** en F4 no lo escribe nadie. Los hallazgos de los jueces viven en `verify-record.md` y la persona decide cada uno; F5 agrega el archivo.
+- **Goldens con contenido sintético** (`tests/_content.py`): `hello-exo` sale del contenido real, y un smoke instala el contenido real sin golden.
+- **`tests/fixtures/repos/toy-python/`** es el único fixture versionado como carpeta, sin archivos de agente; pytest no lo recorre.
+- **El verifier corre solo tests, por instrucción:** el `tools` de los subagentes no restringe a qué comandos llega `Bash`.
+- **Para F5:**
+  - `exo check` v1 no mira el veredicto (da PASS con `blocked`);
+  - los gates tienen que hacerlo.
+- **Cierre local sin remoto**, según la regla del principio de este archivo.

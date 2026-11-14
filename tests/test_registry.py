@@ -9,6 +9,7 @@ import pytest
 
 from exo import _meta, registry
 from exo.cli import main
+from exo.installer import project
 from exo.packs import Skill
 
 
@@ -40,12 +41,12 @@ def test_render_vacio(tmp_path: Path) -> None:
 def test_cli_registry_desde_el_contenido(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["registry", "--project", str(tmp_path)]) == 0
     out = tmp_path / _meta.PROJECT_DIR / "skill-registry.md"
-    assert "| hello-exo | core |" in out.read_text(encoding="utf-8")
+    assert "| memory-protocol | core |" in out.read_text(encoding="utf-8")
     assert "updated" in capsys.readouterr().out
     assert main(["registry", "--project", str(tmp_path), "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["changed"] is False
-    assert "hello-exo" in [s["name"] for s in payload["skills"]]
+    assert "memory-protocol" in [s["name"] for s in payload["skills"]]
 
 
 def test_cli_registry_desde_skills_instaladas(
@@ -65,3 +66,20 @@ def test_cli_registry_desde_skills_instaladas(
 def test_cli_registry_from_inexistente(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["registry", "--project", str(tmp_path), "--from", str(tmp_path / "nada")]) == 1
     assert "does not exist" in capsys.readouterr().err
+
+
+def test_cli_registry_no_pisa_el_registro_instalado(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """El registro instalado está en el lock: si `exo registry` lo pisa, el próximo sync da conflicto."""
+    project.sync(tmp_path, agents=["claude-code"])
+    target = registry.registry_path(tmp_path)
+    before = target.read_bytes()
+    capsys.readouterr()
+    assert main(["registry", "--project", str(tmp_path)]) == 1
+    err = capsys.readouterr().err
+    assert "exo sync" in err and "--stdout" in err
+    assert target.read_bytes() == before
+    assert main(["registry", "--project", str(tmp_path), "--stdout"]) == 0
+    assert "| memory-protocol | core |" in capsys.readouterr().out
+    assert project.sync(tmp_path).engine.conflicts == []

@@ -53,7 +53,9 @@ def _tree(project: Path, specs: str = "specs") -> Path:
             }
         ),
     )
-    (root / "nuevo").mkdir()
+    # Un change recién creado tiene al menos un artefacto; una carpeta vacía no es un change.
+    _touch(root / "nuevo" / "followups.json", "[]")
+    (root / "vacia").mkdir()
     _touch(root / "solo-tasks" / "tasks.md", "- [ ] pendiente\n")
     _touch(root / "capabilities" / "auth" / "spec.md")
     _touch(root / "archive" / "2026-01-15-viejo" / "proposal.md")
@@ -68,6 +70,22 @@ def _tree(project: Path, specs: str = "specs") -> Path:
 
 def _by_name(project: Path) -> dict[str, observability.Change]:
     return {c.name: c for c in observability.find_changes(project)}
+
+
+def test_epicas_por_estructura_con_cualquier_patron(tmp_path: Path) -> None:
+    """ADR-0012/D-26: la épica es la carpeta sin artefactos que contiene changes, sin regex de Jira."""
+    root = tmp_path / "specs"
+    _touch(root / "AB-100" / "AB-101-alta" / "proposal.md")
+    _touch(root / "100" / "101-baja" / "ai-usage-record.json", "{}")
+    _touch(root / "PROJ-5" / "proposal.md")  # parece una épica, pero tiene artefactos: es un change
+    (root / "100" / "102-vacio").mkdir()  # vacía: no es un change
+    _touch(root / "archive" / "AB-100" / "2026-03-01-AB-103-viejo" / "proposal.md")
+    changes = _by_name(tmp_path)
+    assert changes["AB-101-alta"].epic == "AB-100"
+    assert changes["101-baja"].epic == "100"
+    assert "102-vacio" not in changes
+    assert changes["PROJ-5"].epic is None
+    assert (changes["AB-103-viejo"].epic, changes["AB-103-viejo"].archived) == ("AB-100", True)
 
 
 def test_detecta_changes_epicas_y_archivo(tmp_path: Path) -> None:
@@ -236,3 +254,16 @@ def test_specs_que_sale_del_proyecto_por_un_link_no_se_lee(tmp_path: Path, make_
     project.mkdir()
     make_dir_link(project / "specs", outside)
     assert observability.find_changes(project) == []
+
+
+def test_change_state_incluye_el_tier(tmp_path: Path) -> None:
+    """Sin fitness-assessment.json legible el tier es 4 (§6.3); el contrato de estado lo usa."""
+    _tree(tmp_path)
+    login = observability.change_state(tmp_path, "PROJ-1-login")
+    assert (login["tier"], login["tier_source"]) == (4, "missing")
+    pagos = observability.change_state(tmp_path, "PROJ-11-pagos")  # el archivo dice "x"
+    assert (pagos["tier"], pagos["tier_source"]) == (4, "unreadable")
+    folder = tmp_path / "specs" / "PROJ-10" / "PROJ-11-pagos"
+    (folder / "fitness-assessment.json").write_text(json.dumps({"tier": 2}), encoding="utf-8")
+    pagos = observability.change_state(tmp_path, "PROJ-11-pagos")
+    assert (pagos["tier"], pagos["tier_source"]) == (2, "assessment")

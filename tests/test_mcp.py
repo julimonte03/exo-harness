@@ -137,7 +137,7 @@ def test_criterio_5_por_subprocess(tmp_path: Path) -> None:
     assert by_id[3]["result"]["isError"] is True
     assert "invalid" in by_id[3]["result"]["content"][0]["text"], "tiene que rechazarlo S2"
     assert by_id[4]["result"]["isError"] is False
-    assert "hello-exo" in by_id[4]["result"]["content"][0]["text"]
+    assert "memory-protocol" in by_id[4]["result"]["content"][0]["text"]
 
 
 # -- robustez (revisión F1) ---------------------------------------------------

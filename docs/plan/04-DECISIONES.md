@@ -85,7 +85,7 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 
 ### D-11 — Specs vivas por capacidad
 - **Default:** sí. `specs/capabilities/<capacidad>/spec.md` es la fuente de verdad; cada cambio escribe un delta (`ADDED`/`MODIFIED`/`REMOVED` por ID de requisito) y `sdd-archive` lo integra. Es lo que permite que la ingeniería inversa de F6 se conecte con el ciclo.
-- **Estado:** Decidida, 2026-11-13: sí, el default.
+- **Estado:** Decidida, 2026-11-13: sí, el default. El formato del delta y de la spec de capacidad está en ADR-0013.
 
 ### D-13 — Alcance de skills antes de F7
 - **Default:** 34 skills del reporte + 5 nuevas de ingeniería inversa hasta M3; las otras 65 en F7 por prioridad. Detalle en `99-TRAZABILIDAD.md`.
@@ -149,3 +149,22 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 - **Contexto:** la config administrada de esta máquina tiene `allowManagedHooksOnly: true`, que bloquea los hooks de proyecto en Claude Code. Además, Claude Code y Copilot esperan salidas distintas, y ninguno permite pedirle algo al agente con `PreCompact` o `SessionEnd`.
 - **Opciones:** (a) hooks donde la política lo permita, más reglas, más aviso de `exo doctor`; (b) solo reglas.
 - **Estado:** Decidida (ADR-0009), 2026-11-13: (b). La sección «Memoria» de `AGENTS.base.md` y la skill `memory-protocol` le dicen al agente cuándo correr `exo mem context`, `exo mem save` y `exo mem session summary`.
+
+### D-26 — Ticket en el nombre del cambio
+- **Contexto:** ADR-0012 permite patrones como `#123` o `AB#123`. El `#` complica los nombres de carpeta y de rama: en un shell, al principio de una palabra es un comentario.
+- **Opciones:** (a) normalizar el ID en el nombre; (b) incluirlo solo si ya es seguro; (c) no incluirlo nunca.
+- **Estado:** Decidida por el dueño, 2026-11-14: (a). Todo carácter que no sea letra, dígito o guion pasa a guion, y se recortan los guiones de los extremos: `AB#123` → `AB-123-add-login` y `#123` → `123-add-login`. La épica se normaliza igual. El ID exacto queda en `ticket_key` (y `epic_key`) del AI Usage Record y, desde F5, en el commit.
+
+### D-27 — Artefactos obligatorios por tier
+- **Contexto:** el reporte tiene dos inconsistencias. En §6.3 el Tier 1 no tiene fase de spec, pero las specs vivas (D-11) necesitan el delta. En §6.4 el Tier 2 exige `test-spec.md`, pero no tiene la fase de tasks que lo escribe.
+- **Opciones para el Tier 1:** (a) delta siempre; (b) delta solo si el cambio altera comportamiento.
+- **Estado:** Decidida por el dueño, 2026-11-14:
+  - **Tier 1:** (b). Exige `proposal.md`; `spec.md` es opcional y, si falta, `exo check` avisa que el cambio no debe alterar comportamiento.
+  - **Tier 2:** exige `proposal.md`, `spec.md` y `test-spec.md`. Este último lo escribe `sdd-spec` con `test-strategy`.
+  - **Tier 3 y 4:** suman `design.md` y `tasks.md`; `test-spec.md` lo escribe `sdd-tasks`.
+  - **Todos los tiers:** exigen `ai-usage-record.json` válido. Sin `fitness-assessment.json`, el tier es 4.
+
+### D-28 — Meta-comandos del orquestador
+- **Contexto:** F4 pide los meta-comandos `/sdd-new`, `/sdd-continue`, `/sdd-ff` y `/sdd-status`. El repo usa skills como comandos y no genera prompt files ni `.claude/commands/` (`03-MATRIZ-AGENTES.md`).
+- **Opciones:** (a) un archivo de comando por agente; (b) skills finas `sdd-continue` y `sdd-ff`, que cargan el orquestador; (c) argumentos del orquestador (`/sdd-orchestrator continue`).
+- **Estado:** Decidida, 2026-11-14: (b). Sigue la política de la matriz de agentes. `/sdd-new` y `/sdd-status` ya salen de sus skills.

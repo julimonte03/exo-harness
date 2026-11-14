@@ -1,6 +1,8 @@
-"""Config del proyecto (`<PROJECT_DIR>/config.json`, esquema 1).
+"""Config del proyecto (`<PROJECT_DIR>/config.json`, esquema 2).
 
 Esquema en `docs/plan/02-ARQUITECTURA.md` §2.12, más `mcp.enabled` (ADR-0005).
+El esquema 2 (F4) reemplaza `tracker` por `tickets {pattern, example}`
+(ADR-0012) y suma `sdd {persistence, mode}` (§6.5 B y §6.6 del reporte).
 La lectura es tolerante: si el archivo falta, se usan los defaults sin avisar;
 si un campo es inválido, vuelve a su default y queda una advertencia para
 `exo doctor`. Las claves desconocidas se conservan para no perder datos del
@@ -18,20 +20,19 @@ from pathlib import Path
 from typing import Any
 
 from exo import _meta
-from exo.core import fsutil
+from exo.core import fsutil, tickets
 
-CURRENT_SCHEMA = 1
-# MIGRATIONS[n] convierte un dict del esquema n al n + 1.
-MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {}
+CURRENT_SCHEMA = 2
 FILENAME = "config.json"
 
-TRACKERS = ("jira", "github", "gitlab", "linear", "none")
+SDD_PERSISTENCE = ("filesystem", "memory", "hybrid", "none")
+SDD_MODES = ("interactive", "auto")
 MEMORY_BACKENDS = ("auto", "lexical", "hybrid-sqlite", "qdrant")
 EMBEDDING_PROVIDERS = ("local", "none", "static", "onnx", "ollama", "openai-compatible")
 DISCOVERY_DEPTHS = ("quick", "standard", "deep")
 
 _SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-PREFIX = re.compile(r"^[A-Z][A-Z0-9]*$")
+_PREFIX = re.compile(r"^[A-Z][A-Z0-9]*$")
 _LANG = re.compile(r"^[a-z]{2}(?:-[A-Z]{2})?$")
 
 
@@ -53,11 +54,12 @@ class LoadResult:
 def defaults() -> dict[str, Any]:
     return {
         "schema": CURRENT_SCHEMA,
-        "project": {"name": None, "chat_language": "es", "artifact_language": "en"},
+        "project": {"name": None, "chat_language": None, "artifact_language": "en"},
         "agents": [],
         "packs": [],
-        "tracker": {"type": "none", "prefix": None, "prefixes": []},
+        "tickets": {"pattern": None, "example": None},
         "specs_dir": "specs",
+        "sdd": {"persistence": "filesystem", "mode": "interactive"},
         "memory": {
             "backend": "auto",
             "embeddings": {"provider": "local", "model": None, "allow_remote": False},
@@ -196,8 +198,39 @@ def _schema(value: Any, path: str, col: _Collector, default: Any) -> Any:
     return CURRENT_SCHEMA
 
 
+def _tickets(value: Any, path: str, col: _Collector, default: Any) -> Any:
+    """`{pattern, example}`: el ejemplo tiene que cumplir el patrón (ADR-0012)."""
+    if not isinstance(value, dict):
+        col.invalid_value(path, "must be an object {pattern, example}")
+        return copy.deepcopy(default)
+    pattern = value.get("pattern")
+    if pattern is not None:
+        try:
+            tickets.compile_pattern(pattern)
+        except tickets.TicketError as exc:
+            col.invalid_value(_join(path, "pattern"), str(exc), "no ticket pattern")
+            pattern = None
+    example = value.get("example")
+    if example is not None:
+        example_path = _join(path, "example")
+        if pattern is None:
+            col.invalid_value(example_path, "an example needs a valid pattern", "dropped")
+            example = None
+        else:
+            try:
+                tickets.check_example(pattern, example)
+            except tickets.TicketError as exc:
+                col.invalid_value(example_path, str(exc), "dropped")
+                example = None
+    out: dict[str, Any] = {"pattern": pattern, "example": example}
+    for key, extra in value.items():
+        if key not in out:
+            col.note(_join(path, key), "unknown key; kept without validation")
+            out[key] = extra
+    return out
+
+
 _SLUG_HINT = "must be lowercase kebab-case (a-z, 0-9, hyphens)"
-_PREFIX_HINT = "must match ^[A-Z][A-Z0-9]*$ (for example PROJ)"
 
 _SPEC = _section(
     {
@@ -205,20 +238,17 @@ _SPEC = _section(
         "project": _section(
             {
                 "name": _text(None, "must be a non-empty string or null", optional=True),
-                "chat_language": _text(_LANG, "must be a language code such as es or en"),
+                "chat_language": _text(
+                    _LANG, "must be a language code such as es or en, or null", optional=True
+                ),
                 "artifact_language": _text(_LANG, "must be a language code such as es or en"),
             }
         ),
         "agents": _text_list(_SLUG, _SLUG_HINT),
         "packs": _text_list(_SLUG, _SLUG_HINT),
-        "tracker": _section(
-            {
-                "type": _choice(TRACKERS),
-                "prefix": _text(PREFIX, _PREFIX_HINT, optional=True),
-                "prefixes": _text_list(PREFIX, _PREFIX_HINT),
-            }
-        ),
+        "tickets": _tickets,
         "specs_dir": _specs_dir,
+        "sdd": _section({"persistence": _choice(SDD_PERSISTENCE), "mode": _choice(SDD_MODES)}),
         "memory": _section(
             {
                 "backend": _choice(MEMORY_BACKENDS),
@@ -248,6 +278,48 @@ _SPEC = _section(
         "mcp": _section({"enabled": _bool}),
     }
 )
+
+
+# -- migraciones --------------------------------------------------------------
+
+_JIRA_STYLE = (r"[A-Z][A-Z0-9]*-\d+", "PROJ-123")
+_HASH_STYLE = (r"#\d+", "#123")
+
+
+def _tickets_from_tracker(tracker: Any) -> dict[str, Any]:
+    """Traduce el `tracker` de lista cerrada del esquema 1 a un patrón (ADR-0012)."""
+    none = {"pattern": None, "example": None}
+    if not isinstance(tracker, dict) or tracker.get("type") in (None, "none"):
+        return none
+    prefixes: list[str] = []
+    candidates = [tracker.get("prefix")]
+    if isinstance(tracker.get("prefixes"), list):
+        candidates += tracker["prefixes"]
+    for item in candidates:
+        if isinstance(item, str) and _PREFIX.match(item) and item not in prefixes:
+            prefixes.append(item)
+    kind = tracker.get("type")
+    if prefixes:
+        body = prefixes[0] if len(prefixes) == 1 else "(?:" + "|".join(prefixes) + ")"
+        return {"pattern": body + r"-\d+", "example": f"{prefixes[0]}-123"}
+    if kind in ("jira", "linear"):
+        return {"pattern": _JIRA_STYLE[0], "example": _JIRA_STYLE[1]}
+    if kind in ("github", "gitlab"):
+        return {"pattern": _HASH_STYLE[0], "example": _HASH_STYLE[1]}
+    return none
+
+
+def _v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
+    out = dict(raw)
+    tracker = out.pop("tracker", None)
+    if "tickets" not in out:
+        out["tickets"] = _tickets_from_tracker(tracker)
+    out["schema"] = 2
+    return out
+
+
+# MIGRATIONS[n] convierte un dict del esquema n al n + 1.
+MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {1: _v1_to_v2}
 
 
 def validate(raw: dict[str, Any]) -> tuple[dict[str, Any], list[str], list[str]]:
