@@ -63,7 +63,7 @@ For each phase of the tier, in order (`.exo/shared/phase-skill-map.md`, Phases p
    - `ok`: persist what a read-only subagent returned (`exploration.md`, `verify-record.md`) in the change root, exactly as returned.
    - `needs-input`: ask the person exactly what the envelope says, then run the phase again.
    - `blocked`: stop and explain; do not work around it.
-5. **Record** what the phase used: `exo change record <change> --add capabilities_used ...` for every skill, subagent, judge and command, with its activation and resolution (skill:ai-usage-record).
+5. **Record** what the phase used, from the envelope notes when it ran in a subagent: `exo change record <change> --add capabilities_used ...` for every skill, subagent, judge and command, with its activation and resolution, and `--add skills_used '"<phase skill>"'` (skill:ai-usage-record). The next-phase rules read those entries (`.exo/shared/capability-attribution.md`).
 6. **Gate.** Interactive mode: show a short summary of the artifacts and ask "Adjust anything or continue?". Automatic mode: go on, but still stop on `needs-input`, `blocked`, a downgrade, judgment-day and before the PR.
 7. Update the change's state memory (`.exo/shared/memory-convention.md`).
 

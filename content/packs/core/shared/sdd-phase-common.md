@@ -5,9 +5,9 @@ Rules every SDD phase follows, whether the orchestrator delegated it or the agen
 ## A. Load the skills
 
 1. Read `.exo/skill-registry.md` to see which skills this project has and where.
-2. Find the phase in `.exo/shared/phase-skill-map.md` and pick the skills for the tier: Required, plus the Conditionals whose trigger applies, at most 5.
+2. Find the phase in `.exo/shared/phase-skill-map.md` and pick the skills for the tier: the Required ones and, from Tier 2 on, the Conditionals whose trigger applies. At most 5 of the map's skills; the phase skill itself, `memory-protocol` and `ai-usage-record` do not count.
 3. **Read each `SKILL.md` in full** before working. Do not summarize it from its description.
-4. A missing skill degrades as `.exo/shared/skill-resolver.md` says: say so, apply the inline criteria, record it.
+4. A missing skill degrades as `.exo/shared/skill-resolver.md` says: say so, apply the inline criteria, record it. A missing `core` skill is not a degradation but an incomplete install: say so, suggest `exo doctor` and `exo sync`, and return `blocked`.
 5. Without an orchestrator (the person called a phase skill directly), resolve the Required and Conditional skills yourself with the same steps.
 
 ## B. Retrieval mode
@@ -31,7 +31,7 @@ With `memory` or `none`, `exo check` has nothing on disk to check, and it says s
 | Phase | Skill | Writes |
 |---|---|---|
 | risk | `risk-tiering` | `fitness-assessment.json` (through `exo fitness classify --change`) |
-| new | `sdd-new` | `proposal.md`; `spec.md` when the change alters behavior |
+| new | `sdd-new` | `proposal.md`; in Tier 1, `spec.md` when the change alters behavior |
 | explore | `sdd-explore` | `exploration.md` |
 | propose | `sdd-propose` | `proposal.md` (refines the one from `sdd-new`) |
 | spec | `sdd-spec` | `spec.md` (delta); in Tier 2 also `test-spec.md` |
@@ -39,7 +39,9 @@ With `memory` or `none`, `exo check` has nothing on disk to check, and it says s
 | tasks | `sdd-tasks` | `tasks.md` and `test-spec.md` |
 | apply | `sdd-apply` | code and tests; ticks the boxes in `tasks.md` |
 | verify | `sdd-verify` | `verify-record.md` |
-| archive | `sdd-archive` | merges the delta into the living specs and moves the change to `<specs_dir>/archive/[<epic>/]YYYY-MM-DD-<change-name>/` |
+| archive | `sdd-archive` | merges the delta into the living specs, moves the change to `<specs_dir>/archive/[<epic>/]YYYY-MM-DD-<change-name>/`, and `pr.md` through `branch-pr` |
+
+  **When the tier rises,** ownership moves with it: from Tier 2 on `sdd-spec` owns `spec.md` and completes the one `sdd-new` wrote; in Tier 3 and 4 `sdd-tasks` completes the `test-spec.md` that `sdd-spec` wrote in Tier 2.
 
 - **Templates:** start each document from `.exo/shared/templates/` (`proposal.md`, `spec.md`, `design.md`, `test-spec.md`, `verify-record.md`, `pr.md`). `exo speclint <file or change root>` checks them.
 - **Mandatory artifacts per tier** (what `exo check` requires):
@@ -108,7 +110,7 @@ fitness_signal:       # optional: only when the evidence contradicts the tier
 
   A read-only subagent returns the full text of its document in its answer; it never writes files.
 - **Read 1 to 3 files inline; 4 or more, delegate** to `sdd-explorer`. Running tests or a build: delegate. Git state commands (`git status`, `git diff --stat`) run inline.
-- **Permissions are denied by default.** The explorer and every reviewer are read-only; the implementer writes only what the frozen plan (`tasks.md`, or the proposal in Tier 1) says. Nobody re-delegates: a subagent never launches another one.
+- **Permissions are denied by default.** The explorer and every reviewer are read-only; the implementer writes only what the frozen plan says: `tasks.md` in Tier 3 and 4; in Tier 1 and 2, the proposal's Scope with the spec delta and, in Tier 2, the test-spec. Nobody re-delegates: a subagent never launches another one.
 - **Mandatory delegation triggers:**
   1. the 4-file rule above;
   2. writing to more than one file;
@@ -117,6 +119,7 @@ fitness_signal:       # optional: only when the evidence contradicts the tier
   5. a long session (about 20 tool calls in the same phase): hand off before the context degrades;
   6. any verify in Tier 3 or 4: it runs in fresh context.
 - **Pass skills as paths.** A delegation prompt starts with a `## Skills to load before work` block listing the exact `SKILL.md` paths, and the subagent reports how it resolved them (`.exo/shared/skill-resolver.md`).
+- **Recording:** a phase that runs inline records what it used with `exo change record`; a phase that ran in a subagent lists it in its envelope notes and the orchestrator records it. Subagents never run `exo change record`.
 - **Without subagents:** see `.exo/shared/agent-capabilities.md`.
 
 ## H. Execution mode
@@ -124,3 +127,7 @@ fitness_signal:       # optional: only when the evidence contradicts the tier
 - **Interactive (default, `sdd.mode: interactive`):** after each phase, show the summary and ask "Adjust anything or continue?". Do not start the next phase without an answer.
 - **Automatic (`sdd.mode: auto`, or when the person asks for it in the conversation):** continue phase by phase, and still stop on `needs-input`, `blocked`, a downgrade, `judgment-day` and before the PR.
 - Artifacts are written in English. Talk to the person in their language.
+
+## I. JSON in the terminal
+
+Several commands take JSON (`exo fitness classify --evidence-json`, `exo change record --add FIELD JSON`). Windows PowerShell 5.1 drops the inner double quotes when it calls a program, and the JSON arrives broken: the evidence becomes unreadable (Tier 4) or the record entry is rejected. In PowerShell 5.1, write the JSON to a file and pass `--evidence-file <file>` or `@<file>` (`exo change record <change> --add capabilities_used @entry.json`). A POSIX shell (bash, zsh) and PowerShell 7 pass single-quoted JSON as is.

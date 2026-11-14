@@ -126,7 +126,7 @@ def test_skill_larga_da_advertencia(tmp_path: Path) -> None:
     assert any("500 lines" in w.message for w in report.warnings)
 
 
-MAP_PATH = Path("packs") / "sdd" / "shared" / "phase-skill-map.md"
+MAP_PATH = Path("packs") / "core" / "shared" / "phase-skill-map.md"
 MAP = """# Phase → skill map
 
 ## Map
@@ -269,3 +269,15 @@ def test_las_references_tambien_se_revisan(tmp_path: Path) -> None:
     references = root / "packs" / "sdd" / "skills" / "flujo" / "references"
     _write(references / "reglas.md", "See skill:no-existe.\n")
     assert any("skill:no-existe" in m and "reglas.md" in m for m in _messages(root))
+
+
+def test_un_pack_cita_solo_contratos_suyos_o_de_lo_que_requiere(tmp_path: Path) -> None:
+    """Con solo core instalado, un contrato de sdd no está: core no puede citarlo."""
+    root = _base(tmp_path)
+    shared = f"{_meta.PROJECT_DIR}/shared"
+    _write(root / "packs" / "sdd" / "shared" / "ciclo.md", "# Cycle\n")
+    _write(root / "packs" / "core" / "shared" / "comun.md", "# Common\n")
+    _replace(FLUJO, "skill:base", f"skill:base, `{shared}/ciclo.md` y `{shared}/comun.md`")(root)
+    assert _messages(root) == []
+    _replace(BASE, "# base\n", f"# base\nSee `{shared}/ciclo.md`.\n")(root)
+    assert any("ciclo.md" in m and "pack sdd" in m for m in _messages(root)), _messages(root)
