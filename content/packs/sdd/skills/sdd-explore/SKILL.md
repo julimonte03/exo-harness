@@ -105,7 +105,7 @@ Recommendation: Option A, because ...
 
 ## Record
 
-A delegated explorer cannot run commands: it lists in its envelope notes the skills it loaded, with their resolution, and the files it read. The orchestrator records them. Inline, run these yourself, without the subagent entry:
+A delegated explorer cannot run commands: it lists in its envelope notes the skills it loaded, with their resolution, and the files it read. The orchestrator records them. Inline, run these yourself, leaving out the `sdd-explorer` line (no subagent ran):
 
 ```bash
 exo change record <change> --add capabilities_used '{"name": "sdd-explore", "type": "skill", "activation": "auto", "resolution": "paths-injected"}'

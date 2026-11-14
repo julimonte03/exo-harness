@@ -58,7 +58,7 @@ With `memory` or `none`, `exo check` has nothing on disk to check, and it says s
 
 ## D. Return envelope
 
-Every phase ends with this block, as the last thing in its answer:
+Every phase ends with this block, as the last thing in its answer. Before returning `status: ok`, an inline phase logs itself with `exo change record <change> --phase-done <phase>` (`.exo/shared/sdd-status-contract.md`, The phase log); for a phase that ran in a subagent, the orchestrator does it.
 
 ```yaml
 status: ok            # ok | needs-input | blocked
@@ -119,7 +119,7 @@ fitness_signal:       # optional: only when the evidence contradicts the tier
   5. a long session (about 20 tool calls in the same phase): hand off before the context degrades;
   6. any verify in Tier 3 or 4: it runs in fresh context.
 - **Pass skills as paths.** A delegation prompt starts with a `## Skills to load before work` block listing the exact `SKILL.md` paths, and the subagent reports how it resolved them (`.exo/shared/skill-resolver.md`).
-- **Recording:** a phase that runs inline records what it used with `exo change record`; a phase that ran in a subagent lists it in its envelope notes and the orchestrator records it. Subagents never run `exo change record`.
+- **Recording:** a phase that runs inline records what it used with `exo change record`; a phase that ran in a subagent lists it in its envelope notes and the orchestrator records it. Subagents never run `exo change record`. The phase log (`--phase-done`) is written only for `status: ok`.
 - **Without subagents:** see `.exo/shared/agent-capabilities.md`.
 
 ## H. Execution mode
@@ -130,4 +130,6 @@ fitness_signal:       # optional: only when the evidence contradicts the tier
 
 ## I. JSON in the terminal
 
-Several commands take JSON (`exo fitness classify --evidence-json`, `exo change record --add FIELD JSON`). Windows PowerShell 5.1 drops the inner double quotes when it calls a program, and the JSON arrives broken: the evidence becomes unreadable (Tier 4) or the record entry is rejected. In PowerShell 5.1, write the JSON to a file and pass `--evidence-file <file>` or `@<file>` (`exo change record <change> --add capabilities_used @entry.json`). A POSIX shell (bash, zsh) and PowerShell 7 pass single-quoted JSON as is.
+Several commands take JSON (`exo fitness classify --evidence-json`, `exo change record --add FIELD JSON`). Windows PowerShell 5.1 drops the inner double quotes when it calls a program, and the JSON arrives broken: the evidence becomes unreadable (Tier 4) or the record entry is rejected. In PowerShell 5.1, write the JSON to a file and pass `--evidence-file <file>` or `@<file>` (`exo change record <change> --add capabilities_used @entry.json`). Write that file as UTF-8 (your file-writing tool does; in PowerShell, `Set-Content -Encoding utf8`); UTF-16 with a byte order mark, what `Out-File` writes, works too. A POSIX shell (bash, zsh) and PowerShell 7 pass single-quoted JSON as is.
+
+Quote ticket and epic IDs (`--ticket 'AB#123'`): an unquoted `#` starts a comment in the shell. To remove the tickets of a project, use `exo init --no-tickets`: PowerShell 5.1 drops an empty `''` argument.

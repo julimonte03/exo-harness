@@ -74,19 +74,7 @@ Compare `artifacts` with the mandatory artifacts of the tier (`.exo/shared/sdd-p
 
 ### 5. Next phase
 
-The command does not return the next phase. Derive it with the rules in `.exo/shared/sdd-status-contract.md`, Next phase, from the `tier` and `artifacts` it returned and the phases of the tier (`.exo/shared/phase-skill-map.md`, Phases per tier). Take the first rule that applies. When a rule depends on the content of a file, read only what it needs:
-
-| Rule | How to tell |
-|---|---|
-| explore (Tier 3 and 4) | Approach in `proposal.md` says "The area is unknown: explore before proposing." and there is no `exploration.md` |
-| propose (Tier 3 and 4) | `exo change ai-usage <change> --json` has no `sdd-propose` in `skills_used` or `capabilities_used` |
-| apply | phase `tasks` (no box checked) or `apply` with boxes still unchecked in `tasks.md` |
-| apply (Tier 1 and 2) | `exo change ai-usage <change> --json` has no `sdd-apply` in `skills_used` or `capabilities_used` |
-| verify | no `verify-record.md`, or its Verdict section says `needs-rework` (after fixing) |
-| judgment (Tier 4) | `judges_invoked` in the AI Usage Record has no approved `judgment-day` |
-| archive | the Verdict section of `verify-record.md` says `ready` |
-
-An archived change has no next phase: `next: none`.
+`exo change status <change> --json` returns `next_phase` and `next_reason`, computed with the rules of `.exo/shared/sdd-status-contract.md`, Next phase. Report them as they are; do not re-derive them. An archived change has `next_phase: none`.
 
 ### 6. Inconsistencies
 

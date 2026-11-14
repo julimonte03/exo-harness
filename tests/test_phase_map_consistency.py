@@ -10,6 +10,7 @@ las tools de su rol.
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 
@@ -32,21 +33,44 @@ CORE = (
     "work-unit-commits",
     "project-onboarding",
 )
-# Skill de fase -> (dónde corre, subagente) según la tabla de la sección G del contrato común.
-PHASES = {
-    "risk-tiering": ("inline", None),
-    "sdd-new": ("inline", None),
-    "sdd-init": ("inline", None),
-    "sdd-status": ("inline", None),
-    "sdd-explore": ("subagent", "sdd-explorer"),
-    "sdd-propose": ("inline", None),
-    "sdd-spec": ("inline", None),
-    "sdd-design": ("inline", None),
-    "sdd-tasks": ("inline", None),
-    "sdd-apply": ("subagent", "sdd-implementer"),
-    "sdd-verify": ("subagent", "sdd-verifier"),
-    "sdd-archive": ("inline", None),
+# Fase -> skill de fase.
+PHASE_SKILL = {
+    "risk": "risk-tiering",
+    "new": "sdd-new",
+    "init": "sdd-init",
+    "status": "sdd-status",
+    "explore": "sdd-explore",
+    "propose": "sdd-propose",
+    "spec": "sdd-spec",
+    "design": "sdd-design",
+    "tasks": "sdd-tasks",
+    "apply": "sdd-apply",
+    "verify": "sdd-verify",
+    "archive": "sdd-archive",
 }
+_TABLE_ROW = re.compile(r"^\s*\|([^|]+)\|([^|]+)\|")
+_AGENT = re.compile(r"`(sdd-[a-z-]+)`")
+
+
+def _who_runs() -> dict[str, tuple[str, str | None]]:
+    """La tabla "Who runs each phase" de la sección G: fase -> (dónde corre, subagente)."""
+    text = (ROOT / "packs" / "core" / "shared" / "sdd-phase-common.md").read_text(encoding="utf-8")
+    table = text.split("**Who runs each phase:**", 1)[1].split("\n\n", 2)[1]
+    found: dict[str, tuple[str, str | None]] = {}
+    for line in table.splitlines():
+        row = _TABLE_ROW.match(line)
+        if not row or set(row.group(1).strip()) <= {"-"} or row.group(1).strip() == "Phase":
+            continue
+        where = row.group(2).strip()
+        agent = _AGENT.search(where)
+        inline = where.startswith(("inline", "the orchestrator"))
+        for phase in (p.strip() for p in row.group(1).split(",")):
+            if phase in PHASE_SKILL:
+                found[phase] = ("inline", None) if inline or not agent else ("subagent", agent.group(1))
+    return found
+
+
+PHASES = {PHASE_SKILL[phase]: where for phase, where in _who_runs().items()}
 ORCHESTRATION = ("sdd-orchestrator", "sdd-continue", "sdd-ff")
 TOOLS = {
     "sdd-explorer": {"Read", "Grep", "Glob"},
@@ -85,6 +109,23 @@ def test_criterio_2_las_degradaciones_son_de_skills_que_faltan() -> None:
         assert item.pack in ("core", "sdd", *sdd.optional), (
             f"{item.skill}: pack {item.pack} sin declarar"
         )
+
+
+def test_la_tabla_de_la_seccion_g_cubre_todas_las_fases() -> None:
+    assert set(PHASES) == set(PHASE_SKILL.values())
+    assert PHASES["sdd-apply"] == ("subagent", "sdd-implementer")
+    assert PHASES["risk-tiering"] == ("inline", None)
+
+
+@pytest.mark.parametrize("phase", sorted(p for p in (MAP.required if MAP else {}) if p in PHASE_SKILL))
+def test_cada_skill_de_fase_nombra_las_required_de_su_fila(phase: str) -> None:
+    """Si el mapa exige una skill en una fase, la skill de esa fase la tiene que cargar."""
+    assert MAP is not None
+    skill = PHASE_SKILL[phase]
+    body = (SKILLS[skill].path / packs.SKILL_FILE).read_text(encoding="utf-8")
+    for required in MAP.required[phase]:
+        if required != skill:
+            assert f"`{required}`" in body or f"skill:{required}" in body, f"{skill} no nombra {required}"
 
 
 def test_criterio_2_las_skills_requeridas_del_ciclo_existen() -> None:

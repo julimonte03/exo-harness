@@ -35,7 +35,7 @@ This skill never writes code, tests, `exploration.md`, `design.md`, `tasks.md` o
 - Read `.exo/config.json`: `tickets.pattern`, `tickets.example`, `specs_dir`, `sdd.persistence` and `sdd.mode`.
 - **Inside the orchestrator** (`sdd-orchestrator`), follow it: it may have run the wiki guard, created the change or recorded the tier already. `exo change status <change> --json` shows what exists (`artifacts`, `tier_source`); skip the steps that are done.
 - **Called alone** (`/sdd-new`), run every step yourself.
-- Load skills as `.exo/shared/sdd-phase-common.md`, section A, says. The phase map has no row for `new`: this skill uses `skill:risk-tiering` for its risk step and follows `skill:memory-protocol` and `ai-usage-record`.
+- Load skills as `.exo/shared/sdd-phase-common.md`, section A, says. The phase map's row for `new` requires `context-retrieval`: read it before drafting the proposal. This skill also uses `skill:risk-tiering` for its risk step and follows `skill:memory-protocol` and `ai-usage-record`.
 - Persistence follows sections B and C of the same contract: with `hybrid` or `memory`, save each artifact with its topic key (`.exo/shared/memory-convention.md`).
 
 ## Steps
@@ -60,9 +60,10 @@ Run the start checkpoint of `.exo/shared/project-wiki-guard.md`:
 ### 3. Create the change
 
 ```bash
-exo change new <slug> --ticket <ID> --epic <ID> --purpose '<one sentence: what the change is for>' --json
+exo change new <slug> --ticket '<ID>' --epic '<ID>' --purpose '<one sentence: what the change is for>' --json
 ```
 
+- Quote the IDs: an unquoted `#123` starts a comment in the shell.
 - Leave out `--ticket` and `--epic` when there is none. Pass the IDs exactly as the person wrote them: the command validates them against the pattern, normalizes them (`AB#123` becomes `AB-123`) and keeps the exact ID in the record.
 - From the output, `name` is the change name and `path` is the change root. Never build the folder by hand.
 - **The ticket is rejected:** say that it does not match and show `<tickets.example>`, then ask once more. If the second answer is rejected too, create the change without a ticket and say so in the envelope notes. Never invent an ID and never change the pattern.

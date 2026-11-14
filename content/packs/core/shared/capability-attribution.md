@@ -47,10 +47,15 @@ An entry with the same `name` and `type` counts as already recorded: the first a
 
 ## Conventions other phases read
 
-`.exo/shared/sdd-status-contract.md` derives the next phase from these entries, so record them exactly:
+`.exo/shared/sdd-status-contract.md` derives the next phase from these entries, so record them exactly and only when the phase returned `status: ok`:
 
-- `skills_used` gets the name of every phase skill that ran (`"sdd-propose"`, `"sdd-apply"`, …): it is how a refined proposal or a finished apply in Tier 1 and 2 is recognized.
-- `judges_invoked` gets the `judgment-day` result in Tier 4.
+- `phases_done`: `exo change record <change> --phase-done <phase>`.
+- `judges_invoked`: the `judgment-day` result in Tier 4.
+- `skills_used`: the phase skill and the skills it loaded.
+
+## Findings
+
+In F4 no command writes `followups.json` yet (judges arrive with F5), so `exo change followups` lists nothing. Judge findings live in the judge's answer and in `verify-record.md`, section Issues Found. The person decides each one: it is fixed, or it goes to `dismissed_followups` with the `judge` and `rule` the finding shows and their reason.
 
 ## Check
 
