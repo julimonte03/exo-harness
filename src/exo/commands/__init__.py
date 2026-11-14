@@ -2,6 +2,7 @@
 
 from exo.commands import (
     backups,
+    check,
     doctor,
     fitness,
     inject,
@@ -23,6 +24,7 @@ COMMANDS = [
     fitness.register,
     speclint.register,
     specs.register,
+    check.register,
     validate.register,
     tools.register,
     doctor.register,
