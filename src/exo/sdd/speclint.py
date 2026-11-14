@@ -10,8 +10,9 @@ en el delta, donde cada sección es opcional. Además:
 - delta y capacidad: el formato de `sdd/specs.py` (IDs `CAP-<cap>-FR-n`,
   escenarios con Given, When y Then, `S-n` solo en el delta).
 - verify-record.md: Verdict `ready|needs-rework|blocked` y marcador de gate.
-- Carpeta de change: cada `S-n` del delta aparece en el Test Plan de design.md,
-  y toda referencia a un ID existe en el delta o en las specs vivas.
+- Carpeta de change: cada `S-n` del delta aparece en el Test Plan de design.md;
+  cada requisito ADDED o MODIFIED y cada escenario del delta aparecen en
+  test-spec.md; y toda referencia a un ID existe en el delta o en las specs vivas.
 """
 
 from __future__ import annotations
@@ -48,6 +49,7 @@ GATE_MARKER = re.compile(rf"<!--\s*{re.escape(_meta.BLOCK_PREFIX)}-gate:[a-z_]+\
 
 _H2 = re.compile(r"^##(?!#)\s+(.+?)\s*#*\s*$")
 _FENCE = re.compile(r"^\s*(```|~~~)")
+_VERDICT_WORD = re.compile(r"^[\s*_`]*([A-Za-z-]+)")
 _COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 # Un ID de requisito entero o un escenario; `CAP-x-FR-12` no se lee como `FR-12`.
 _REFERENCE = re.compile(rf"\b(CAP-{specs.CAPABILITY_NAME}-N?FR-[1-9]\d*|S-[1-9]\d*)\b")
@@ -150,9 +152,13 @@ def _check_capability(text: str, name: str, errors: list[Issue]) -> dict[str, in
 def _check_verify(sections: list[_Section], errors: list[Issue]) -> None:
     verdict = _find(sections, "Verdict")
     if verdict is not None and verdict.text().strip():
-        words = set(re.findall(r"[a-z-]+", verdict.text().lower()))
-        if len(words & set(VERDICTS)) != 1:
-            message = "Verdict must be ready, needs-rework or blocked"
+        first = next(line for line in verdict.text().splitlines() if line.strip())
+        match = _VERDICT_WORD.match(first)
+        if match is None or match.group(1).lower() not in VERDICTS:
+            message = (
+                "Verdict must be ready, needs-rework or blocked (the first word of the section; "
+                "the reason can follow)"
+            )
             errors.append(Issue(verdict.line, message))
     gate = _find(sections, "Gate summary")
     if gate is not None and not GATE_MARKER.search(gate.text(comments=True)):
@@ -248,6 +254,15 @@ def _cross_check(
                     report.errors.append(Issue(number, message))
             else:
                 report.errors.append(Issue(number, f"{token} is not defined in spec.md"))
+    if "test-spec.md" in reports:
+        report = reports["test-spec.md"][0]
+        mentioned = {token for _, token in _references(report.path)}
+        delta = specs.parse_delta((folder / "spec.md").read_text(encoding="utf-8"))
+        covered = [b.id for b in (*delta.added, *delta.modified)] + list(delta.scenarios)
+        for token in covered:
+            if token not in mentioned:
+                message = f"{token} from spec.md is not covered in test-spec.md"
+                report.errors.append(Issue(1, message))
     if "design.md" in reports:
         report, sections, _ = reports["design.md"]
         plan = _find(sections, "Test Plan")

@@ -6,11 +6,11 @@
 
 ## Spec Coverage
 
-<!-- FR-n -> test that proves it. -->
+<!-- CAP-<capability>-FR-n -> the test that proves it, for every ADDED or MODIFIED requirement. -->
 
 ## Scenario Coverage
 
-<!-- S-n -> test that exercises it. -->
+<!-- S-n -> the test that exercises it, for every scenario of the delta. -->
 
 ## Issues Found
 

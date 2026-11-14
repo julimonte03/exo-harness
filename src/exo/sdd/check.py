@@ -1,7 +1,8 @@
 """`exo check` v1: los chequeos de un change antes del PR (F4; F5 los extiende).
 
-Por cada change activo (todos, los nombrados, o los tocados en el diff contra
-`--base`):
+Por cada change (los activos; o los nombrados, o los tocados en el diff contra
+`--base`, que pueden estar archivados: `sdd-archive` mueve el change antes del PR
+y el chequeo del PR lo tiene que seguir viendo):
 
 - speclint sobre la carpeta del change;
 - `ai-usage-record.json` presente, legible, válido contra su esquema y con el
@@ -147,6 +148,17 @@ def _check_record(project: Path, change: observability.Change) -> list[Finding]:
     return findings
 
 
+def _delta_capabilities(project: Path, change: observability.Change) -> set[str]:
+    path = project / change.path / specs.SPEC_FILE
+    if not path.is_file():
+        return set()
+    try:
+        delta = specs.parse_delta(path.read_text(encoding="utf-8-sig"))
+    except (OSError, UnicodeDecodeError):
+        return set()
+    return {block.capability for _, block in delta.blocks()}
+
+
 def _check_change(project: Path, change: observability.Change) -> ChangeCheck:
     folder = project / change.path
     tier = changes.read_tier(folder)
@@ -211,18 +223,17 @@ def check(project: Path, *, base: str | None = None, names: list[str] | None = N
                 selected.append(observability.get_change(project, name))
             except observability.ObservabilityError as exc:
                 raise CheckError(str(exc)) from exc
-        cap_files = []
+        touched_caps = set().union(*(_delta_capabilities(project, c) for c in selected))
+        cap_files = [f for f in cap_files if f.parent.name in touched_caps]
     elif base is not None:
         paths = touched(project, base)
-        selected = [c for c in active if any(_within(p, c.path) for p in paths)]
+        every = observability.find_changes(project, include_archived=True)
+        selected = [c for c in every if any(_within(p, c.path) for p in paths)]
         cap_files = [f for f in cap_files if _rel(project, f) in paths]
         result.notes.append(f"checking what changed against {base}: {len(paths)} files")
     else:
         selected = active
     for change in selected:
-        if change.archived:
-            result.notes.append(f"{change.name} is archived; not checked")
-            continue
         result.changes.append(_check_change(project, change))
     for path in cap_files:
         result.capabilities.append((_rel(project, path), _lint(project, path, "capability")))

@@ -258,3 +258,23 @@ def test_cli_fitness_con_change(tmp_path: Path, capsys: pytest.CaptureFixture[st
     payload = json.loads(capsys.readouterr().out)
     assert payload["tier"] == 1 and payload["assessment"]["comparison"] == "downgrade"
     assert main(["fitness", "classify", "--evidence-json", evidence, "--confirm-downgrade", "x"]) == 2
+
+
+def test_cli_json_desde_archivo(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """En PowerShell 5.1 las comillas del JSON se pierden: el JSON puede venir de un archivo."""
+    project = str(tmp_path)
+    assert main(["change", "new", "add-login", "--project", project]) == 0
+    evidence = tmp_path / "evidence.json"
+    evidence.write_text(json.dumps(LOW), encoding="utf-8")
+    capsys.readouterr()
+    assert main(["fitness", "classify", "--evidence-file", str(evidence), "--change", "add-login", "--project", project, "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["tier"] == 1
+    entry = tmp_path / "entry.json"
+    entry.write_text(json.dumps({"name": "sdd-new", "type": "skill", "activation": "requested"}), encoding="utf-8")
+    assert main(["change", "record", "add-login", "--add", "capabilities_used", f"@{entry}", "--project", project]) == 0
+    record_data = json.loads((tmp_path / "specs" / "add-login" / record.FILENAME).read_text(encoding="utf-8"))
+    assert record_data["capabilities_used"][-1]["name"] == "sdd-new"
+    assert main(["change", "record", "add-login", "--add", "skills_used", f"@{tmp_path / 'no-existe.json'}", "--project", project]) == 2
+    assert "no-existe.json" in capsys.readouterr().err
+    assert main(["fitness", "classify", "--evidence-file", str(tmp_path / "no.json")]) == 2
+    assert main(["fitness", "classify", "--evidence-json", "{}", "--evidence-file", str(evidence)]) == 2
