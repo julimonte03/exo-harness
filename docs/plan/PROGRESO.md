@@ -1,6 +1,6 @@
 # Progreso de construcción
 
-**Fase activa:** F4 (pendiente: aprobar su plan; antes va la rama de refactor que pasa al inglés el contenido y el CLI, ADR-0011). D-09 → ADR-0012, D-10 → ADR-0011, D-11 y D-13 decididas con el default.
+**Fase activa:** F4 (pendiente: aprobar su plan). D-09 → ADR-0012, D-10 → ADR-0011 (el refactor al inglés quedó mergeado el 2026-11-14), D-11 y D-13 decididas con el default.
 
 Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron con el comando exacto, la CI está verde en los tres sistemas operativos y el PR de la fase está mergeado.
 
@@ -240,3 +240,32 @@ Desvíos respecto del plan y por qué:
   - palabras vacías en la léxica;
   - un dataset más grande y escrito por otra persona.
 - **Cierre local sin remoto**, según la regla del principio de este archivo. El job de Azure Pipelines con extras queda definido en `azure-pipelines.yml`.
+
+### Refactor al inglés (ADR-0011) — 2026-11-14
+
+No es una fase: es la rama previa a F4 que pide ADR-0011. Rama `refactor/ingles`, mergeada a `main` en local, sin PR. Se hizo en tres ramas en paralelo que se integraron en esta:
+- `i18n/a`: el contenido de `content/`, las plantillas SDD y los mensajes de `sdd`.
+- `i18n/b`: el núcleo, los instaladores, `doctor` y los comandos.
+- `i18n/c`: la memoria, las descripciones de las tools y el servidor MCP.
+
+**Resultados:**
+
+| Entorno | Resultado |
+|---|---|
+| Windows, Python 3.14 | 890 passed, cobertura 94,78 %, `ruff check .` limpio |
+| Windows, Python 3.10 sin extras | 884 passed; `exo validate` «all valid» |
+| Windows, tests de instaladores | 2 passed (4 salteados: son de `install.sh`) |
+| Linux | 888 passed, más los 4 tests de `install.sh` |
+
+Se regeneraron los goldens de `tests/golden/` (6 archivos) y se revisó el diff.
+
+**Cambios visibles, además de los textos:**
+- Claves del JSON del CLI: `agentes` → `agents`, `backup de seguridad` → `safety_backup` y `también se borra…` → `also_removed`, que ahora es una lista.
+- Los errores de uso empiezan con `usage error:` y `doctor` marca los avisos con `warning`.
+- La marca que el instalador deja en el perfil del shell pasa a ser `# added by <dist>`. Como todavía no hubo releases, no hay instalaciones con la marca vieja.
+- `exo validate` nunca verificó que los disparadores fueran bilingües: solo lo decía su mensaje, que ahora pide disparadores en inglés.
+
+**Queda en español a propósito:**
+- La documentación del repo, los docstrings y los comentarios (ADR-0011).
+- Las confirmaciones aceptan «sí», además de «yes».
+- El dataset del experimento de memoria (`tests/memory_eval/`), que es bilingüe porque mide el idioma cruzado.
