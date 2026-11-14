@@ -28,6 +28,8 @@ from exo.core import config, fsutil
 ARCHIVE = "archive"
 CAPABILITIES = "capabilities"
 AI_USAGE_RECORD = "ai-usage-record.json"
+ASSESSMENT = "fitness-assessment.json"
+FAILSAFE_TIER = 4
 FOLLOWUPS = "followups.json"
 # Artefacto que marca cada fase, en orden; gana el último presente.
 PHASES = (
@@ -228,12 +230,25 @@ def ai_usage_record(project: Path, name: str) -> dict[str, Any]:
     return {"record": record, **_projection(record), "warnings": warnings}
 
 
+def tier_of(folder: Path) -> tuple[int, str]:
+    """`(tier, origen)`: el de `fitness-assessment.json`, o 4 si falta o no se lee (§6.3)."""
+    path = Path(folder) / ASSESSMENT
+    if not path.exists():
+        return FAILSAFE_TIER, "missing"
+    data = _read_json(path, [])
+    tier = data.get("tier") if isinstance(data, dict) else None
+    if isinstance(tier, bool) or not isinstance(tier, int) or not 1 <= tier <= 4:
+        return FAILSAFE_TIER, "unreadable"
+    return tier, "assessment"
+
+
 def change_state(project: Path, name: str) -> dict[str, Any]:
     return state_of(project, get_change(project, name))
 
 
 def state_of(project: Path, change: Change) -> dict[str, Any]:
     warnings: list[str] = []
+    tier, source = tier_of(Path(project) / change.path)
     record = _record(project, change, warnings)
     items = _followups(project, change, warnings)
     return {
@@ -243,6 +258,8 @@ def state_of(project: Path, change: Change) -> dict[str, Any]:
         "archived": change.archived,
         "archived_on": change.archived_on,
         "phase": change.phase,
+        "tier": tier,
+        "tier_source": source,
         "artifacts": list(change.artifacts),
         **_projection(record),
         "followups": {
