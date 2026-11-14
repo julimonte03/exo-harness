@@ -229,7 +229,10 @@ def ai_usage_record(project: Path, name: str) -> dict[str, Any]:
 
 
 def change_state(project: Path, name: str) -> dict[str, Any]:
-    change = get_change(project, name)
+    return state_of(project, get_change(project, name))
+
+
+def state_of(project: Path, change: Change) -> dict[str, Any]:
     warnings: list[str] = []
     record = _record(project, change, warnings)
     items = _followups(project, change, warnings)

@@ -149,8 +149,11 @@ def _list_changes(context: Context, args: dict[str, Any]) -> dict[str, Any]:
 
 
 def _get_change_state(context: Context, args: dict[str, Any]) -> dict[str, Any]:
-    name = validate_change_name(args["change_name"])
     project = _project(context, args)
+    if args.get("change_name") is None:
+        active = observability.find_changes(project, include_archived=False)
+        return {"changes": [_wrap(lambda c=c: observability.state_of(project, c)) for c in active]}
+    name = validate_change_name(args["change_name"])
     return _wrap(lambda: observability.change_state(project, name))
 
 
@@ -211,8 +214,9 @@ TOOLS: tuple[Tool, ...] = (
     ),
     Tool(
         "get_change_state",
-        "State of a change: phase, artifacts, ticket, attribution and followups (read-only).",
-        _schema({**_CWD, **_CHANGE}, ["change_name"]),
+        "State of a change: phase, artifacts, ticket, attribution and followups. Without "
+        "change_name, the state of every active change (read-only).",
+        _schema({**_CWD, **_CHANGE}),
         _get_change_state,
         ("change", "status"),
     ),

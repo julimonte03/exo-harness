@@ -1,7 +1,9 @@
 """`exo skills …`, `exo change …` y `exo mcp`: las tools del motor por CLI o por MCP.
 
 Los subcomandos llaman al mismo registro que el servidor MCP
-(`exo.tools.registry`), así que validan y responden igual (ADR-0005).
+(`exo.tools.registry`), así que validan y responden igual (ADR-0005). Las
+acciones de `exo change` que escriben (`new`, `record`) están en
+`commands/change.py`.
 """
 
 from __future__ import annotations
@@ -12,6 +14,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from exo.commands import change as change_actions
 from exo.commands._output import emit_json, error
 from exo.mcp import server
 from exo.tools import registry
@@ -44,21 +47,23 @@ def register(sub: argparse._SubParsersAction) -> None:
     _project_arg(diff)
     diff.set_defaults(handler=_run("skills_diff", lambda a: _opt(target=a.target)))
 
-    change = _group(sub, "change", "state of the SDD changes (read-only)")
+    change = _group(sub, "change", "SDD changes: create, record and inspect")
     clist = change.add_parser("list", help="list the changes")
     clist.add_argument("--no-archived", action="store_true", help="skip archive/")
     _project_arg(clist)
     clist.set_defaults(
         handler=_run("list_changes", lambda a: {"include_archived": not a.no_archived})
     )
-    for action, tool, helptext in (
-        ("status", "get_change_state", "state of a change"),
-        ("ai-usage", "get_ai_usage_record", "AI Usage Record of a change"),
-    ):
-        parser = change.add_parser(action, help=helptext)
-        parser.add_argument("change_name")
-        _project_arg(parser)
-        parser.set_defaults(handler=_run(tool, lambda a: {"change_name": a.change_name}))
+    status = change.add_parser("status", help="state of a change, or of every active change")
+    status.add_argument("change_name", nargs="?")
+    _project_arg(status)
+    status.set_defaults(handler=_run("get_change_state", lambda a: _opt(change_name=a.change_name)))
+    usage = change.add_parser("ai-usage", help="AI Usage Record of a change")
+    usage.add_argument("change_name")
+    _project_arg(usage)
+    usage.set_defaults(
+        handler=_run("get_ai_usage_record", lambda a: {"change_name": a.change_name})
+    )
     followups = change.add_parser("followups", help="judge followups")
     followups.add_argument("change_name")
     followups.add_argument("--status", choices=("open", "dismissed", "all"), default="open")
@@ -66,6 +71,8 @@ def register(sub: argparse._SubParsersAction) -> None:
     followups.set_defaults(
         handler=_run("get_followups", lambda a: {"change_name": a.change_name, "status": a.status})
     )
+
+    change_actions.register_actions(change)
 
     mcp = sub.add_parser(
         "mcp",
@@ -110,6 +117,11 @@ def _print_human(tool: str, result: dict[str, Any]) -> None:
             print(f"{change['name']}\t{change['phase']}\t{where}\t{change['path']}")
         if not result["changes"]:
             print("no changes")
+    elif tool == "get_change_state" and "changes" in result:
+        for state in result["changes"]:
+            print(f"{state['name']}\t{state['phase']}\t{state['path']}")
+        if not result["changes"]:
+            print("no active changes")
     elif tool == "get_followups":
         for item in result["followups"]:
             print(f"{item.get('id', '-')}\t{item['status']}\t{item.get('summary', '')}")
