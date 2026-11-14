@@ -50,7 +50,7 @@ Run the checkpoint Before the PR of `.exo/shared/project-wiki-guard.md`, in this
 3. **Fresh review done.** `verify-record.md` exists and its Verdict is `ready`. In Tier 3 and 4 it comes from a verify in fresh context; without subagents, from a new session (`.exo/shared/agent-capabilities.md`). `exo change followups <change> --json` shows no open findings.
 4. **Checks pass.** `exo check --change <change>` exits with 0. In CI, the same check runs as `exo check --base <target branch>`, for example `exo check --base origin/main`.
 
-- `exo check` only checks active changes. Run it before `sdd-archive` moves the change to `archive/`; a note saying that the change is archived and not checked is not a pass.
+- `exo check --change <change>` finds the change before and after `sdd-archive` moves it to `archive/`, and `exo check --base <target branch>` checks what the branch touched, archived changes included.
 - If a step fails, stop: fix it in the phase that owns it, or ask the person.
 - Report each checkpoint in the envelope notes, for example: `wiki guard: branch feat/PROJ-123-add-login, up to date; context.md updated (Commands); exo check passed`.
 
@@ -71,7 +71,7 @@ Start from `.exo/shared/templates/pr.md`. Every section needs real content; the 
 - [x] AI Usage Record updated
 ```
 
-Save it as `pr.md` in the change root (`exo change status <change> --json` gives its `path`) and check it:
+Save it as `pr.md` in the change root (`exo change status <change> --json` gives its `path`; after `sdd-archive`, the archived folder) and commit it with the change. Check it:
 
 ```bash
 exo speclint <change-root>/pr.md
@@ -85,7 +85,7 @@ Only when the person asks. Show the commands first, with the real values, and ru
 git push -u origin feat/PROJ-123-add-login
 gh pr create --base main --head feat/PROJ-123-add-login \
   --title "feat(auth): add SSO sign-in for employees" \
-  --body-file specs/PROJ-123-add-login/pr.md
+  --body-file specs/archive/2026-11-14-PROJ-123-add-login/pr.md
 ```
 
 - `gh` is the GitHub CLI. On another host, use its CLI or the link that `git push` prints, with the same title and body.

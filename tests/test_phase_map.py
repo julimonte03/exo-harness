@@ -59,3 +59,8 @@ def test_load(tmp_path: Path) -> None:
     path.write_text(MAP, encoding="utf-8")
     loaded = phase_map.load(tmp_path)
     assert loaded is not None and "alpha" in loaded.mentions
+
+
+def test_filas_del_mapa_con_sus_required() -> None:
+    parsed = phase_map.parse(MAP)
+    assert parsed.required == {"design": ("alpha",), "apply": ("alpha", "gamma")}

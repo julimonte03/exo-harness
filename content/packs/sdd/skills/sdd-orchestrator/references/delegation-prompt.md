@@ -26,7 +26,7 @@ Report how you resolved each skill (.exo/shared/skill-resolver.md).
 
 ## Limits
 
-- Permissions: <read-only | read-only plus the test command `<command>` | write only what tasks.md lists>
+- Permissions: <read-only | read-only plus the test command `<command>` | write only what the frozen plan lists: tasks.md in Tier 3 and 4, the proposal's Scope with the spec delta in Tier 1 and 2>
 - Do not delegate further.
 - Do not touch the artifacts of other phases.
 

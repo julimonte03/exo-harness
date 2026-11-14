@@ -59,7 +59,7 @@ Then offer changes; apply only what the person approves.
   exo init --ticket-pattern '[A-Z][A-Z0-9]*-\d+' --ticket-example 'PROJ-123' --yes
   ```
 
-  Other common patterns: `#\d+` (`#123`) and `AB#\d+` (`AB#123`). `--ticket-pattern ''` removes the tickets. `exo init` keeps the installed agents and packs.
+  Other common patterns: `#\d+` (`#123`) and `AB#\d+` (`AB#123`). `--no-tickets` removes the tickets. `exo init` keeps the installed agents and packs.
 - **`specs_dir`, `sdd.persistence`, `sdd.mode`:** `exo init` has no flag for them. If the person wants another value, they edit `.exo/config.json` (or you do it with their approval), and `exo doctor` confirms the value is valid. Changing `specs_dir` moves no existing change: warn before.
 - Ask, never decide: these settings are the person's.
 

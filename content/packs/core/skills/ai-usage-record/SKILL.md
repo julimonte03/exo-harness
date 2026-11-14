@@ -104,7 +104,7 @@ Keep `summary` to one line and put the why in `rationale`.
 ## Dismissed findings
 
 - Only when the person decided not to fix it. The `reason` is theirs, not yours.
-- Copy `judge`, `rule` and, when the finding has one, `id` exactly as `exo change followups <change> --json` shows them: that is how the engine matches the dismissal to the finding.
+- Copy `judge`, `rule` and, when the finding has one, `id` exactly as the finding shows them: in `exo change followups <change> --json` once followups exist (F5), and in the judge's answer or `verify-record.md` until then. That is how the engine matches the dismissal to the finding.
 
 ## Fields you do not write
 

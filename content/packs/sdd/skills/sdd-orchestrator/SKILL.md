@@ -53,7 +53,7 @@ Without a command, decide from the request: a new piece of work starts with skil
 
 For each phase of the tier, in order (`.exo/shared/phase-skill-map.md`, Phases per tier):
 
-1. **Next phase.** `exo change status <change> --json` and the rules of `.exo/shared/sdd-status-contract.md`. Never skip a phase the tier requires; never add one it does not.
+1. **Next phase.** `exo change status <change> --json` gives `next_phase` and `next_reason` (`.exo/shared/sdd-status-contract.md`). Never skip a phase the tier requires; never add one it does not.
 2. **Skills.** Required, plus the Conditionals whose trigger applies, at most 5. Resolve each one (`.exo/shared/skill-resolver.md`); a missing one degrades with its sentence and inline criteria.
 3. **Run it where the contract says** (`.exo/shared/sdd-phase-common.md`, section G):
    - inline phases (skill:sdd-propose, skill:sdd-spec, skill:sdd-design, skill:sdd-tasks, skill:sdd-archive) run here, in this session;
@@ -63,7 +63,7 @@ For each phase of the tier, in order (`.exo/shared/phase-skill-map.md`, Phases p
    - `ok`: persist what a read-only subagent returned (`exploration.md`, `verify-record.md`) in the change root, exactly as returned.
    - `needs-input`: ask the person exactly what the envelope says, then run the phase again.
    - `blocked`: stop and explain; do not work around it.
-5. **Record** what the phase used, from the envelope notes when it ran in a subagent: `exo change record <change> --add capabilities_used ...` for every skill, subagent, judge and command, with its activation and resolution, and `--add skills_used '"<phase skill>"'` (skill:ai-usage-record). The next-phase rules read those entries (`.exo/shared/capability-attribution.md`).
+5. **Record** what the phase used, from the envelope notes when it ran in a subagent: `exo change record <change> --add capabilities_used ...` for every skill, subagent, judge and command, with its activation and resolution (skill:ai-usage-record). Only when the envelope says `status: ok`, also `--add skills_used '"<phase skill>"'` and `--phase-done <phase>`: the next phase is derived from that log, so never log a phase that did not finish.
 6. **Gate.** Interactive mode: show a short summary of the artifacts and ask "Adjust anything or continue?". Automatic mode: go on, but still stop on `needs-input`, `blocked`, a downgrade, judgment-day and before the PR.
 7. Update the change's state memory (`.exo/shared/memory-convention.md`).
 

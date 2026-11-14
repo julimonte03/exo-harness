@@ -77,7 +77,7 @@ Back every finding with `path:line`. What you could not check goes in Issues Fou
 | `needs-rework` | Something above fails and `sdd-apply` can fix it inside the plan. |
 | `blocked` | The verify cannot conclude or the fix is outside the plan: the tests cannot run, an artifact is missing or contradicts another, the spec or the design is wrong. |
 
-The Verdict section holds the verdict word and one sentence of reason. speclint counts the three words in that section, so the reason must not use the other two.
+The Verdict section starts with the verdict word, then one sentence of reason (`ready: every scenario passes`). speclint and `exo change status` take the first word as the verdict.
 
 Severities: **Critical** (data loss, a security hole, the main scenario broken), **High** (a scenario not proven or wrong, a mitigation missing), **Medium** (an edge case or an error path not handled), **Low** (naming, readability, leftovers).
 

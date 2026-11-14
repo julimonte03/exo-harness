@@ -27,7 +27,7 @@ If the project has the `sdd` pack, any change beyond a trivial fix goes through 
 
 - **Tier first:** each change is classified 1–4 and its phases follow the tier. An unknown tier is Tier 4; lowering a tier needs the person's literal confirmation.
 - **Living specs:** approved behavior lives in `specs/capabilities/`; each change writes a delta that is merged when it is archived.
-- **Before the PR:** `exo check` passes.
+- **Before the PR:** `exo check --change <change>` passes; CI runs `exo check --base <target branch>`.
 
 ## Memory
 

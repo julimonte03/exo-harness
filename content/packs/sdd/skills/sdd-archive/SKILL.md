@@ -41,7 +41,7 @@ metadata:
 2. The Verdict of verify-record.md is `ready`. Otherwise stop: `next: apply` for `needs-rework`, `next: verify` when there is no record.
 3. In Tier 3 and 4 the record comes from a fresh-context verify (`.exo/shared/project-wiki-guard.md`). If it declares "no isolation", the person chose that (`.exo/shared/agent-capabilities.md`): in Tier 4 their approval must be in `decisions`, and the notes say so.
 4. In Tier 4, an approved `judgment-day` is in the AI Usage Record (`exo change ai-usage <change> --json`, field `judges_invoked`). Without it, stop with `next: judgment`.
-5. `exo change followups <change>` lists no open followups: each one is fixed, or dismissed with its reason.
+5. No finding is undecided: `exo change followups <change>` lists no open followups, and every finding in `verify-record.md`, Issues Found, is fixed or dismissed by the person (in F4 no command writes followups.json yet, `.exo/shared/capability-attribution.md`, Findings).
 6. `exo check --change <change>` passes. An error in an artifact goes back to the phase that owns it.
 7. If a `handoff.md` was left in the change root by a verify, delete it: it is not an artifact.
 
@@ -98,18 +98,20 @@ git add specs/PROJ-77/PROJ-123-add-login
 git mv specs/PROJ-77/PROJ-123-add-login specs/archive/PROJ-77/2026-11-14-PROJ-123-add-login
 ```
 
+If the epic folder is now empty (`specs/PROJ-77/` in the example), remove it with `rmdir`: git does not track empty folders, and an empty one on disk is noise.
+
 Then `exo change status <change>` must say `phase: archived`.
 
 ## 8. Commit and check
 
-1. Commit the merged specs, the moved folder, the wiki update and the decision record as `work-unit-commits` says: Conventional Commits, with the ticket when the project has one.
+1. Write the PR description with `branch-pr` first: `pr.md` in the archived change root (`exo change status <change> --json` gives its `path`). Then commit the merged specs, the moved folder with `pr.md`, the wiki update and the decision record as `work-unit-commits` says: Conventional Commits, with the ticket when the project has one.
 2. `git status`: everything that belongs to the change is committed, and nothing else is (the wiki checkpoint's "Branch clean").
 3. `exo check --base <base>` (what CI runs) passes: it checks the archived change and lints the capability specs the merge touched.
 
 ## 9. Pull request
 
 - Always stop and ask the person before opening the PR, in interactive and automatic mode alike (section H).
-- Open it with `branch-pr`. The description follows `.exo/shared/templates/pr.md`: Summary, Ticket, Changes, Test Plan (the commands and results of verify-record.md) and Checklist.
+- Open it with `branch-pr`, with the `pr.md` committed in step 8. It follows `.exo/shared/templates/pr.md`: Summary, Ticket, Changes, Test Plan (the commands and results of verify-record.md) and Checklist.
 - Never push to a protected branch and never force-push.
 - `branch-pr` ships in `core`, which `sdd` requires. If it is missing, the installation is incomplete: say so, suggest `exo doctor`, and give the person the PR text to open it themselves.
 
