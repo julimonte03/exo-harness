@@ -102,7 +102,7 @@ def test_conflicto_por_edicion_manual_no_escribe_nada(tmp_path: Path) -> None:
     before = _tree(tmp_path)
     result = _apply(tmp_path, _ops(b"skill v2\n"))
     assert result.applied is False
-    assert [(c.path, c.reason) for c in result.conflicts] == [(".claude/skills/demo/SKILL.md", "modificado a mano desde la última instalación")]
+    assert [(c.path, c.reason) for c in result.conflicts] == [(".claude/skills/demo/SKILL.md", "modified by hand since the last install")]
     assert _tree(tmp_path) == before
     forced = _apply(tmp_path, _ops(b"skill v2\n"), force=True)
     assert forced.applied
@@ -144,7 +144,7 @@ def test_baja_de_algo_editado_a_mano_es_conflicto(tmp_path: Path) -> None:
     _apply(tmp_path, _ops())
     (tmp_path / _meta.PROJECT_DIR / "skill-registry.md").write_bytes(b"tocado")
     result = engine.apply(tmp_path, [], agents=[], packs=[])
-    assert [c.reason for c in result.conflicts] == ["modificado a mano; no se quita"]
+    assert [c.reason for c in result.conflicts] == ["modified by hand; not removed"]
     assert (tmp_path / "AGENTS.md").exists()
 
 
@@ -178,7 +178,7 @@ def test_bloque_en_archivo_del_humano_y_marcadores_rotos(tmp_path: Path) -> None
     (tmp_path / "AGENTS.md").write_text(f"{begin}\nsin cierre\n", encoding="utf-8")
     result = _apply(tmp_path, _ops())
     assert result.applied is False
-    assert "marcadores inválidos" in result.conflicts[0].reason
+    assert "invalid markers" in result.conflicts[0].reason
 
 
 def test_ruta_que_pasa_por_un_link_es_conflicto(tmp_path: Path, make_dir_link) -> None:
@@ -188,7 +188,7 @@ def test_ruta_que_pasa_por_un_link_es_conflicto(tmp_path: Path, make_dir_link) -
     project.mkdir()
     make_dir_link(project / ".claude", outside)
     result = _apply(project, _ops())
-    assert any("symlink o junction" in c.reason for c in result.conflicts)
+    assert any("symlink or junction" in c.reason for c in result.conflicts)
     assert list(outside.iterdir()) == []
 
 
@@ -205,7 +205,7 @@ def test_merge_duplicates() -> None:
     a = WriteFile("x", b"1", "adapter:claude-code", kind="mirror")
     b = WriteFile("x", b"1", "adapter:copilot", kind="mirror")
     assert [op.owner for op in merge_duplicates([a, b])] == ["adapter:claude-code,copilot"]
-    with pytest.raises(ValueError, match="distintos"):
+    with pytest.raises(ValueError, match="different content"):
         merge_duplicates([a, WriteFile("x", b"2", "adapter:copilot", kind="mirror")])
     key1 = MergeKey("m.json", "k", {"a": 1, "b": 2}, "adapter:x")
     key2 = MergeKey("m.json", "k", {"b": 2, "a": 1}, "engine")
@@ -226,7 +226,7 @@ def test_padre_que_no_es_objeto_se_saltea_sin_escribir_a_medias(tmp_path: Path) 
     result = _apply(tmp_path, _ops())
     assert result.applied
     assert ("skip", ".claude/settings.json") in [(a.action, a.path) for a in result.actions]
-    assert "permissions no es un objeto" in result.warnings[0]
+    assert "permissions is not an object" in result.warnings[0]
     assert settings.read_bytes() == b'{"permissions": ["legacy"]}\n'
     assert ".claude/settings.json" not in [e.path for e in lock.read(tmp_path).files]
 
@@ -248,7 +248,7 @@ def test_falla_a_mitad_de_camino_restaura_todo(tmp_path: Path, monkeypatch: pyte
     _falla_en(monkeypatch, ".claude/settings.json")
     with pytest.raises(engine.ApplyError, match="disco lleno") as info:
         _apply(tmp_path, _ops())
-    assert "se restauró" in str(info.value)
+    assert "was restored" in str(info.value)
     assert _tree(tmp_path) == original
     assert sorted(p.name for p in tmp_path.iterdir()) == [_meta.PROJECT_DIR, "AGENTS.md"]
     assert [p.name for p in (tmp_path / _meta.PROJECT_DIR).iterdir()] == ["backups"]
@@ -368,7 +368,7 @@ def test_si_tampoco_se_puede_restaurar_lo_dice(tmp_path: Path, monkeypatch: pyte
         raise OSError("sin permisos")
 
     monkeypatch.setattr(snapshots, "restore", restore)
-    with pytest.raises(engine.ApplyError, match="no se pudo restaurar") as info:
+    with pytest.raises(engine.ApplyError, match="could not be restored") as info:
         _apply(tmp_path, _ops())
     assert f"{_meta.NAME} restore" in str(info.value)
 

@@ -52,8 +52,8 @@ from exo.installer.ops import (
 WRITES = ("create", "update", "remove")
 _LOCK_REL = f"{_meta.PROJECT_DIR}/{lock.FILENAME}"
 _HUMAN = (
-    "ya existe con otro contenido y no lo generó el motor; movelo o borralo y repetí "
-    "(--force no pisa lo del humano)"
+    "already exists with different content and the engine did not generate it; "
+    "move or delete it and retry (--force does not overwrite human files)"
 )
 
 
@@ -116,7 +116,7 @@ def _current(project: Path, op: Op) -> str | None:
         return None
     if isinstance(op, MergeListItem):
         if not isinstance(value, list):
-            raise structmerge.StructMergeError(f"{op.path}: {op.key} no es una lista")
+            raise structmerge.StructMergeError(f"{op.path}: {op.key} is not a list")
         return lock.hash_json_value(op.item) if op.item in value else None
     return lock.hash_json_value(value)
 
@@ -233,12 +233,12 @@ def _rollback(project: Path, name: str, error: BaseException) -> ApplyError:
         restored = snapshots.restore(project, name)
     except Exception as exc:  # noqa: BLE001 - se informa junto con el error original
         return ApplyError(
-            f"falló a mitad de camino ({error}) y no se pudo restaurar el snapshot {name} "
-            f"({exc}). Restauralo con `{_meta.NAME} restore {name}`."
+            f"failed partway through ({error}) and snapshot {name} could not be restored "
+            f"({exc}). Restore it with `{_meta.NAME} restore {name}`."
         )
     for rel in restored.removed:
         _prune_dirs(project, project / rel)
-    return ApplyError(f"falló a mitad de camino ({error}); se restauró el snapshot {name}")
+    return ApplyError(f"failed partway through ({error}); snapshot {name} was restored")
 
 
 # -- plan y aplicación ----------------------------------------------------------
@@ -276,7 +276,7 @@ def apply(
         expected = expected_hash(op)
         try:
             if isinstance(op, WriteFile) and fsutil.join_within(project, op.path).is_dir():
-                reason = "hay un directorio donde va el archivo; movelo y repetí"
+                reason = "there is a directory where the file goes; move it and retry"
                 result.conflicts.append(Conflict(op.path, kind, reason, forceable=False))
                 keep(unit)
                 continue
@@ -286,15 +286,15 @@ def apply(
             keep(unit)
             continue
         except filemerge.BlockError as exc:
-            reason = f"marcadores inválidos ({exc})"
+            reason = f"invalid markers ({exc})"
             result.conflicts.append(Conflict(op.path, kind, reason, forceable=False))
             keep(unit)
             continue
         except structmerge.StructMergeError as exc:
             result.warnings.append(
-                f"{op.path}: no se modificó ({exc}). Agregá a mano:\n{_op_snippet(op)}"
+                f"{op.path}: left unchanged ({exc}). Add it by hand:\n{_op_snippet(op)}"
             )
-            result.actions.append(Action("skip", op.path, kind, "archivo no editable"))
+            result.actions.append(Action("skip", op.path, kind, "file not editable"))
             keep(unit)
             continue
         new_entry = _entry(op)
@@ -305,18 +305,18 @@ def apply(
                 entries[unit] = new_entry
             elif current == expected:
                 result.actions.append(
-                    Action("adopt", op.path, kind, "ya estaba igual; queda del humano")
+                    Action("adopt", op.path, kind, "already identical; stays a human file")
                 )
             else:
                 result.conflicts.append(Conflict(op.path, kind, _HUMAN, forceable=False))
             continue
         if current is not None and current not in (entry.sha256, expected):
             result.conflicts.append(
-                Conflict(op.path, kind, "modificado a mano desde la última instalación")
+                Conflict(op.path, kind, "modified by hand since the last install")
             )
             if force:
                 writes.append(op)
-                result.actions.append(Action("update", op.path, kind, "forzado"))
+                result.actions.append(Action("update", op.path, kind, "forced"))
                 entries[unit] = new_entry
             else:
                 entries[unit] = entry
@@ -338,39 +338,39 @@ def apply(
             fsutil.join_within(project, entry.path)  # no seguir links al quitar
             current = lock.current_hash(project, entry, strict=True)
         except (fsutil.UnsafePathError, OSError) as exc:
-            reason = f"no se puede leer ({exc})"
+            reason = f"cannot be read ({exc})"
             result.conflicts.append(Conflict(entry.path, entry.kind, reason, forceable=False))
             keep(unit)
             continue
         except filemerge.BlockError as exc:
-            reason = f"marcadores inválidos ({exc}); no se quita"
+            reason = f"invalid markers ({exc}); not removed"
             result.conflicts.append(Conflict(entry.path, entry.kind, reason, forceable=False))
             keep(unit)
             continue
         except structmerge.StructMergeError as exc:
             result.conflicts.append(
-                Conflict(entry.path, entry.kind, f"no se puede editar ({exc}); no se quita")
+                Conflict(entry.path, entry.kind, f"cannot be edited ({exc}); not removed")
             )
             if force:
                 value: Any = [entry.item] if entry.kind == "item" else "..."
                 result.warnings.append(
-                    f"{entry.path}: no se quitó ({exc}). Quitá a mano:\n"
+                    f"{entry.path}: not removed ({exc}). Remove it by hand:\n"
                     f"{_snippet(entry.key or '', value)}"
                 )
-                result.actions.append(Action("skip", entry.path, entry.kind, "quitalo a mano"))
+                result.actions.append(Action("skip", entry.path, entry.kind, "remove it by hand"))
             else:
                 keep(unit)
             continue
         if current is None:
-            result.actions.append(Action("forget", entry.path, entry.kind, "ya no existía"))
+            result.actions.append(Action("forget", entry.path, entry.kind, "no longer existed"))
             forgotten.append(entry)
         elif current != entry.sha256:
             result.conflicts.append(
-                Conflict(entry.path, entry.kind, "modificado a mano; no se quita")
+                Conflict(entry.path, entry.kind, "modified by hand; not removed")
             )
             if force:
                 removals.append(entry)
-                result.actions.append(Action("remove", entry.path, entry.kind, "forzado"))
+                result.actions.append(Action("remove", entry.path, entry.kind, "forced"))
             else:
                 keep(unit)
         else:
@@ -396,9 +396,9 @@ def apply(
     for rel, data in (extra or {}).items():
         target = fsutil.join_within(project, rel)
         if not target.exists():
-            result.actions.append(Action("create", rel, "file", "fuera del lock"))
+            result.actions.append(Action("create", rel, "file", "outside the lock"))
         elif fsutil.read_bytes(target) != data:
-            result.actions.append(Action("update", rel, "file", "fuera del lock"))
+            result.actions.append(Action("update", rel, "file", "outside the lock"))
         else:
             continue
         extra_writes[rel] = data

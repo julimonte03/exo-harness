@@ -444,4 +444,4 @@ def test_doctor_avisa_si_falta_el_extra(monkeypatch: pytest.MonkeyPatch) -> None
     conn.close()
     monkeypatch.setattr(embeddings, "installed", lambda provider: False)
     check = {c.name: c for c in doctor.run_checks(Path("."))}["memory-semantic"]
-    assert check.status == "warn" and "[vector]" in check.detail
+    assert check.status == "warn" and "missing extra" in check.detail

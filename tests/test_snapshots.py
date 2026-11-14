@@ -100,7 +100,7 @@ def test_pin_y_unpin(tmp_path: Path) -> None:
     assert snapshots.list_snapshots(tmp_path)[0].pinned
     assert snapshots.unpin(tmp_path, snap.name) is True
     assert snapshots.unpin(tmp_path, snap.name) is False
-    with pytest.raises(SnapshotError, match="no existe"):
+    with pytest.raises(SnapshotError, match="does not exist"):
         snapshots.pin(tmp_path, "20990101T000000000000Z-000000000000.tar.gz")
 
 
@@ -172,17 +172,17 @@ def _special(name: str, kind: bytes, linkname: str = ""):
 @pytest.mark.parametrize(
     ("build", "fragment"),
     [
-        (_file("../evil.txt"), "insegura"),
-        (_file("a/../../evil.txt"), "insegura"),
-        (_file("/etc/evil"), "insegura"),
-        (_file("C:/Windows/evil"), "insegura"),
-        (_file("..\\evil.txt"), "insegura"),
-        (_special("link", tarfile.SYMTYPE, "/etc/passwd"), "tipo"),
-        (_special("hard", tarfile.LNKTYPE, "AGENTS.md"), "tipo"),
-        (_special("dev", tarfile.CHRTYPE), "tipo"),
-        (_special("blk", tarfile.BLKTYPE), "tipo"),
-        (_special("fifo", tarfile.FIFOTYPE), "tipo"),
-        (_special("dir", tarfile.DIRTYPE), "tipo"),
+        (_file("../evil.txt"), "unsafe"),
+        (_file("a/../../evil.txt"), "unsafe"),
+        (_file("/etc/evil"), "unsafe"),
+        (_file("C:/Windows/evil"), "unsafe"),
+        (_file("..\\evil.txt"), "unsafe"),
+        (_special("link", tarfile.SYMTYPE, "/etc/passwd"), "type"),
+        (_special("hard", tarfile.LNKTYPE, "AGENTS.md"), "type"),
+        (_special("dev", tarfile.CHRTYPE), "type"),
+        (_special("blk", tarfile.BLKTYPE), "type"),
+        (_special("fifo", tarfile.FIFOTYPE), "type"),
+        (_special("dir", tarfile.DIRTYPE), "type"),
     ],
 )
 def test_criterio_4_extraccion_segura(build, fragment: str) -> None:
@@ -194,14 +194,14 @@ def test_archivo_sin_manifiesto_o_duplicado() -> None:
     raw = io.BytesIO()
     with tarfile.open(fileobj=raw, mode="w") as tar:
         _file("x")(tar)
-    with pytest.raises(UnsafeArchiveError, match="manifiesto"):
+    with pytest.raises(UnsafeArchiveError, match="manifest"):
         snapshots.read_archive(gzip.compress(raw.getvalue()))
 
     def twice(tar: tarfile.TarFile) -> None:
         _file("x")(tar)
         _file("x")(tar)
 
-    with pytest.raises(UnsafeArchiveError, match="repetida"):
+    with pytest.raises(UnsafeArchiveError, match="duplicate"):
         snapshots.read_archive(_evil(twice))
     with pytest.raises(UnsafeArchiveError, match="tar.gz"):
         snapshots.read_archive(b"no soy un tar")
@@ -230,11 +230,11 @@ def test_cli_backups_y_restore(tmp_path: Path, capsys: pytest.CaptureFixture[str
     assert [b["name"] for b in listed] == [snap.name]
     assert listed[0]["pinned"] is False
     assert main(["backups", "pin", snap.name, *project]) == 0
-    assert "fijado" in capsys.readouterr().out
+    assert "pinned" in capsys.readouterr().out
     assert main(["backups", "list", *project]) == 0
-    assert "fijado" in capsys.readouterr().out
+    assert "pinned" in capsys.readouterr().out
     assert main(["backups", "unpin", snap.name, *project]) == 0
-    assert "liberado" in capsys.readouterr().out
+    assert "unpinned" in capsys.readouterr().out
     (tmp_path / "AGENTS.md").write_bytes(b"otro")
     assert main(["restore", snap.name, *project, "--yes", "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
@@ -254,7 +254,7 @@ def test_cli_restore_sin_yes_en_modo_no_interactivo(
 
 def test_cli_backups_errores(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["backups", "list", "--project", str(tmp_path)]) == 0
-    assert "sin backups" in capsys.readouterr().out
+    assert "no backups" in capsys.readouterr().out
     assert main(["backups", "pin", "nada.tar.gz", "--project", str(tmp_path)]) == 1
     assert capsys.readouterr().err.startswith("error:")
     assert main(["restore", "nada.tar.gz", "--project", str(tmp_path), "--yes"]) == 1
@@ -289,7 +289,7 @@ def test_restore_no_borra_a_traves_de_un_link(tmp_path: Path, make_dir_link) -> 
     (shared / "precious.md").write_bytes(b"no tocar")
     snap = snapshots.snapshot(tmp_path, [".claude/skills"])
     make_dir_link(tmp_path / ".claude" / "skills", shared)
-    with pytest.raises(SnapshotError, match="symlink o junction"):
+    with pytest.raises(SnapshotError, match="symlink or junction"):
         snapshots.restore(tmp_path, snap.name)
     assert (shared / "precious.md").read_bytes() == b"no tocar"
 
@@ -304,7 +304,7 @@ def test_raiz_reemplazada_por_link_se_rechaza(tmp_path: Path, make_dir_link) -> 
         item.unlink()
     (tmp_path / "a").rmdir()
     make_dir_link(tmp_path / "a", outside)
-    with pytest.raises(SnapshotError, match="symlink o junction"):
+    with pytest.raises(SnapshotError, match="symlink or junction"):
         snapshots.restore(tmp_path, snap.name)
     assert (outside / "x.md").read_bytes() == b"x"
 
@@ -317,7 +317,7 @@ def test_snapshot_no_entra_en_links(tmp_path: Path, make_dir_link) -> None:
     make_dir_link(tmp_path / "a" / "link", outside)
     archive = snapshots.read_archive(snapshots.build_archive(tmp_path, ["a"]))
     assert sorted(archive.files) == ["a/dos.txt", "a/uno.md"]
-    with pytest.raises(SnapshotError, match="symlink o junction"):
+    with pytest.raises(SnapshotError, match="symlink or junction"):
         snapshots.build_archive(tmp_path, ["a/link"])
 
 
@@ -352,7 +352,7 @@ def test_restore_valida_todo_antes_de_tocar(tmp_path: Path) -> None:
     (backups / name).write_bytes(gzip.compress(raw.getvalue()))
     _tree(tmp_path)
     before = {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file() and "backups" not in p.parts}
-    with pytest.raises(UnsafeArchiveError, match="fuera de sus raíces"):
+    with pytest.raises(UnsafeArchiveError, match="outside its roots"):
         snapshots.restore(tmp_path, name)
     after = {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file() and "backups" not in p.parts}
     assert after == before
@@ -363,7 +363,7 @@ def test_restore_valida_todo_antes_de_tocar(tmp_path: Path) -> None:
 def test_nombre_con_barra_invertida_se_rechaza(tmp_path: Path) -> None:
     (tmp_path / "a").mkdir()
     (tmp_path / "a" / ("raro" + chr(92) + "nombre.md")).write_bytes(b"x")
-    with pytest.raises(SnapshotError, match="no soportado"):
+    with pytest.raises(SnapshotError, match="not supported"):
         snapshots.build_archive(tmp_path, ["a"])
 
 

@@ -49,39 +49,39 @@ def choose(
 ) -> Choices:
     ask = ask or _input
     out = out or print
-    out("Agentes detectados:")
+    out("Detected agents:")
     for item in detections:
         mark = "x" if item.strong else " "
         out(f"  [{mark}] {item.agent}: {', '.join(item.evidence)}")
     if not detections:
-        out("  (ninguno: se instala la base genérica, para cualquier agente con AGENTS.md)")
+        out("  (none: installing the generic base, for any agent that reads AGENTS.md)")
     default_agents = preselect(detections) or ["generic"]
-    out(f"Conocidos: {', '.join(KNOWN_AGENTS)}")
-    agents = _list(ask(f"Agentes [{', '.join(default_agents)}]: "), default_agents)
+    out(f"Known: {', '.join(KNOWN_AGENTS)}")
+    agents = _list(ask(f"Agents [{', '.join(default_agents)}]: "), default_agents)
 
     pending = [p for p in stack.suggested if p not in available_packs]
     default_packs = [p for p in stack.suggested if p in available_packs]
     if stack.signals:
         out("Stack: " + ", ".join(sorted(stack.signals)))
     if pending:
-        out(f"Packs sugeridos que todavía no existen (llegan más adelante): {', '.join(pending)}")
+        out(f"Suggested packs that do not exist yet (coming later): {', '.join(pending)}")
     packs = _list(ask(f"Packs [{', '.join(default_packs)}]: "), default_packs)
 
     tracker_type = _valid(
         ask,
         out,
-        f"Tracker de tickets ({'/'.join(config.TRACKERS)}) [none]: ",
+        f"Ticket tracker ({'/'.join(config.TRACKERS)}) [none]: ",
         _tracker_type,
-        f"uno de {', '.join(config.TRACKERS)}",
+        f"one of {', '.join(config.TRACKERS)}",
     )
     tracker: dict[str, Any] = {"type": tracker_type}
     if tracker_type != "none":
         tracker["prefix"] = _valid(
             ask,
             out,
-            "Prefijo de los tickets (por ejemplo PROJ), vacío si no hay: ",
+            "Ticket prefix (for example PROJ), empty if none: ",
             _prefix,
-            "letras y números, empezando por una letra (por ejemplo PROJ)",
+            "letters and digits, starting with a letter (for example PROJ)",
         )
     return Choices(agents, packs, tracker)
 
@@ -107,13 +107,13 @@ def _valid(ask: Ask, out: Out, prompt: str, parse: Callable[[str], Any], hint: s
         try:
             return parse(answer)
         except ValueError:
-            out(f"valor inválido: {answer!r}; {hint}")
+            out(f"invalid value: {answer!r}; {hint}")
 
 
 def confirm(summary: list[str], *, ask: Ask | None = None, out: Out | None = None) -> bool:
     ask = ask or _input
     out = out or print
-    out("Se va a aplicar:")
+    out("About to apply:")
     for line in summary:
         out(f"  {line}")
-    return ask("¿Seguimos? [s/N]: ").strip().lower() in ("s", "si", "sí", "y", "yes")
+    return ask("Continue? [y/N]: ").strip().lower() in ("y", "yes", "s", "si", "sí")

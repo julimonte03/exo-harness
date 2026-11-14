@@ -128,10 +128,10 @@ def test_hash_json_canonico() -> None:
     ("payload", "fragment"),
     [
         ("{ roto", "JSON"),
-        ("[]", "objeto"),
-        ('{"schema": 2, "files": []}', "esquema"),
+        ("[]", "object"),
+        ('{"schema": 2, "files": []}', "schema"),
         ('{"schema": 1, "files": {}}', "files"),
-        ('{"schema": 1, "files": [{"path": "../x", "kind": "file", "owner": "o", "sha256": "a"}]}', "insegura"),
+        ('{"schema": 1, "files": [{"path": "../x", "kind": "file", "owner": "o", "sha256": "a"}]}', "unsafe"),
         ('{"schema": 1, "files": [{"path": "x", "kind": "raro", "owner": "o", "sha256": "a"}]}', "kind"),
         ('{"schema": 1, "files": [{"path": "x", "kind": "block", "owner": "o", "sha256": "a"}]}', "block_id"),
         ('{"schema": 1, "files": [{"path": "x", "kind": "key", "owner": "o", "sha256": "a"}]}', "key"),
@@ -209,10 +209,10 @@ def test_created_por_archivo_ida_y_vuelta(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("payload", "fragment"),
     [
-        ('"files": [{"path": "x", "kind": "item", "owner": "o", "sha256": "a", "key": "k"}]', "necesita item"),
-        ('"files": [{"path": "x", "kind": "item", "owner": "o", "sha256": "a", "item": "i"}]', "necesita key"),
+        ('"files": [{"path": "x", "kind": "item", "owner": "o", "sha256": "a", "key": "k"}]', "needs item"),
+        ('"files": [{"path": "x", "kind": "item", "owner": "o", "sha256": "a", "item": "i"}]', "needs key"),
         ('"created": [{"path": "x", "file": "si"}]', "file"),
-        ('"created": [{"path": "../x", "file": true}]', "insegura"),
+        ('"created": [{"path": "../x", "file": true}]', "unsafe"),
         ('"created": [{"path": "x", "containers": [1]}]', "containers"),
         ('"created": {"x": true}', "created"),
     ],

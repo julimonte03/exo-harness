@@ -74,18 +74,18 @@ def detect_stack(project: Path) -> StackReport:
             mark("python", name)
             py_text += _read(project / name)
     for match in sorted({m.lower() for m in _PY_BACKEND.findall(py_text)}):
-        mark("backend-python", f"dependencia {match}")
+        mark("backend-python", f"dependency {match}")
     jvm_text = ""
     for name in _JVM_MANIFESTS:
         if (project / name).is_file():
             mark("jvm", name)
             jvm_text += _read(project / name)
     if "spring-boot" in jvm_text:
-        mark("spring-boot", "spring-boot en el build")
+        mark("spring-boot", "spring-boot in the build")
     if "spring-boot-starter-security" in jvm_text or "spring-security" in jvm_text:
-        mark("spring-security", "spring-security en el build")
+        mark("spring-security", "spring-security in the build")
     if "data-jpa" in jvm_text or "jakarta.persistence" in jvm_text or "hibernate" in jvm_text:
-        mark("jpa", "JPA en el build")
+        mark("jpa", "JPA in the build")
     for name in ("Dockerfile", "docker-compose.yml", "docker-compose.yaml", "compose.yaml"):
         if (project / name).is_file():
             mark("docker", name)

@@ -8,21 +8,21 @@ from pathlib import Path
 from typing import Any
 
 from exo import _meta, content, packs
-from exo.adapters import detect
+from exo.adapters import KNOWN_AGENTS, detect
 from exo.commands._output import emit_json, error, usage_error
 from exo.core import config
 from exo.installer import engine, project, stack, wizard
 
 
 def _common(parser: argparse.ArgumentParser, *, writes: bool = True) -> None:
-    parser.add_argument("--project", type=Path, default=Path("."), help="raíz del proyecto")
-    parser.add_argument("--json", action="store_true", help="salida JSON")
+    parser.add_argument("--project", type=Path, default=Path("."), help="project root")
+    parser.add_argument("--json", action="store_true", help="JSON output")
     if writes:
         parser.add_argument(
-            "--dry-run", action="store_true", help="muestra qué haría, sin escribir"
+            "--dry-run", action="store_true", help="show what would change, without writing"
         )
         parser.add_argument(
-            "--force", action="store_true", help="pisa lo editado a mano (con snapshot)"
+            "--force", action="store_true", help="overwrite manual edits (takes a snapshot first)"
         )
 
 
@@ -33,39 +33,41 @@ def _csv(value: str) -> list[str]:
 def register(sub: argparse._SubParsersAction) -> None:
     init = sub.add_parser(
         "init",
-        help="adopta el motor en un proyecto (detecta los agentes)",
+        help="adopt the engine in a project (detects the agents)",
         description=(
-            "Detecta los agentes que se usan y genera solo lo que cada uno necesita. "
-            "En una terminal interactiva pregunta; con --yes usa lo detectado y los flags."
+            "Detects the agents in use and generates only what each one needs. "
+            "In an interactive terminal it asks; with --yes it uses the detection and the flags."
         ),
     )
     _common(init)
     init.add_argument(
-        "--agents", type=_csv, help=f"agentes separados por coma; ver `{_meta.NAME} init --help`"
+        "--agents", type=_csv, help=f"comma-separated agents: {', '.join(KNOWN_AGENTS)}"
     )
     init.add_argument(
-        "--packs", type=_csv, help="packs separados por coma (por defecto, los sugeridos)"
+        "--packs", type=_csv, help="comma-separated packs (default: the suggested ones)"
     )
-    init.add_argument("--tracker", choices=config.TRACKERS, help="tracker de tickets")
-    init.add_argument("--prefix", help="prefijo de los tickets, por ejemplo PROJ")
+    init.add_argument("--tracker", choices=config.TRACKERS, help="ticket tracker")
+    init.add_argument("--prefix", help="ticket prefix, for example PROJ")
     init.add_argument(
-        "--mcp", action="store_true", help="habilita el servidor MCP opcional (ADR-0005)"
+        "--mcp", action="store_true", help="enable the optional MCP server (ADR-0005)"
     )
     init.add_argument(
-        "--claude-md", action="store_true", help="crea CLAUDE.md con @AGENTS.md aunque no exista"
+        "--claude-md",
+        action="store_true",
+        help="create CLAUDE.md with @AGENTS.md even if it does not exist",
     )
-    init.add_argument("--yes", action="store_true", help="no pregunta nada")
+    init.add_argument("--yes", action="store_true", help="never prompt")
     init.set_defaults(handler=_init)
 
-    sync = sub.add_parser("sync", help="vuelve a generar lo del motor según la config y el lock")
+    sync = sub.add_parser("sync", help="regenerate the engine files from the config and the lock")
     _common(sync)
     sync.set_defaults(handler=_sync)
 
-    status = sub.add_parser("status", help="agentes, packs y cambios manuales sobre lo generado")
+    status = sub.add_parser("status", help="agents, packs and manual changes to generated files")
     _common(status, writes=False)
     status.set_defaults(handler=_status)
 
-    for name, helptext in (("add-agent", "suma un agente"), ("remove-agent", "quita un agente")):
+    for name, helptext in (("add-agent", "add an agent"), ("remove-agent", "remove an agent")):
         parser = sub.add_parser(name, help=helptext)
         parser.add_argument("agent")
         _common(parser)
@@ -73,15 +75,21 @@ def register(sub: argparse._SubParsersAction) -> None:
 
     uninstall = sub.add_parser(
         "uninstall",
-        help="quita el motor del proyecto y lo deja como estaba",
-        description="Guarda antes un backup de seguridad fuera del proyecto.",
+        help="remove the engine from the project and leave it as it was",
+        description="Saves a safety backup outside the project first.",
     )
     _common(uninstall)
-    uninstall.add_argument("--yes", action="store_true", help="no pide confirmación")
+    uninstall.add_argument("--yes", action="store_true", help="do not ask for confirmation")
     uninstall.set_defaults(handler=_uninstall)
 
 
 # -- salida ---------------------------------------------------------------------
+
+# Etiqueta en la salida de texto de las claves del JSON que no se leen tal cual.
+_LABELS = {
+    "safety_backup": "safety backup",
+    "also_removed": "also removed (kept in the backup)",
+}
 
 
 def _payload(result: engine.Result) -> dict[str, Any]:
@@ -97,10 +105,10 @@ def _payload(result: engine.Result) -> dict[str, Any]:
 
 def _conflict_label(conflict: engine.Conflict, args: argparse.Namespace) -> str:
     if not conflict.forceable:
-        return "sin resolver"
+        return "unresolved"
     if not args.force:
-        return "conflicto"
-    return "se forzaría" if args.dry_run else "forzado"
+        return "conflict"
+    return "would force" if args.dry_run else "forced"
 
 
 def _report(result: engine.Result, args: argparse.Namespace, extra: dict[str, Any]) -> int:
@@ -114,23 +122,23 @@ def _report(result: engine.Result, args: argparse.Namespace, extra: dict[str, An
     for key, value in extra.items():
         if key == "notes":
             for note in value:
-                print(f"nota: {note}")
+                print(f"note: {note}")
         elif isinstance(value, list):
-            print(f"{key}: {', '.join(value) if value else '-'}")
+            print(f"{_LABELS.get(key, key)}: {', '.join(value) if value else '-'}")
         elif value is not None:
-            print(f"{key}: {value}")
+            print(f"{_LABELS.get(key, key)}: {value}")
     for warning in result.warnings:
-        print(f"aviso: {warning}")
+        print(f"warning: {warning}")
     for conflict in result.conflicts:
         label = _conflict_label(conflict, args)
         print(f"{label}: {conflict.path} ({conflict.kind}): {conflict.reason}")
     if failed:
         hint = (
-            "Arreglá a mano los marcados «sin resolver»; --force no los pisa."
+            "Fix the ones marked 'unresolved' by hand; --force does not overwrite them."
             if result.unresolved
-            else "Revisá los conflictos o repetí con --force (con snapshot)."
+            else "Review the conflicts or retry with --force (takes a snapshot first)."
         )
-        print(f"no se escribió nada. {hint}")
+        print(f"nothing was written. {hint}")
         return 1
     # Una línea por archivo: varias unidades del mismo archivo (los ítems de una
     # lista, por ejemplo) se informan juntas.
@@ -138,20 +146,20 @@ def _report(result: engine.Result, args: argparse.Namespace, extra: dict[str, An
         dict.fromkeys((a.action, a.path) for a in result.actions if a.action in engine.WRITES)
     )
     if args.dry_run:
-        print("dry-run: no se escribió nada")
+        print("dry-run: nothing was written")
     for action, path in writes if (args.dry_run or len(writes) <= 30) else []:
         print(f"{action}\t{path}")
     if not result.changed:
-        print("sin cambios")
+        print("no changes")
     else:
         counts = {name: sum(action == name for action, _ in writes) for name in engine.WRITES}
         summary = ", ".join(f"{n} {name}" for name, n in counts.items() if n)
-        print(f"{'se haría' if args.dry_run else 'listo'}: {summary or 'solo el lock'}")
+        print(f"{'would do' if args.dry_run else 'done'}: {summary or 'lock only'}")
         if result.snapshot:
-            print(f"snapshot previo: {result.snapshot}")
+            print(f"snapshot before the changes: {result.snapshot}")
     if result.unresolved:
-        done = "se aplicaría" if args.dry_run else "se aplicó"
-        print(f"lo demás {done}; arreglá a mano los marcados «sin resolver» y repetí.")
+        done = "would be applied" if args.dry_run else "was applied"
+        print(f"the rest {done}; fix the ones marked 'unresolved' by hand and retry.")
     return code
 
 
@@ -186,7 +194,7 @@ def _init(args: argparse.Namespace) -> int:
             agents = detect.preselect(detections)
             _print_detections(detections)
             if not agents:
-                print("aviso: no se detectó ningún agente; se instala la base genérica (AGENTS.md)")
+                print("warning: no agent detected; installing the generic base (AGENTS.md)")
         if chosen_packs is None and installed is None:
             suggested = stack.detect_stack(root).suggested
             available = _available_packs()
@@ -204,8 +212,8 @@ def _init(args: argparse.Namespace) -> int:
             summary = [
                 f"{a.action} {a.path}" for a in preview.engine.actions if a.action in engine.WRITES
             ]
-            if not wizard.confirm(summary or ["sin cambios"]):
-                print("cancelado")
+            if not wizard.confirm(summary or ["no changes"]):
+                print("cancelled")
                 return 1
         result = project.sync(root, dry_run=args.dry_run, **kwargs)
     except (project.ProjectError, ValueError, OSError) as exc:
@@ -213,7 +221,7 @@ def _init(args: argparse.Namespace) -> int:
     return _report(
         result.engine,
         args,
-        {"agentes": result.agents, "packs": result.packs, "notes": result.notes},
+        {"agents": result.agents, "packs": result.packs, "notes": result.notes},
     )
 
 
@@ -222,16 +230,16 @@ def _print_detections(detections: list[detect.Detection]) -> None:
     for item in detections:
         evidence = ", ".join(item.evidence)
         if item.strong:
-            print(f"detectado: {item.agent} ({evidence})")
+            print(f"detected: {item.agent} ({evidence})")
         else:
             print(
-                f"sin confirmar: {item.agent} ({evidence}); si lo usan, "
+                f"unconfirmed: {item.agent} ({evidence}); if you use it, run "
                 f"`{_meta.NAME} add-agent {item.agent}`"
             )
 
 
 def _not_installed(root: Path) -> int:
-    return error(f"el motor no está instalado en {root}; corré `{_meta.NAME} init`")
+    return error(f"the engine is not installed in {root}; run `{_meta.NAME} init`")
 
 
 def _sync(args: argparse.Namespace) -> int:
@@ -245,7 +253,7 @@ def _sync(args: argparse.Namespace) -> int:
     return _report(
         result.engine,
         args,
-        {"agentes": result.agents, "packs": result.packs, "notes": result.notes},
+        {"agents": result.agents, "packs": result.packs, "notes": result.notes},
     )
 
 
@@ -260,14 +268,14 @@ def _change_agents(args: argparse.Namespace, add: bool) -> int:
             agents = [*current, args.agent] if args.agent not in current else current
         elif args.agent not in current:
             return error(
-                f"{args.agent} no está entre los agentes del proyecto ({', '.join(current) or '-'})"
+                f"{args.agent} is not one of the project agents ({', '.join(current) or '-'})"
             )
         else:
             agents = [a for a in current if a != args.agent]
         result = project.sync(root, agents=agents, force=args.force, dry_run=args.dry_run)
     except (project.ProjectError, ValueError, OSError) as exc:
         return error(str(exc))
-    return _report(result.engine, args, {"agentes": result.agents, "notes": result.notes})
+    return _report(result.engine, args, {"agents": result.agents, "notes": result.notes})
 
 
 def _add_agent(args: argparse.Namespace) -> int:
@@ -299,41 +307,45 @@ def _status(args: argparse.Namespace) -> int:
         )
         return 0
     if not info.installed:
-        print(f"el motor no está instalado; corré `{_meta.NAME} init`")
+        print(f"the engine is not installed; run `{_meta.NAME} init`")
         return 0
-    print(f"agentes: {', '.join(info.agents)}")
+    print(f"agents: {', '.join(info.agents)}")
     print(f"packs: {', '.join(info.packs)}")
-    print(f"motor: {_meta.VERSION} (lock generado con {info.lock_version})")
-    print(f"archivos gestionados: {info.files}")
+    print(f"engine: {_meta.VERSION} (lock written by {info.lock_version})")
+    print(f"managed files: {info.files}")
     for item in drift:
-        print(f"cambio manual: {item['path']} ({item['kind']}): {item['status']}")
+        print(f"manual change: {item['path']} ({item['kind']}): {item['status']}")
     if not drift:
-        print("sin cambios manuales sobre lo generado")
+        print("no manual changes to generated files")
     for warning in info.warnings:
-        print(f"aviso: {warning}")
+        print(f"warning: {warning}")
     return 0
 
 
 def _uninstall(args: argparse.Namespace) -> int:
     if not args.yes and not args.dry_run:
         if not sys.stdin.isatty():
-            return usage_error("uninstall borra lo generado; en modo no interactivo agregá --yes")
-        if not wizard.confirm([f"quitar el motor de {args.project.resolve()}"]):  # pragma: no cover
-            print("cancelado")
+            return usage_error(
+                "uninstall deletes generated files; in non-interactive mode add --yes"
+            )
+        if not wizard.confirm(  # pragma: no cover
+            [f"remove the engine from {args.project.resolve()}"]
+        ):
+            print("cancelled")
             return 1
     root = args.project.resolve()
     if not (root / _meta.PROJECT_DIR).exists():
         if args.json:
             emit_json({"installed": False, "applied": False, "changed": False})
         else:
-            print(f"el motor no está instalado en {root}; nada que hacer")
+            print(f"the engine is not installed in {root}; nothing to do")
         return 0
     try:
         result = project.uninstall(root, force=args.force, dry_run=args.dry_run)
     except (project.ProjectError, ValueError, OSError) as exc:
         return error(str(exc))
     backup = str(result.backup) if result.backup else None
-    extra = {"backup de seguridad": backup}
+    extra: dict[str, Any] = {"safety_backup": backup}
     if result.also_removed:
-        extra["también se borra (queda en el backup)"] = ", ".join(result.also_removed)
+        extra["also_removed"] = result.also_removed
     return _report(result.engine, args, extra)

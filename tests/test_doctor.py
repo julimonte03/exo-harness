@@ -46,7 +46,7 @@ def test_ejecutable(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(doctor.shutil, "which", lambda name: str(other))
     check = _by_name(doctor.run_checks(tmp_path))["path"]
     assert check.status == "warn"
-    assert "no es este motor" in check.detail
+    assert "is not this engine" in check.detail
 
 
 def test_contenido_ausente(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -176,7 +176,7 @@ def test_confianza_del_workspace_de_claude(tmp_path: Path, monkeypatch: pytest.M
     other = _installed(tmp_path / "otro", ["copilot"])
     assert (
         _by_name(doctor.run_checks(other))["claude-trust"].detail
-        == "no es agente destino del proyecto"
+        == "not a target agent of the project"
     )
 
 
@@ -185,7 +185,7 @@ def test_confianza_del_workspace_de_claude(tmp_path: Path, monkeypatch: pytest.M
 
 def test_memoria_sin_base_todavia() -> None:
     checks = _by_name(doctor.run_checks(Path(".")))
-    assert checks["memory"].status == "info" and "todavía no hay memoria" in checks["memory"].detail
+    assert checks["memory"].status == "info" and "no memory at" in checks["memory"].detail
     assert checks["memory-fts5"].status == "ok"
     assert checks["memory-semantic"].status == "info"
 
@@ -196,7 +196,7 @@ def test_memoria_lexica_y_aviso_de_hibrida() -> None:
     with MemoryStore() as store:
         store.save(project="local/x", title="t", content="c")
     checks = _by_name(doctor.run_checks(Path(".")))
-    assert checks["memory"].status == "ok" and "1 observaciones" in checks["memory"].detail
+    assert checks["memory"].status == "ok" and "observations: 1" in checks["memory"].detail
     assert checks["memory-semantic"].status == "info"
     assert "reindex --provider local" in checks["memory-semantic"].detail
 
@@ -225,7 +225,7 @@ def test_memoria_semantica(monkeypatch: pytest.MonkeyPatch) -> None:
         store.save(project="local/x", title="otra", content="sin vector")
     provider.fail = False
     check = _by_name(doctor.run_checks(Path(".")))["memory-semantic"]
-    assert check.status == "warn" and "sin vector" in check.detail
+    assert check.status == "warn" and "without a vector" in check.detail
 
 
 def test_memoria_con_proveedor_que_no_se_puede_usar(monkeypatch: pytest.MonkeyPatch) -> None:

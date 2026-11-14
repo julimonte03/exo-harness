@@ -56,7 +56,7 @@ def test_jsonc_da_error_tipado_y_no_toca_el_archivo(tmp_path: Path) -> None:
     target = tmp_path / "mcp.json"
     original = b'{\n  // comentario\n  "servers": {}\n}\n'
     target.write_bytes(original)
-    with pytest.raises(StructMergeError, match="JSON válido"):
+    with pytest.raises(StructMergeError, match="valid JSON"):
         structmerge.merge_json_key(target, "servers.exo", SERVER)
     assert target.read_bytes() == original
 
@@ -64,7 +64,7 @@ def test_jsonc_da_error_tipado_y_no_toca_el_archivo(tmp_path: Path) -> None:
 def test_raiz_que_no_es_objeto(tmp_path: Path) -> None:
     target = tmp_path / "x.json"
     target.write_bytes(b"[1]")
-    with pytest.raises(StructMergeError, match="objeto"):
+    with pytest.raises(StructMergeError, match="object"):
         structmerge.merge_json_key(target, "a", 1)
 
 
@@ -78,7 +78,7 @@ def test_intermedio_que_no_es_objeto(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("bad", ["", ".", "a..b", ".a", "a."])
 def test_clave_invalida(tmp_path: Path, bad: str) -> None:
-    with pytest.raises(StructMergeError, match="clave"):
+    with pytest.raises(StructMergeError, match="key"):
         structmerge.merge_json_key(tmp_path / "x.json", bad, 1)
 
 
@@ -140,7 +140,7 @@ def test_list_item_crea_la_lista_y_poda_al_quitar(tmp_path: Path) -> None:
 def test_list_item_sobre_algo_que_no_es_lista(tmp_path: Path) -> None:
     target = tmp_path / "settings.json"
     target.write_text('{"permissions": {"allow": "todo"}}', encoding="utf-8")
-    with pytest.raises(StructMergeError, match="no es una lista"):
+    with pytest.raises(StructMergeError, match="is not a list"):
         structmerge.add_json_list_item(target, "permissions.allow", "Bash(exo:*)")
     assert structmerge.remove_json_list_item(target, "permissions.allow", "x") is False
 

@@ -16,9 +16,9 @@ BOM = chr(0xFEFF)
 @pytest.mark.parametrize(
     ("original", "fragment"),
     [
-        ('{"a": 1, "a": 2}', "repetida"),
-        ('{"big": 12345678901234567890.5}', "precisión"),
-        ('{"x": 1e400}', "precisión"),
+        ('{"a": 1, "a": 2}', "duplicated"),
+        ('{"big": 12345678901234567890.5}', "precision"),
+        ('{"x": 1e400}', "precision"),
         ('{"x": NaN}', "NaN"),
         ('{"x": -Infinity}', "Infinity"),
     ],
