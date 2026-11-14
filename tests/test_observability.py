@@ -175,7 +175,7 @@ def test_json_ilegible_se_tolera_con_advertencia(tmp_path: Path) -> None:
     state = observability.change_state(tmp_path, "c")
     assert state["followups"] == {"open": 0, "dismissed": 0}
     assert len(state["warnings"]) == 2
-    assert all("ilegible" in w for w in state["warnings"])
+    assert all("unreadable" in w for w in state["warnings"])
 
 
 def test_followups_como_lista_y_entradas_invalidas(tmp_path: Path) -> None:
@@ -185,10 +185,10 @@ def test_followups_como_lista_y_entradas_invalidas(tmp_path: Path) -> None:
 
 def test_change_inexistente_o_ambiguo(tmp_path: Path) -> None:
     _tree(tmp_path)
-    with pytest.raises(ObservabilityError, match="no existe"):
+    with pytest.raises(ObservabilityError, match="does not exist"):
         observability.change_state(tmp_path, "fantasma")
     _touch(tmp_path / "specs" / "PROJ-20" / "nuevo" / "proposal.md")
-    with pytest.raises(ObservabilityError, match="ambiguo"):
+    with pytest.raises(ObservabilityError, match="ambiguous"):
         observability.change_state(tmp_path, "nuevo")
 
 

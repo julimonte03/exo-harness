@@ -25,8 +25,8 @@ OWNER = "engine"
 # Agentes que se detectan pero no tienen adaptador propio, con el paso manual que les falta.
 MANUAL_STEPS = {
     "gemini": (
-        "Gemini CLI lee GEMINI.md por defecto: para que lea AGENTS.md, agregá "
-        '"context": {"fileName": ["AGENTS.md", "GEMINI.md"]} en .gemini/settings.json.'
+        "Gemini CLI reads GEMINI.md by default: to make it read AGENTS.md, add "
+        '"context": {"fileName": ["AGENTS.md", "GEMINI.md"]} to .gemini/settings.json.'
     ),
 }
 

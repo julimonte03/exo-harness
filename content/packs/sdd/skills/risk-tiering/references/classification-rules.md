@@ -1,48 +1,48 @@
-# Reglas de clasificación de riesgo (fitness)
+# Risk classification rules (fitness)
 
-Fuente de verdad compartida entre la skill `risk-tiering` y el runtime. `exo fitness classify` implementa exactamente esta tabla: un test de paridad del motor compara regla, condición y tier, y falla si divergen.
+Shared source of truth for the `risk-tiering` skill and the runtime. `exo fitness classify` implements exactly this table: an engine parity test compares rule, condition and tier, and fails if they diverge.
 
-## Dimensiones
+## Dimensions
 
-Cada dimensión vale un entero de 0 a 3.
+Each dimension is an integer from 0 to 3.
 
-| Dimensión | Qué mide |
+| Dimension | What it measures |
 |---|---|
-| `blast_radius` | Cuántos usuarios, servicios o flujos se ven afectados si el cambio falla |
-| `component_criticality` | Qué tan crítico es el componente que se toca |
-| `security_data_sensitivity` | Sensibilidad de los datos o de la superficie de seguridad involucrada |
-| `reversibility` | Qué tan difícil es volver atrás (3 = irreversible) |
-| `files_modules_footprint` | Cantidad de archivos y módulos tocados |
-| `test_maturity_gap` | Cuánta cobertura de tests falta en la zona del cambio |
-| `regulatory_compliance_impact` | Impacto regulatorio o de cumplimiento |
+| `blast_radius` | How many users, services or flows are affected if the change fails |
+| `component_criticality` | How critical the touched component is |
+| `security_data_sensitivity` | Sensitivity of the data or the security surface involved |
+| `reversibility` | How hard it is to roll back (3 = irreversible) |
+| `files_modules_footprint` | Number of files and modules touched |
+| `test_maturity_gap` | How much test coverage is missing in the area of the change |
+| `regulatory_compliance_impact` | Regulatory or compliance impact |
 
-## Reglas
+## Rules
 
-Se evalúan en este orden y **gana la primera que coincide**. La evidencia faltante o ilegible no se compensa: da Tier 4.
+They are evaluated in this order and **the first match wins**. Missing or unreadable evidence is not compensated: it gives Tier 4.
 
-| Regla | Condición | Tier | Notas |
+| Rule | Condition | Tier | Notes |
 |---|---|---|---|
-| FM-00 | `evidencia faltante o ilegible` | 4 | JSON inválido, dimensión ausente o desconocida, valor no entero o fuera de 0–3 |
-| FM-01 | `security_data_sensitivity == 3` | 4 | Piso duro, no compensable |
-| FM-02 | `reversibility == 3` | 4 | Piso duro |
-| FM-03 | `regulatory_compliance_impact == 3` | 4 | Piso duro |
-| FM-10 | `component_criticality == 3` | 3 | Piso |
-| FM-11 | `blast_radius == 3` | 3 | Piso |
-| FM-12 | `files_modules_footprint == 3` | 3 | Piso |
-| FM-13 | `>= 3 dimensiones con valor >= 2` | 3 | Riesgo acumulado |
-| FM-20 | `>= 1 dimensión con valor >= 2` | 2 | Solo si ninguna regla anterior aplica |
-| FM-30 | `todas las dimensiones <= 1` | 1 | Default |
+| FM-00 | `missing or unreadable evidence` | 4 | Invalid JSON, missing or unknown dimension, value not an integer or outside 0–3 |
+| FM-01 | `security_data_sensitivity == 3` | 4 | Hard floor, not compensable |
+| FM-02 | `reversibility == 3` | 4 | Hard floor |
+| FM-03 | `regulatory_compliance_impact == 3` | 4 | Hard floor |
+| FM-10 | `component_criticality == 3` | 3 | Floor |
+| FM-11 | `blast_radius == 3` | 3 | Floor |
+| FM-12 | `files_modules_footprint == 3` | 3 | Floor |
+| FM-13 | `>= 3 dimensions with value >= 2` | 3 | Accumulated risk |
+| FM-20 | `>= 1 dimension with value >= 2` | 2 | Only if no previous rule applies |
+| FM-30 | `all dimensions <= 1` | 1 | Default |
 
-## Tier → ceremonia
+## Tier → ceremony
 
-| Tier | Ceremonia | Judgment Day |
+| Tier | Ceremony | Judgment Day |
 |---|---|---|
 | 1 | `minimal` | no |
 | 2 | `light` | no |
 | 3 | `full` | no |
-| 4 | `full` + verificación en contexto fresco | sí, obligatorio |
+| 4 | `full` + fresh-context verification | yes, mandatory |
 
-## Cambios de tier
+## Tier changes
 
-- Un tier desconocido o ilegible se trata como Tier 4.
-- Solo el orquestador re-clasifica: el **upgrade** es automático y el **downgrade** requiere confirmación humana literal.
+- An unknown or unreadable tier is treated as Tier 4.
+- Only the orchestrator reclassifies: an **upgrade** is automatic and a **downgrade** requires literal human confirmation.

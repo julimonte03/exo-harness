@@ -31,12 +31,12 @@ def content_root() -> Path:
     if override:
         root = Path(override).expanduser().resolve()
         if not _valid(root):
-            raise ContentError(f"{ENV_VAR}={override} no apunta a un contenido con packs/")
+            raise ContentError(f"{ENV_VAR}={override} does not point to a content tree with packs/")
         return root
     for candidate in _CANDIDATES:
         if _valid(candidate):
             return candidate
     raise ContentError(
-        "no se encontró el contenido del motor (packs/); reinstalá el paquete o definí "
+        "engine content not found (packs/); reinstall the package or set "
         f"{ENV_VAR}"
     )
