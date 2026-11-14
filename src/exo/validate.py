@@ -18,7 +18,8 @@ Reglas de §10.5 del reporte, adaptadas al plan (`docs/plan/fases/F1-nucleo.md`)
   `schemas/` usan solo lo que soporta `core/jsonschema`; los `.md` siguen las
   mismas reglas de cuerpo que las skills. Toda ruta a un contrato instalado
   (`<carpeta del motor>/shared/...`) que citen las skills, sus `references/` o los
-  contratos tiene que existir.
+  contratos tiene que existir en el pack que cita o en uno que requiere: si no,
+  falta cuando solo ese pack está instalado.
 - Subagentes con `name` y `description`, sin repetir.
 - `rules/AGENTS.base.md` de hasta 60 líneas.
 - Sin patrones de secretos fuera de bloques de código.
@@ -33,8 +34,8 @@ from pathlib import Path
 
 from exo import _meta, phase_map
 from exo.core import frontmatter, fsutil, jsonschema, secrets
+from exo.installer.bundle import ENGINE_SHARED, ENGINE_SHARED_PACK
 from exo.packs import MANIFEST, SKILL_FILE, Pack, PackError, load_pack, resolve
-from exo.sdd import record, speclint
 
 STANDARD_FIELDS = ("name", "description", "license", "compatibility", "metadata", "allowed-tools")
 MAX_NAME = 64
@@ -88,8 +89,8 @@ class _Validator:
         self.skills: dict[str, list[tuple[str, str]]] = {}
         self.refs: list[_Ref] = []
         self.subagents: dict[str, list[str]] = {}
-        self.citations: list[tuple[Path, int, str]] = []
-        self.shared: set[str] = set()
+        self.citations: list[tuple[Path, int, str, str]] = []
+        self.shared: dict[str, set[str]] = {}
         self.shared_count = 0
         self.map = phase_map.load(self.root)
 
@@ -246,24 +247,21 @@ class _Validator:
                 if not (folder / cited).is_file():
                     self.error(path, number, f"cites {cited}, which does not exist")
             for cited in _SHARED_PATH.findall(line):
-                self.citations.append((path, number, cited.rstrip(".,;:")))
+                self.citations.append((path, number, cited.rstrip(".,;:"), pack.name))
 
     # -- contratos compartidos ------------------------------------------------
 
     def check_shared(self) -> None:
-        engine = [
-            ("templates", speclint.TEMPLATES_DIR, "*.md"),
-            ("schemas", record.SCHEMAS_DIR, "*.json"),
-        ]
-        for folder_name, source, pattern in engine:
-            self.shared.update(f"{folder_name}/{p.name}" for p in source.glob(pattern))
+        engine = self.shared.setdefault(ENGINE_SHARED_PACK, set())
+        for folder_name, source, pattern in ENGINE_SHARED:
+            engine.update(f"{folder_name}/{p.name}" for p in source.glob(pattern))
         for pack in self.packs.values():
             folder = pack.path / SHARED_DIR
             if not folder.is_dir():
                 continue
             for path in fsutil.walk_files(folder):
                 rel = path.relative_to(folder).as_posix()
-                self.shared.add(rel)
+                self.shared.setdefault(pack.name, set()).add(rel)
                 self.shared_count += 1
                 if path.suffix == ".json":
                     self.check_json(path, rel)
@@ -282,16 +280,35 @@ class _Validator:
             except jsonschema.SchemaError as exc:
                 self.error(path, 0, f"schema not supported by the engine validator: {exc}")
 
+    def _reachable(self, pack: str) -> set[str]:
+        """El pack y lo que requiere: lo que seguro está instalado junto con él."""
+        try:
+            names = resolve(self.packs, [pack])
+        except PackError:
+            names = [pack]
+        found: set[str] = set()
+        for name in names:
+            found |= self.shared.get(name, set())
+        return found
+
+    @staticmethod
+    def _has(files: set[str], cited: str) -> bool:
+        return cited in files or (cited.endswith("/") and any(f.startswith(cited) for f in files))
+
     def check_citations(self) -> None:
-        for path, number, cited in self.citations:
-            folder = cited.endswith("/") and any(rel.startswith(cited) for rel in self.shared)
-            if cited not in self.shared and not folder:
-                self.error(
-                    path,
-                    number,
-                    f"cites {_meta.PROJECT_DIR}/shared/{cited}, which does not exist in any "
-                    "pack's shared/ folder",
+        prefix = f"{_meta.PROJECT_DIR}/shared/"
+        for path, number, cited, pack in self.citations:
+            if self._has(self._reachable(pack), cited):
+                continue
+            owners = sorted(name for name, files in self.shared.items() if self._has(files, cited))
+            if owners:
+                message = (
+                    f"cites {prefix}{cited}, which ships in pack {', '.join(owners)}; pack {pack} "
+                    "does not require it, so it is missing when only that pack is installed"
                 )
+            else:
+                message = f"cites {prefix}{cited}, which does not exist in any shared/ folder"
+            self.error(path, number, message)
 
     def check_refs(self) -> None:
         for ref in self.refs:

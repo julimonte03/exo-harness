@@ -81,7 +81,7 @@ The command does not return the next phase. Derive it with the rules in `.exo/sh
 | explore (Tier 3 and 4) | Approach in `proposal.md` says "The area is unknown: explore before proposing." and there is no `exploration.md` |
 | propose (Tier 3 and 4) | `exo change ai-usage <change> --json` has no `sdd-propose` in `skills_used` or `capabilities_used` |
 | apply | phase `tasks` (no box checked) or `apply` with boxes still unchecked in `tasks.md` |
-| apply (Tier 1) | there is no `tasks.md`, so the files cannot show whether the code is written: say so; the change's commits (`git log`) can tell |
+| apply (Tier 1 and 2) | `exo change ai-usage <change> --json` has no `sdd-apply` in `skills_used` or `capabilities_used` |
 | verify | no `verify-record.md`, or its Verdict section says `needs-rework` (after fixing) |
 | judgment (Tier 4) | `judges_invoked` in the AI Usage Record has no approved `judgment-day` |
 | archive | the Verdict section of `verify-record.md` says `ready` |

@@ -5,10 +5,11 @@ Reúne, para los packs resueltos: las reglas (`rules/AGENTS.base.md`), las
 skills con todos sus archivos byte a byte, los subagentes y los contratos
 compartidos.
 
-Los contratos viven en `packs/<pack>/shared/` y se instalan solo con su pack:
-sin `sdd`, un proyecto no recibe los contratos del ciclo. Con `sdd` van además
-las plantillas de speclint (`templates/`) y los esquemas JSON (`schemas/`), que
-siguen teniendo una sola fuente en `exo/sdd/` porque el runtime los usa.
+Los contratos viven en `packs/<pack>/shared/` y se instalan con su pack. Los del
+ciclo están en `core` porque también los citan las skills de core, y `core` se
+instala siempre. Con `core` van además las plantillas de speclint (`templates/`)
+y los esquemas JSON (`schemas/`), que siguen teniendo una sola fuente en
+`exo/sdd/` porque el runtime los usa.
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ from exo.sdd import record, speclint
 
 RULES_FILE = Path("rules") / "AGENTS.base.md"
 SHARED_DIR = "shared"
-ENGINE_SHARED_PACK = "sdd"
+ENGINE_SHARED_PACK = "core"
 # Archivos del runtime que se instalan con el pack: (carpeta en shared/, origen, patrón).
 ENGINE_SHARED = (
     ("templates", speclint.TEMPLATES_DIR, "*.md"),

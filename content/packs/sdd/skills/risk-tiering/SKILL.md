@@ -81,6 +81,7 @@ exo fitness classify --evidence-json '{"blast_radius": 1, "component_criticality
 ```
 
 - The JSON has exactly the 7 dimensions, integers from 0 to 3, on one line in single quotes. A typo or an unknown key also gives FM-00: fix the JSON, it is not missing evidence.
+- In Windows PowerShell 5.1 the inner quotes get lost: write the JSON to a file and pass `--evidence-file <file>` instead of `--evidence-json` (`.exo/shared/sdd-phase-common.md`, section I).
 - The output has `tier`, `rule`, `matched_rules`, `ceremony`, `judgment_day`, `errors` and, with `--change`, `assessment` (`previous`, `comparison`: `initial`, `same`, `upgrade` or `downgrade`, and `written`).
 - Without `--change` the command only computes: use it to preview a result before recording it.
 - **`upgrade`:** recorded at once. Tell the person which ceremony and phases the new tier adds (`.exo/shared/phase-skill-map.md`, Phases per tier).

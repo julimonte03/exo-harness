@@ -8,7 +8,7 @@ Which skills each SDD phase loads, by tier. The orchestrator reads this map befo
 - **Tier 2** adds the Conditional skills whose trigger applies.
 - **Tier 3** adds the advisory judges.
 - **Tier 4** adds `judgment-day` after verify.
-- **At most 5 skills per delegation.** If more apply, keep the Required ones and the Conditionals whose trigger is strongest, and say which ones you left out.
+- **At most 5 skills per delegation,** counting only the skills of this map (the phase skill itself, `memory-protocol` and `ai-usage-record` do not count). If more apply, keep the Required ones and the Conditionals whose trigger is strongest, and say which ones you left out.
 - **Judges run as separate read-only delegations**, never inside the executor's context. Without subagents, run them inline after the executor's work and say "no isolation".
 - **The stack router** is the router skill of the project's stack pack (for example the `java` pack), when one is installed. Without it, follow the commands and conventions in `.exo/context.md`.
 - **A skill that is not installed degrades.** Say `<pack>/<skill> not installed — applying inline criteria`, apply its inline criteria from the last table, and record it (`.exo/shared/capability-attribution.md`). Never skip a skill silently.
@@ -29,6 +29,7 @@ The mandatory artifacts of each tier are in `.exo/shared/sdd-phase-common.md`, s
 | Phase | Required | Conditional (trigger → skill) | Judges (Tier ≥ 3) |
 |---|---|---|---|
 | risk | `risk-tiering` | — | — |
+| new | `context-retrieval` | — | — |
 | explore | `context-retrieval` | new or fuzzy product problem → `product-discovery` | — |
 | propose | `context-retrieval` | new feature, MVP or unclear value → `product-discovery` | `judge-product`, `judge-business` |
 | spec | — | Tier 2 → `test-strategy` · UI → `accessibility-audit` · new user flow → `product-discovery` | `judge-product` |
@@ -49,9 +50,9 @@ These skills are named by the map but ship in later packs. When one is missing, 
 
 | Skill | Pack | Inline criteria when missing |
 |---|---|---|
-| `product-discovery` | product | Write who the user is, the problem, the value and how success is measured in proposal.md, section Intent. Ask the person when any of them is unclear. |
+| `product-discovery` | product | Write who the user is, the problem, the value and how success is measured: in proposal.md, section Intent, when the phase owns proposal.md (new, propose); otherwise as open questions for the person. Ask the person when any of them is unclear. |
 | `accessibility-audit` | frontend | Check keyboard access, visible focus, labels and accessible names, contrast and text alternatives in the UI that changed (WCAG 2.2 AA). List each failure with its criterion. |
-| `architecture-decision-record` | design | When a decision is hard to reverse, add a short record (context, decision, alternatives, consequences) to the project's docs and link it from design.md. |
+| `architecture-decision-record` | design | When a decision is hard to reverse, propose a short record (context, decision, alternatives, consequences) for the project's docs and write it there once the person approves its text. Cite it from design.md in the design phase, or from the AI Usage Record decisions later. |
 | `threat-modeling` | security | List the assets, entry points and trust boundaries the change touches; for each, the threats that apply (STRIDE) and their mitigation. Write them in design.md, Risks & Mitigations. |
 | `software-solution` | core | Describe the components, their responsibilities and the integration points in design.md, Architecture Overview, before the details. |
 | `context-anchoring` | sdd | Keep the decisions so far in the change's state memory (`.exo/shared/memory-convention.md`) so another session or person can continue. |

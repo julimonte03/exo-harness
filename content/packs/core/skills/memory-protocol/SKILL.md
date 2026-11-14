@@ -46,7 +46,7 @@ Do not save what is already in the code, the git history or the repo documentati
 ## Update instead of duplicating
 
 - **With `--topic-key`:** if the topic has a stable key, a second `save` updates the same observation. For example:
-  - `project/profile`
+  - `project/context`
   - `arch/queues`
   - `sdd/<change>/<artifact>`
 - **Without `topic_key`:** if the save response includes `similar` (with the semantic index), review those observations.

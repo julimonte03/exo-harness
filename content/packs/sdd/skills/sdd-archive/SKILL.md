@@ -33,7 +33,7 @@ metadata:
 
 ## Order
 
-**Check, merge, move, commit, PR**, each step only when the one before passed. `exo check --change` skips archived changes, so it runs before the move; the move carries the merged state; the commit and the PR show all of it.
+**Check, merge, move, commit, PR**, each step only when the one before passed. `exo check --change` runs before the move, so a failure goes back to its phase while the change is still active; it also finds the change after the move, and so does `exo check --base` in CI. The move carries the merged state; the commit and the PR show all of it.
 
 ## 1. Preconditions
 
@@ -104,7 +104,7 @@ Then `exo change status <change>` must say `phase: archived`.
 
 1. Commit the merged specs, the moved folder, the wiki update and the decision record as `work-unit-commits` says: Conventional Commits, with the ticket when the project has one.
 2. `git status`: everything that belongs to the change is committed, and nothing else is (the wiki checkpoint's "Branch clean").
-3. `exo check --base <base>` (what CI runs) passes: it lints the capability specs the merge touched.
+3. `exo check --base <base>` (what CI runs) passes: it checks the archived change and lints the capability specs the merge touched.
 
 ## 9. Pull request
 

@@ -1,6 +1,6 @@
 """Mapa fase → skills del ciclo SDD (§6.4 del reporte), leído de su contrato.
 
-El mapa vive en `packs/sdd/shared/phase-skill-map.md` y se instala como
+El mapa vive en `packs/core/shared/phase-skill-map.md` y se instala como
 contrato compartido. Tiene dos tablas que el motor lee:
 
 - `## Map`: qué skills carga cada fase. Toda skill entre comillas invertidas en
@@ -20,7 +20,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-MAP_FILE = PurePosixPath("packs/sdd/shared/phase-skill-map.md")
+MAP_FILE = PurePosixPath("packs/core/shared/phase-skill-map.md")
 MAP_SECTION = "Map"
 DEGRADATIONS_SECTION = "Skills from packs not installed yet"
 NOTE = "{pack}/{skill} not installed — applying inline criteria"

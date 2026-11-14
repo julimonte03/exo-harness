@@ -50,7 +50,7 @@ exo change record <change> \
 
 - `--add FIELD JSON` appends to a list field: `skills_used`, `knowledge_used`, `capabilities_used`, `judges_invoked`, `decisions`, `dismissed_followups`, `gates`. Repeat `--add` to write several entries in one call.
 - `--set purpose JSON` sets the purpose. It is the only field `--set` accepts.
-- The value is JSON: a string goes in double quotes inside the single quotes (`'"sdd-spec"'`), an object as `'{"name": "..."}'`. If your shell drops the inner double quotes (Windows PowerShell 5.1 does when it calls a program), escape each one as `\"` or use a POSIX shell.
+- The value is JSON: a string goes in double quotes inside the single quotes (`'"sdd-spec"'`), an object as `'{"name": "..."}'`. If your shell drops the inner double quotes (Windows PowerShell 5.1 does when it calls a program), write the JSON to a file and pass `@<file>` instead (`.exo/shared/sdd-phase-common.md`, section I).
 - The command validates the result against the schema and writes it atomically. If the result would not match, nothing is written: read the error, fix the value and run it again.
 - An entry already present is not added twice. In `capabilities_used`, an entry with the same `name` and `type` counts as present, so the first activation stays.
 - Never edit the JSON by hand. If the command says the file is unreadable, tell the person; do not rewrite it from memory.

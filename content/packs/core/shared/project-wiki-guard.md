@@ -15,7 +15,7 @@ Two checkpoints that keep the branch and the project wiki (`.exo/context.md`) ho
 
 1. **Wiki update.** If the change altered something the wiki describes (a command, a dependency, a convention, an area), update `.exo/context.md` in the same change, or ask the person to.
 2. **Branch clean.** `git status`: everything that belongs to the change is committed (`work-unit-commits`) and nothing else is.
-3. **Fresh review done.** In Tier 3 and 4, `verify-record.md` comes from a fresh-context verify. Without subagents, from a new session (`.exo/shared/agent-capabilities.md`).
+3. **Fresh review done.** In Tier 3 and 4, `verify-record.md` comes from a fresh-context verify: a subagent, or a new session when the agent has none. If the person chose an inline verify instead, the record says `no isolation`, as `.exo/shared/agent-capabilities.md` allows (in Tier 4, only with their approval recorded as a decision).
 4. **Checks pass.** `exo check --change <change>` passes.
 
 Report the result of each checkpoint in the envelope notes, for example: `wiki guard: branch feat/PROJ-123-add-login, up to date; context.md fresh`.
