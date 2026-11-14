@@ -30,7 +30,7 @@ DIMENSIONS = (
 CEREMONIES = {1: "minimal", 2: "light", 3: "full", 4: "full"}
 FAILSAFE_RULE = "FM-00"
 FAILSAFE_TIER = 4
-FAILSAFE_CONDITION = "evidencia faltante o ilegible"
+FAILSAFE_CONDITION = "missing or unreadable evidence"
 _MIN, _MAX = 0, 3
 
 
@@ -63,9 +63,9 @@ RULES: tuple[Rule, ...] = (
     Rule("FM-10", 3, "component_criticality == 3", _equals_three("component_criticality")),
     Rule("FM-11", 3, "blast_radius == 3", _equals_three("blast_radius")),
     Rule("FM-12", 3, "files_modules_footprint == 3", _equals_three("files_modules_footprint")),
-    Rule("FM-13", 3, ">= 3 dimensiones con valor >= 2", _at_least(3, 2)),
-    Rule("FM-20", 2, ">= 1 dimensión con valor >= 2", _at_least(1, 2)),
-    Rule("FM-30", 1, "todas las dimensiones <= 1", lambda e: all(v <= 1 for v in e.values())),
+    Rule("FM-13", 3, ">= 3 dimensions with value >= 2", _at_least(3, 2)),
+    Rule("FM-20", 2, ">= 1 dimension with value >= 2", _at_least(1, 2)),
+    Rule("FM-30", 1, "all dimensions <= 1", lambda e: all(v <= 1 for v in e.values())),
 )
 RULE_TIERS: dict[str, int] = {FAILSAFE_RULE: FAILSAFE_TIER, **{r.id: r.tier for r in RULES}}
 
@@ -104,20 +104,20 @@ def _decision(
 
 def parse_evidence(raw: Any) -> tuple[dict[str, int] | None, list[str]]:
     if raw is None:
-        return None, ["falta la evidencia"]
+        return None, ["missing evidence"]
     if not isinstance(raw, Mapping):
-        return None, ["la evidencia tiene que ser un objeto {dimensión: valor}"]
-    errors = [f"dimensión desconocida: {key}" for key in raw if key not in DIMENSIONS]
+        return None, ["evidence must be an object {dimension: value}"]
+    errors = [f"unknown dimension: {key}" for key in raw if key not in DIMENSIONS]
     evidence: dict[str, int] = {}
     for dimension in DIMENSIONS:
         if dimension not in raw:
-            errors.append(f"falta {dimension}")
+            errors.append(f"missing {dimension}")
             continue
         value = raw[dimension]
         if isinstance(value, bool) or not isinstance(value, int):
-            errors.append(f"{dimension} tiene que ser un entero, no {value!r}")
+            errors.append(f"{dimension} must be an integer, not {value!r}")
         elif not _MIN <= value <= _MAX:
-            errors.append(f"{dimension} tiene que estar entre 0 y 3, no {value}")
+            errors.append(f"{dimension} must be between 0 and 3, not {value}")
         else:
             evidence[dimension] = value
     return (None, errors) if errors else (evidence, [])
@@ -136,14 +136,14 @@ def classify_json(text: str) -> FitnessDecision:
     try:
         raw = json.loads(text)
     except json.JSONDecodeError as exc:
-        error = f"la evidencia no es JSON válido ({exc.msg}, posición {exc.pos})"
+        error = f"evidence is not valid JSON ({exc.msg}, position {exc.pos})"
         return _decision(FAILSAFE_TIER, FAILSAFE_RULE, (FAILSAFE_RULE,), None, (error,))
     return classify(raw)
 
 
 def _check_tier(value: Any) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 4:
-        raise ValueError(f"tier inválido: {value!r} (tiene que ser 1, 2, 3 o 4)")
+        raise ValueError(f"invalid tier: {value!r} (must be 1, 2, 3 or 4)")
     return value
 
 

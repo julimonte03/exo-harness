@@ -170,7 +170,7 @@ def test_plantillas_sin_completar_no_pasan(tmp_path: Path, name: str) -> None:
     template = speclint.template_text(speclint.ARTIFACTS[name])
     report = speclint.lint_path(_write(tmp_path, name, template))
     assert not report.ok
-    assert any("vacía" in m for m in _messages(report))
+    assert any("is empty" in m for m in _messages(report))
 
 
 def test_marcador_de_gate_de_la_plantilla_coincide_con_el_codigo() -> None:
@@ -181,8 +181,8 @@ def test_marcador_de_gate_de_la_plantilla_coincide_con_el_codigo() -> None:
 def test_falta_encabezado_y_seccion_vacia(tmp_path: Path) -> None:
     text = PROPOSAL.replace("## Approach\nHacer B.\n", "").replace("- C\n", "<!-- nada -->\n")
     messages = _messages(speclint.lint_path(_write(tmp_path, "proposal.md", text)))
-    assert "falta la sección '## Approach'" in messages
-    assert "la sección 'Out of Scope' está vacía" in messages
+    assert "missing section '## Approach'" in messages
+    assert "section 'Out of Scope' is empty" in messages
 
 
 def test_encabezados_sin_distinguir_mayusculas(tmp_path: Path) -> None:
@@ -193,18 +193,18 @@ def test_encabezados_sin_distinguir_mayusculas(tmp_path: Path) -> None:
 def test_encabezados_dentro_de_bloques_de_codigo_no_cuentan(tmp_path: Path) -> None:
     text = PROPOSAL.replace("## Approach\nHacer B.\n", "```\n## Approach\n```\n")
     messages = _messages(speclint.lint_path(_write(tmp_path, "proposal.md", text)))
-    assert "falta la sección '## Approach'" in messages
+    assert "missing section '## Approach'" in messages
 
 
 @pytest.mark.parametrize(
     ("old", "new", "fragment"),
     [
-        ("- **FR-2** The system", "- **FR-1** The system", "FR-1 definido dos veces"),
-        ("- **FR-2** The system", "- **FR-02** The system", "ID mal formado: FR-02"),
-        ("- **FR-2** The system", "- **fr-2** The system", "ID mal formado: fr-2"),
-        ("### S-2 Error", "### S-1 Error", "S-1 definido dos veces"),
-        ("- Then it sees an error\n", "", "S-2 no tiene Then"),
-        ("- Given a user\n", "", "S-1 no tiene Given"),
+        ("- **FR-2** The system", "- **FR-1** The system", "FR-1 defined twice"),
+        ("- **FR-2** The system", "- **FR-02** The system", "malformed ID: FR-02"),
+        ("- **FR-2** The system", "- **fr-2** The system", "malformed ID: fr-2"),
+        ("### S-2 Error", "### S-1 Error", "S-1 defined twice"),
+        ("- Then it sees an error\n", "", "S-2 has no Then"),
+        ("- Given a user\n", "", "S-1 has no Given"),
     ],
 )
 def test_reglas_de_ids_en_spec(tmp_path: Path, old: str, new: str, fragment: str) -> None:
@@ -215,15 +215,15 @@ def test_reglas_de_ids_en_spec(tmp_path: Path, old: str, new: str, fragment: str
 def test_spec_sin_requisitos_ni_escenarios(tmp_path: Path) -> None:
     text = "# Spec\n\n## Requirements\nTexto libre.\n\n## Scenarios\nTexto libre.\n"
     messages = _messages(speclint.lint_path(_write(tmp_path, "spec.md", text)))
-    assert "no hay requisitos FR-n en 'Requirements'" in messages
-    assert "no hay escenarios S-n en 'Scenarios'" in messages
+    assert "no FR-n requirements in 'Requirements'" in messages
+    assert "no S-n scenarios in 'Scenarios'" in messages
 
 
 @pytest.mark.parametrize(
     ("old", "new", "fragment"),
     [
-        ("## Verdict\nready", "## Verdict\nmaybe", "Verdict tiene que ser"),
-        (MARKER, "sin marcador", "falta el marcador de gate"),
+        ("## Verdict\nready", "## Verdict\nmaybe", "Verdict must be"),
+        (MARKER, "sin marcador", "missing gate marker"),
     ],
 )
 def test_reglas_del_verify_record(tmp_path: Path, old: str, new: str, fragment: str) -> None:
@@ -256,22 +256,22 @@ def test_carpeta_completa_valida(tmp_path: Path) -> None:
 def test_escenario_sin_test_en_el_plan(tmp_path: Path) -> None:
     folder = _change(tmp_path)
     _write(folder, "design.md", DESIGN.replace("- S-2 -> test_error (covers FR-2)\n", ""))
-    assert "S-2 de spec.md no aparece en el Test Plan de design.md" in _messages(speclint.lint_path(folder))
+    assert "S-2 from spec.md does not appear in the Test Plan of design.md" in _messages(speclint.lint_path(folder))
 
 
 def test_referencia_a_id_inexistente(tmp_path: Path) -> None:
     folder = _change(tmp_path)
     _write(folder, "test-spec.md", TEST_SPEC.replace("- FR-1, S-1: T-1", "- FR-9, S-7: T-1"))
     messages = _messages(speclint.lint_path(folder))
-    assert "FR-9 no está definido en spec.md" in messages
-    assert "S-7 no está definido en spec.md" in messages
+    assert "FR-9 is not defined in spec.md" in messages
+    assert "S-7 is not defined in spec.md" in messages
 
 
 def test_carpeta_sin_artefactos(tmp_path: Path) -> None:
     (tmp_path / "vacia").mkdir()
     report = speclint.lint_path(tmp_path / "vacia")
     assert not report.ok
-    assert "no hay artefactos" in _messages(report)[0]
+    assert "no SDD artifacts" in _messages(report)[0]
 
 
 def test_tipo_forzado_y_tipo_desconocido(tmp_path: Path) -> None:
@@ -279,7 +279,7 @@ def test_tipo_forzado_y_tipo_desconocido(tmp_path: Path) -> None:
     with pytest.raises(speclint.SpeclintError, match="--type"):
         speclint.lint_path(path)
     assert speclint.lint_path(path, kind="technical").ok
-    with pytest.raises(speclint.SpeclintError, match="tipo"):
+    with pytest.raises(speclint.SpeclintError, match="type"):
         speclint.lint_path(path, kind="inventado")
 
 
@@ -303,7 +303,7 @@ def test_cli_speclint(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> Non
 
 def test_cli_speclint_errores_de_uso(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["speclint", str(tmp_path / "no-existe.md")]) == 1
-    assert "no existe" in capsys.readouterr().err
+    assert "does not exist" in capsys.readouterr().err
     path = _write(tmp_path, "notas.md", DESIGN)
     assert main(["speclint", str(path)]) == 1
     assert main(["speclint", str(path), "--type", "technical"]) == 0
@@ -315,5 +315,5 @@ def test_ids_dentro_de_codigo_no_cuentan_y_lo_que_sigue_si(tmp_path: Path) -> No
         "```\n- **FR-1** ejemplo dentro de código\n```\n- **FR-2** The system shall do B.\n- **FR-2** repetido\n",
     )
     messages = _messages(speclint.lint_path(_write(tmp_path, "spec.md", text)))
-    assert not any("FR-1 definido dos veces" in m for m in messages)
-    assert any("FR-2 definido dos veces" in m for m in messages)
+    assert not any("FR-1 defined twice" in m for m in messages)
+    assert any("FR-2 defined twice" in m for m in messages)

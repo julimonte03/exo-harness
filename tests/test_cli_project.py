@@ -190,7 +190,7 @@ def test_dry_run_y_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
         (["sync"], 1, "no está instalado"),
         (["add-agent", "cursor"], 1, "no está instalado"),
         (["init", "--agents", "windsurf", "--yes"], 1, "desconocido"),
-        (["init", "--packs", "fantasma", "--yes", "--agents", "generic"], 1, "no existe"),
+        (["init", "--packs", "fantasma", "--yes", "--agents", "generic"], 1, "does not exist"),
         (["uninstall"], 2, "--yes"),
     ],
 )

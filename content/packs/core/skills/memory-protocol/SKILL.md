@@ -1,11 +1,10 @@
 ---
 name: memory-protocol
 description: >-
-  Protocolo de memoria persistente con `exo mem`: buscar antes de resolver,
-  guardar decisiones, bugs resueltos y descubrimientos, y cerrar la sesión con
-  un resumen. Usala al empezar una sesión, al tomar una decisión, al resolver un
-  bug o al cerrar la sesión / Use it at session start, when making a decision,
-  after fixing a bug, or when closing the session.
+  Persistent memory protocol with `exo mem`: search before solving, save
+  decisions, fixed bugs and discoveries, and close the session with a summary.
+  Use it at session start, when making a decision, after fixing a bug, or when
+  closing the session.
 metadata:
   exo-pack: core
   exo-execution: inline
@@ -13,59 +12,59 @@ metadata:
 
 # memory-protocol
 
-La memoria es de la persona usuaria, una por máquina, y la comparten todos sus proyectos. Cada observación pertenece a un proyecto: se detecta solo desde `git remote origin`. Las de scope `personal` se ven desde cualquiera. Todo se usa por terminal con `exo mem …`; agregá `--json` cuando tengas que procesar la salida.
+Memory belongs to the user: one per machine, shared by all their projects. Each observation belongs to a project, detected automatically from `git remote origin`. Observations with scope `personal` are visible from any project. Everything runs from the terminal with `exo mem …`; add `--json` when you need to process the output.
 
-## Al empezar la sesión
+## At session start
 
-1. Corré `exo mem context`: trae las observaciones recientes del proyecto y el último resumen de sesión.
-2. Si el pedido toca algo que puede estar en la memoria, buscá antes de investigar: `exo mem search "<palabras o identificador>"`.
-3. Los resultados son previews. Para el contenido completo, corré `exo mem get <id>`.
+1. Run `exo mem context`: it returns the project's recent observations and the latest session summary.
+2. If the request touches something that may be in memory, search before investigating: `exo mem search "<words or identifier>"`.
+3. Results are previews. For the full content, run `exo mem get <id>`.
 
-`exo mem search` usa búsqueda híbrida si la persona configuró el índice semántico (`exo mem reindex --provider local`), y léxica si no. La léxica encuentra identificadores exactos (`PAY-1234`, `RefundService`). Para conceptos sin palabras en común, probá con sinónimos o con los nombres técnicos.
+`exo mem search` uses hybrid search if the user configured the semantic index (`exo mem reindex --provider local`), and lexical search otherwise. Lexical search finds exact identifiers (`PAY-1234`, `RefundService`). For concepts that share no words, try synonyms or the technical names.
 
-## Qué guardar
+## What to save
 
-Guardá sin que te lo pidan, apenas pasa:
+Save without being asked, as soon as it happens:
 
-| Tipo | Cuándo | Qué incluir |
+| Type | When | What to include |
 |---|---|---|
-| `decision` | Se eligió un enfoque | Qué se decidió, por qué y qué se descartó |
-| `bugfix` | Se resolvió un bug | Síntoma, causa raíz y arreglo; el ticket si lo hay |
-| `discovery` | Algo no obvio del sistema | El dato y cómo se comprobó |
-| `gotcha` | Una trampa que va a volver a pasar | Cuándo pasa y cómo evitarla |
-| `convention` | Una regla del equipo | La regla y un ejemplo |
+| `decision` | An approach was chosen | What was decided, why, and what was ruled out |
+| `bugfix` | A bug was fixed | Symptom, root cause and fix; the ticket if there is one |
+| `discovery` | Something non-obvious about the system | The fact and how it was verified |
+| `gotcha` | A trap that will happen again | When it happens and how to avoid it |
+| `convention` | A team rule | The rule and an example |
 
 ```bash
-exo mem save --type bugfix --title "Doble cobro por reintento" \
-  --content "PAY-1234: el cliente reintentaba al recibir timeout. Causa: … Arreglo: …"
+exo mem save --type bugfix --title "Double charge on retry" \
+  --content "PAY-1234: the client retried on timeout. Cause: … Fix: …"
 ```
 
-Para contenido largo, `--content -` lo lee de stdin.
+For long content, `--content -` reads it from stdin.
 
-No guardes lo que ya está en el código, en el historial de git o en la documentación del repo. Tampoco el estado temporal de la tarea.
+Do not save what is already in the code, the git history or the repo documentation, nor temporary task state.
 
-## Actualizar en lugar de duplicar
+## Update instead of duplicating
 
-- **Con `--topic-key`:** si el tema tiene una clave estable, el segundo `save` actualiza la misma observación. Por ejemplo:
+- **With `--topic-key`:** if the topic has a stable key, a second `save` updates the same observation. For example:
   - `project/profile`
-  - `arq/colas`
-  - `sdd/<change>/<artefacto>`
-- **Sin `topic_key`:** si al guardar la respuesta trae `similar` (con índice semántico), revisá esas observaciones.
-  - Si es lo mismo, actualizá la existente: volvé a guardar con su `topic_key` o borrala con `exo mem delete <id>`.
-  - Si **contradice** lo guardado, no elijas vos: preguntale a la persona cuál vale.
+  - `arch/queues`
+  - `sdd/<change>/<artifact>`
+- **Without `topic_key`:** if the save response includes `similar` (with the semantic index), review those observations.
+  - If it is the same thing, update the existing one: save again with its `topic_key`, or delete it with `exo mem delete <id>`.
+  - If it **contradicts** what was saved, do not pick one yourself: ask the user which one holds.
 
-## Al cerrar la sesión
+## At session close
 
-Antes de terminar, o cuando el contexto está por compactarse:
+Before finishing, or when the context is about to be compacted:
 
 ```bash
-exo mem session summary --content "Hecho: … Pendiente: … Decisiones: …"
+exo mem session summary --content "Done: … Pending: … Decisions: …"
 ```
 
-El resumen va a la sesión abierta del proyecto, o a una nueva si no hay ninguna. El próximo `exo mem context` lo muestra primero.
+The summary goes to the project's open session, or to a new one if there is none. The next `exo mem context` shows it first.
 
-## Reglas
+## Rules
 
-- **Nunca guardes secretos, credenciales ni datos personales.** La memoria no tiene filtro y se puede exportar tal cual.
-- No inventes recuerdos: si `exo mem search` no trae nada, decilo y seguí investigando.
-- Si `exo` no está disponible o falla, decilo en tu respuesta y seguí sin memoria. No la simules con archivos sueltos.
+- **Never save secrets, credentials or personal data.** Memory has no filter and can be exported as is.
+- Do not make up memories: if `exo mem search` returns nothing, say so and keep investigating.
+- If `exo` is unavailable or fails, say so in your answer and continue without memory. Do not simulate it with loose files.

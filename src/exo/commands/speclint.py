@@ -12,15 +12,15 @@ from exo.sdd import speclint
 def register(sub: argparse._SubParsersAction) -> None:
     parser = sub.add_parser(
         "speclint",
-        help="valida artefactos SDD contra sus plantillas",
+        help="validate SDD artifacts against their templates",
         description=(
-            "Recibe un artefacto (proposal.md, spec.md, design.md, test-spec.md, "
-            "verify-record.md, pr.md) o la carpeta de un change. Sale con 1 si hay errores."
+            "Takes an artifact (proposal.md, spec.md, design.md, test-spec.md, "
+            "verify-record.md, pr.md) or a change folder. Exits with 1 if there are errors."
         ),
     )
-    parser.add_argument("path", type=Path, help="archivo o carpeta de change")
-    parser.add_argument("--type", dest="kind", choices=speclint.KINDS, help="fuerza el tipo")
-    parser.add_argument("--json", action="store_true", help="salida JSON")
+    parser.add_argument("path", type=Path, help="file or change folder")
+    parser.add_argument("--type", dest="kind", choices=speclint.KINDS, help="force the type")
+    parser.add_argument("--json", action="store_true", help="JSON output")
     parser.set_defaults(handler=run)
 
 
@@ -50,7 +50,7 @@ def run(args: argparse.Namespace) -> int:
             total += 1
             print(f"{item.path}:{issue.line}: {issue.message}")
     if total:
-        print(f"{total} errores en {len(report.files)} archivos")
+        print(f"{total} errors in {len(report.files)} files")
         return 1
-    print(f"OK: {len(report.files)} archivos sin errores")
+    print(f"OK: {len(report.files)} files without errors")
     return 0

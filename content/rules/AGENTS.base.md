@@ -1,36 +1,36 @@
-# Reglas del proyecto
+# Project rules
 
-Este proyecto usa un motor de desarrollo gobernado. La configuración y el registro de skills están en la carpeta del motor del repo; las skills, en la carpeta de skills de tu agente.
+This project uses a governed development engine. The configuration and the skill registry live in the repo's engine folder; the skills live in your agent's skills folder.
 
-## Siempre
+## Always
 
-- **Evidencia:** leé el código real y la cadena de datos completa antes de afirmar algo. Citá `path:line`.
-- **Alcance:** hacé solo lo pedido. No refactorices fuera del alcance ni borres `TODO` ajenos.
-- **Comandos destructivos:** antes de borrar, sobrescribir o reescribir historia, pedí confirmación.
-- **Ramas protegidas** (`main`, `master`, `prod`, `production`): nunca push directo, ni `--force`, ni `--no-verify`.
-- **Commits:** Conventional Commits. Si el proyecto usa tracker, el ticket lo confirma la persona; no lo infieras de la rama.
-- **Secretos:** nunca escribas credenciales, tokens ni datos personales en código, commits o memoria.
+- **Evidence:** read the actual code and the full data chain before claiming anything. Cite `path:line`.
+- **Scope:** do only what was asked. Do not refactor outside the scope or delete other people's `TODO`s.
+- **Destructive commands:** ask for confirmation before deleting, overwriting or rewriting history.
+- **Protected branches** (`main`, `master`, `prod`, `production`): never push directly, never use `--force` or `--no-verify`.
+- **Commits:** Conventional Commits. If the project uses a tracker, the user confirms the ticket; do not infer it from the branch.
+- **Secrets:** never write credentials, tokens or personal data in code, commits or memory.
 
-## Herramientas del motor
+## Engine tools
 
-Se usan por terminal con el comando `exo`, siempre con `--json` cuando necesites procesar la salida.
+They run from the terminal with the `exo` command, always with `--json` when you need to process the output.
 
-- `exo change list` y `exo change status <change>`: estado de los cambios en curso.
-- `exo skills list`: skills disponibles.
-- `exo fitness classify --evidence-json '<json>'`: riesgo de un cambio (tier 1–4).
-- `exo speclint <ruta>`: valida los artefactos de un cambio.
-- `exo doctor`: diagnóstico si algo no funciona.
+- `exo change list` and `exo change status <change>`: status of the changes in progress.
+- `exo skills list`: available skills.
+- `exo fitness classify --evidence-json '<json>'`: risk of a change (tier 1–4).
+- `exo speclint <path>`: validates a change's artifacts.
+- `exo doctor`: diagnostics when something does not work.
 
-## Memoria
+## Memory
 
-Tenés una memoria persistente, propia de la persona usuaria, en `exo mem`. Usala sin que te lo pidan:
+You have a persistent memory, owned by the user, in `exo mem`. Use it without being asked:
 
-- **Al empezar la sesión:** corré `exo mem context` y leelo antes de investigar desde cero.
-- **Antes de resolver algo:** `exo mem search "<texto>"` devuelve previews; el detalle sale con `exo mem get <id>`.
-- **Al decidir, resolver un bug o descubrir algo no obvio:** `exo mem save --type decision --title "…" --content "…"` (o `bugfix`, `discovery`, `gotcha`, `convention`). Con un `--topic-key` estable, actualizás en lugar de duplicar.
-- **Al cerrar la sesión o antes de que se compacte el contexto:** `exo mem session summary --content "<qué se hizo y qué queda>"`.
-- **Nunca guardes secretos ni datos personales:** la memoria no los filtra y se puede exportar.
+- **At session start:** run `exo mem context` and read it before investigating from scratch.
+- **Before solving something:** `exo mem search "<text>"` returns previews; get the details with `exo mem get <id>`.
+- **When you decide, fix a bug or discover something non-obvious:** `exo mem save --type decision --title "…" --content "…"` (or `bugfix`, `discovery`, `gotcha`, `convention`). With a stable `--topic-key`, you update instead of duplicating.
+- **When closing the session or before the context is compacted:** `exo mem session summary --content "<what was done and what is left>"`.
+- **Never save secrets or personal data:** memory does not filter them and can be exported.
 
-## Si tu agente no tiene subagentes
+## If your agent has no subagents
 
-Las skills que piden "contexto fresco" o delegación corren inline: decilo explícitamente en tu respuesta ("sin aislamiento").
+Skills that ask for a "fresh context" or for delegation run inline: say so explicitly in your answer ("no isolation").

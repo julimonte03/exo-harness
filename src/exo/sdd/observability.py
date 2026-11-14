@@ -138,10 +138,10 @@ def get_change(project: Path, name: str) -> Change:
     active = [c for c in matches if not c.archived]
     pool = active or matches
     if not pool:
-        raise ObservabilityError(f"no existe el change {name!r}")
+        raise ObservabilityError(f"change {name!r} does not exist")
     if len(pool) > 1:
         paths = ", ".join(c.path for c in pool)
-        raise ObservabilityError(f"el nombre {name!r} es ambiguo: {paths}")
+        raise ObservabilityError(f"name {name!r} is ambiguous: {paths}")
     return pool[0]
 
 
@@ -154,14 +154,14 @@ def _read_json(path: Path, warnings: list[str]) -> Any:
     except FileNotFoundError:
         return None
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        warnings.append(f"{path.name} ilegible ({exc}); se ignora")
+        warnings.append(f"{path.name} is unreadable ({exc}); ignored")
         return None
 
 
 def _record(project: Path, change: Change, warnings: list[str]) -> dict[str, Any] | None:
     raw = _read_json(Path(project) / change.path / AI_USAGE_RECORD, warnings)
     if raw is not None and not isinstance(raw, dict):
-        warnings.append(f"{AI_USAGE_RECORD} ilegible (la raíz no es un objeto); se ignora")
+        warnings.append(f"{AI_USAGE_RECORD} is unreadable (the root is not an object); ignored")
         return None
     return raw
 
@@ -187,12 +187,12 @@ def _followups(project: Path, change: Change, warnings: list[str]) -> list[dict[
     raw = _read_json(Path(project) / change.path / FOLLOWUPS, warnings)
     items = raw.get("followups", []) if isinstance(raw, dict) else raw
     if items is not None and not isinstance(items, list):
-        warnings.append(f"{FOLLOWUPS} ilegible (followups no es una lista); se ignora")
+        warnings.append(f"{FOLLOWUPS} is unreadable (followups is not a list); ignored")
         items = []
     record = _record(project, change, [])
     raw_dismissed = (record or {}).get("dismissed_followups", [])
     if not isinstance(raw_dismissed, list):
-        warnings.append("dismissed_followups no es una lista; se ignora")
+        warnings.append("dismissed_followups is not a list; ignored")
         raw_dismissed = []
     dismissed = [d for d in raw_dismissed if isinstance(d, dict)]
     result = []
@@ -208,7 +208,7 @@ def _followups(project: Path, change: Change, warnings: list[str]) -> list[dict[
 def followups(project: Path, name: str, status: str = "open") -> list[dict[str, Any]]:
     if status not in FOLLOWUP_STATUSES:
         options = ", ".join(FOLLOWUP_STATUSES)
-        raise ObservabilityError(f"status inválido: {status!r} (uno de {options})")
+        raise ObservabilityError(f"invalid status: {status!r} (one of {options})")
     items = _followups(project, get_change(project, name), [])
     return items if status == "all" else [f for f in items if f["status"] == status]
 

@@ -72,7 +72,7 @@ class Collection:
 def _names(value: Any, field_name: str, where: Path) -> tuple[str, ...]:
     valid = isinstance(value, list) and all(isinstance(v, str) and _KEBAB.match(v) for v in value)
     if not valid:
-        raise PackError(f"{where}: {field_name} tiene que ser una lista de nombres kebab-case")
+        raise PackError(f"{where}: {field_name} must be a list of kebab-case names")
     return tuple(value)
 
 
@@ -82,22 +82,22 @@ def load_pack(folder: Path) -> Pack:
     try:
         raw = json.loads(manifest.read_text(encoding="utf-8"))
     except FileNotFoundError as exc:
-        raise PackError(f"{folder}: falta {MANIFEST}") from exc
+        raise PackError(f"{folder}: missing {MANIFEST}") from exc
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise PackError(f"{manifest}: no es JSON válido ({exc})") from exc
+        raise PackError(f"{manifest}: not valid JSON ({exc})") from exc
     if not isinstance(raw, dict):
-        raise PackError(f"{manifest}: la raíz tiene que ser un objeto")
+        raise PackError(f"{manifest}: the root must be an object")
     name = raw.get("name")
     if name != folder.name or not isinstance(name, str) or not _KEBAB.match(name):
         raise PackError(
-            f"{manifest}: name tiene que ser kebab-case e igual a la carpeta ({folder.name})"
+            f"{manifest}: name must be kebab-case and match the folder name ({folder.name})"
         )
     version = raw.get("version")
     if not isinstance(version, str) or not _SEMVER.match(version):
-        raise PackError(f"{manifest}: version tiene que ser semver (por ejemplo 0.1.0)")
+        raise PackError(f"{manifest}: version must be semver (for example 0.1.0)")
     description = raw.get("description")
     if not isinstance(description, str) or not description.strip():
-        raise PackError(f"{manifest}: falta description")
+        raise PackError(f"{manifest}: missing description")
     return Pack(
         name=name,
         version=version,
@@ -130,12 +130,12 @@ def resolve(available: dict[str, Pack], wanted: list[str]) -> list[str]:
             return
         if name in chain:
             cycle = " -> ".join([*chain[chain.index(name) :], name])
-            raise PackError(f"dependencias en ciclo: {cycle}")
+            raise PackError(f"dependency cycle: {cycle}")
         pack = available.get(name)
         if pack is None:
             if chain:
-                raise PackError(f"{chain[-1]} requiere {name!r}, que no existe")
-            raise PackError(f"no existe el pack {name!r}")
+                raise PackError(f"{chain[-1]} requires {name!r}, which does not exist")
+            raise PackError(f"pack {name!r} does not exist")
         for required in pack.requires:
             visit(required, [*chain, name])
         done.add(name)
