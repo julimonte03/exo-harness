@@ -109,7 +109,7 @@ fitness_signal:       # optional: only when the evidence contradicts the tier
   | judges, judgment-day | `sdd-judge` (read-only) | the orchestrator records the outcome |
 
   A read-only subagent returns the full text of its document in its answer; it never writes files.
-- **Read 1 to 3 files inline; 4 or more, delegate** to `sdd-explorer`. Running tests or a build: delegate. Git state commands (`git status`, `git diff --stat`) run inline.
+- **Read 1 to 3 files inline; 4 or more, delegate** to `sdd-explorer`. Running tests or a build: delegate it, to `sdd-implementer` within apply and to `sdd-verifier` anywhere else (it runs the test, lint and build commands and changes nothing); use only the four subagents of the pack. Git state commands (`git status`, `git diff --stat`) run inline.
 - **Permissions are denied by default.** The explorer and every reviewer are read-only; the implementer writes only what the frozen plan says: `tasks.md` in Tier 3 and 4; in Tier 1 and 2, the proposal's Scope with the spec delta and, in Tier 2, the test-spec. Nobody re-delegates: a subagent never launches another one.
 - **Mandatory delegation triggers:**
   1. the 4-file rule above;
