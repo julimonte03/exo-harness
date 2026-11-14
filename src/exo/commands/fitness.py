@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from exo.commands._output import emit_json, error, usage_error
@@ -30,8 +31,13 @@ def register(sub: argparse._SubParsersAction) -> None:
     )
     classify.add_argument(
         "--evidence-json",
-        required=True,
         help='JSON object with the 7 dimensions (0–3), for example {"blast_radius": 1, ...}',
+    )
+    classify.add_argument(
+        "--evidence-file",
+        type=Path,
+        help="read the JSON from this file (- for stdin); safer than --evidence-json in "
+        "Windows PowerShell, which drops the inner quotes",
     )
     classify.add_argument("--change", help="record the tier in this change")
     classify.add_argument(
@@ -51,10 +57,30 @@ def _evidence(text: str) -> object:
         return text  # classify la trata como ilegible: Tier 4
 
 
+def _read_evidence(args: argparse.Namespace) -> str | None:
+    if args.evidence_file is None:
+        return args.evidence_json
+    if str(args.evidence_file) == "-":
+        return sys.stdin.read()
+    return args.evidence_file.read_text(encoding="utf-8-sig")
+
+
 def run(args: argparse.Namespace) -> int:
+    if (args.evidence_json is None) == (args.evidence_file is None):
+        return usage_error(
+            "pass the evidence with --evidence-json or --evidence-file (one of them)"
+        )
     if args.confirm_downgrade is not None and args.change is None:
         return usage_error("--confirm-downgrade needs --change")
-    decision = fitness.classify_json(args.evidence_json)
+    try:
+        text = _read_evidence(args)
+    except OSError as exc:
+        return usage_error(
+            f"cannot read --evidence-file {args.evidence_file}: {exc.strerror or exc}"
+        )
+    assert text is not None
+    args.evidence_json = text
+    decision = fitness.classify_json(text)
     assessment = None
     if args.change is not None:
         try:

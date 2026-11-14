@@ -347,7 +347,10 @@ def test_init_no_interactivo_informa_las_detecciones_debiles(tmp_path: Path, mon
     assert f"{_meta.NAME} add-agent codex" in out
 
 
-def test_salida_sin_notas_vacias_ni_lineas_repetidas(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_salida_sin_notas_vacias_ni_lineas_repetidas(
+    tmp_path: Path, synthetic_content: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Con el contenido sintético: con más de 30 archivos la salida resume en vez de listar."""
     _init(tmp_path)
     assert "notes" not in capsys.readouterr().out
     assert main(["uninstall", "--project", str(tmp_path), "--yes"]) == 0

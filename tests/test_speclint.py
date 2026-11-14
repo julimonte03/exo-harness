@@ -113,9 +113,13 @@ Unit.
 | ID | Covers | Level | Description | Command |
 |---|---|---|---|---|
 | T-1 | S-1, CAP-demo-FR-1 | unit | happy | pytest -k happy |
+| T-2 | S-2, CAP-demo-FR-2 | unit | error | pytest -k error |
+| T-3 | CAP-demo-NFR-1 | integration | timing | pytest -k timing |
 
 ## Traceability
 - CAP-demo-FR-1, S-1: T-1
+- CAP-demo-FR-2, S-2: T-2
+- CAP-demo-NFR-1: T-3
 """
 
 MARKER = f"<!-- {_meta.BLOCK_PREFIX}-gate:contract_check -->"
@@ -277,6 +281,7 @@ def test_spec_con_el_formato_viejo(tmp_path: Path) -> None:
     ("old", "new", "fragment"),
     [
         ("## Verdict\nready", "## Verdict\nmaybe", "Verdict must be"),
+        ("## Verdict\nready", "## Verdict\nI think ready", "Verdict must be"),
         (MARKER, "sin marcador", "missing gate marker"),
     ],
 )
@@ -384,3 +389,31 @@ def test_ids_dentro_de_codigo_no_cuentan(tmp_path: Path) -> None:
         "```\n### CAP-demo-FR-1: inside code\n```\n\n## MODIFIED Requirements",
     )
     assert speclint.lint_path(_write(tmp_path, "spec.md", text)).ok
+
+
+def test_el_test_spec_cubre_todo_el_delta(tmp_path: Path) -> None:
+    """Cada requisito ADDED o MODIFIED y cada escenario del delta aparece en test-spec.md."""
+    folder = _change(tmp_path)
+    text = TEST_SPEC.replace("| T-2 | S-2, CAP-demo-FR-2 | unit | error | pytest -k error |\n", "")
+    _write(folder, "test-spec.md", text.replace("- CAP-demo-FR-2, S-2: T-2\n", ""))
+    messages = _messages(speclint.lint_path(folder))
+    assert "S-2 from spec.md is not covered in test-spec.md" in messages
+    assert "CAP-demo-FR-2 from spec.md is not covered in test-spec.md" in messages
+
+
+def test_lo_removido_no_necesita_tests(tmp_path: Path) -> None:
+    folder = _change(tmp_path)
+    removed = "\n## REMOVED Requirements\n\n### CAP-demo-FR-9: Old\nReason: replaced.\n"
+    _write(folder, "spec.md", SPEC + removed)
+    assert speclint.lint_path(folder).ok, _messages(speclint.lint_path(folder))
+
+
+@pytest.mark.parametrize(
+    "verdict",
+    ["ready", "ready: nothing is blocked", "**needs-rework** — S-2 fails", "`blocked` by the build"],
+)
+def test_el_veredicto_es_la_primera_palabra(tmp_path: Path, verdict: str) -> None:
+    """El motivo puede nombrar las otras palabras: cuenta solo la primera."""
+    text = VERIFY.replace("## Verdict\nready", f"## Verdict\n{verdict}")
+    report = speclint.lint_path(_write(tmp_path, "verify-record.md", text))
+    assert report.ok, _messages(report)

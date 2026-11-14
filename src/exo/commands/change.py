@@ -49,7 +49,10 @@ def register_actions(actions: argparse._SubParsersAction) -> None:
         action="append",
         default=[],
         metavar=("FIELD", "JSON"),
-        help=f"append to a list field ({', '.join(changes.LIST_FIELDS)})",
+        help=(
+            f"append to a list field ({', '.join(changes.LIST_FIELDS)}); "
+            "JSON, or @<file> to read it from a file"
+        ),
     )
     rec.add_argument(
         "--set",
@@ -95,6 +98,11 @@ def _new(args: argparse.Namespace) -> int:
 def _parse(pairs: list[list[str]], option: str) -> list[tuple[str, Any]] | str:
     parsed: list[tuple[str, Any]] = []
     for field, raw in pairs:
+        if raw.startswith("@"):
+            try:
+                raw = Path(raw[1:]).read_text(encoding="utf-8-sig")
+            except OSError as exc:
+                return f"{option} {field}: cannot read {raw[1:]} ({exc.strerror or exc})"
         try:
             parsed.append((field, json.loads(raw)))
         except json.JSONDecodeError as exc:

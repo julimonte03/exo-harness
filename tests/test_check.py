@@ -194,3 +194,48 @@ def test_cli_check(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert payload["changes"][0]["tier"] == 1
     assert main(["check", "--project", str(tmp_path), "--change", "zz"]) == 1
     assert "zz" in capsys.readouterr().err
+
+
+def _archive(project: Path, folder: Path) -> Path:
+    target = project / "specs" / "archive" / f"2026-11-14-{folder.name}"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    folder.rename(target)
+    return target
+
+
+def test_un_archivado_nombrado_se_revisa(tmp_path: Path) -> None:
+    """sdd-archive mueve el change antes del PR: el chequeo del PR tiene que seguir viéndolo."""
+    folder = _change(tmp_path, "a", HIGH, {"proposal.md": PROPOSAL})
+    _archive(tmp_path, folder)
+    assert check.check(tmp_path).changes == []
+    result = check.check(tmp_path, names=["a"])
+    assert [c.name for c in result.changes] == ["a"]
+    assert "Tier 3 requires design.md" in _findings(result)
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="requiere git")
+def test_base_revisa_el_change_archivado_en_el_diff(tmp_path: Path) -> None:
+    _git(tmp_path, "init", "-q")
+    _git(tmp_path, "config", "user.email", "test@example.com")
+    _git(tmp_path, "config", "user.name", "Test")
+    (tmp_path / "README.md").write_text("x\n", encoding="utf-8")
+    _git(tmp_path, "add", "-A")
+    _git(tmp_path, "commit", "-q", "-m", "base")
+    folder = _change(tmp_path, "a", LOW, {"proposal.md": PROPOSAL})
+    _archive(tmp_path, folder)
+    result = check.check(tmp_path, base="HEAD")
+    assert [(c.name, c.path) for c in result.changes] == [("a", "specs/archive/2026-11-14-a")]
+    assert result.ok, _findings(result)
+
+
+def test_change_nombrado_lintea_las_capacidades_de_su_delta(tmp_path: Path) -> None:
+    folder = tmp_path / "specs" / "capabilities" / "demo"
+    folder.mkdir(parents=True)
+    (folder / "spec.md").write_text(CAPABILITY.replace("## Purpose\nDo things.\n", "## Purpose\n\n"), encoding="utf-8")
+    other = tmp_path / "specs" / "capabilities" / "otra"
+    other.mkdir(parents=True)
+    (other / "spec.md").write_text("roto\n", encoding="utf-8")
+    _change(tmp_path, "a", MEDIUM, {"proposal.md": PROPOSAL, "spec.md": SPEC, "test-spec.md": TEST_SPEC})
+    result = check.check(tmp_path, names=["a"])
+    assert [path for path, _ in result.capabilities] == ["specs/capabilities/demo/spec.md"]
+    assert any("Purpose" in m for m in _findings(result))
