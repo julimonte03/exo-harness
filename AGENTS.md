@@ -54,7 +54,7 @@ exo p0                      # gate de controles P0 (desde F5)
 
 - Skills con el frontmatter del estándar Agent Skills (`name`, `description`) y lo propio en `metadata` con prefijo `exo-`.
 - `SKILL.md` de hasta 500 líneas; detalle en `references/`.
-- `description` con disparadores explícitos en español e inglés.
+- `description` con disparadores explícitos en inglés (ADR-0011: todo lo que se instala en los proyectos va solo en inglés).
 - No copiar texto de skills de terceros sin licencia compatible y atribución.
 
 ## Git
