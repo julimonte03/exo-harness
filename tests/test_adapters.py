@@ -9,7 +9,14 @@ import pytest
 
 from _projects import FIXTURES, tree
 from exo import _meta, adapters, content
-from exo.adapters.base import AGENTS_SKILLS, CLAUDE_SKILLS, Context, mcp_entry, skills_dirs
+from exo.adapters.base import (
+    AGENTS_SKILLS,
+    CLAUDE_AGENTS,
+    CLAUDE_SKILLS,
+    Context,
+    mcp_entry,
+    skills_dirs,
+)
 from exo.core import config, filemerge, lock, snapshots
 from exo.installer import project
 from exo.installer.bundle import build_bundle
@@ -27,7 +34,9 @@ CASES = [
 
 
 @pytest.mark.parametrize(("case", "fixture", "agents", "mcp"), CASES, ids=[c[0] for c in CASES])
-def test_golden(tmp_path: Path, golden, case: str, fixture: str, agents: list[str], mcp: bool) -> None:
+def test_golden(
+    tmp_path: Path, golden, synthetic_content: Path, case: str, fixture: str, agents: list[str], mcp: bool
+) -> None:
     root = tmp_path / "p"
     FIXTURES[fixture](root)
     result = project.sync(root, agents=agents, mcp=mcp)
@@ -90,7 +99,7 @@ def test_solo_copilot_usa_claude_y_no_pide_permisos(tmp_path: Path) -> None:
     root = tmp_path / "p"
     root.mkdir()
     project.sync(root, agents=["copilot"])
-    assert (root / CLAUDE_SKILLS / "hello-exo" / "SKILL.md").is_file()
+    assert (root / CLAUDE_SKILLS / "memory-protocol" / "SKILL.md").is_file()
     assert (root / ".claude" / "agents" / "sdd-explorer.md").is_file()
     assert not (root / ".claude" / "settings.json").exists()
     assert not (root / AGENTS_SKILLS).exists()
@@ -101,7 +110,7 @@ def test_dueno_compartido_en_el_lock(tmp_path: Path) -> None:
     root.mkdir()
     project.sync(root, agents=["claude-code", "copilot"])
     owners = {e.path: e.owner for e in lock.read(root).files}
-    assert owners[f"{CLAUDE_SKILLS}/hello-exo/SKILL.md"] == "adapter:claude-code,copilot"
+    assert owners[f"{CLAUDE_SKILLS}/memory-protocol/SKILL.md"] == "adapter:claude-code,copilot"
     assert owners[".claude/settings.json"] == "adapter:claude-code"
     assert owners["AGENTS.md"] == "engine"
 
@@ -157,7 +166,7 @@ def test_pack_inexistente_es_error_de_proyecto(tmp_path: Path) -> None:
 def test_nota_para_gemini(tmp_path: Path) -> None:
     result = project.sync(tmp_path, agents=["gemini"])
     assert any("context" in note and "GEMINI.md" in note for note in result.notes)
-    assert (tmp_path / AGENTS_SKILLS / "hello-exo" / "SKILL.md").is_file()
+    assert (tmp_path / AGENTS_SKILLS / "memory-protocol" / "SKILL.md").is_file()
 
 
 def test_adaptadores_son_puros(tmp_path: Path) -> None:
@@ -170,3 +179,20 @@ def test_adaptadores_son_puros(tmp_path: Path) -> None:
     kinds = {type(op) for op in ops}
     assert {MergeBlock, MergeListItem} <= kinds
     assert MergeKey not in kinds
+
+
+def test_el_contenido_real_se_instala_completo(tmp_path: Path) -> None:
+    """Smoke sin golden: cada archivo del contenido real llega a su lugar, sin conflictos."""
+    root = tmp_path / "p"
+    root.mkdir()
+    result = project.sync(root, agents=["claude-code", "copilot"])
+    assert result.engine.conflicts == []
+    bundle = build_bundle(content.content_root(), list(result.packs))
+    assert bundle.skills and bundle.subagents and bundle.shared
+    for skill in bundle.skills:
+        for rel, data in skill.files.items():
+            assert (root / CLAUDE_SKILLS / skill.name / rel).read_bytes() == data, (skill.name, rel)
+    for agent in bundle.subagents:
+        assert (root / CLAUDE_AGENTS / f"{agent.name}.md").read_bytes() == agent.content
+    for rel, data in bundle.shared.items():
+        assert (root / _meta.PROJECT_DIR / "shared" / rel).read_bytes() == data, rel

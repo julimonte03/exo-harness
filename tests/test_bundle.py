@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
+import _content
 from exo import content
 from exo.installer.bundle import build_bundle
 from exo.packs import PackError
+from exo.sdd import speclint
 
 
 def test_bundle_del_contenido_real() -> None:
@@ -14,12 +19,12 @@ def test_bundle_del_contenido_real() -> None:
     assert bundle.packs == ("core", "sdd")
     names = [s.name for s in bundle.skills]
     assert names == sorted(names)
-    assert {"hello-exo", "memory-protocol", "sdd-status"} <= set(names)
+    assert {"memory-protocol", "sdd-status"} <= set(names)
     assert {a.name for a in bundle.subagents} == {"sdd-explorer", "sdd-implementer", "sdd-verifier", "sdd-judge"}
-    skill = next(s for s in bundle.skills if s.name == "hello-exo")
+    skill = next(s for s in bundle.skills if s.name == "memory-protocol")
     assert skill.pack == "core"
-    assert set(skill.files) == {"SKILL.md"}
-    assert skill.files["SKILL.md"] == (content.content_root() / "packs/core/skills/hello-exo/SKILL.md").read_bytes()
+    assert "SKILL.md" in skill.files
+    assert skill.files["SKILL.md"] == (content.content_root() / "packs/core/skills/memory-protocol/SKILL.md").read_bytes()
     assert bundle.rules.startswith("# Project rules")
 
 
@@ -33,3 +38,38 @@ def test_solo_core_no_trae_lo_de_sdd() -> None:
 def test_pack_inexistente() -> None:
     with pytest.raises(PackError, match="does not exist"):
         build_bundle(content.content_root(), ["fantasma"])
+
+
+def test_shared_por_pack(tmp_path: Path) -> None:
+    root = _content.build(tmp_path / "c")
+    solo_core = build_bundle(root, ["core"])
+    assert solo_core.shared == {}
+    con_sdd = build_bundle(root, ["sdd"])
+    assert con_sdd.shared["demo-contract.md"] == _content.CONTRACT.encode()
+    assert json.loads(con_sdd.shared["schemas/demo.schema.json"]) == _content.SCHEMA
+
+
+def test_las_plantillas_de_speclint_van_con_sdd(tmp_path: Path) -> None:
+    root = _content.build(tmp_path / "c")
+    shared = build_bundle(root, ["sdd"]).shared
+    templates = sorted(speclint.TEMPLATES_DIR.glob("*.md"))
+    assert templates
+    for path in templates:
+        assert shared[f"templates/{path.name}"] == path.read_bytes()
+    assert not any(rel.startswith("templates/") for rel in build_bundle(root, ["core"]).shared)
+
+
+def test_dos_packs_con_el_mismo_contrato(tmp_path: Path) -> None:
+    root = _content.build(tmp_path / "c")
+    clash = root / "packs" / "core" / "shared" / "demo-contract.md"
+    clash.parent.mkdir(parents=True)
+    clash.write_bytes(b"# Other\n")
+    with pytest.raises(ValueError, match="demo-contract.md"):
+        build_bundle(root, ["sdd"])
+
+
+def test_shared_en_la_raiz_del_contenido_no_se_instala(tmp_path: Path) -> None:
+    root = _content.build(tmp_path / "c")
+    (root / "shared").mkdir()
+    (root / "shared" / "suelto.md").write_bytes(b"# Loose\n")
+    assert "suelto.md" not in build_bundle(root, ["sdd"]).shared

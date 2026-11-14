@@ -56,6 +56,17 @@ def make_dir_link() -> Callable[[Path, Path], None]:
 
 
 @pytest.fixture
+def synthetic_content(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Apunta el motor a un contenido canónico chico y fijo (`tests/_content.py`)."""
+    import _content
+    from exo import content
+
+    root = _content.build(tmp_path_factory.mktemp("contenido"))
+    monkeypatch.setenv(content.ENV_VAR, str(root))
+    return root
+
+
+@pytest.fixture
 def golden(request: pytest.FixtureRequest) -> Callable[[str, dict[str, bytes]], None]:
     """Compara un árbol de archivos contra tests/golden/<nombre>.json, byte a byte."""
     from _projects import decode_tree, encode_tree
