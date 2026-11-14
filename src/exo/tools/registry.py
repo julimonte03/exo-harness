@@ -35,7 +35,12 @@ __all__ = ["TOOLS", "Context", "InputError", "Tool", "call", "get"]
 DEFAULT_SKILLS_TARGET = ".agents/skills"
 
 
-_CHANGE = {"change_name": {"type": "string", "description": "change name ([PREFIX-123-]slug)"}}
+_CHANGE = {
+    "change_name": {
+        "type": "string",
+        "description": "change name, such as add-login or PROJ-123-add-login",
+    }
+}
 
 
 # -- skills -------------------------------------------------------------------

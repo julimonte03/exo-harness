@@ -70,6 +70,22 @@ def _by_name(project: Path) -> dict[str, observability.Change]:
     return {c.name: c for c in observability.find_changes(project)}
 
 
+def test_epicas_por_estructura_con_cualquier_patron(tmp_path: Path) -> None:
+    """ADR-0012/D-26: la épica es la carpeta sin artefactos que contiene changes, sin regex de Jira."""
+    root = tmp_path / "specs"
+    _touch(root / "AB-100" / "AB-101-alta" / "proposal.md")
+    _touch(root / "100" / "101-baja" / "ai-usage-record.json", "{}")
+    _touch(root / "PROJ-5" / "proposal.md")  # parece una épica, pero tiene artefactos: es un change
+    (root / "100" / "102-vacio").mkdir()
+    _touch(root / "archive" / "AB-100" / "2026-03-01-AB-103-viejo" / "proposal.md")
+    changes = _by_name(tmp_path)
+    assert changes["AB-101-alta"].epic == "AB-100"
+    assert changes["101-baja"].epic == "100"
+    assert changes["102-vacio"].epic == "100"
+    assert changes["PROJ-5"].epic is None
+    assert (changes["AB-103-viejo"].epic, changes["AB-103-viejo"].archived) == ("AB-100", True)
+
+
 def test_detecta_changes_epicas_y_archivo(tmp_path: Path) -> None:
     _tree(tmp_path)
     changes = _by_name(tmp_path)

@@ -8,7 +8,7 @@ This project uses a governed development engine. The configuration and the skill
 - **Scope:** do only what was asked. Do not refactor outside the scope or delete other people's `TODO`s.
 - **Destructive commands:** ask for confirmation before deleting, overwriting or rewriting history.
 - **Protected branches** (`main`, `master`, `prod`, `production`): never push directly, never use `--force` or `--no-verify`.
-- **Commits:** Conventional Commits. If the project uses a tracker, the user confirms the ticket; do not infer it from the branch.
+- **Commits:** Conventional Commits. If the project has a ticket pattern (`tickets.pattern` in the engine config), the user confirms the ticket; do not infer it from the branch.
 - **Secrets:** never write credentials, tokens or personal data in code, commits or memory.
 
 ## Engine tools

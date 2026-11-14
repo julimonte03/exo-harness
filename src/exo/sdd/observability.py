@@ -9,6 +9,10 @@ presentes, lee `ai-usage-record.json` y `followups.json`, aplica los descartes
 Layout: `<specs_dir>/[<épica>/]<change>/` y
 `<specs_dir>/archive/[<épica>/]YYYY-MM-DD-<change>/`. `capabilities/` (specs
 vivas, F4) y las carpetas que empiezan con `.` o `_` no son changes.
+
+Las épicas se reconocen por estructura y no por el formato de su nombre, porque
+el patrón de los tickets es de cada proyecto (ADR-0012): una carpeta sin
+artefactos de change que contiene subcarpetas es una épica.
 """
 
 from __future__ import annotations
@@ -49,7 +53,6 @@ ARTIFACT_ORDER = (
     FOLLOWUPS,
 )
 FOLLOWUP_STATUSES = ("open", "dismissed", "all")
-_EPIC = re.compile(r"^[A-Z][A-Z0-9]*-\d+$")
 _ARCHIVED = re.compile(r"^(\d{4}-\d{2}-\d{2})-(.+)$")
 _CHECKED = re.compile(r"^\s*[-*+]\s+\[[xX]\]", re.MULTILINE)
 
@@ -107,12 +110,18 @@ def _children(folder: Path) -> list[Path]:
     return [p for p in sorted(folder.iterdir()) if p.is_dir() and p.name[0] not in "._"]
 
 
+def _is_epic(folder: Path) -> bool:
+    if any((folder / artifact).is_file() for artifact in ARTIFACT_ORDER):
+        return False
+    return bool(_children(folder))
+
+
 def _walk(project: Path, root: Path, archived: bool) -> list[Change]:
     found: list[Change] = []
     for entry in _children(root):
         if not archived and entry.name in (ARCHIVE, CAPABILITIES):
             continue
-        if _EPIC.match(entry.name):
+        if _is_epic(entry):
             found.extend(
                 _change(project, child, entry.name, archived) for child in _children(entry)
             )

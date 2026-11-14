@@ -158,14 +158,15 @@ def _answers(monkeypatch: pytest.MonkeyPatch, *answers: str) -> None:
 def test_wizard_interactivo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     found = [Detection("copilot", 2, ("file .github/copilot-instructions.md",))]
     monkeypatch.setattr(detect, "detect", lambda project, env=None, which=None: found)
-    _answers(monkeypatch, "", "", "jira", "PROJ", "y")
+    _answers(monkeypatch, "", "", r"[A-Z][A-Z0-9]*-\d+", "", "y")
     assert main(["init", "--project", str(tmp_path)]) == 0
     out = capsys.readouterr().out
     assert "[x] copilot" in out
     assert "About to apply" in out
+    assert "#123" in out  # las sugerencias de ADR-0012
     cfg = config.load(tmp_path).config
     assert cfg["agents"] == ["copilot"]
-    assert cfg["tracker"] == {"type": "jira", "prefix": "PROJ", "prefixes": []}
+    assert cfg["tickets"] == {"pattern": r"[A-Z][A-Z0-9]*-\d+", "example": "PROJ-123"}
 
 
 def test_wizard_cancelado_no_escribe(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
@@ -233,9 +234,23 @@ def test_config_rota_aborta_sin_tocar_nada(tmp_path: Path, broken: str, capsys: 
 
 
 def test_config_invalida_por_flags_no_escribe_nada(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert _init(tmp_path, "--tracker", "jira", "--prefix", "proj") == 1
-    assert "tracker.prefix" in capsys.readouterr().err
+    assert _init(tmp_path, "--ticket-pattern", "(") == 1
+    assert "tickets.pattern" in capsys.readouterr().err
     assert list(tmp_path.iterdir()) == []
+
+
+def test_flags_de_tickets(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert _init(tmp_path, "--ticket-pattern", r"#\d+") == 0
+    assert config.load(tmp_path).config["tickets"] == {"pattern": r"#\d+", "example": "#123"}
+    assert _init(tmp_path, "--ticket-pattern", r"OPS-\d+", "--ticket-example", "OPS-7") == 0
+    assert config.load(tmp_path).config["tickets"] == {"pattern": r"OPS-\d+", "example": "OPS-7"}
+    assert _init(tmp_path, "--ticket-pattern", r"T\d+") == 0
+    assert config.load(tmp_path).config["tickets"] == {"pattern": r"T\d+", "example": None}
+    assert _init(tmp_path, "--ticket-pattern", "") == 0
+    assert config.load(tmp_path).config["tickets"] == {"pattern": None, "example": None}
+    capsys.readouterr()
+    assert _init(tmp_path, "--ticket-example", "X-1") == 2
+    assert "--ticket-pattern" in capsys.readouterr().err
 
 
 def test_sync_no_reescribe_la_config_del_humano(tmp_path: Path) -> None:
@@ -259,12 +274,12 @@ def test_la_config_y_el_lock_van_en_el_snapshot(tmp_path: Path) -> None:
         assert archive.files[f"{_meta.PROJECT_DIR}/{name}"][0] == data
 
 
-def test_wizard_normaliza_y_repregunta_el_tracker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    _answers(monkeypatch, "claude-code", "", "Trello", "Jira", "1x", "proj", "y")
+def test_wizard_repregunta_el_patron_y_el_ejemplo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    _answers(monkeypatch, "claude-code", "", "(", r"#\d+", "PROJ-1", "#9", "y")
     assert main(["init", "--project", str(tmp_path)]) == 0
     out = capsys.readouterr().out
     assert out.count("invalid value") == 2
-    assert config.load(tmp_path).config["tracker"] == {"type": "jira", "prefix": "PROJ", "prefixes": []}
+    assert config.load(tmp_path).config["tickets"] == {"pattern": r"#\d+", "example": "#9"}
 
 
 def _romper_marcador(root: Path) -> None:
