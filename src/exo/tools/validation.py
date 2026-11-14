@@ -11,10 +11,10 @@ import re
 from pathlib import Path
 from typing import Any
 
+from exo.core import tickets
+
 SKILL_NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-CHANGE_NAME = re.compile(r"^(?:[A-Z][A-Z0-9]*-\d+-)?[a-z0-9]+(?:-[a-z0-9]+)*$")
 MAX_SKILL_NAME = 64
-MAX_CHANGE_NAME = 100
 
 
 class InputError(ValueError):
@@ -31,10 +31,11 @@ def validate_skill_name(value: Any) -> str:
 
 
 def validate_change_name(value: Any) -> str:
-    if not isinstance(value, str) or not CHANGE_NAME.match(value) or len(value) > MAX_CHANGE_NAME:
+    """Nombre de carpeta seguro: el ticket normalizado puede tener mayúsculas o dígitos (D-26)."""
+    if not tickets.is_segment(value):
         raise InputError(
-            f"invalid change name: {value!r} (format [PREFIX-123-]kebab-case-slug, "
-            f"up to {MAX_CHANGE_NAME} characters)"
+            f"invalid change name: {value!r} (letters, digits and single hyphens, such as "
+            f"PROJ-123-add-login or add-login; up to {tickets.MAX_CHANGE_NAME} characters)"
         )
     return value
 

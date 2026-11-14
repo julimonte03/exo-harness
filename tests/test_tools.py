@@ -45,14 +45,16 @@ def test_skill_name_invalido(bad: object) -> None:
         validate_skill_name(bad)
 
 
-@pytest.mark.parametrize("ok", ["login", "PROJ-123-login-flow", "AB1-9-x"])
+@pytest.mark.parametrize(
+    "ok", ["login", "PROJ-123-login-flow", "AB1-9-x", "123-add-login", "AB-123-x", "PROJ-123"]
+)
 def test_change_name_valido(ok: str) -> None:
     assert validate_change_name(ok) == ok
 
 
 @pytest.mark.parametrize(
     "bad",
-    ["../x", "a/b", "a\\b", "..", "PROJ-123", "Login", "a b", "a" * 101, "", None, ["x"]],
+    ["../x", "a/b", "a\\b", "..", "a--b", "-a", "a-", "#123-x", "a b", "a" * 101, "", None, ["x"]],
 )
 def test_change_name_invalido(bad: object) -> None:
     with pytest.raises(InputError):
