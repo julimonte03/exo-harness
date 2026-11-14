@@ -48,7 +48,7 @@ def schema(properties: dict[str, Any] | None = None, required: list[str] | None 
     return result
 
 
-CWD = {"cwd": {"type": "string", "description": "directorio del proyecto, dentro de la raíz"}}
+CWD = {"cwd": {"type": "string", "description": "project directory, inside the root"}}
 
 
 def project_dir(context: Context, args: dict[str, Any]) -> Path:

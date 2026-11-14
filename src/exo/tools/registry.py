@@ -35,9 +35,7 @@ __all__ = ["TOOLS", "Context", "InputError", "Tool", "call", "get"]
 DEFAULT_SKILLS_TARGET = ".agents/skills"
 
 
-_CHANGE = {
-    "change_name": {"type": "string", "description": "nombre del change ([PREFIJO-123-]slug)"}
-}
+_CHANGE = {"change_name": {"type": "string", "description": "change name ([PREFIX-123-]slug)"}}
 
 
 # -- skills -------------------------------------------------------------------
@@ -61,7 +59,7 @@ def _skills_list(context: Context, args: dict[str, Any]) -> dict[str, Any]:
     root, collection = _collection()
     pack = args.get("pack")
     if pack is not None and pack not in collection.packs:
-        raise InputError(f"no existe el pack {pack!r}")
+        raise InputError(f"pack {pack!r} not found")
     skills = [s for s in collection.skills if pack is None or s.pack == pack]
     return {"skills": [_skill_summary(s, root) for s in sorted(skills, key=lambda s: s.name)]}
 
@@ -71,7 +69,7 @@ def _skill_info(context: Context, args: dict[str, Any]) -> dict[str, Any]:
     root, collection = _collection()
     skill = next((s for s in collection.skills if s.name == name), None)
     if skill is None:
-        raise InputError(f"no existe la skill {name!r}")
+        raise InputError(f"skill {name!r} not found")
     data, body = frontmatter.parse((skill.path / packs.SKILL_FILE).read_text(encoding="utf-8"))
     files = [p.relative_to(skill.path).as_posix() for p in fsutil.walk_files(skill.path)]
     return {
@@ -168,28 +166,28 @@ def _get_ai_usage_record(context: Context, args: dict[str, Any]) -> dict[str, An
 TOOLS: tuple[Tool, ...] = (
     Tool(
         "skills_list",
-        "Lista las skills del contenido del motor, opcionalmente de un pack.",
-        _schema({"pack": {"type": "string", "description": "filtra por pack"}}),
+        "Lists the skills in the engine content, optionally from one pack.",
+        _schema({"pack": {"type": "string", "description": "filter by pack"}}),
         _skills_list,
         ("skills", "list"),
     ),
     Tool(
         "skill_info",
-        "Detalle de una skill: frontmatter, metadata y archivos.",
-        _schema({"name": {"type": "string", "description": "nombre de la skill"}}, ["name"]),
+        "Details of a skill: frontmatter, metadata and files.",
+        _schema({"name": {"type": "string", "description": "skill name"}}, ["name"]),
         _skill_info,
         ("skills", "info"),
     ),
     Tool(
         "skills_diff",
-        "Compara las skills del motor con las instaladas en un directorio del proyecto.",
+        "Compares the engine skills with the ones installed in a project directory.",
         _schema(
             {
                 **_CWD,
                 "target": {
                     "type": "string",
                     "description": (
-                        f"directorio de skills relativo al proyecto ({DEFAULT_SKILLS_TARGET})"
+                        f"skills directory relative to the project ({DEFAULT_SKILLS_TARGET})"
                     ),
                 },
             }
@@ -199,23 +197,23 @@ TOOLS: tuple[Tool, ...] = (
     ),
     Tool(
         "list_changes",
-        "Lista los changes SDD del proyecto con su fase (solo lectura).",
+        "Lists the project's SDD changes with their phase (read-only).",
         _schema(
-            {**_CWD, "include_archived": {"type": "boolean", "description": "incluye archive/"}}
+            {**_CWD, "include_archived": {"type": "boolean", "description": "include archive/"}}
         ),
         _list_changes,
         ("change", "list"),
     ),
     Tool(
         "get_change_state",
-        "Estado de un change: fase, artefactos, ticket, atribución y followups (solo lectura).",
+        "State of a change: phase, artifacts, ticket, attribution and followups (read-only).",
         _schema({**_CWD, **_CHANGE}, ["change_name"]),
         _get_change_state,
         ("change", "status"),
     ),
     Tool(
         "get_followups",
-        "Followups de los jueces de un change, filtrados por estado (solo lectura).",
+        "Judge followups of a change, filtered by status (read-only).",
         _schema(
             {
                 **_CWD,
@@ -229,7 +227,7 @@ TOOLS: tuple[Tool, ...] = (
     ),
     Tool(
         "get_ai_usage_record",
-        "AI Usage Record de un change, con ticket y versión de atribución (solo lectura).",
+        "AI Usage Record of a change, with ticket and attribution version (read-only).",
         _schema({**_CWD, **_CHANGE}, ["change_name"]),
         _get_ai_usage_record,
         ("change", "ai-usage"),
@@ -257,4 +255,4 @@ def call(name: str, arguments: Any, context: Context) -> Any:
         # Contenido roto, frontmatter o JSON ilegible, rutas inseguras, disco.
         raise InputError(str(exc)) from exc
     except sqlite3.Error as exc:
-        raise InputError(f"error de la base de memoria: {exc}") from exc
+        raise InputError(f"memory database error: {exc}") from exc

@@ -56,9 +56,9 @@ def _initialize(params: dict[str, Any]) -> dict[str, Any]:
         "capabilities": {"tools": {"listChanged": False}},
         "serverInfo": {"name": _meta.NAME, "version": _meta.VERSION},
         "instructions": (
-            f"Tools de {_meta.DISPLAY_NAME}: skills, estado de changes SDD (solo lectura) y "
-            f"memoria del usuario (mem_*). Cada tool tiene su equivalente en el CLI "
-            f"`{_meta.NAME}`."
+            f"{_meta.DISPLAY_NAME} tools: skills, SDD change state (read-only) and the "
+            f"user's memory (mem_*). Each tool has an equivalent command in the "
+            f"`{_meta.NAME}` CLI."
         ),
     }
 
@@ -77,25 +77,25 @@ def _call_tool(params: dict[str, Any], context: registry.Context) -> dict[str, A
     except InputError as exc:
         return _tool_result(str(exc), is_error=True)
     except Exception as exc:  # una tool nunca tira abajo el servidor
-        log.exception("falló la tool %s", tool.name)
-        return _tool_result(f"error interno en {tool.name}: {exc}", is_error=True)
+        log.exception("tool %s failed", tool.name)
+        return _tool_result(f"internal error in {tool.name}: {exc}", is_error=True)
 
 
 def handle(message: Any, context: registry.Context) -> dict[str, Any] | None:
     """Respuesta a un mensaje, o None si es una notificación."""
     if not isinstance(message, dict) or message.get("jsonrpc") != "2.0":
         msg_id = message.get("id") if isinstance(message, dict) else None
-        return _error(msg_id, INVALID_REQUEST, "se espera un objeto JSON-RPC 2.0")
+        return _error(msg_id, INVALID_REQUEST, "expected a JSON-RPC 2.0 object")
     method = message.get("method")
     msg_id = message.get("id")
     if not isinstance(method, str):
-        return _error(msg_id, INVALID_REQUEST, "falta method")
+        return _error(msg_id, INVALID_REQUEST, "missing method")
     if "id" not in message:
-        log.debug("notificación %s", method)
+        log.debug("notification %s", method)
         return None
     params = message.get("params") or {}
     if not isinstance(params, dict):
-        return _error(msg_id, INVALID_PARAMS, "params tiene que ser un objeto")
+        return _error(msg_id, INVALID_PARAMS, "params must be an object")
     if method == "initialize":
         return _result(msg_id, _initialize(params))
     if method == "ping":
@@ -105,9 +105,9 @@ def handle(message: Any, context: registry.Context) -> dict[str, Any] | None:
     if method == "tools/call":
         result = _call_tool(params, context)
         if result is None:
-            return _error(msg_id, INVALID_PARAMS, f"tool desconocida: {params.get('name')!r}")
+            return _error(msg_id, INVALID_PARAMS, f"unknown tool: {params.get('name')!r}")
         return _result(msg_id, result)
-    return _error(msg_id, METHOD_NOT_FOUND, f"método no soportado: {method}")
+    return _error(msg_id, METHOD_NOT_FOUND, f"method not supported: {method}")
 
 
 def _write(stream: BinaryIO, payload: dict[str, Any]) -> None:
@@ -120,13 +120,13 @@ def _respond(line: bytes, context: registry.Context) -> dict[str, Any] | None:
     try:
         message = json.loads(line.decode("utf-8"))
     except (UnicodeDecodeError, ValueError, RecursionError) as exc:
-        return _error(None, PARSE_ERROR, f"JSON inválido: {exc}")
+        return _error(None, PARSE_ERROR, f"invalid JSON: {exc}")
     try:
         return handle(message, context)
     except Exception as exc:  # el servidor nunca se cae por un mensaje
-        log.exception("error procesando un mensaje")
+        log.exception("error while processing a message")
         msg_id = message.get("id") if isinstance(message, dict) else None
-        return _error(msg_id, INTERNAL_ERROR, f"error interno: {exc}")
+        return _error(msg_id, INTERNAL_ERROR, f"internal error: {exc}")
 
 
 def serve(
@@ -138,7 +138,7 @@ def serve(
     stdin = stdin if stdin is not None else sys.stdin.buffer
     stdout = stdout if stdout is not None else sys.stdout.buffer
     context = registry.Context(Path(project).resolve())
-    log.info("servidor MCP de %s %s en %s", _meta.NAME, _meta.VERSION, context.project)
+    log.info("%s %s MCP server at %s", _meta.NAME, _meta.VERSION, context.project)
     for raw in stdin:
         line = raw.strip()
         if not line:

@@ -116,8 +116,8 @@ class SemanticIndex:
         dims = {len(v) for v in vectors}
         if len(dims) > 1 or (self.dim is not None and dims and dims != {self.dim}):
             raise ProviderError(
-                f"el modelo {self.model_id} devolvió vectores de dimensión {sorted(dims)} y el "
-                f"índice es de {self.dim}; corré `{_meta.NAME} mem reindex`"
+                f"model {self.model_id} returned vectors of dimension {sorted(dims)} but the "
+                f"index uses {self.dim}; run `{_meta.NAME} mem reindex`"
             )
         if dims and self.dim is None:
             self.dim = dims.pop()
