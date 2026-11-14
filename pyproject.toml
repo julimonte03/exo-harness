@@ -41,6 +41,8 @@ packages = ["src/exo"]
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
+# tests/fixtures/ tiene proyectos de prueba con sus propios tests (toy-python): no son de la suite.
+norecursedirs = [".*", "build", "dist", "*.egg", "venv", ".venv", "fixtures"]
 # `pytest` mide cobertura y aplica el umbral de [tool.coverage.report].
 # Para correr un archivo suelto sin umbral: `pytest --no-cov tests/test_x.py`.
 addopts = [
