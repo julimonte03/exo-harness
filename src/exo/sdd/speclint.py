@@ -1,15 +1,18 @@
 """Lint de artefactos SDD contra sus plantillas (`exo/sdd/templates/`).
 
-Tipos (§4.1 del reporte): `functional` (proposal.md y spec.md), `technical`
-(design.md), `test-spec`, `verify-record` y `pr`. Las secciones `##` de cada
-plantilla son obligatorias y no pueden quedar vacías (los comentarios HTML no
-cuentan como contenido). Además:
+Tipos (§4.1 del reporte, más los de ADR-0013): `functional` (proposal.md),
+`delta` (el spec.md de un change), `capability` (la spec viva de una capacidad,
+`capabilities/<cap>/spec.md`), `technical` (design.md), `test-spec`,
+`verify-record` y `pr`. Las secciones `##` de cada plantilla son obligatorias y
+no pueden quedar vacías (los comentarios HTML no cuentan como contenido), salvo
+en el delta, donde cada sección es opcional. Además:
 
-- spec.md: IDs `FR-n`, `NFR-n` en Requirements y `S-n` en Scenarios, bien
-  formados y sin repetir; cada escenario con Given, When y Then.
+- delta y capacidad: el formato de `sdd/specs.py` (IDs `CAP-<cap>-FR-n`,
+  escenarios con Given, When y Then, `S-n` solo en el delta).
 - verify-record.md: Verdict `ready|needs-rework|blocked` y marcador de gate.
-- Carpeta de change: cada `S-n` de spec.md aparece en el Test Plan de
-  design.md, y toda referencia a un ID existe en spec.md.
+- Carpeta de change: cada `S-n` del delta aparece en el Test Plan de design.md;
+  cada requisito ADDED o MODIFIED y cada escenario del delta aparecen en
+  test-spec.md; y toda referencia a un ID existe en el delta o en las specs vivas.
 """
 
 from __future__ import annotations
@@ -19,6 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from exo import _meta
+from exo.sdd import specs
 
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 # Nombre de archivo del artefacto -> plantilla.
@@ -32,29 +36,23 @@ ARTIFACTS = {
 }
 KIND_OF = {
     "proposal": "functional",
-    "spec": "functional",
+    "spec": "delta",
+    "capability-spec": "capability",
     "design": "technical",
     "test-spec": "test-spec",
     "verify-record": "verify-record",
     "pr": "pr",
 }
-KINDS = ("functional", "technical", "test-spec", "verify-record", "pr")
+KINDS = ("functional", "delta", "capability", "technical", "test-spec", "verify-record", "pr")
 VERDICTS = ("ready", "needs-rework", "blocked")
 GATE_MARKER = re.compile(rf"<!--\s*{re.escape(_meta.BLOCK_PREFIX)}-gate:[a-z_]+\s*-->")
 
 _H2 = re.compile(r"^##(?!#)\s+(.+?)\s*#*\s*$")
-_SUBHEADING = re.compile(r"^(#{3,6})\s+(.*)$")
 _FENCE = re.compile(r"^\s*(```|~~~)")
+_VERDICT_WORD = re.compile(r"^[\s*_`]*([A-Za-z-]+)")
 _COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
-_ITEM_TOKEN = re.compile(r"^\s*[-*+]\s+\**\s*([A-Za-z]{1,3}-?[0-9A-Za-z]+)")
-_HEADING_TOKEN = re.compile(r"^#{3,6}\s+\**\s*([A-Za-z]{1,3}-?[0-9A-Za-z]+)")
-_LOOSE_REQ = re.compile(r"^n?fr-?\d+$", re.IGNORECASE)
-_LOOSE_SCENARIO = re.compile(r"^s-?\d+$", re.IGNORECASE)
-_STRICT = {"req": re.compile(r"^N?FR-[1-9]\d*$"), "scenario": re.compile(r"^S-[1-9]\d*$")}
-# Dónde se definen los IDs de cada clase: (token al inicio de línea, forma laxa).
-_DEFINITION = {"req": (_ITEM_TOKEN, _LOOSE_REQ), "scenario": (_HEADING_TOKEN, _LOOSE_SCENARIO)}
-_ID_HINT = "expected for example FR-1, NFR-1, S-1"
-_REFERENCE = re.compile(r"\b((?:N?FR|S)-[1-9]\d*)\b")
+# Un ID de requisito entero o un escenario; `CAP-x-FR-12` no se lee como `FR-12`.
+_REFERENCE = re.compile(rf"\b(CAP-{specs.CAPABILITY_NAME}-N?FR-[1-9]\d*|S-[1-9]\d*)\b")
 
 
 class SpeclintError(ValueError):
@@ -139,83 +137,56 @@ def _check_structure(sections: list[_Section], template: str, errors: list[Issue
             errors.append(Issue(section.line, f"section '{section.title}' is empty"))
 
 
-def _definitions(section: _Section, kind: str, errors: list[Issue]) -> dict[str, int]:
-    pattern, loose = _DEFINITION[kind]
-    strict = _STRICT[kind]
-    found: dict[str, int] = {}
-    in_code = False
-    for number, line in section.body:
-        if _FENCE.match(line):
-            in_code = not in_code
-            continue
-        match = None if in_code else pattern.match(line)
-        if not match or not loose.match(match.group(1)):
-            continue
-        token = match.group(1)
-        if not strict.match(token):
-            errors.append(Issue(number, f"malformed ID: {token} ({_ID_HINT})"))
-        elif token in found:
-            message = f"{token} defined twice (first on line {found[token]})"
-            errors.append(Issue(number, message))
-        else:
-            found[token] = number
-    return found
+_EMPTY_REQUIREMENTS = "section 'Requirements' is empty"
 
 
-def _scenario_blocks(section: _Section) -> dict[str, str]:
-    blocks: dict[str, list[str]] = {}
-    current: str | None = None
-    for _, line in section.body:
-        heading = _SUBHEADING.match(line)
-        if heading:
-            token = _HEADING_TOKEN.match(line)
-            valid = token is not None and _STRICT["scenario"].match(token.group(1))
-            current = token.group(1) if valid else None
-            if current is not None:
-                blocks.setdefault(current, [])
-            continue
-        if current is not None:
-            blocks[current].append(line)
-    return {k: _COMMENT.sub("", "\n".join(v)) for k, v in blocks.items()}
+def verdict(text: str) -> str | None:
+    """La primera palabra de la sección Verdict, si es un veredicto válido."""
+    section = _find(_sections(text), "Verdict")
+    if section is None or not section.text().strip():
+        return None
+    first = next(line for line in section.text().splitlines() if line.strip())
+    match = _VERDICT_WORD.match(first)
+    word = match.group(1).lower() if match else None
+    return word if word in VERDICTS else None
 
 
-def _check_spec(sections: list[_Section], errors: list[Issue]) -> dict[str, int]:
-    defined: dict[str, int] = {}
-    requirements = _find(sections, "Requirements")
-    if requirements is not None:
-        reqs = _definitions(requirements, "req", errors)
-        if not any(token.startswith("FR-") for token in reqs):
-            errors.append(Issue(requirements.line, "no FR-n requirements in 'Requirements'"))
-        defined.update(reqs)
-    scenarios = _find(sections, "Scenarios")
-    if scenarios is not None:
-        found = _definitions(scenarios, "scenario", errors)
-        if not found:
-            errors.append(Issue(scenarios.line, "no S-n scenarios in 'Scenarios'"))
-        for token, body in _scenario_blocks(scenarios).items():
-            for word in ("Given", "When", "Then"):
-                if not re.search(rf"\b{word}\b", body, re.IGNORECASE):
-                    line = found.get(token, scenarios.line)
-                    errors.append(Issue(line, f"{token} has no {word}"))
-        defined.update(found)
-    return defined
+def _check_delta(text: str, errors: list[Issue]) -> dict[str, int]:
+    delta = specs.parse_delta(text)
+    errors.extend(Issue(p.line, p.message) for p in delta.problems)
+    return {**delta.ids(), **delta.scenarios}
+
+
+def _check_capability(text: str, name: str, errors: list[Issue]) -> dict[str, int]:
+    cap = specs.parse_capability(text, name)
+    errors.extend(Issue(p.line, p.message) for p in cap.problems)
+    return {block.id: block.line for block in cap.requirements.values()}
 
 
 def _check_verify(sections: list[_Section], errors: list[Issue]) -> None:
-    verdict = _find(sections, "Verdict")
-    if verdict is not None and verdict.text().strip():
-        words = set(re.findall(r"[a-z-]+", verdict.text().lower()))
-        if len(words & set(VERDICTS)) != 1:
-            message = "Verdict must be ready, needs-rework or blocked"
-            errors.append(Issue(verdict.line, message))
+    section = _find(sections, "Verdict")
+    if section is not None and section.text().strip():
+        text = "\n".join(f"## {s.title}\n{s.text(comments=True)}" for s in sections)
+        if verdict(text) is None:
+            message = (
+                "Verdict must be ready, needs-rework or blocked (the first word of the section; "
+                "the reason can follow)"
+            )
+            errors.append(Issue(section.line, message))
     gate = _find(sections, "Gate summary")
     if gate is not None and not GATE_MARKER.search(gate.text(comments=True)):
         marker = f"<!-- {_meta.BLOCK_PREFIX}-gate:<gate> -->"
         errors.append(Issue(gate.line, f"missing gate marker ({marker}) in 'Gate summary'"))
 
 
+def _is_capability(path: Path) -> bool:
+    return path.name == specs.SPEC_FILE and path.parent.parent.name == specs.CAPABILITIES
+
+
 def _template_for(path: Path, kind: str | None) -> str:
     if kind is None:
+        if _is_capability(path):
+            return "capability-spec"
         template = ARTIFACTS.get(path.name)
         if template is None:
             raise SpeclintError(
@@ -224,19 +195,23 @@ def _template_for(path: Path, kind: str | None) -> str:
         return template
     if kind not in KINDS:
         raise SpeclintError(f"unknown type: {kind!r} (one of {', '.join(KINDS)})")
-    if kind == "functional":
-        return "proposal" if "proposal" in path.name else "spec"
     return next(t for t, k in KIND_OF.items() if k == kind)
 
 
 def _lint_file(path: Path, template: str) -> tuple[FileReport, list[_Section], dict[str, int]]:
-    text = path.read_text(encoding="utf-8")
+    text = path.read_text(encoding="utf-8-sig")
     sections = _sections(text)
     report = FileReport(path, KIND_OF[template], template)
-    _check_structure(sections, template, report.errors)
     defined: dict[str, int] = {}
     if template == "spec":
-        defined = _check_spec(sections, report.errors)
+        defined = _check_delta(text, report.errors)
+    else:
+        _check_structure(sections, template, report.errors)
+    if template == "capability-spec":
+        defined = _check_capability(text, path.parent.name, report.errors)
+        if specs.parse_capability(text, path.parent.name).removed:
+            # Todos los requisitos se borraron: quedan las lápidas, y vale.
+            report.errors = [e for e in report.errors if e.message != _EMPTY_REQUIREMENTS]
     elif template == "verify-record":
         _check_verify(sections, report.errors)
     return report, sections, defined
@@ -248,7 +223,8 @@ def _lint_file(path: Path, template: str) -> tuple[FileReport, list[_Section], d
 def _references(path: Path) -> list[tuple[int, str]]:
     refs: list[tuple[int, str]] = []
     in_code = False
-    text = _COMMENT.sub(lambda m: "\n" * m.group(0).count("\n"), path.read_text(encoding="utf-8"))
+    raw = path.read_text(encoding="utf-8-sig")
+    text = _COMMENT.sub(lambda m: "\n" * m.group(0).count("\n"), raw)
     for number, line in enumerate(text.splitlines(), start=1):
         if _FENCE.match(line):
             in_code = not in_code
@@ -258,19 +234,54 @@ def _references(path: Path) -> list[tuple[int, str]]:
     return refs
 
 
-def _cross_check(reports: dict[str, tuple[FileReport, list[_Section], dict[str, int]]]) -> None:
+def _living_ids(change: Path) -> set[str]:
+    """IDs vigentes en `capabilities/`, buscando hacia arriba desde el change (épica, archive)."""
+    for ancestor in list(change.resolve().parents)[:3]:
+        root = ancestor / specs.CAPABILITIES
+        if root.is_dir():
+            found: set[str] = set()
+            for path in sorted(root.glob(f"*/{specs.SPEC_FILE}")):
+                text = path.read_text(encoding="utf-8-sig", errors="replace")
+                cap = specs.parse_capability(text, path.parent.name)
+                found.update(cap.requirements)
+                found.update(cap.removed)
+            return found
+    return set()
+
+
+def _cross_check(
+    folder: Path, reports: dict[str, tuple[FileReport, list[_Section], dict[str, int]]]
+) -> None:
     if "spec.md" not in reports:
         return
     defined = reports["spec.md"][2]
+    living: set[str] | None = None
     for name in ("design.md", "test-spec.md", "verify-record.md"):
         if name not in reports:
             continue
         report = reports[name][0]
         seen: set[str] = set()
         for number, token in _references(report.path):
-            if token not in defined and token not in seen:
-                seen.add(token)
+            if token in defined or token in seen:
+                continue
+            seen.add(token)
+            if token.startswith("CAP-"):
+                if living is None:
+                    living = _living_ids(folder)
+                if token not in living:
+                    message = f"{token} is not defined in spec.md nor in the living specs"
+                    report.errors.append(Issue(number, message))
+            else:
                 report.errors.append(Issue(number, f"{token} is not defined in spec.md"))
+    if "test-spec.md" in reports:
+        report = reports["test-spec.md"][0]
+        mentioned = {token for _, token in _references(report.path)}
+        delta = specs.parse_delta((folder / "spec.md").read_text(encoding="utf-8-sig"))
+        covered = [b.id for b in (*delta.added, *delta.modified)] + list(delta.scenarios)
+        for token in covered:
+            if token not in mentioned:
+                message = f"{token} from spec.md is not covered in test-spec.md"
+                report.errors.append(Issue(1, message))
     if "design.md" in reports:
         report, sections, _ = reports["design.md"]
         plan = _find(sections, "Test Plan")
@@ -290,8 +301,8 @@ def lint_path(path: Path, kind: str | None = None) -> LintReport:
         report, _, _ = _lint_file(path, _template_for(path, kind))
         return LintReport([report])
     reports = {
-        name: _lint_file(path / name, template)
-        for name, template in ARTIFACTS.items()
+        name: _lint_file(path / name, _template_for(path / name, None))
+        for name in ARTIFACTS
         if (path / name).is_file()
     }
     if not reports:
@@ -300,5 +311,5 @@ def lint_path(path: Path, kind: str | None = None) -> LintReport:
             Issue(0, f"no SDD artifacts in {path} ({', '.join(ARTIFACTS)})")
         )
         return LintReport([empty])
-    _cross_check(reports)
+    _cross_check(path, reports)
     return LintReport([entry[0] for entry in reports.values()])

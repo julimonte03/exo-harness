@@ -40,4 +40,5 @@ El default de D-09 era elegir en el wizard un tracker de una lista (`jira`, `git
 ## Consecuencias
 
 - F4 implementa la validación del ID y la pregunta única por ticket (§6.5 del reporte) con el patrón del proyecto.
+- **Nombres de cambio y épica** (D-26): el ID va normalizado. Todo carácter que no sea letra, dígito o guion pasa a guion (`AB#123` → `AB-123`). El ID exacto queda en el AI Usage Record.
 - F5 usa el mismo patrón en los gates de commit. Cualquier mención a un tracker concreto en el plan se lee como un ejemplo de patrón.

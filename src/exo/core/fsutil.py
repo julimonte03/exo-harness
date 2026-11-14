@@ -215,3 +215,21 @@ def resolve_within(root: Path, raw: str | PurePath) -> Path:
     if not candidate.is_relative_to(base):
         raise UnsafePathError(f"the path escapes {base}: {raw!r}")
     return candidate
+
+
+def read_text_auto(path: Path) -> str:
+    """Texto de un archivo que puede venir de otra herramienta: UTF-8 (con o sin BOM) o UTF-16
+    con BOM, que es lo que escribe Windows PowerShell 5.1 con `>` u `Out-File`.
+
+    Cualquier otra codificación es un `ValueError` con qué hacer.
+    """
+    data = read_bytes(Path(path))
+    try:
+        if data.startswith((b"\xff\xfe", b"\xfe\xff")):
+            return data.decode("utf-16")
+        return data.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise ValueError(
+            f"{path} is not UTF-8 or UTF-16 text ({exc.reason}); save it as UTF-8, for example "
+            "with your editor or `Set-Content -Encoding utf8` in PowerShell"
+        ) from exc

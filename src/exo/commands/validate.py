@@ -45,7 +45,7 @@ def run(args: argparse.Namespace) -> int:
     counts = report.counts
     summary = (
         f"content: {counts['packs']} packs, {counts['skills']} skills, "
-        f"{counts['subagents']} subagents"
+        f"{counts['subagents']} subagents, {counts['shared']} shared contracts"
     )
     if report.ok:
         print(f"{summary}: all valid")

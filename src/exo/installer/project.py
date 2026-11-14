@@ -3,7 +3,7 @@
 `sync` es el núcleo de `exo init`, `exo sync`, `exo add-agent` y
 `exo remove-agent`; los comandos solo deciden qué agentes, packs y opciones
 pasarle. La config del proyecto es del humano: solo se escribe cuando el
-comando pide cambiar algo (agentes, packs, MCP o tracker), se valida antes de
+comando pide cambiar algo (agentes, packs, MCP o tickets), se valida antes de
 tocar nada y va en la misma transacción que el resto, con su snapshot. Si la
 config existe pero no se puede usar, se aborta: con los defaults se borraría
 lo de los agentes que tiene configurados.
@@ -94,22 +94,22 @@ def sync(
     agents: Iterable[str] | None = None,
     packs: Iterable[str] | None = None,
     mcp: bool | None = None,
-    tracker: dict[str, Any] | None = None,
+    tickets: dict[str, Any] | None = None,
     claude_md: bool = False,
     force: bool = False,
     dry_run: bool = False,
 ) -> SyncResult:
     project = Path(project).resolve()
     loaded, cfg, base_notes = _base_config(project)
-    explicit = agents is not None or packs is not None or mcp is not None or bool(tracker)
+    explicit = agents is not None or packs is not None or mcp is not None or tickets is not None
     if agents is not None:
         cfg["agents"] = list(agents)
     if packs is not None:
         cfg["packs"] = list(packs)
     if mcp is not None:
         cfg["mcp"]["enabled"] = mcp
-    if tracker:
-        cfg["tracker"].update(tracker)
+    if tickets is not None:
+        cfg["tickets"] = dict(tickets)
     targets = normalize_agents(cfg["agents"])
     try:
         bundle = build_bundle(content.content_root(), list(cfg["packs"] or DEFAULT_PACKS))

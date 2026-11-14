@@ -1,8 +1,8 @@
 """Wizard interactivo de `exo init` (`docs/plan/02-ARQUITECTURA.md` §2.9).
 
 Pasos: agentes detectados (preseleccionados para confirmar), packs sugeridos
-por el stack, tracker y prefijo, y resumen con la lista de archivos para
-confirmar. `ask` y `out` se inyectan para poder probarlo sin terminal.
+por el stack, patrón de los IDs de ticket con su ejemplo (ADR-0012), y resumen
+con la lista de archivos para confirmar. `ask` y `out` se inyectan para poder probarlo sin terminal.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from typing import Any
 
 from exo.adapters import KNOWN_AGENTS
 from exo.adapters.detect import Detection, preselect
-from exo.core import config
+from exo.core import tickets
 from exo.installer.stack import StackReport
 
 Ask = Callable[[str], str]
@@ -29,7 +29,7 @@ def _input(prompt: str) -> str:
 class Choices:
     agents: list[str]
     packs: list[str]
-    tracker: dict[str, Any] = field(default_factory=dict)
+    tickets: dict[str, Any] | None = field(default=None)
 
 
 def _list(answer: str, default: list[str]) -> list[str]:
@@ -67,37 +67,55 @@ def choose(
         out(f"Suggested packs that do not exist yet (coming later): {', '.join(pending)}")
     packs = _list(ask(f"Packs [{', '.join(default_packs)}]: "), default_packs)
 
-    tracker_type = _valid(
-        ask,
-        out,
-        f"Ticket tracker ({'/'.join(config.TRACKERS)}) [none]: ",
-        _tracker_type,
-        f"one of {', '.join(config.TRACKERS)}",
+    out("Ticket IDs: a regular expression for this project's ticket IDs; empty for no tickets.")
+    out("  Suggestions: " + ", ".join(f"{p} ({e})" for p, e in tickets.SUGGESTIONS))
+    pattern = _valid(
+        ask, out, "Ticket pattern [none]: ", _pattern, "a regular expression, or empty"
     )
-    tracker: dict[str, Any] = {"type": tracker_type}
-    if tracker_type != "none":
-        tracker["prefix"] = _valid(
-            ask,
-            out,
-            "Ticket prefix (for example PROJ), empty if none: ",
-            _prefix,
-            "letters and digits, starting with a letter (for example PROJ)",
-        )
-    return Choices(agents, packs, tracker)
+    return Choices(agents, packs, ticket_config(pattern, None, ask=ask, out=out))
 
 
-def _tracker_type(answer: str) -> str:
-    value = answer.lower() or "none"
-    if value not in config.TRACKERS:
-        raise ValueError(value)
-    return value
+def default_example(pattern: str) -> str | None:
+    return next((example for p, example in tickets.SUGGESTIONS if p == pattern), None)
 
 
-def _prefix(answer: str) -> str | None:
-    value = answer.upper()
-    if value and not config.PREFIX.match(value):
-        raise ValueError(value)
-    return value or None
+def ticket_config(
+    pattern: str | None, example: str | None, *, ask: Ask | None = None, out: Out | None = None
+) -> dict[str, Any]:
+    """`{pattern, example}`; sin ejemplo, usa el de la sugerencia o lo pregunta si hay `ask`."""
+    if pattern is None:
+        return {"pattern": None, "example": None}
+    if example is None:
+        example = default_example(pattern)
+        if ask is not None:
+            prompt = f"Example ticket ID [{example}]: " if example else "Example ticket ID: "
+            example = _valid(
+                ask,
+                out or print,
+                prompt,
+                lambda answer: _example(answer or example, pattern),
+                f"an ID that matches {pattern}",
+            )
+    return {"pattern": pattern, "example": example}
+
+
+def _pattern(answer: str) -> str | None:
+    if not answer:
+        return None
+    try:
+        tickets.compile_pattern(answer)
+    except tickets.TicketError as exc:
+        raise ValueError(str(exc)) from exc
+    return answer
+
+
+def _example(answer: str | None, pattern: str) -> str:
+    try:
+        tickets.check_example(pattern, answer)
+    except tickets.TicketError as exc:
+        raise ValueError(str(exc)) from exc
+    assert answer is not None
+    return answer
 
 
 def _valid(ask: Ask, out: Out, prompt: str, parse: Callable[[str], Any], hint: str) -> Any:
@@ -106,8 +124,9 @@ def _valid(ask: Ask, out: Out, prompt: str, parse: Callable[[str], Any], hint: s
         answer = ask(prompt).strip()
         try:
             return parse(answer)
-        except ValueError:
-            out(f"invalid value: {answer!r}; {hint}")
+        except ValueError as exc:
+            detail = f" ({exc})" if str(exc) and str(exc) != answer else ""
+            out(f"invalid value: {answer!r}{detail}; {hint}")
 
 
 def confirm(summary: list[str], *, ask: Ask | None = None, out: Out | None = None) -> bool:
