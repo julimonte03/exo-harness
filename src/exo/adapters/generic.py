@@ -4,7 +4,7 @@
 - Bloque `core` en `.gitignore` para no versionar los backups.
 - Registro de skills del proyecto.
 - `.agents/skills/` solo si algún agente destino la necesita (ADR-0007).
-- Contratos compartidos en la carpeta del motor, si el contenido los trae.
+- Contratos compartidos de los packs instalados (y las plantillas SDD) en la carpeta del motor.
 """
 
 from __future__ import annotations

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from exo import content, packs, registry
 from exo.commands._output import emit_json, error
-from exo.core import fsutil
+from exo.core import fsutil, lock
 
 
 def register(sub: argparse._SubParsersAction) -> None:
@@ -43,6 +43,12 @@ def run(args: argparse.Namespace) -> int:
         print(text, end="")
         return 0
     target = registry.registry_path(args.project)
+    if _installed(args.project, target):
+        return error(
+            f"{target} belongs to the engine installation (it is in the lock); writing it here "
+            "would make the next sync report a conflict. Run `exo sync` to regenerate it, or "
+            "use --stdout to print a registry without writing it"
+        )
     changed = fsutil.write_if_changed(target, text.encode("utf-8"))
     if args.json:
         emit_json(
@@ -58,3 +64,15 @@ def run(args: argparse.Namespace) -> int:
     else:
         print(f"{target}: " + ("updated" if changed else "unchanged"))
     return 0
+
+
+def _installed(project: Path, target: Path) -> bool:
+    """¿El registro es un archivo del motor que el lock del proyecto controla?"""
+    try:
+        data = lock.read(project)
+    except lock.LockError:
+        return True  # ante la duda, no se pisa nada
+    if data is None:
+        return False
+    rel = target.relative_to(project).as_posix()
+    return any(entry.path == rel for entry in data.files)

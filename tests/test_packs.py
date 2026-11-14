@@ -64,7 +64,7 @@ def test_packs_del_motor() -> None:
     assert {"core", "sdd"} <= set(collection.packs)
     assert collection.packs["sdd"].requires == ("core",)
     assert packs.resolve(collection.packs, ["sdd"]) == ["core", "sdd"]
-    assert "hello-exo" in {s.name for s in collection.skills}
+    assert "memory-protocol" in {s.name for s in collection.skills}
     assert collection.duplicates() == {}
 
 

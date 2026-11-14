@@ -36,7 +36,9 @@ def _outside_motor(files: dict[str, bytes]) -> dict[str, bytes]:
     return {k: v for k, v in files.items() if not k.startswith(_meta.PROJECT_DIR)}
 
 
-def test_criterio_2_init_por_cli_igual_al_golden(tmp_path: Path, golden, capsys: pytest.CaptureFixture[str]) -> None:
+def test_criterio_2_init_por_cli_igual_al_golden(
+    tmp_path: Path, golden, synthetic_content: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     root = tmp_path / "p"
     root.mkdir()
     assert _init(root) == 0
@@ -62,13 +64,13 @@ def test_criterio_5_conflicto_y_force(tmp_path: Path, capsys: pytest.CaptureFixt
     root = tmp_path / "p"
     root.mkdir()
     _init(root)
-    skill = root / ".claude" / "skills" / "hello-exo" / "SKILL.md"
+    skill = root / ".claude" / "skills" / "memory-protocol" / "SKILL.md"
     original = skill.read_bytes()
     skill.write_bytes(b"editado a mano\n")
     capsys.readouterr()
     assert main(["sync", "--project", str(root)]) == 1
     out = capsys.readouterr().out
-    assert "conflict: .claude/skills/hello-exo/SKILL.md" in out
+    assert "conflict: .claude/skills/memory-protocol/SKILL.md" in out
     assert "nothing was written" in out
     assert skill.read_bytes() == b"editado a mano\n"
     assert main(["sync", "--project", str(root), "--force"]) == 0
@@ -138,7 +140,7 @@ def test_init_sin_agentes_detectados_instala_la_base(tmp_path: Path, capsys: pyt
     assert main(["init", "--project", str(tmp_path), "--yes"]) == 0
     out = capsys.readouterr().out
     assert "generic base" in out
-    assert (tmp_path / ".agents" / "skills" / "hello-exo" / "SKILL.md").is_file()
+    assert (tmp_path / ".agents" / "skills" / "memory-protocol" / "SKILL.md").is_file()
     assert config.load(tmp_path).config["agents"] == ["generic"]
 
 
@@ -274,13 +276,13 @@ def _romper_marcador(root: Path) -> None:
 def test_force_informa_lo_que_no_pudo_resolver(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     _init(tmp_path)
     _romper_marcador(tmp_path)
-    skill = tmp_path / ".claude" / "skills" / "hello-exo" / "SKILL.md"
+    skill = tmp_path / ".claude" / "skills" / "memory-protocol" / "SKILL.md"
     original = skill.read_bytes()
     skill.write_bytes(b"editado\n")
     capsys.readouterr()
     assert main(["sync", "--project", str(tmp_path), "--force"]) == 1
     out = capsys.readouterr().out
-    assert "forced: .claude/skills/hello-exo/SKILL.md" in out
+    assert "forced: .claude/skills/memory-protocol/SKILL.md" in out
     assert "unresolved: AGENTS.md" in out
     assert skill.read_bytes() == original
     assert main(["uninstall", "--project", str(tmp_path), "--yes", "--force"]) == 1
@@ -290,13 +292,13 @@ def test_force_informa_lo_que_no_pudo_resolver(tmp_path: Path, capsys: pytest.Ca
 
 def test_force_con_dry_run_muestra_lo_que_haria(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     _init(tmp_path)
-    skill = tmp_path / ".claude" / "skills" / "hello-exo" / "SKILL.md"
+    skill = tmp_path / ".claude" / "skills" / "memory-protocol" / "SKILL.md"
     skill.write_bytes(b"editado\n")
     capsys.readouterr()
     assert main(["sync", "--project", str(tmp_path), "--force", "--dry-run"]) == 0
     out = capsys.readouterr().out
     assert "dry-run" in out
-    assert "would force: .claude/skills/hello-exo/SKILL.md" in out
+    assert "would force: .claude/skills/memory-protocol/SKILL.md" in out
     assert skill.read_bytes() == b"editado\n"
 
 
@@ -349,7 +351,7 @@ def test_sin_config_pero_con_lock_usa_lo_del_lock(tmp_path: Path, capsys: pytest
     assert "remove" not in capsys.readouterr().out
     assert main(["add-agent", "copilot", "--project", str(tmp_path)]) == 0
     assert config.load(tmp_path).config["agents"] == ["claude-code", "copilot"]
-    assert (tmp_path / ".claude" / "skills" / "hello-exo" / "SKILL.md").is_file()
+    assert (tmp_path / ".claude" / "skills" / "memory-protocol" / "SKILL.md").is_file()
 
 
 def test_uninstall_no_lista_archivos_del_motor(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

@@ -132,11 +132,11 @@ def test_call_desconocida() -> None:
 def test_tools_de_skills(tmp_path: Path) -> None:
     ctx = registry.Context(tmp_path)
     listed = registry.call("skills_list", {}, ctx)["skills"]
-    assert "hello-exo" in [s["name"] for s in listed]
+    assert "memory-protocol" in [s["name"] for s in listed]
     assert registry.call("skills_list", {"pack": "core"}, ctx)["skills"]
     with pytest.raises(InputError, match="pack"):
         registry.call("skills_list", {"pack": "fantasma"}, ctx)
-    info = registry.call("skill_info", {"name": "hello-exo"}, ctx)
+    info = registry.call("skill_info", {"name": "memory-protocol"}, ctx)
     assert info["pack"] == "core"
     assert "SKILL.md" in info["files"]
     with pytest.raises(InputError, match="not found"):
@@ -147,19 +147,19 @@ def test_tools_de_skills(tmp_path: Path) -> None:
 
 def test_skills_diff(tmp_path: Path) -> None:
     ctx = registry.Context(tmp_path)
-    assert "hello-exo" in registry.call("skills_diff", {}, ctx)["added"]
+    assert "memory-protocol" in registry.call("skills_diff", {}, ctx)["added"]
     target = tmp_path / ".agents" / "skills"
-    installed = target / "hello-exo"
+    installed = target / "memory-protocol"
     installed.mkdir(parents=True)
-    source = registry.call("skill_info", {"name": "hello-exo"}, ctx)
+    source = registry.call("skill_info", {"name": "memory-protocol"}, ctx)
     from exo import content
 
     skill_md = (content.content_root() / source["path"] / "SKILL.md").read_bytes()
     (installed / "SKILL.md").write_bytes(skill_md)
-    assert "hello-exo" in registry.call("skills_diff", {}, ctx)["unchanged"]
+    assert "memory-protocol" in registry.call("skills_diff", {}, ctx)["unchanged"]
     (installed / "SKILL.md").write_bytes(skill_md + b"\nextra\n")
     changed = registry.call("skills_diff", {}, ctx)["changed"]
-    assert changed == [{"name": "hello-exo", "files": ["SKILL.md"]}]
+    assert changed == [{"name": "memory-protocol", "files": ["SKILL.md"]}]
     (target / "propia").mkdir()
     (target / "propia" / "SKILL.md").write_text("---\nname: propia\ndescription: x\n---\n", encoding="utf-8")
     assert registry.call("skills_diff", {}, ctx)["removed"] == ["propia"]
@@ -188,11 +188,11 @@ def test_tools_de_observabilidad(tmp_path: Path) -> None:
 def test_cli_skills_y_change(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     project = str(_project(tmp_path))
     assert main(["skills", "list"]) == 0
-    assert "hello-exo" in capsys.readouterr().out
-    assert main(["skills", "info", "hello-exo", "--json"]) == 0
-    assert json.loads(capsys.readouterr().out)["name"] == "hello-exo"
+    assert "memory-protocol" in capsys.readouterr().out
+    assert main(["skills", "info", "memory-protocol", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["name"] == "memory-protocol"
     assert main(["skills", "diff", "--project", project]) == 0
-    assert "added\thello-exo" in capsys.readouterr().out
+    assert "added\tmemory-protocol" in capsys.readouterr().out
     assert main(["change", "list", "--project", project]) == 0
     assert "PROJ-1-login\tpropose\tactive" in capsys.readouterr().out
     assert main(["change", "status", "PROJ-1-login", "--project", project]) == 0
