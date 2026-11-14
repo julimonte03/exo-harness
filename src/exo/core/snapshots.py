@@ -105,7 +105,7 @@ def _collect(project: Path, roots: list[str]) -> tuple[dict, dict[str, Path]]:
                     continue
                 name = item.relative_to(project).as_posix()
                 if "\\" in name:
-                    raise SnapshotError(f"{name}: nombre con '\\' no soportado en un snapshot")
+                    raise SnapshotError(f"{name}: names with '\\' are not supported in a snapshot")
                 files[name] = item
         elif target.is_file():
             files[root] = target
@@ -160,21 +160,21 @@ def _read_members(tar: tarfile.TarFile) -> Archive:
     for member in tar.getmembers():
         if not member.isreg():
             raise UnsafeArchiveError(
-                f"entrada {member.name!r} de tipo no permitido (solo archivos regulares)"
+                f"entry {member.name!r} has a disallowed type (only regular files)"
             )
         content = tar.extractfile(member).read()
         if member.name == MANIFEST_NAME:
             try:
                 archive.manifest = json.loads(content)
             except json.JSONDecodeError as exc:
-                raise UnsafeArchiveError(f"manifiesto ilegible ({exc})") from exc
+                raise UnsafeArchiveError(f"unreadable manifest ({exc})") from exc
             continue
         try:
             name = str(fsutil.safe_relpath(member.name))
         except fsutil.UnsafePathError as exc:
-            raise UnsafeArchiveError(f"ruta insegura en el backup: {exc}") from exc
+            raise UnsafeArchiveError(f"unsafe path in the backup: {exc}") from exc
         if name in archive.files:
-            raise UnsafeArchiveError(f"ruta repetida en el backup: {name!r}")
+            raise UnsafeArchiveError(f"duplicate path in the backup: {name!r}")
         archive.files[name] = (content, 0o755 if member.mode & 0o111 else 0o644)
     return archive
 
@@ -185,15 +185,15 @@ def read_archive(data: bytes) -> Archive:
         with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tar:
             archive = _read_members(tar)
     except (tarfile.TarError, OSError, EOFError) as exc:
-        raise UnsafeArchiveError(f"no es un tar.gz válido ({exc})") from exc
+        raise UnsafeArchiveError(f"not a valid tar.gz ({exc})") from exc
     manifest = archive.manifest
     if not isinstance(manifest, dict) or manifest.get("schema") != 1:
-        raise UnsafeArchiveError("falta el manifiesto del snapshot o su esquema no es 1")
+        raise UnsafeArchiveError("the snapshot manifest is missing or its schema is not 1")
     try:
         for key in ("roots", "dirs", "absent"):
             manifest[key] = [str(fsutil.safe_relpath(p)) for p in manifest.get(key, [])]
     except fsutil.UnsafePathError as exc:
-        raise UnsafeArchiveError(f"ruta insegura en el manifiesto: {exc}") from exc
+        raise UnsafeArchiveError(f"unsafe path in the manifest: {exc}") from exc
     return archive
 
 
@@ -227,10 +227,10 @@ def list_snapshots(project: Path) -> list[Snapshot]:
 
 def _existing(project: Path, name: str) -> Path:
     if not _NAME.match(name):
-        raise SnapshotError(f"nombre de backup inválido: {name!r}")
+        raise SnapshotError(f"invalid backup name: {name!r}")
     path = backups_dir(project) / name
     if not path.is_file():
-        raise SnapshotError(f"no existe el backup {name!r}; mirá `{_meta.NAME} backups list`")
+        raise SnapshotError(f"backup {name!r} does not exist; see `{_meta.NAME} backups list`")
     return path
 
 
@@ -331,7 +331,7 @@ def restore(project: Path, name: str) -> RestoreResult:
     roots = manifest["roots"]
     outside = [rel for rel in archive.files if not _covered(rel, roots)]
     if outside:
-        raise UnsafeArchiveError(f"el backup tiene archivos fuera de sus raíces: {outside[0]!r}")
+        raise UnsafeArchiveError(f"the backup has files outside its roots: {outside[0]!r}")
     targets = {rel: _target(project, rel) for rel in [*roots, *archive.files]}
     before = snapshot(project, roots, protect=(name,)) if roots else None
     removed: list[str] = []

@@ -87,8 +87,8 @@ def test_puntajes_se_suman_por_categoria_y_ordenan(tmp_path: Path) -> None:
     (tmp_path / ".cursor").mkdir()
     found = _detect(tmp_path, {"CLAUDECODE": "1", "CLAUDE_CODE_ENTRYPOINT": "cli"}, {"claude", "codex"})
     assert [(d.agent, d.score) for d in found] == [("claude-code", 6), ("cursor", 2), ("codex", 1)]
-    assert "variable CLAUDECODE" in found[0].evidence
-    assert "archivo .claude" in found[0].evidence
+    assert "env var CLAUDECODE" in found[0].evidence
+    assert "file .claude" in found[0].evidence
     assert preselect(found) == ["claude-code", "cursor"]
 
 

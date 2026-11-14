@@ -92,7 +92,7 @@ class _Validator:
     def check_packs(self) -> None:
         folder = self.root / "packs"
         if not folder.is_dir():
-            self.error(self.root, 0, "falta la carpeta packs/")
+            self.error(self.root, 0, "missing packs/ folder")
             return
         for pack_dir in sorted(
             p for p in folder.iterdir() if p.is_dir() and not p.name.startswith("_")
@@ -107,12 +107,12 @@ class _Validator:
                     self.error(
                         pack.path / MANIFEST,
                         0,
-                        f"requires {required!r}, que no existe en la colección",
+                        f"requires {required!r}, which is not in the collection",
                     )
             try:
                 resolve({k: v for k, v in self.packs.items()}, [name])
             except PackError as exc:
-                if "ciclo" in str(exc):
+                if "cycle" in str(exc):
                     self.error(pack.path / MANIFEST, 0, str(exc))
 
     # -- skills -------------------------------------------------------------
@@ -128,13 +128,13 @@ class _Validator:
                 if (folder / SKILL_FILE).is_file():
                     self.check_skill(pack, folder)
                 else:
-                    self.warn(folder, 0, f"carpeta de skill sin {SKILL_FILE}; no se instala")
+                    self.warn(folder, 0, f"skill folder without {SKILL_FILE}; it is not installed")
         for name, places in self.skills.items():
             if len(places) > 1:
                 packs = ", ".join(p for p, _ in places)
                 for _, path in places:
                     self.report.errors.append(
-                        Finding(path, 0, f"nombre de skill repetido: {name} (packs {packs})")
+                        Finding(path, 0, f"duplicate skill name: {name} (packs {packs})")
                     )
 
     def check_skill(self, pack: Pack, folder: Path) -> None:
@@ -142,51 +142,51 @@ class _Validator:
         try:
             text = path.read_text(encoding="utf-8")
         except UnicodeDecodeError as exc:
-            self.error(path, 0, f"no es UTF-8 válido ({exc.reason})")
+            self.error(path, 0, f"not valid UTF-8 ({exc.reason})")
             return
         self.check_body(path, text, folder, pack)
         try:
             data, _ = frontmatter.parse(text, strict=True)
         except frontmatter.FrontmatterError as exc:
-            self.error(path, exc.line, f"frontmatter inválido: {exc.message}")
+            self.error(path, exc.line, f"invalid frontmatter: {exc.message}")
             return
         for key in data:
             if key not in STANDARD_FIELDS:
                 self.error(
                     path,
                     0,
-                    f"el campo {key!r} no es del estándar Agent Skills; movelo a metadata con "
-                    "prefijo del motor",
+                    f"field {key!r} is not part of the Agent Skills standard; move it to "
+                    "metadata with the engine prefix",
                 )
         name = data.get("name")
         if not isinstance(name, str) or name != folder.name:
             self.error(
-                path, 0, f"name tiene que ser igual a la carpeta ({folder.name!r}), no {name!r}"
+                path, 0, f"name must match the folder name ({folder.name!r}), not {name!r}"
             )
         if isinstance(name, str):
             if not _NAME.match(name):
                 self.error(
-                    path, 0, f"name {name!r} tiene que ser kebab-case: a-z, 0-9 y guiones simples"
+                    path, 0, f"name {name!r} must be kebab-case: a-z, 0-9 and single hyphens"
                 )
             if len(name) > MAX_NAME:
-                self.error(path, 0, f"name tiene {len(name)} caracteres; el máximo es {MAX_NAME}")
+                self.error(path, 0, f"name has {len(name)} characters; the maximum is {MAX_NAME}")
             self.skills.setdefault(name, []).append((pack.name, self.rel(path)))
         description = data.get("description")
         if not isinstance(description, str) or not description.strip():
-            self.error(path, 0, "falta description (con disparadores en español e inglés)")
+            self.error(path, 0, "missing description (with triggers in English)")
         elif len(description) > MAX_DESCRIPTION:
             self.error(
                 path,
                 0,
-                f"description tiene {len(description)} caracteres; el máximo es {MAX_DESCRIPTION}",
+                f"description has {len(description)} characters; the maximum is {MAX_DESCRIPTION}",
             )
         metadata = data.get("metadata", {})
         if not isinstance(metadata, dict):
-            self.error(path, 0, "metadata tiene que ser un mapa de texto a texto")
+            self.error(path, 0, "metadata must be a mapping of strings to strings")
         else:
             for key, value in metadata.items():
                 if not isinstance(value, str):
-                    self.error(path, 0, f"metadata.{key} tiene que ser texto, no {value!r}")
+                    self.error(path, 0, f"metadata.{key} must be a string, not {value!r}")
         compatibility = data.get("compatibility")
         if compatibility is not None and (
             not isinstance(compatibility, str) or len(compatibility) > MAX_COMPATIBILITY
@@ -194,15 +194,15 @@ class _Validator:
             self.error(
                 path,
                 0,
-                f"compatibility tiene que ser texto de hasta {MAX_COMPATIBILITY} caracteres",
+                f"compatibility must be a string of up to {MAX_COMPATIBILITY} characters",
             )
         lines = len(text.splitlines())
         if lines > MAX_SKILL_LINES:
             self.warn(
                 path,
                 0,
-                f"SKILL.md tiene {lines} líneas, más de {MAX_SKILL_LINES} líneas; "
-                "pasá el detalle a references/",
+                f"SKILL.md has {lines} lines, more than {MAX_SKILL_LINES} lines; "
+                "move the details to references/",
             )
 
     def check_body(self, path: Path, text: str, folder: Path, pack: Pack) -> None:
@@ -217,14 +217,14 @@ class _Validator:
                 self.error(
                     path,
                     number,
-                    f"escape Unicode literal {escape}: escribí el carácter directamente",
+                    f"literal Unicode escape {escape}: write the character directly",
                 )
             for target in _SKILL_REF.findall(line):
                 self.refs.append(_Ref(pack.name, self.rel(path), number, target))
             for cited in _REFERENCE_FILE.findall(line):
                 cited = cited.rstrip(".,;:")
                 if not (folder / cited).is_file():
-                    self.error(path, number, f"cita {cited}, que no existe")
+                    self.error(path, number, f"cites {cited}, which does not exist")
 
     def check_refs(self) -> None:
         for ref in self.refs:
@@ -237,8 +237,8 @@ class _Validator:
                         Finding(
                             ref.source,
                             ref.line,
-                            f"skill:{ref.target} es del pack {owner}, que "
-                            f"{ref.pack} no declara en requires ni optional",
+                            f"skill:{ref.target} belongs to pack {owner}, which "
+                            f"{ref.pack} does not declare in requires or optional",
                         )
                     )
                 continue
@@ -248,13 +248,13 @@ class _Validator:
                     Finding(
                         ref.source,
                         ref.line,
-                        f"skill:{ref.target} no se puede resolver: los packs "
-                        f"opcionales {', '.join(absent)} no están en la colección (degrada inline)",
+                        f"skill:{ref.target} cannot be resolved: the optional packs "
+                        f"{', '.join(absent)} are not in the collection (degrades inline)",
                     )
                 )
             else:
                 self.report.errors.append(
-                    Finding(ref.source, ref.line, f"skill:{ref.target} no existe en la colección")
+                    Finding(ref.source, ref.line, f"skill:{ref.target} is not in the collection")
                 )
 
     # -- subagentes, reglas y secretos --------------------------------------
@@ -266,31 +266,31 @@ class _Validator:
                 try:
                     data, _ = frontmatter.parse(path.read_text(encoding="utf-8"), strict=True)
                 except frontmatter.FrontmatterError as exc:
-                    self.error(path, exc.line, f"frontmatter inválido: {exc.message}")
+                    self.error(path, exc.line, f"invalid frontmatter: {exc.message}")
                     continue
                 except UnicodeDecodeError as exc:
-                    self.error(path, 0, f"no es UTF-8 válido ({exc.reason})")
+                    self.error(path, 0, f"not valid UTF-8 ({exc.reason})")
                     continue
                 name = data.get("name")
                 if not isinstance(name, str) or not name:
-                    self.error(path, 0, "falta name en el subagente")
+                    self.error(path, 0, "subagent is missing name")
                     continue
                 if not isinstance(data.get("description"), str) or not data["description"].strip():
-                    self.error(path, 0, "falta description en el subagente")
+                    self.error(path, 0, "subagent is missing description")
                 self.subagents.setdefault(name, []).append(self.rel(path))
         for name, paths in self.subagents.items():
             if len(paths) > 1:
                 for rel in paths:
-                    self.report.errors.append(Finding(rel, 0, f"subagente repetido: {name}"))
+                    self.report.errors.append(Finding(rel, 0, f"duplicate subagent: {name}"))
 
     def check_rules(self) -> None:
         path = self.root / RULES_FILE
         if not path.is_file():
-            self.error(self.root, 0, f"falta {RULES_FILE.as_posix()}")
+            self.error(self.root, 0, f"missing {RULES_FILE.as_posix()}")
             return
         lines = len(path.read_text(encoding="utf-8").splitlines())
         if lines > MAX_RULE_LINES:
-            self.error(path, 0, f"AGENTS.base.md supera {MAX_RULE_LINES} líneas (tiene {lines})")
+            self.error(path, 0, f"AGENTS.base.md exceeds {MAX_RULE_LINES} lines (has {lines})")
 
     def check_secrets(self) -> None:
         for path in sorted(self.root.rglob("*")):
@@ -298,7 +298,7 @@ class _Validator:
                 continue
             for finding in secrets.scan_text(path.read_text(encoding="utf-8", errors="replace")):
                 self.error(
-                    path, finding.line, f"posible secreto ({finding.kind}): {finding.excerpt}"
+                    path, finding.line, f"possible secret ({finding.kind}): {finding.excerpt}"
                 )
 
     def run(self) -> ValidationReport:

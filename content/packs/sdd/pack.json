@@ -1,7 +1,7 @@
 {
   "name": "sdd",
   "version": "0.1.0",
-  "description": "Desarrollo guiado por especificaciones: ciclo por fases proporcional al riesgo del cambio.",
+  "description": "Spec-driven development: a phased cycle proportional to the risk of the change.",
   "requires": ["core"],
   "optional": ["quality", "security", "frontend", "java"]
 }

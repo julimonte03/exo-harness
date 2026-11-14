@@ -109,8 +109,8 @@ FACTORIES: dict[str, Factory] = {
 def check_remote(name: str, allow_remote: bool) -> None:
     if name in REMOTE and not allow_remote:
         raise ProviderError(
-            f"el proveedor {name} manda el texto de las memorias a un servicio remoto; "
-            f"está deshabilitado salvo que lo pidas explícitamente (--allow-remote en "
+            f"provider {name} sends the memory text to a remote service; "
+            f"it is disabled unless you ask for it explicitly (--allow-remote in "
             f"`{_meta.NAME} mem reindex`)"
         )
 
@@ -124,7 +124,7 @@ def create(name: str, model: str | None = None, *, allow_remote: bool = False) -
     se reutilizan dentro del proceso."""
     name = resolve(name)
     if name == "none" or name not in FACTORIES:
-        raise ProviderError(f"proveedor de embeddings desconocido o vacío: {name!r}")
+        raise ProviderError(f"unknown or empty embeddings provider: {name!r}")
     check_remote(name, allow_remote)
     if name in DEFAULT_MODELS:
         key = (name, model or DEFAULT_MODELS[name])
@@ -165,9 +165,9 @@ def pull(provider: str, model: str | None = None) -> tuple[str, str, Path]:
     """Baja un modelo local a la carpeta de modelos. Devuelve (proveedor, modelo, carpeta)."""
     provider = resolve(provider)
     if provider == "ollama":
-        raise ProviderError("los modelos de Ollama se bajan con `ollama pull <modelo>`")
+        raise ProviderError("Ollama models are downloaded with `ollama pull <model>`")
     if provider not in DEFAULT_MODELS:
-        raise ProviderError(f"el proveedor {provider!r} no tiene modelos para bajar")
+        raise ProviderError(f"provider {provider!r} has no models to download")
     model = model or DEFAULT_MODELS[provider]
     if provider == "static":
         from exo.memory.embeddings.static import pull as download

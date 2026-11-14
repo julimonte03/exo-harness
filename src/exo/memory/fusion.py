@@ -21,7 +21,7 @@ def rrf(
     """Fusiona rankings de ids (el mejor primero). Empates: gana el mejor rango en el primer
     ranking que lo tenga, y después el id menor, para que el orden sea determinista."""
     if weights is not None and len(weights) != len(rankings):
-        raise ValueError("hace falta un peso por ranking")
+        raise ValueError("one weight per ranking is required")
     scores: dict[int, float] = {}
     first_seen: dict[int, tuple[int, int]] = {}
     for index, ranking in enumerate(rankings):

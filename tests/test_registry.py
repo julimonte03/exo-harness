@@ -34,14 +34,14 @@ def test_render_ordenado_y_escapado(tmp_path: Path) -> None:
 
 
 def test_render_vacio(tmp_path: Path) -> None:
-    assert "_No hay skills._" in registry.render([], base=tmp_path)
+    assert "_No skills._" in registry.render([], base=tmp_path)
 
 
 def test_cli_registry_desde_el_contenido(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["registry", "--project", str(tmp_path)]) == 0
     out = tmp_path / _meta.PROJECT_DIR / "skill-registry.md"
     assert "| hello-exo | core |" in out.read_text(encoding="utf-8")
-    assert "actualizado" in capsys.readouterr().out
+    assert "updated" in capsys.readouterr().out
     assert main(["registry", "--project", str(tmp_path), "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["changed"] is False
@@ -64,4 +64,4 @@ def test_cli_registry_desde_skills_instaladas(
 
 def test_cli_registry_from_inexistente(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["registry", "--project", str(tmp_path), "--from", str(tmp_path / "nada")]) == 1
-    assert "no existe" in capsys.readouterr().err
+    assert "does not exist" in capsys.readouterr().err

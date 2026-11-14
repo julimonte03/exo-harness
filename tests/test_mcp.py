@@ -76,7 +76,7 @@ def test_tools_call_ok_y_error_de_dominio(tmp_path: Path) -> None:
         _ctx(tmp_path),
     )
     assert bad["result"]["isError"] is True
-    assert "inválido" in bad["result"]["content"][0]["text"]
+    assert "invalid" in bad["result"]["content"][0]["text"]
 
 
 def test_tool_que_falla_no_tira_el_servidor(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -135,7 +135,7 @@ def test_criterio_5_por_subprocess(tmp_path: Path) -> None:
     assert {"skills_list", "get_change_state", "mem_save"} <= {t["name"] for t in tools}
     assert all("inputSchema" in t and t["inputSchema"]["type"] == "object" for t in tools)
     assert by_id[3]["result"]["isError"] is True
-    assert "inválido" in by_id[3]["result"]["content"][0]["text"], "tiene que rechazarlo S2"
+    assert "invalid" in by_id[3]["result"]["content"][0]["text"], "tiene que rechazarlo S2"
     assert by_id[4]["result"]["isError"] is False
     assert "hello-exo" in by_id[4]["result"]["content"][0]["text"]
 

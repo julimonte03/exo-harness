@@ -48,17 +48,17 @@ def _text(value: str) -> str:
 
 
 def _common(parser: argparse.ArgumentParser, *, project: bool = True) -> None:
-    parser.add_argument("--json", action="store_true", help="salida JSON")
+    parser.add_argument("--json", action="store_true", help="JSON output")
     parser.add_argument(
-        "--cwd", type=Path, default=Path("."), help="directorio desde el que se detecta el proyecto"
+        "--cwd", type=Path, default=Path("."), help="directory the project is detected from"
     )
     if project:
-        parser.add_argument("--project", help="proyecto de la memoria (si falta, se detecta)")
+        parser.add_argument("--project", help="memory project (detected if missing)")
 
 
 def _filters(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--all", action="store_true", help="en todos los proyectos")
-    parser.add_argument("--type", help="filtra por tipo")
+    parser.add_argument("--all", action="store_true", help="across all projects")
+    parser.add_argument("--type", help="filter by type")
     parser.add_argument("--scope", choices=("project", "personal"))
     parser.add_argument("--limit", type=int)
 
@@ -83,7 +83,7 @@ def _run(tool: str, build: Build, printer: Printer) -> Callable[[argparse.Namesp
 
 def _print_hits(result: dict[str, Any]) -> None:
     if result.get("note"):
-        print(f"nota: {result['note']}", file=sys.stderr)
+        print(f"note: {result['note']}", file=sys.stderr)
     items = result.get("results", result.get("observations", []))
     for item in items:
         where = item["project"] or "personal"
@@ -91,32 +91,32 @@ def _print_hits(result: dict[str, Any]) -> None:
         if item.get("preview"):
             print(f"\t{item['preview']}")
     if not items:
-        print("sin resultados")
+        print("no results")
 
 
 def _print_saved(result: dict[str, Any]) -> None:
-    print(f"guardada #{result['id']} ({result['action']})")
+    print(f"saved #{result['id']} ({result['action']})")
     for hit in result.get("similar", []):
-        print(f"parecida: #{hit['id']} {hit['title']} (similitud {hit['score']:.2f})")
+        print(f"similar: #{hit['id']} {hit['title']} (similarity {hit['score']:.2f})")
     if result.get("similar"):
-        print("si es lo mismo, actualizá esa en lugar de tener dos; si se contradicen, preguntá")
+        print("if it is the same, update that one instead of keeping two; if they conflict, ask")
 
 
 def _print_observation(obs: dict[str, Any]) -> None:
     key = f" · {obs['topic_key']}" if obs["topic_key"] else ""
     print(f"#{obs['id']} [{obs['type']}] {obs['title']}{key}")
     where = obs["project"] or "personal"
-    print(f"proyecto: {where} · revisión {obs['revision']} · {obs['updated_at']}")
+    print(f"project: {where} · revision {obs['revision']} · {obs['updated_at']}")
     print()
     print(obs["content"])
 
 
 def _print_session(result: dict[str, Any]) -> None:
     session = result.get("session", result)
-    state = f"cerrada {session['ended_at']}" if session["ended_at"] else "abierta"
-    print(f"sesión #{session['id']} · {session['project']} · {state}")
+    state = f"closed {session['ended_at']}" if session["ended_at"] else "open"
+    print(f"session #{session['id']} · {session['project']} · {state}")
     if session.get("summary"):
-        print(f"resumen: {session['summary']}")
+        print(f"summary: {session['summary']}")
     for obs in result.get("observations", []):
         print(f"  #{obs['id']} [{obs['type']}] {obs['title']}")
 
@@ -124,11 +124,11 @@ def _print_session(result: dict[str, Any]) -> None:
 def _print_projects(result: dict[str, Any]) -> None:
     for info in result["projects"]:
         print(
-            f"{info['name']}\t{info['observations']} observaciones\t{info['sessions']} sesiones"
+            f"{info['name']}\t{info['observations']} observations\t{info['sessions']} sessions"
             f"\t{info['last_activity'] or '-'}"
         )
     if not result["projects"]:
-        print("sin proyectos")
+        print("no projects")
 
 
 def _print_merges(result: dict[str, Any]) -> None:
@@ -136,9 +136,9 @@ def _print_merges(result: dict[str, Any]) -> None:
         for variant in variants:
             print(f"{variant} -> {canon}")
     if not result["merges"]:
-        print("nada para unir")
+        print("nothing to merge")
     elif result["dry_run"]:
-        print("dry-run: no se unió nada")
+        print("dry-run: nothing was merged")
 
 
 def _print_keys(result: dict[str, Any]) -> None:
@@ -165,7 +165,7 @@ def _export(args: argparse.Namespace) -> int:
         return error(str(exc))
     text = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
     count = len(data["observations"])
-    noun = "observación" if count == 1 else "observaciones"
+    noun = "observation" if count == 1 else "observations"
     if args.output is None:
         sys.stdout.flush()
         sys.stdout.buffer.write(text.encode("utf-8"))
@@ -174,17 +174,17 @@ def _export(args: argparse.Namespace) -> int:
     try:
         args.output.write_bytes(text.encode("utf-8"))
     except OSError as exc:
-        return error(f"no se pudo escribir {args.output} ({exc})")
-    print(f"exportadas {count} {noun} a {args.output}", file=sys.stderr)
+        return error(f"could not write {args.output} ({exc})")
+    print(f"exported {count} {noun} to {args.output}", file=sys.stderr)
     return 0
 
 
 def _progress(done: int, total: int) -> None:
-    print(f"vectores: {done}/{total}", file=sys.stderr, flush=True)
+    print(f"vectors: {done}/{total}", file=sys.stderr, flush=True)
 
 
 def _model_pull(args: argparse.Namespace) -> int:
-    print("bajando el modelo (puede tardar)...", file=sys.stderr, flush=True)
+    print("downloading the model (this may take a while)...", file=sys.stderr, flush=True)
     try:
         provider, model, path = embeddings.pull(args.provider, args.model)
     except (ValueError, ImportError, OSError) as exc:
@@ -192,8 +192,8 @@ def _model_pull(args: argparse.Namespace) -> int:
     if args.json:
         emit_json({"provider": provider, "model": model, "path": str(path)})
     else:
-        print(f"listo: {provider}:{model} en {path}")
-        print(f"siguiente paso: `{_meta.NAME} mem reindex --provider {provider}`")
+        print(f"done: {provider}:{model} in {path}")
+        print(f"next step: `{_meta.NAME} mem reindex --provider {provider}`")
     return 0
 
 
@@ -207,15 +207,13 @@ def _model_list(args: argparse.Namespace) -> int:
     for provider, model, path in found:
         print(f"{provider}\t{model}\t{path}")
     if not found:
-        print(f"sin modelos; bajá uno con `{_meta.NAME} mem model pull`")
+        print(f"no models; download one with `{_meta.NAME} mem model pull`")
     return 0
 
 
 def _reindex(args: argparse.Namespace) -> int:
     if args.provider is not None and args.provider not in PROVIDER_CHOICES:
-        return error(
-            f"proveedor desconocido: {args.provider} (uno de {', '.join(PROVIDER_CHOICES)})"
-        )
+        return error(f"unknown provider: {args.provider} (one of {', '.join(PROVIDER_CHOICES)})")
     try:
         with MemoryStore() as store:
             result = store.reindex(
@@ -230,11 +228,11 @@ def _reindex(args: argparse.Namespace) -> int:
         emit_json(vars(result))
         return 0
     semantic = (
-        f"{result.vectors} vectores ({result.provider}:{result.model}, dim {result.dim})"
+        f"{result.vectors} vectors ({result.provider}:{result.model}, dim {result.dim})"
         if result.provider
-        else "sin índice semántico"
+        else "no semantic index"
     )
-    print(f"reindexado: {result.fts} en el índice léxico, {semantic}")
+    print(f"reindexed: {result.fts} in the lexical index, {semantic}")
     return 0
 
 
@@ -256,7 +254,7 @@ def _eval(args: argparse.Namespace) -> int:
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_bytes(text.encode("utf-8"))
-        print(f"reporte: {args.output}", file=sys.stderr)
+        print(f"report: {args.output}", file=sys.stderr)
     if args.json:
         emit_json(report)
     else:
@@ -268,9 +266,9 @@ def _import(args: argparse.Namespace) -> int:
     try:
         data = json.loads(args.file.read_bytes().decode("utf-8-sig"))
     except OSError as exc:
-        return error(f"no se pudo leer {args.file} ({exc})")
+        return error(f"could not read {args.file} ({exc})")
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        return error(f"{args.file} no es JSON válido ({exc})")
+        return error(f"{args.file} is not valid JSON ({exc})")
     try:
         with MemoryStore() as store:
             result = exchange.import_(store, data, project=args.project)
@@ -280,8 +278,8 @@ def _import(args: argparse.Namespace) -> int:
         emit_json(vars(result))
     else:
         print(
-            f"importadas: {result.created} creadas, {result.updated} actualizadas, "
-            f"{result.unchanged} sin cambios, {result.skipped} salteadas (más nuevas acá)"
+            f"imported: {result.created} created, {result.updated} updated, "
+            f"{result.unchanged} unchanged, {result.skipped} skipped (newer here)"
         )
     return 0
 
@@ -292,7 +290,7 @@ def _import(args: argparse.Namespace) -> int:
 def _group(sub: argparse._SubParsersAction, name: str, helptext: str) -> argparse._SubParsersAction:
     group = sub.add_parser(name, help=helptext)
     group.set_defaults(handler=lambda _args: (group.print_help(), 0)[1])
-    return group.add_subparsers(dest=f"{name}_command", metavar="<acción>")
+    return group.add_subparsers(dest=f"{name}_command", metavar="<action>")
 
 
 def _scope_args(a: argparse.Namespace) -> dict[str, Any]:
@@ -300,15 +298,15 @@ def _scope_args(a: argparse.Namespace) -> dict[str, Any]:
 
 
 def register(sub: argparse._SubParsersAction) -> None:
-    mem = _group(sub, "mem", "memoria del usuario: decisiones, bugs y descubrimientos")
+    mem = _group(sub, "mem", "user memory: decisions, bugs and discoveries")
 
-    save = mem.add_parser("save", help="guarda una observación")
+    save = mem.add_parser("save", help="save an observation")
     save.add_argument("--title", required=True)
-    save.add_argument("--content", required=True, help="texto, o - para leerlo de stdin")
+    save.add_argument("--content", required=True, help="text, or - to read it from stdin")
     save.add_argument("--type", help="decision, bugfix, discovery, gotcha, convention…")
-    save.add_argument("--topic-key", help="clave estable: actualiza en lugar de duplicar")
+    save.add_argument("--topic-key", help="stable key: updates instead of duplicating")
     save.add_argument("--scope", choices=("project", "personal"))
-    save.add_argument("--session", type=int, help="id de la sesión")
+    save.add_argument("--session", type=int, help="session id")
     _common(save)
     save.set_defaults(
         handler=_run(
@@ -326,10 +324,10 @@ def register(sub: argparse._SubParsersAction) -> None:
         )
     )
 
-    search = mem.add_parser("search", help="busca (devuelve previews)")
+    search = mem.add_parser("search", help="search (returns previews)")
     search.add_argument("query")
     search.add_argument(
-        "--mode", choices=SEARCH_MODES, help="auto (por defecto): híbrida si hay índice semántico"
+        "--mode", choices=SEARCH_MODES, help="auto (default): hybrid if there is a semantic index"
     )
     _filters(search)
     _common(search)
@@ -341,7 +339,7 @@ def register(sub: argparse._SubParsersAction) -> None:
         )
     )
 
-    listing = mem.add_parser("list", help="observaciones recientes")
+    listing = mem.add_parser("list", help="recent observations")
     _filters(listing)
     listing.add_argument("--offset", type=int)
     _common(listing)
@@ -350,15 +348,15 @@ def register(sub: argparse._SubParsersAction) -> None:
     )
 
     for name, tool, helptext, printer in (
-        ("get", "mem_get", "una observación completa", _print_observation),
-        ("delete", "mem_delete", "borra una observación", lambda r: print(f"borrada #{r['id']}")),
+        ("get", "mem_get", "show a full observation", _print_observation),
+        ("delete", "mem_delete", "delete an observation", lambda r: print(f"deleted #{r['id']}")),
     ):
         parser = mem.add_parser(name, help=helptext)
         parser.add_argument("id", type=int)
         _common(parser, project=False)
         parser.set_defaults(handler=_run(tool, lambda a: {"id": a.id}, printer))
 
-    context = mem.add_parser("context", help="contexto reciente para empezar una sesión")
+    context = mem.add_parser("context", help="recent context to start a session")
     context.add_argument("--limit", type=int)
     _common(context)
     context.set_defaults(
@@ -369,12 +367,12 @@ def register(sub: argparse._SubParsersAction) -> None:
         )
     )
 
-    stats = mem.add_parser("stats", help="estadísticas de la memoria")
+    stats = mem.add_parser("stats", help="memory statistics")
     _common(stats, project=False)
     stats.set_defaults(handler=_run("mem_stats", lambda a: {}, _print_keys))
 
-    session = _group(mem, "session", "sesiones de trabajo")
-    start = session.add_parser("start", help="abre una sesión")
+    session = _group(mem, "session", "work sessions")
+    start = session.add_parser("start", help="open a session")
     start.add_argument("--agent")
     _common(start)
     start.set_defaults(
@@ -382,9 +380,9 @@ def register(sub: argparse._SubParsersAction) -> None:
             "mem_session_start", lambda a: _opt(project=a.project, agent=a.agent), _print_session
         )
     )
-    end = session.add_parser("end", help="cierra una sesión")
+    end = session.add_parser("end", help="close a session")
     end.add_argument("session_id", type=int)
-    end.add_argument("--summary", help="resumen, o - para leerlo de stdin")
+    end.add_argument("--summary", help="summary, or - to read it from stdin")
     _common(end, project=False)
     end.set_defaults(
         handler=_run(
@@ -395,20 +393,20 @@ def register(sub: argparse._SubParsersAction) -> None:
             _print_session,
         )
     )
-    summary = session.add_parser("summary", help="guarda el resumen de la sesión")
-    summary.add_argument("--content", required=True, help="texto, o - para leerlo de stdin")
-    summary.add_argument("--session", type=int, help="id (por defecto, la abierta más reciente)")
+    summary = session.add_parser("summary", help="save the session summary")
+    summary.add_argument("--content", required=True, help="text, or - to read it from stdin")
+    summary.add_argument("--session", type=int, help="id (default: the most recent open one)")
     _common(summary)
     summary.set_defaults(
         handler=_run(
             "mem_session_summary",
             lambda a: _opt(project=a.project, content=_text(a.content), session_id=a.session),
-            lambda r: print(f"resumen guardado en la sesión #{r['session_id']}"),
+            lambda r: print(f"summary saved in session #{r['session_id']}"),
         )
     )
-    show = session.add_parser("show", help="una sesión (por defecto, la más reciente)")
+    show = session.add_parser("show", help="show a session (default: the most recent)")
     show.add_argument("session_id", type=int, nargs="?")
-    show.add_argument("--all", action="store_true", help="la más reciente de cualquier proyecto")
+    show.add_argument("--all", action="store_true", help="the most recent from any project")
     _common(show)
     show.set_defaults(
         handler=_run(
@@ -418,11 +416,11 @@ def register(sub: argparse._SubParsersAction) -> None:
         )
     )
 
-    projects = _group(mem, "projects", "proyectos de la memoria")
-    plist = projects.add_parser("list", help="proyectos con sus cantidades")
+    projects = _group(mem, "projects", "memory projects")
+    plist = projects.add_parser("list", help="projects with their counts")
     _common(plist, project=False)
     plist.set_defaults(handler=_run("mem_projects_list", lambda a: {}, _print_projects))
-    merge = projects.add_parser("merge", help="mueve todo de un proyecto a otro")
+    merge = projects.add_parser("merge", help="move everything from one project to another")
     merge.add_argument("source")
     merge.add_argument("target")
     _common(merge, project=False)
@@ -431,18 +429,18 @@ def register(sub: argparse._SubParsersAction) -> None:
             "mem_projects_merge",
             lambda a: {"source": a.source, "target": a.target},
             lambda r: print(
-                f"{r['source']} -> {r['target']}: {r['moved']} movidas, "
-                f"{r['conflicts']} repetidas (quedó la más reciente), {r['sessions']} sesiones"
+                f"{r['source']} -> {r['target']}: {r['moved']} moved, "
+                f"{r['conflicts']} duplicates (kept the most recent), {r['sessions']} sessions"
             ),
         )
     )
-    consolidate = projects.add_parser("consolidate", help="une variantes del mismo remoto")
+    consolidate = projects.add_parser("consolidate", help="merge variants of the same remote")
     consolidate.add_argument("--dry-run", action="store_true")
     _common(consolidate, project=False)
     consolidate.set_defaults(
         handler=_run("mem_projects_consolidate", lambda a: _opt(dry_run=a.dry_run), _print_merges)
     )
-    detect = projects.add_parser("detect", help="proyecto que se detecta desde --cwd")
+    detect = projects.add_parser("detect", help="show the project detected from --cwd")
     _common(detect, project=False)
     detect.set_defaults(
         handler=_run(
@@ -454,67 +452,68 @@ def register(sub: argparse._SubParsersAction) -> None:
 
     reindex = mem.add_parser(
         "reindex",
-        help="reconstruye los índices desde la base (y cambia el semántico)",
+        help="rebuild the indexes from the database (and change the semantic one)",
         description=(
-            "Sin --provider, rehace el índice léxico y el semántico que ya tiene la base. Con "
-            "--provider, crea o cambia el semántico (local: el mejor instalado; none: lo apaga). "
-            "Los modelos locales se bajan antes con `mem model pull`."
+            "Without --provider, rebuilds the lexical index and the semantic index the database "
+            "already has. With --provider, creates or changes the semantic index (local: the best "
+            "installed one; none: turns it off). Download local models first with "
+            "`mem model pull`."
         ),
     )
-    reindex.add_argument("--provider", help=f"uno de: {', '.join(PROVIDER_CHOICES)}")
-    reindex.add_argument("--model", help="modelo (por defecto, el del proveedor)")
+    reindex.add_argument("--provider", help=f"one of: {', '.join(PROVIDER_CHOICES)}")
+    reindex.add_argument("--model", help="model (default: the provider's)")
     reindex.add_argument(
         "--allow-remote",
         action="store_true",
-        help="permite un proveedor remoto: manda el texto de las memorias afuera",
+        help="allow a remote provider: sends the memory text off this machine",
     )
-    reindex.add_argument("--json", action="store_true", help="salida JSON")
+    reindex.add_argument("--json", action="store_true", help="JSON output")
     reindex.set_defaults(handler=_reindex)
 
-    model = _group(mem, "model", "modelos de embeddings locales")
+    model = _group(mem, "model", "local embedding models")
     pull = model.add_parser(
         "pull",
-        help="baja un modelo (la única forma de bajarlos: nunca se bajan solos)",
-        description="Baja el modelo de Hugging Face a la carpeta de modelos del usuario. "
-        "Después, `mem reindex --provider <proveedor>` crea el índice semántico.",
+        help="download a model (the only way to get one: they are never downloaded on their own)",
+        description="Downloads the model from Hugging Face to the user's models folder. "
+        "Then `mem reindex --provider <provider>` creates the semantic index.",
     )
     pull.add_argument(
         "provider",
         nargs="?",
         default="local",
         choices=("local", "onnx", "static"),
-        help="local (por defecto): el mejor instalado, onnx primero (ADR-0010)",
+        help="local (default): the best installed one, onnx first (ADR-0010)",
     )
-    pull.add_argument("--model", help="modelo (por defecto, el multilingüe del proveedor)")
-    pull.add_argument("--json", action="store_true", help="salida JSON")
+    pull.add_argument("--model", help="model (default: the provider's multilingual one)")
+    pull.add_argument("--json", action="store_true", help="JSON output")
     pull.set_defaults(handler=_model_pull)
-    models = model.add_parser("list", help="modelos bajados")
-    models.add_argument("--json", action="store_true", help="salida JSON")
+    models = model.add_parser("list", help="downloaded models")
+    models.add_argument("--json", action="store_true", help="JSON output")
     models.set_defaults(handler=_model_list)
 
     ev = mem.add_parser(
         "eval",
-        help="(desarrollo) experimento: búsqueda léxica contra híbrida",
-        description="Mide Recall@5, MRR@10, nDCG@10, falsos positivos, latencia, tamaño y "
-        "arranque sobre una base temporal, y aplica la regla de decisión de F3.",
+        help="(development) experiment: lexical vs hybrid search",
+        description="Measures Recall@5, MRR@10, nDCG@10, false positives, latency, size and "
+        "cold start on a temporary database, and applies the F3 decision rule.",
     )
     ev.add_argument("--dataset", type=Path, default=Path("tests/memory_eval"))
-    ev.add_argument("--providers", default="static,onnx", help="separados por coma")
+    ev.add_argument("--providers", default="static,onnx", help="comma-separated")
     ev.add_argument("--latency-size", type=int, default=5000)
-    ev.add_argument("--skip-cost", action="store_true", help="sin tamaño ni arranque en frío")
-    ev.add_argument("--output", type=Path, help="escribe el reporte en Markdown")
-    ev.add_argument("--json", action="store_true", help="salida JSON")
+    ev.add_argument("--skip-cost", action="store_true", help="skip size and cold start")
+    ev.add_argument("--output", type=Path, help="write the report as Markdown")
+    ev.add_argument("--json", action="store_true", help="JSON output")
     ev.set_defaults(handler=_eval)
 
-    export = mem.add_parser("export", help="exporta a JSON (sin redactar)")
-    export.add_argument("--all", action="store_true", help="todos los proyectos y lo personal")
+    export = mem.add_parser("export", help="export to JSON (unredacted)")
+    export.add_argument("--all", action="store_true", help="all projects and personal memories")
     export.add_argument("--scope", choices=("project", "personal"))
-    export.add_argument("--output", type=Path, help="archivo (por defecto, stdout)")
+    export.add_argument("--output", type=Path, help="file (default: stdout)")
     _common(export)
     export.set_defaults(handler=_export)
 
-    imp = mem.add_parser("import", help="importa un export (no pisa lo más nuevo)")
+    imp = mem.add_parser("import", help="import an export (does not overwrite newer data)")
     imp.add_argument("file", type=Path)
-    imp.add_argument("--project", help="importa todo en este proyecto")
-    imp.add_argument("--json", action="store_true", help="salida JSON")
+    imp.add_argument("--project", help="import everything into this project")
+    imp.add_argument("--json", action="store_true", help="JSON output")
     imp.set_defaults(handler=_import)

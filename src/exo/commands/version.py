@@ -9,8 +9,8 @@ from exo.commands._output import emit_json
 
 
 def register(sub: argparse._SubParsersAction) -> None:
-    parser = sub.add_parser("version", help="muestra la versión del motor")
-    parser.add_argument("--json", action="store_true", help="salida JSON")
+    parser = sub.add_parser("version", help="show the engine version")
+    parser.add_argument("--json", action="store_true", help="JSON output")
     parser.set_defaults(handler=run)
 
 

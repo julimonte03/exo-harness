@@ -73,15 +73,15 @@ def test_check_arguments() -> None:
     schema = registry.get("get_followups").input_schema
     assert check_arguments(schema, {"change_name": "x"}) == {"change_name": "x"}
     for bad, fragment in (
-        ([], "objeto"),
-        ({}, "falta"),
-        ({"change_name": 1}, "texto"),
-        ({"change_name": "x", "status": "raro"}, "uno de"),
-        ({"change_name": "x", "otro": 1}, "desconocidos"),
+        ([], "object"),
+        ({}, "missing"),
+        ({"change_name": 1}, "string"),
+        ({"change_name": "x", "status": "raro"}, "one of"),
+        ({"change_name": "x", "otro": 1}, "unknown"),
     ):
         with pytest.raises(InputError, match=fragment):
             check_arguments(schema, bad)
-    with pytest.raises(InputError, match="true o false"):
+    with pytest.raises(InputError, match="true or false"):
         check_arguments(registry.get("list_changes").input_schema, {"include_archived": "si"})
     assert check_arguments(registry.get("list_changes").input_schema, None) == {}
 
@@ -139,7 +139,7 @@ def test_tools_de_skills(tmp_path: Path) -> None:
     info = registry.call("skill_info", {"name": "hello-exo"}, ctx)
     assert info["pack"] == "core"
     assert "SKILL.md" in info["files"]
-    with pytest.raises(InputError, match="no existe"):
+    with pytest.raises(InputError, match="not found"):
         registry.call("skill_info", {"name": "no-hay"}, ctx)
     with pytest.raises(InputError):
         registry.call("skill_info", {"name": "../x"}, ctx)
@@ -176,9 +176,9 @@ def test_tools_de_observabilidad(tmp_path: Path) -> None:
     assert [f["id"] for f in followups["followups"]] == ["J1-1"]
     record = registry.call("get_ai_usage_record", {"change_name": "PROJ-1-login"}, ctx)
     assert record["record"] == {"jira_key": "PROJ-1"}
-    with pytest.raises(InputError, match="no existe"):
+    with pytest.raises(InputError, match="does not exist"):
         registry.call("get_change_state", {"change_name": "otro"}, ctx)
-    with pytest.raises(InputError, match="fuera"):
+    with pytest.raises(InputError, match="outside"):
         registry.call("list_changes", {"cwd": ".."}, ctx)
 
 
@@ -194,7 +194,7 @@ def test_cli_skills_y_change(tmp_path: Path, capsys: pytest.CaptureFixture[str])
     assert main(["skills", "diff", "--project", project]) == 0
     assert "added\thello-exo" in capsys.readouterr().out
     assert main(["change", "list", "--project", project]) == 0
-    assert "PROJ-1-login\tpropose\tactivo" in capsys.readouterr().out
+    assert "PROJ-1-login\tpropose\tactive" in capsys.readouterr().out
     assert main(["change", "status", "PROJ-1-login", "--project", project]) == 0
     assert "ticket_key: PROJ-1" in capsys.readouterr().out
     assert main(["change", "followups", "PROJ-1-login", "--status", "all", "--project", project]) == 0
@@ -202,9 +202,9 @@ def test_cli_skills_y_change(tmp_path: Path, capsys: pytest.CaptureFixture[str])
     assert main(["change", "ai-usage", "PROJ-1-login", "--project", project, "--json"]) == 0
     assert json.loads(capsys.readouterr().out)["ticket_key"] == "PROJ-1"
     assert main(["change", "status", "../x", "--project", project]) == 1
-    assert "inválido" in capsys.readouterr().err
+    assert "invalid" in capsys.readouterr().err
     assert main(["change", "list", "--no-archived", "--project", str(tmp_path / "vacio")]) == 0
-    assert "sin changes" in capsys.readouterr().out
+    assert "no changes" in capsys.readouterr().out
 
 
 def test_cli_grupos_sin_accion(capsys: pytest.CaptureFixture[str]) -> None:

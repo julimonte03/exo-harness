@@ -38,4 +38,4 @@ class SqliteVecBackend:
             sqlite_vec.load(conn)
             conn.enable_load_extension(False)
         except (AttributeError, sqlite3.Error) as exc:
-            raise MemoryStoreError(f"no se pudo cargar sqlite-vec ({exc})") from exc
+            raise MemoryStoreError(f"could not load sqlite-vec ({exc})") from exc

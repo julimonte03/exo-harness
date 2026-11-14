@@ -12,35 +12,38 @@ from exo.core import snapshots
 
 def _project_arg(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
-        "--project", type=Path, default=Path("."), help="raíz del proyecto (por defecto, .)"
+        "--project", type=Path, default=Path("."), help="project root (default: .)"
     )
 
 
 def register(sub: argparse._SubParsersAction) -> None:
-    group = sub.add_parser("backups", help="lista y fija los snapshots del proyecto")
+    group = sub.add_parser("backups", help="list and pin the project snapshots")
     group.set_defaults(handler=lambda _args: (group.print_help(), 0)[1])
-    actions = group.add_subparsers(dest="backups_command", metavar="<acción>")
+    actions = group.add_subparsers(dest="backups_command", metavar="<action>")
 
-    listing = actions.add_parser("list", help="lista los snapshots")
+    listing = actions.add_parser("list", help="list the snapshots")
     _project_arg(listing)
-    listing.add_argument("--json", action="store_true", help="salida JSON")
+    listing.add_argument("--json", action="store_true", help="JSON output")
     listing.set_defaults(handler=_list)
 
-    for verb, helptext in (("pin", "fija un snapshot para que no se pode"), ("unpin", "lo libera")):
+    for verb, helptext in (
+        ("pin", "pin a snapshot so it is never pruned"),
+        ("unpin", "unpin a snapshot"),
+    ):
         parser = actions.add_parser(verb, help=helptext)
-        parser.add_argument("name", help="nombre del snapshot")
+        parser.add_argument("name", help="snapshot name")
         _project_arg(parser)
         parser.set_defaults(handler=_pin if verb == "pin" else _unpin)
 
     restore = sub.add_parser(
         "restore",
-        help="restaura un snapshot (antes guarda el estado actual)",
-        description="Vuelve las rutas del snapshot a su estado. Pisa archivos del proyecto.",
+        help="restore a snapshot (saves the current state first)",
+        description="Returns the snapshot paths to their saved state. Overwrites project files.",
     )
-    restore.add_argument("name", help="nombre del snapshot")
+    restore.add_argument("name", help="snapshot name")
     _project_arg(restore)
-    restore.add_argument("--yes", action="store_true", help="no pedir confirmación")
-    restore.add_argument("--json", action="store_true", help="salida JSON")
+    restore.add_argument("--yes", action="store_true", help="do not ask for confirmation")
+    restore.add_argument("--json", action="store_true", help="JSON output")
     restore.set_defaults(handler=_restore)
 
 
@@ -52,9 +55,9 @@ def _list(args: argparse.Namespace) -> int:
         )
         return 0
     for item in items:
-        print(f"{item.name}\t{item.size} bytes" + ("\tfijado" if item.pinned else ""))
+        print(f"{item.name}\t{item.size} bytes" + ("\tpinned" if item.pinned else ""))
     if not items:
-        print("sin backups")
+        print("no backups")
     return 0
 
 
@@ -63,27 +66,27 @@ def _pin(args: argparse.Namespace) -> int:
         changed = snapshots.pin(args.project, args.name)
     except snapshots.SnapshotError as exc:
         return error(str(exc))
-    print(f"{args.name}: " + ("fijado" if changed else "ya estaba fijado"))
+    print(f"{args.name}: " + ("pinned" if changed else "already pinned"))
     return 0
 
 
 def _unpin(args: argparse.Namespace) -> int:
     changed = snapshots.unpin(args.project, args.name)
-    print(f"{args.name}: " + ("liberado" if changed else "no estaba fijado"))
+    print(f"{args.name}: " + ("unpinned" if changed else "was not pinned"))
     return 0
 
 
 def _confirm(name: str) -> bool:  # pragma: no cover - interactivo
-    answer = input(f"¿Restaurar {name}? Pisa archivos del proyecto [s/N] ")
-    return answer.strip().lower() in ("s", "si", "sí", "y", "yes")
+    answer = input(f"Restore {name}? This overwrites project files [y/N] ")
+    return answer.strip().lower() in ("y", "yes", "s", "si", "sí")
 
 
 def _restore(args: argparse.Namespace) -> int:
     if not args.yes:
         if not sys.stdin.isatty():
-            return usage_error("restore pisa archivos; en modo no interactivo agregá --yes")
+            return usage_error("restore overwrites files; in non-interactive mode add --yes")
         if not _confirm(args.name):  # pragma: no cover - interactivo
-            print("cancelado")
+            print("cancelled")
             return 1
     try:
         result = snapshots.restore(args.project, args.name)
@@ -101,9 +104,9 @@ def _restore(args: argparse.Namespace) -> int:
         )
         return 0
     print(
-        f"restaurado {args.name}: {len(result.restored)} archivos, "
-        f"{len(result.removed)} borrados"
+        f"restored {args.name}: {len(result.restored)} files, "
+        f"{len(result.removed)} removed"
     )
     if before:
-        print(f"estado anterior guardado en {before}")
+        print(f"previous state saved in {before}")
     return 0

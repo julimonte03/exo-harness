@@ -47,7 +47,7 @@ def normalize_agents(agents: Iterable[str]) -> tuple[str, ...]:
     for agent in agents:
         if agent not in adapters.KNOWN_AGENTS:
             known = ", ".join(adapters.KNOWN_AGENTS)
-            raise ProjectError(f"agente desconocido: {agent!r} (conocidos: {known})")
+            raise ProjectError(f"unknown agent: {agent!r} (known: {known})")
         if agent not in chosen:
             chosen.append(agent)
     if len(chosen) > 1 and "generic" in chosen:
@@ -63,8 +63,8 @@ def _base_config(project: Path) -> tuple[config.LoadResult, dict[str, Any], list
     if loaded.fallback or loaded.invalid:
         problems = " | ".join(loaded.invalid or loaded.warnings)
         raise ProjectError(
-            f"{_meta.PROJECT_DIR}/{config.FILENAME} no se puede usar ({problems}). "
-            "Corregila y repetí: con los defaults se borraría lo de tus agentes."
+            f"{_meta.PROJECT_DIR}/{config.FILENAME} cannot be used ({problems}). "
+            "Fix it and retry: with the defaults, your agents' files would be removed."
         )
     cfg = copy.deepcopy(loaded.config)
     notes: list[str] = []
@@ -73,7 +73,8 @@ def _base_config(project: Path) -> tuple[config.LoadResult, dict[str, Any], list
         if previous is not None:
             cfg["agents"], cfg["packs"] = list(previous.agents), list(previous.packs)
             notes.append(
-                f"falta {_meta.PROJECT_DIR}/{config.FILENAME}: se usan los agentes y packs del lock"
+                f"{_meta.PROJECT_DIR}/{config.FILENAME} is missing: "
+                "using the agents and packs from the lock"
             )
     return loaded, cfg, notes
 
@@ -119,7 +120,7 @@ def sync(
         cfg["packs"] = list(bundle.packs)
     normalized, _, invalid = config.validate(cfg)
     if invalid:
-        raise ProjectError("valores inválidos para la config: " + " | ".join(invalid))
+        raise ProjectError("invalid values for the config: " + " | ".join(invalid))
     extra: dict[str, bytes] = {}
     if explicit and (loaded.source is None or normalized != loaded.config):
         extra[f"{_meta.PROJECT_DIR}/{config.FILENAME}"] = config.dumps(normalized)
@@ -186,7 +187,7 @@ def uninstall(project: Path, *, force: bool = False, dry_run: bool = False) -> U
     data = lock.read(project)
     motor_dir = project / _meta.PROJECT_DIR
     if data is None and not motor_dir.exists():
-        raise ProjectError(f"el motor no está instalado en {project}")
+        raise ProjectError(f"the engine is not installed in {project}")
     # Lo que pasa por un link queda fuera del backup; el motor lo informa sin tocarlo.
     roots = sorted({e.path for e in (data.files if data else []) if _safe(project, e.path)})
     if motor_dir.is_dir():
@@ -202,7 +203,7 @@ def uninstall(project: Path, *, force: bool = False, dry_run: bool = False) -> U
     also_removed = _human_files_in(project, motor_dir, data)
     if result.applied and not result.unresolved and motor_dir.is_dir():
         if fsutil.is_link(motor_dir):
-            raise ProjectError(f"{motor_dir} es un link; no se borra")
+            raise ProjectError(f"{motor_dir} is a link; not deleting it")
         shutil.rmtree(motor_dir)
     return UninstallResult(result, backup, also_removed)
 

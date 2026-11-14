@@ -56,16 +56,16 @@ def test_matched_rules_lista_todas_en_orden() -> None:
 @pytest.mark.parametrize(
     ("evidence", "fragment"),
     [
-        (None, "falta la evidencia"),
-        ([1, 2], "objeto"),
-        ({k: v for k, v in ZERO.items() if k != "reversibility"}, "falta reversibility"),
-        ({**ZERO, "blast_radious": 1}, "desconocida: blast_radious"),
-        ({**ZERO, "blast_radius": True}, "entero"),
-        ({**ZERO, "blast_radius": 1.5}, "entero"),
-        ({**ZERO, "blast_radius": "2"}, "entero"),
-        ({**ZERO, "blast_radius": None}, "entero"),
-        ({**ZERO, "blast_radius": -1}, "entre 0 y 3"),
-        ({**ZERO, "blast_radius": 4}, "entre 0 y 3"),
+        (None, "missing evidence"),
+        ([1, 2], "object"),
+        ({k: v for k, v in ZERO.items() if k != "reversibility"}, "missing reversibility"),
+        ({**ZERO, "blast_radious": 1}, "unknown dimension: blast_radious"),
+        ({**ZERO, "blast_radius": True}, "integer"),
+        ({**ZERO, "blast_radius": 1.5}, "integer"),
+        ({**ZERO, "blast_radius": "2"}, "integer"),
+        ({**ZERO, "blast_radius": None}, "integer"),
+        ({**ZERO, "blast_radius": -1}, "between 0 and 3"),
+        ({**ZERO, "blast_radius": 4}, "between 0 and 3"),
     ],
 )
 def test_evidencia_faltante_o_ilegible_da_tier_4(evidence: object, fragment: str) -> None:
@@ -162,7 +162,7 @@ def test_cli_evidencia_rota(capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["fitness", "classify", "--evidence-json", '{"blast_radius": 9}']) == 0
     out = capsys.readouterr().out
     assert "FM-00" in out
-    assert "evidencia" in out
+    assert "evidence" in out
 
 
 def test_cli_fitness_sin_accion(capsys: pytest.CaptureFixture[str]) -> None:

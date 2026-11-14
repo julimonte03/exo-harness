@@ -14,14 +14,14 @@ from exo.commands import COMMANDS
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog=_meta.NAME,
-        description=f"{_meta.DISPLAY_NAME}: motor de desarrollo gobernado por proyecto.",
+        description=f"{_meta.DISPLAY_NAME}: a governed, per-project development engine.",
     )
     parser.add_argument(
         "--version",
         action="version",
         version=f"{_meta.NAME} {_meta.VERSION}",
     )
-    sub = parser.add_subparsers(dest="command", metavar="<comando>")
+    sub = parser.add_subparsers(dest="command", metavar="<command>")
     for register in COMMANDS:
         register(sub)
     return parser
