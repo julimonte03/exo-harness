@@ -166,3 +166,15 @@ def test_la_fachada_de_secrets_sigue_igual() -> None:
 
     [finding] = secrets.scan_text(f"x {AWS}\n{CARD}\n")
     assert (finding.line, finding.kind) == (1, "aws-access-key")
+
+
+def test_una_tira_de_digitos_dentro_de_un_hash_no_es_tarjeta() -> None:
+    """Bug de F5: el hash de un archivo en lock.json bloqueaba el commit de `exo init`."""
+    card = "4977777777777776"  # sintética, pasa Luhn
+    assert [f.kind for f in scan.scan_text(f"card {card}")] == ["card"]
+    for text in (
+        f'"sha256": "a243820deca498e6d753ace61073{card}9bd5b25ea0916770040522a6"',
+        f"id_{card}",
+        f"{card}abc",
+    ):
+        assert scan.scan_text(text) == [], text

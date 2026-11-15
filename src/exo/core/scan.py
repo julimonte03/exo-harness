@@ -188,7 +188,7 @@ _SECRETS = (
 )
 _PII = {
     "card": _Detector(
-        "card", RESTRICTED, re.compile(r"(?<![\d-])(?:\d[ -]?){12,18}\d(?![\d-])"), valid=_luhn
+        "card", RESTRICTED, re.compile(r"(?<![\w-])(?:\d[ -]?){12,18}\d(?![\w-])"), valid=_luhn
     ),
     "iban": _Detector(
         "iban",
