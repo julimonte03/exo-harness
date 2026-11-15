@@ -22,7 +22,7 @@ from typing import Any
 from exo import _meta, adapters, content, paths
 from exo.adapters.base import Context
 from exo.core import config, fsutil, lock, snapshots
-from exo.governance import githooks
+from exo.governance import githooks, hosts
 from exo.installer import engine
 from exo.installer.bundle import build_bundle
 
@@ -96,6 +96,8 @@ def sync(
     packs: Iterable[str] | None = None,
     mcp: bool | None = None,
     tickets: dict[str, Any] | None = None,
+    review: dict[str, Any] | None = None,
+    detect_host: bool = False,
     claude_md: bool = False,
     force: bool = False,
     dry_run: bool = False,
@@ -111,6 +113,16 @@ def sync(
         cfg["mcp"]["enabled"] = mcp
     if tickets is not None:
         cfg["tickets"] = dict(tickets)
+    if review:
+        cfg["review"].update(review)
+        explicit = True
+    host_note = None
+    if detect_host and not cfg["review"].get("host"):
+        detected = hosts.detect(project)
+        if detected:
+            cfg["review"]["host"] = detected
+            explicit = True
+            host_note = detected
     targets = normalize_agents(cfg["agents"])
     try:
         bundle = build_bundle(content.content_root(), list(cfg["packs"] or DEFAULT_PACKS))
@@ -138,6 +150,11 @@ def sync(
     notes = [*base_notes, *loaded.warnings, *adapters.GENERIC.notes(ctx)]
     if result.applied and not dry_run:
         notes += _githooks(project, normalized, result)
+    if host_note and not normalized["review"].get("publish_command"):
+        notes.append(
+            f"the repo lives on {host_note} (review.host); to publish the gates as PR comments, "
+            "set review.publish_command (examples in the ci-and-review contract)"
+        )
     written = result.applied and bool(extra)
     return SyncResult(result, list(targets), list(bundle.packs), notes, written)
 
