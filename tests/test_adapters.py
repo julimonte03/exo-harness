@@ -196,3 +196,13 @@ def test_el_contenido_real_se_instala_completo(tmp_path: Path) -> None:
         assert (root / CLAUDE_AGENTS / f"{agent.name}.md").read_bytes() == agent.content
     for rel, data in bundle.shared.items():
         assert (root / _meta.PROJECT_DIR / "shared" / rel).read_bytes() == data, rel
+
+
+def test_los_packs_por_defecto_que_el_contenido_no_trae_se_saltean(tmp_path: Path, synthetic_content: Path) -> None:
+    """El contenido sintético solo tiene core y sdd: los defaults quality y security no existen ahí."""
+    root = tmp_path / "p"
+    root.mkdir()
+    project.sync(root, agents=["generic"])
+    assert lock.read(root).packs == ["core", "sdd"]
+    with pytest.raises(project.ProjectError, match="quality"):
+        project.sync(tmp_path / "q", agents=["generic"], packs=["core", "quality"])

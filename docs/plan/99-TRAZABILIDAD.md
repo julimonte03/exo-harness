@@ -70,13 +70,13 @@ Destinos: F3, F4, F5, F6, F7 o "CLI" (reemplazada por un comando del runtime). L
 | core | `cognitive-doc-design` | F7 |
 | core | `comment-writer` | F7 |
 | core | `context-config-audit` | F6 |
-| core | `data-classification` | F5 |
+| core | `data-classification` | F5 (pack `security`) |
 | core | `engram-protocol` → `memory-protocol` | F3 |
 | core | `issue-creation` | F7 |
 | core | `knowledge-retrieval` → `context-retrieval` | F4 |
 | core | `parallel-dispatch` | F7 |
-| core | `prompt-hygiene` | F5 |
-| core | `review` | F5 |
+| core | `prompt-hygiene` | F5 (pack `security`) |
+| core | `review` | F5 (pack `quality`) |
 | core | `skill-creator` | F7 |
 | core | `skill-improver` | F7 |
 | core | `skill-registry` | CLI (`arnes registry`, F1) |

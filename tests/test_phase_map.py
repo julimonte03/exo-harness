@@ -23,7 +23,7 @@ Intro with `not-a-skill-mention` outside the map.
 | code | `in-code` | — | — |
 ```
 
-## Skills from packs not installed yet
+## Inline criteria for skills not installed
 
 | Skill | Pack | Inline criteria when missing |
 |---|---|---|
