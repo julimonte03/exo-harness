@@ -231,3 +231,32 @@ def test_cli_fast_y_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> 
     assert main(["check", "--project", str(tmp_path), "--json"]) == 1
     payload = json.loads(capsys.readouterr().out)
     assert payload["config"] == [] and payload["diff"] == []
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="requiere git")
+def test_criterio_5_el_paso_de_ci_da_verde_y_rojo(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """El paso que ponen los ejemplos de CI (`exo check --base main`) en un repo temporal."""
+    _git(tmp_path, "init", "-q", "-b", "main")
+    _git(tmp_path, "config", "user.email", "t@example.com")
+    _git(tmp_path, "config", "user.name", "T")
+    (tmp_path / "README.md").write_text("x\n", encoding="utf-8")
+    _git(tmp_path, "add", "-A")
+    _git(tmp_path, "commit", "-q", "-m", "chore: base")
+
+    _git(tmp_path, "checkout", "-q", "-b", "feat/completo")
+    _change(tmp_path, "completo", MEDIUM, COMPLETE)
+    _git(tmp_path, "add", "-A")
+    _git(tmp_path, "commit", "-q", "-m", "feat: cambio completo")
+    assert main(["check", "--base", "main", "--project", str(tmp_path)]) == 0
+
+    _git(tmp_path, "checkout", "-q", "main")
+    _git(tmp_path, "checkout", "-q", "-b", "feat/incompleto")
+    files = {k: v for k, v in COMPLETE.items() if k != "gates/code_review.md"}
+    _change(tmp_path, "incompleto", MEDIUM, files)
+    _git(tmp_path, "add", "-A")
+    _git(tmp_path, "commit", "-q", "-m", "feat: cambio incompleto")
+    capsys.readouterr()
+    assert main(["check", "--base", "main", "--project", str(tmp_path)]) == 1
+    out = capsys.readouterr()
+    assert "incompleto" in out.out + out.err
+    assert "completo" not in (out.out + out.err).replace("incompleto", "")
