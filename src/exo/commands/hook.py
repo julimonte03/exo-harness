@@ -19,8 +19,8 @@ def register(sub: argparse._SubParsersAction) -> None:
         "hook",
         help="run one of the engine's git hooks (git calls this)",
         description=(
-            "The git hooks that exo init installs call these. Skipping them with --no-verify "
-            f"is possible; CI still runs `{_meta.NAME} check`, which is the real gate."
+            f"The git hooks that `{_meta.NAME} init` installs call these. Skipping them with "
+            f"--no-verify is possible; CI still runs `{_meta.NAME} check`, which is the real gate."
         ),
     )
     group.set_defaults(handler=lambda _a: (group.print_help(), 0)[1])
@@ -68,5 +68,9 @@ def _pre_commit(args: argparse.Namespace) -> int:
 
 
 def _pre_push(args: argparse.Namespace) -> int:
-    lines = sys.stdin.read().splitlines()
+    # Git pasa las refs por stdin; el framework pre-commit, en variables de entorno.
+    interactive = sys.stdin is None or sys.stdin.isatty()
+    lines = [] if interactive else sys.stdin.read().splitlines()
+    if not any(line.strip() for line in lines):
+        lines = hookrun.push_lines_from_env()
     return _report("pre-push", hookrun.pre_push(args.project, args.remote, lines))

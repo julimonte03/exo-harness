@@ -3,11 +3,16 @@
 - **Por defecto**, tres scripts finos en `<carpeta del motor>/githooks/` que llaman
   a `exo hook <nombre>`, activados con `core.hooksPath`. Es por clon: cada uno corre
   `exo init` o `exo sync`, y `exo doctor` avisa si no están activos.
-- **Con husky** (`.husky/`), se agrega un bloque a cada script de husky y no se
-  toca `core.hooksPath`, que es de husky.
+- **Con husky** (`.husky/`, husky 9), se agrega un bloque a cada script de husky
+  y no se toca `core.hooksPath`, que es de husky; `exo doctor` verifica que apunte a
+  husky (si no, falta `npm install`).
 - **Con el framework pre-commit** (`.pre-commit-config.yaml`), el motor no edita su
-  YAML: imprime el bloque a agregar y `exo doctor` verifica que esté.
-- **Si `core.hooksPath` ya apunta a otro lado**, no se pisa: se avisa.
+  YAML: imprime el bloque a agregar (los tres hooks) y `exo doctor` verifica que esté
+  y que `pre-commit install` haya corrido.
+- **Si `core.hooksPath` ya apunta a otro lado**, en cualquier scope (local, global o
+  del sistema), no se pisa: se avisa.
+- **Si el clon ya tiene hooks propios en `.git/hooks`** (git-lfs, Gerrit), activar
+  `core.hooksPath` los apagaría: no se activa y se avisa.
 
 Los scripts son de POSIX `sh` (git para Windows los corre con su `sh`). Si `exo`
 no está en el PATH, avisan y no bloquean: la CI, con `exo check`, es el gate real.
@@ -78,7 +83,18 @@ def pre_commit_snippet() -> str:
         name: {cli} commit-msg
         entry: {cli} hook commit-msg
         language: system
-        stages: [commit-msg]"""
+        stages: [commit-msg]
+      - id: {cli}-pre-push
+        name: {cli} pre-push
+        entry: {cli} hook pre-push
+        language: system
+        pass_filenames: false
+        stages: [pre-push]"""
+
+
+PRE_COMMIT_INSTALL = (
+    "pre-commit install --hook-type pre-commit --hook-type commit-msg --hook-type pre-push"
+)
 
 
 def mechanism(project: Path) -> str:
@@ -110,8 +126,8 @@ def activate(project: Path) -> list[str]:
             return []
         return [
             f"{PRE_COMMIT_CONFIG} manages the git hooks here, so the engine did not touch "
-            f"{HOOKS_PATH}. Add this under `repos:` and run `pre-commit install --hook-type "
-            f"pre-commit --hook-type commit-msg`:\n{pre_commit_snippet()}"
+            f"{HOOKS_PATH}. Add this under `repos:` and run `{PRE_COMMIT_INSTALL}`:\n"
+            f"{pre_commit_snippet()}"
         ]
     if mechanism(project) == "husky":
         return []
@@ -122,17 +138,55 @@ def activate(project: Path) -> list[str]:
             f"run `{_meta.NAME} sync` after `git init`"
         ]
     wanted = expected_path(project, top)
-    current = git.config_get(project, HOOKS_PATH)
-    if current == wanted:
-        return []
-    if current:
+    found = git.config_get_any(project, HOOKS_PATH)
+    if found is not None:
+        scope, current = found
+        if current == wanted:
+            return []
         return [
-            f"{HOOKS_PATH} already points to {current}, so the engine did not change it. Add "
-            f"`{_meta.NAME} hook <name>` to those hooks, or set governance.githooks to false"
+            f"{HOOKS_PATH} is already set to {current} ({scope} config), so the engine did not "
+            f"change it and its hooks are not active. Add `{_meta.NAME} hook <name>` to those "
+            "hooks, or set governance.githooks to false"
+        ]
+    own = own_hooks(project)
+    if own:
+        return [
+            f"this clone has its own hooks in {_hooks_label(project, top)} ({', '.join(own)}, "
+            f"for example git-lfs); setting {HOOKS_PATH} would stop them, so the engine did not "
+            f"activate its hooks. Add `{_meta.NAME} hook <name>` to those hooks, or move them "
+            f"away and run `{_meta.NAME} sync`"
         ]
     if not git.config_set(project, HOOKS_PATH, wanted):
         return [f"could not set {HOOKS_PATH}; run `git config {HOOKS_PATH} {wanted}`"]
     return [f"git hooks active in this clone ({HOOKS_PATH} = {wanted})"]
+
+
+def _hooks_dir(project: Path) -> Path | None:
+    result = git.run(project, "rev-parse", "--git-common-dir")
+    if not result.ok or not result.out.strip():
+        return None
+    common = Path(result.out.strip())
+    return (common if common.is_absolute() else Path(project) / common) / "hooks"
+
+
+def _hooks_label(project: Path, top: Path) -> str:
+    folder = _hooks_dir(project)
+    if folder is None:
+        return ".git/hooks"
+    try:
+        return folder.resolve().relative_to(top.resolve()).as_posix()
+    except ValueError:
+        return folder.as_posix()
+
+
+def own_hooks(project: Path) -> list[str]:
+    """Hooks que el clon ya tiene en `.git/hooks` (sin los `.sample` de git)."""
+    folder = _hooks_dir(project)
+    if folder is None or not folder.is_dir():
+        return []
+    return sorted(
+        p.name for p in folder.iterdir() if p.is_file() and not p.name.endswith(".sample")
+    )
 
 
 def deactivate(project: Path) -> bool:
@@ -163,21 +217,53 @@ def status(project: Path) -> Status:
                 "warn",
                 f"husky hooks without the engine: {', '.join(missing)}; run `{_meta.NAME} sync`",
             )
+        found = git.config_get_any(project, HOOKS_PATH)
+        if found is None or found[1].rstrip("/") not in (HUSKY, f"{HUSKY}/_"):
+            where = f"it points to {found[1]}" if found else "it is not set"
+            return Status(
+                "warn",
+                f"husky is not active in this clone ({HOOKS_PATH}: {where}); run `npm install` "
+                "or `npx husky`",
+            )
         return Status("ok", "through husky")
     if kind == "pre-commit":
-        if f"{_meta.NAME} hook" in _read(project / PRE_COMMIT_CONFIG):
-            return Status("ok", f"through {PRE_COMMIT_CONFIG}")
-        return Status(
-            "warn",
-            f"{PRE_COMMIT_CONFIG} does not run `{_meta.NAME} hook`; "
-            f"run `{_meta.NAME} sync` for the block to add",
-        )
+        text = _read(project / PRE_COMMIT_CONFIG)
+        absent = [name for name in HOOKS if f"{_meta.NAME} hook {name}" not in text]
+        if absent:
+            return Status(
+                "warn",
+                f"{PRE_COMMIT_CONFIG} does not run `{_meta.NAME} hook` for {', '.join(absent)}; "
+                f"run `{_meta.NAME} sync` for the block to add",
+            )
+        folder = _hooks_dir(project)
+        found = git.config_get_any(project, HOOKS_PATH)
+        if found is not None:
+            folder = Path(found[1]) if Path(found[1]).is_absolute() else project / found[1]
+        idle = [
+            name for name in HOOKS if folder is None or "pre-commit" not in _read(folder / name)
+        ]
+        if idle:
+            return Status(
+                "warn",
+                f"pre-commit is not installed for {', '.join(idle)}; run `{PRE_COMMIT_INSTALL}`",
+            )
+        return Status("ok", f"through {PRE_COMMIT_CONFIG}")
     top = git.toplevel(project)
     assert top is not None
     wanted = expected_path(project, top)
-    current = git.config_get(project, HOOKS_PATH)
+    found = git.config_get_any(project, HOOKS_PATH)
+    current = found[1] if found else None
     if current != wanted:
-        where = f"it points to {current}" if current else "it is not set"
+        if found is not None:
+            where = f"it points to {current} ({found[0]} config)"
+        elif own_hooks(project):
+            return Status(
+                "warn",
+                f"not active: {_hooks_label(project, top)} has its own hooks "
+                f"({', '.join(own_hooks(project))}); add `{_meta.NAME} hook <name>` to them",
+            )
+        else:
+            where = "it is not set"
         return Status(
             "warn", f"not active in this clone ({HOOKS_PATH}: {where}); run `{_meta.NAME} sync`"
         )
