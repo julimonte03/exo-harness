@@ -10,6 +10,9 @@ en el delta, donde cada sección es opcional. Además:
 - delta y capacidad: el formato de `sdd/specs.py` (IDs `CAP-<cap>-FR-n`,
   escenarios con Given, When y Then, `S-n` solo en el delta).
 - verify-record.md: Verdict `ready|needs-rework|blocked` y marcador de gate.
+- gates (`<change-root>/gates/<gate>.md`, F5): el marcador con el nombre del
+  archivo, Verdict `APPROVED|ESCALATED`, y en Approval la línea
+  `Requires tech_lead approval: yes|no` y `Source:`.
 - Carpeta de change: cada `S-n` del delta aparece en el Test Plan de design.md;
   cada requisito ADDED o MODIFIED y cada escenario del delta aparecen en
   test-spec.md; y toda referencia a un ID existe en el delta o en las specs vivas.
@@ -42,14 +45,30 @@ KIND_OF = {
     "test-spec": "test-spec",
     "verify-record": "verify-record",
     "pr": "pr",
+    "gate": "gate",
 }
-KINDS = ("functional", "delta", "capability", "technical", "test-spec", "verify-record", "pr")
+KINDS = (
+    "functional",
+    "delta",
+    "capability",
+    "technical",
+    "test-spec",
+    "verify-record",
+    "pr",
+    "gate",
+)
+GATES_DIR = "gates"
+GATE_VERDICTS = ("APPROVED", "ESCALATED")
+CONTRACT_GATE = "contract_check"
 VERDICTS = ("ready", "needs-rework", "blocked")
 GATE_MARKER = re.compile(rf"<!--\s*{re.escape(_meta.BLOCK_PREFIX)}-gate:[a-z_]+\s*-->")
 
 _H2 = re.compile(r"^##(?!#)\s+(.+?)\s*#*\s*$")
 _FENCE = re.compile(r"^\s*(```|~~~)")
 _VERDICT_WORD = re.compile(r"^[\s*_`]*([A-Za-z-]+)")
+_GATE_NAME = re.compile(rf"<!--\s*{re.escape(_meta.BLOCK_PREFIX)}-gate:([a-z_]+)\s*-->")
+_APPROVAL = re.compile(r"Requires tech_lead approval:\s*(yes|no)\b", re.IGNORECASE)
+_SOURCE = re.compile(r"^\s*Source:\s*\S", re.MULTILINE)
 _COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 # Un ID de requisito entero o un escenario; `CAP-x-FR-12` no se lee como `FR-12`.
 _REFERENCE = re.compile(rf"\b(CAP-{specs.CAPABILITY_NAME}-N?FR-[1-9]\d*|S-[1-9]\d*)\b")
@@ -151,6 +170,71 @@ def verdict(text: str) -> str | None:
     return word if word in VERDICTS else None
 
 
+@dataclass(frozen=True)
+class GateInfo:
+    name: str
+    verdict: str | None  # APPROVED | ESCALATED | None si no se puede leer
+    needs_approval: bool
+    path: Path
+
+
+def _first_word(section: _Section | None) -> str | None:
+    if section is None or not section.text().strip():
+        return None
+    first = next(line for line in section.text().splitlines() if line.strip())
+    match = _VERDICT_WORD.match(first)
+    return match.group(1) if match else None
+
+
+def gate_info(path: Path) -> GateInfo:
+    """Nombre, veredicto y si pide aprobación de `tech_lead`, de un archivo de gate."""
+    text = Path(path).read_text(encoding="utf-8-sig")
+    sections = _sections(text)
+    found = _GATE_NAME.search(text)
+    word = (_first_word(_find(sections, "Verdict")) or "").upper()
+    approval = _find(sections, "Approval")
+    answer = _APPROVAL.search(approval.text()) if approval else None
+    verdict = word if word in GATE_VERDICTS else None
+    needs = verdict != "APPROVED" or bool(answer and answer.group(1).lower() == "yes")
+    return GateInfo(found.group(1) if found else Path(path).stem, verdict, needs, Path(path))
+
+
+def contract_gate(verify_record: Path) -> GateInfo:
+    """El gate `contract_check` sale del Gate summary de verify-record.md."""
+    text = Path(verify_record).read_text(encoding="utf-8-sig")
+    sections = _sections(text)
+    summary = _find(sections, "Gate summary")
+    answer = _APPROVAL.search(summary.text(comments=True)) if summary else None
+    result = verdict(text)
+    gate_verdict = "APPROVED" if result == "ready" else ("ESCALATED" if result else None)
+    needs = gate_verdict != "APPROVED" or bool(answer and answer.group(1).lower() == "yes")
+    return GateInfo(CONTRACT_GATE, gate_verdict, needs, Path(verify_record))
+
+
+def _check_gate(path: Path, text: str, sections: list[_Section], errors: list[Issue]) -> None:
+    found = _GATE_NAME.search(text)
+    expected = path.stem if path.parent.name == GATES_DIR else None
+    if found is None:
+        errors.append(Issue(1, f"missing gate marker (<!-- {_meta.BLOCK_PREFIX}-gate:<gate> -->)"))
+    elif expected is not None and found.group(1) != expected:
+        errors.append(
+            Issue(1, f"the gate marker says {found.group(1)} but the file is {expected}.md")
+        )
+    verdict_section = _find(sections, "Verdict")
+    word = _first_word(verdict_section)
+    if verdict_section is not None and word is not None and word.upper() not in GATE_VERDICTS:
+        errors.append(
+            Issue(verdict_section.line, "Verdict must start with APPROVED or ESCALATED")
+        )
+    approval = _find(sections, "Approval")
+    if approval is not None and approval.text().strip():
+        if not _APPROVAL.search(approval.text()):
+            message = "Approval needs the line 'Requires tech_lead approval: yes|no'"
+            errors.append(Issue(approval.line, message))
+        if not _SOURCE.search(approval.text()):
+            errors.append(Issue(approval.line, "Approval needs the line 'Source: skill <name>'"))
+
+
 def _check_delta(text: str, errors: list[Issue]) -> dict[str, int]:
     delta = specs.parse_delta(text)
     errors.extend(Issue(p.line, p.message) for p in delta.problems)
@@ -187,6 +271,8 @@ def _template_for(path: Path, kind: str | None) -> str:
     if kind is None:
         if _is_capability(path):
             return "capability-spec"
+        if path.parent.name == GATES_DIR and path.suffix == ".md":
+            return "gate"
         template = ARTIFACTS.get(path.name)
         if template is None:
             raise SpeclintError(
@@ -214,6 +300,8 @@ def _lint_file(path: Path, template: str) -> tuple[FileReport, list[_Section], d
             report.errors = [e for e in report.errors if e.message != _EMPTY_REQUIREMENTS]
     elif template == "verify-record":
         _check_verify(sections, report.errors)
+    elif template == "gate":
+        _check_gate(path, text, sections, report.errors)
     return report, sections, defined
 
 
@@ -305,11 +393,13 @@ def lint_path(path: Path, kind: str | None = None) -> LintReport:
         for name in ARTIFACTS
         if (path / name).is_file()
     }
-    if not reports:
+    gates = sorted((path / GATES_DIR).glob("*.md")) if (path / GATES_DIR).is_dir() else []
+    if not reports and not gates:
         empty = FileReport(path, "change", "")
         empty.errors.append(
             Issue(0, f"no SDD artifacts in {path} ({', '.join(ARTIFACTS)})")
         )
         return LintReport([empty])
     _cross_check(path, reports)
-    return LintReport([entry[0] for entry in reports.values()])
+    gate_reports = [_lint_file(gate, "gate")[0] for gate in gates]
+    return LintReport([entry[0] for entry in reports.values()] + gate_reports)
