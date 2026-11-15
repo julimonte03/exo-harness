@@ -61,12 +61,12 @@ GATES_DIR = "gates"
 GATE_VERDICTS = ("APPROVED", "ESCALATED")
 CONTRACT_GATE = "contract_check"
 VERDICTS = ("ready", "needs-rework", "blocked")
-GATE_MARKER = re.compile(rf"<!--\s*{re.escape(_meta.BLOCK_PREFIX)}-gate:[a-z_]+\s*-->")
+GATE_MARKER = re.compile(rf"<!--\s*{re.escape(_meta.BLOCK_PREFIX)}-gate:[a-z][a-z0-9_]*\s*-->")
 
 _H2 = re.compile(r"^##(?!#)\s+(.+?)\s*#*\s*$")
 _FENCE = re.compile(r"^\s*(```|~~~)")
 _VERDICT_WORD = re.compile(r"^[\s*_`]*([A-Za-z-]+)")
-_GATE_NAME = re.compile(rf"<!--\s*{re.escape(_meta.BLOCK_PREFIX)}-gate:([a-z_]+)\s*-->")
+_GATE_NAME = re.compile(rf"<!--\s*{re.escape(_meta.BLOCK_PREFIX)}-gate:([a-z][a-z0-9_]*)\s*-->")
 _APPROVAL = re.compile(r"Requires tech_lead approval:\s*(yes|no)\b", re.IGNORECASE)
 _SOURCE = re.compile(r"^\s*Source:\s*\S", re.MULTILINE)
 _COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
@@ -210,7 +210,8 @@ def contract_gate(verify_record: Path) -> GateInfo:
     text = Path(verify_record).read_text(encoding="utf-8-sig")
     sections = _sections(text)
     summary = _find(sections, "Gate summary")
-    answer = _APPROVAL.search(summary.text(comments=True)) if summary else None
+    # Sin comentarios: la plantilla trae comentada la línea "yes | no".
+    answer = _APPROVAL.search(summary.text()) if summary else None
     result = verdict(text)
     gate_verdict = "APPROVED" if result == "ready" else ("ESCALATED" if result else None)
     needs = gate_verdict != "APPROVED" or bool(answer and answer.group(1).lower() == "yes")
@@ -229,9 +230,7 @@ def _check_gate(path: Path, text: str, sections: list[_Section], errors: list[Is
     verdict_section = _find(sections, "Verdict")
     word = _first_word(verdict_section)
     if verdict_section is not None and word is not None and word.upper() not in GATE_VERDICTS:
-        errors.append(
-            Issue(verdict_section.line, "Verdict must start with APPROVED or ESCALATED")
-        )
+        errors.append(Issue(verdict_section.line, "Verdict must start with APPROVED or ESCALATED"))
     approval = _find(sections, "Approval")
     if approval is not None and approval.text().strip():
         if not _APPROVAL.search(approval.text()):
@@ -402,9 +401,7 @@ def lint_path(path: Path, kind: str | None = None) -> LintReport:
     gates = sorted((path / GATES_DIR).glob("*.md")) if (path / GATES_DIR).is_dir() else []
     if not reports and not gates:
         empty = FileReport(path, "change", "")
-        empty.errors.append(
-            Issue(0, f"no SDD artifacts in {path} ({', '.join(ARTIFACTS)})")
-        )
+        empty.errors.append(Issue(0, f"no SDD artifacts in {path} ({', '.join(ARTIFACTS)})"))
         return LintReport([empty])
     _cross_check(path, reports)
     gate_reports = [_lint_file(gate, "gate")[0] for gate in gates]

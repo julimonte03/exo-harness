@@ -59,6 +59,8 @@ MAX_SKILL_LINES = 500
 MAX_RULE_LINES = 60
 RULES_FILE = Path("rules") / "AGENTS.base.md"
 _SCANNED = {".md", ".json", ".txt", ".yml", ".yaml", ".toml"}
+# Scripts que una skill puede traer: el pre-chequeo los lee también.
+_SCRIPTS = {".sh", ".bash", ".zsh", ".py", ".ps1", ".psm1", ".bat", ".cmd", ".js", ".mjs", ".ts"}
 _NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _ESCAPE = re.compile(r"\\u[0-9a-fA-F]{4}")
 _SKILL_REF = re.compile(r"\bskill:([a-z0-9][a-z0-9-]*)")
@@ -458,11 +460,16 @@ class _Validator:
                 if extra.suffix == ".md":
                     body = extra.read_text(encoding="utf-8")
                     self.check_body(extra, body, folder, pack)
-                elif extra.suffix.lower() in _SCANNED:
+                elif extra.suffix.lower() in _SCANNED | _SCRIPTS:
                     body = extra.read_text(encoding="utf-8", errors="replace")
                 else:
                     continue
                 self.check_instructions(extra, body)
+        for extra in fsutil.walk_files(folder):
+            if extra == path or extra.is_relative_to(references):
+                continue
+            if extra.suffix.lower() in _SCANNED | _SCRIPTS:
+                self.check_instructions(extra, extra.read_text(encoding="utf-8", errors="replace"))
         try:
             data, _ = frontmatter.parse(text, strict=True)
         except frontmatter.FrontmatterError as exc:
@@ -478,9 +485,7 @@ class _Validator:
                 )
         name = data.get("name")
         if not isinstance(name, str) or name != folder.name:
-            self.error(
-                path, 0, f"name must match the folder name ({folder.name!r}), not {name!r}"
-            )
+            self.error(path, 0, f"name must match the folder name ({folder.name!r}), not {name!r}")
         if isinstance(name, str):
             if not _NAME.match(name):
                 self.error(
