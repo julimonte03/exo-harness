@@ -223,13 +223,17 @@ def _gates(project: Path, change: observability.Change, tier: int, cfg: dict) ->
                 )
             )
         elif info.needs_approval:
+            why = (
+                "is APPROVED but its Approval says yes"
+                if info.verdict == "APPROVED"
+                else f"is {info.verdict or 'without a readable verdict'}"
+            )
             found.append(
                 Finding(
                     "warning",
                     _rel(project, info.path),
                     0,
-                    f"the gate {name} is {info.verdict or 'not readable'} or asks for approval: "
-                    "it needs the tech_lead role's approval in the PR",
+                    f"the gate {name} {why}: it needs the tech_lead role's approval in the PR",
                 )
             )
     return found
@@ -238,11 +242,7 @@ def _gates(project: Path, change: observability.Change, tier: int, cfg: dict) ->
 def _judgment_day(project: Path, change: observability.Change) -> list[Finding]:
     data = observability.ai_usage_record(project, change.name).get("record") or {}
     judges = data.get("judges_invoked") if isinstance(data, dict) else None
-    approved = any(
-        isinstance(j, dict) and j.get("name") == "judgment-day" and j.get("result") == "approved"
-        for j in judges or []
-    )
-    if approved:
+    if observability.judgment_approved(judges):
         return []
     return [
         Finding(

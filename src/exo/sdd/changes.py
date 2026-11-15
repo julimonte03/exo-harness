@@ -274,41 +274,22 @@ def _load_followups(project: Path, change: str) -> tuple[str, Path, dict[str, An
     return rel, path, data
 
 
-def _save_followups(path: Path, data: dict[str, Any]) -> None:
-    schema = json.loads(FOLLOWUPS_SCHEMA.read_text(encoding="utf-8"))
-    errors = jsonschema.validate(data, schema)
-    if errors:
-        raise ChangeError(
-            "the followup does not match its schema, nothing was written: " + "; ".join(errors)
-        )
-    fsutil.write_atomic(path, _dump(data))
-
-
-def add_followup(
-    project: Path, change: str, value: Any, *, now: datetime | None = None
-) -> RecordUpdate:
-    """Agrega un hallazgo de juez a `followups.json`, validado y sin repetir su `id`."""
-    project = Path(project)
-    rel, path, data = _load_followups(project, change)
+def _add(data: dict[str, Any], change: str, value: Any) -> bool:
     items = data["followups"]
     wanted = value.get("id") if isinstance(value, dict) else None
     same = [i for i in items if isinstance(i, dict) and wanted and i.get("id") == wanted]
     if same:
         # El mismo hallazgo, aunque ya esté marcado como arreglado, no es un cambio.
         if {k: v for k, v in same[0].items() if k != "fixed"} == value:
-            return RecordUpdate(False, rel, data)
+            return False
         raise ChangeError(
             f"{wanted} is already used by another followup of {change}; use the next number"
         )
     items.append(value)
-    _save_followups(path, data)
-    return RecordUpdate(True, rel, data)
+    return True
 
 
-def fix_followup(project: Path, change: str, followup_id: str) -> RecordUpdate:
-    """Marca un hallazgo como arreglado (`"fixed": true`); idempotente."""
-    project = Path(project)
-    rel, path, data = _load_followups(project, change)
+def _fix(data: dict[str, Any], change: str, followup_id: str) -> bool:
     found = [i for i in data["followups"] if isinstance(i, dict) and i.get("id") == followup_id]
     if not found:
         known = ", ".join(str(i.get("id")) for i in data["followups"] if isinstance(i, dict))
@@ -317,10 +298,53 @@ def fix_followup(project: Path, change: str, followup_id: str) -> RecordUpdate:
             f"check `{_meta.NAME} change followups {change} --status all`"
         )
     if found[0].get("fixed") is True:
-        return RecordUpdate(False, rel, data)
+        return False
     found[0]["fixed"] = True
-    _save_followups(path, data)
-    return RecordUpdate(True, rel, data)
+    return True
+
+
+def record_followups(
+    project: Path,
+    change: str,
+    values: Iterable[Any] = (),
+    fixed: Iterable[str] = (),
+    *,
+    dry_run: bool = False,
+) -> RecordUpdate:
+    """Agrega hallazgos y marca arreglados en una sola escritura, validada contra el esquema.
+
+    Con `dry_run`, valida todo sin escribir: el CLI lo usa antes de tocar el registro,
+    para no dejar un archivo escrito y el otro no.
+    """
+    project = Path(project)
+    rel, path, data = _load_followups(project, change)
+    changed = False
+    for value in values:
+        changed = _add(data, change, value) or changed
+    for followup_id in fixed:
+        changed = _fix(data, change, followup_id) or changed
+    if changed:
+        schema = json.loads(FOLLOWUPS_SCHEMA.read_text(encoding="utf-8"))
+        errors = jsonschema.validate(data, schema)
+        if errors:
+            raise ChangeError(
+                "the followup does not match its schema, nothing was written: " + "; ".join(errors)
+            )
+        if not dry_run:
+            fsutil.write_atomic(path, _dump(data))
+    return RecordUpdate(changed, rel, data)
+
+
+def add_followup(
+    project: Path, change: str, value: Any, *, now: datetime | None = None
+) -> RecordUpdate:
+    """Agrega un hallazgo de juez a `followups.json`, validado y sin repetir su `id`."""
+    return record_followups(project, change, [value])
+
+
+def fix_followup(project: Path, change: str, followup_id: str) -> RecordUpdate:
+    """Marca un hallazgo como arreglado (`"fixed": true`); idempotente."""
+    return record_followups(project, change, fixed=[followup_id])
 
 
 # -- fitness-assessment.json ----------------------------------------------------------------

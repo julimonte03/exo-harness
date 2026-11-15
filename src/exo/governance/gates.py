@@ -80,9 +80,15 @@ def collect(project: Path, change: str) -> list[GateText]:
         except (OSError, UnicodeDecodeError) as exc:
             raise GateError(f"{path}: {exc}") from exc
         name = speclint.gate_info(path).name
-        texts.append(
-            GateText(name, marker(name), body, f"{found.path}/{speclint.GATES_DIR}/{path.name}")
-        )
+        rel = f"{found.path}/{speclint.GATES_DIR}/{path.name}"
+        if name != path.stem:
+            raise GateError(
+                f"{rel}: its marker names the gate {name}, but the file is {path.stem}.md; fix "
+                f"the marker (`{_meta.NAME} speclint {rel}`): one comment per gate needs one name"
+            )
+        if any(t.name == name for t in texts):
+            raise GateError(f"{rel}: the gate {name} already comes from the verify record")
+        texts.append(GateText(name, marker(name), body, rel))
     return sorted(texts, key=lambda t: t.name)
 
 

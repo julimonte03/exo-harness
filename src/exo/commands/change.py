@@ -158,24 +158,36 @@ def _record(args: argparse.Namespace) -> int:
             "nothing to record: pass --add, --set, --followup, --fixed or --phase-done"
         )
     assert not isinstance(add, str) and not isinstance(set_, str)
+    values = [value for _, value in followups]
+    touches_followups = bool(values or args.fixed)
+    touches_record = bool(add or set_ or args.phase_done is not None)
     try:
-        for _, value in followups:
-            done = changes.add_followup(args.project, args.change, value)
-            if not args.json:
-                print(f"{done.path}: " + ("updated" if done.changed else "unchanged"))
-        for followup_id in args.fixed:
-            done = changes.fix_followup(args.project, args.change, followup_id)
-            if not args.json:
-                print(f"{done.path}: " + ("updated" if done.changed else "unchanged"))
-        if not add and not set_ and args.phase_done is None:
-            return 0
-        result = changes.update_record(
-            args.project, args.change, add=add, set_=set_, phase_done=args.phase_done
+        # Los followups se validan antes de tocar el registro: o se escriben los dos, o ninguno.
+        if touches_followups:
+            changes.record_followups(args.project, args.change, values, args.fixed, dry_run=True)
+        result = (
+            changes.update_record(
+                args.project, args.change, add=add, set_=set_, phase_done=args.phase_done
+            )
+            if touches_record
+            else None
+        )
+        done = (
+            changes.record_followups(args.project, args.change, values, args.fixed)
+            if touches_followups
+            else None
         )
     except (changes.ChangeError, OSError) as exc:
         return error(str(exc))
     if args.json:
-        emit_json({"changed": result.changed, "path": result.path, "record": result.record})
-    else:
-        print(f"{result.path}: " + ("updated" if result.changed else "unchanged"))
+        payload: dict = {}
+        if result is not None:
+            payload.update(changed=result.changed, path=result.path, record=result.record)
+        if done is not None:
+            payload["followups"] = {"changed": done.changed, "path": done.path}
+        emit_json(payload)
+        return 0
+    for item in (done, result):
+        if item is not None:
+            print(f"{item.path}: " + ("updated" if item.changed else "unchanged"))
     return 0

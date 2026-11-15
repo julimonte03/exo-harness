@@ -110,7 +110,11 @@ def test_info_del_gate_y_del_contract_check(tmp_path: Path) -> None:
     verify = tmp_path / "verify-record.md"
     verify.write_text(VERIFY, encoding="utf-8")
     contract = speclint.contract_gate(verify)
-    assert (contract.name, contract.verdict, contract.needs_approval) == ("contract_check", "APPROVED", False)
+    assert (contract.name, contract.verdict, contract.needs_approval) == (
+        "contract_check",
+        "APPROVED",
+        False,
+    )
 
 
 # -- exo check (criterio 3 de F5) ----------------------------------------------------------
@@ -145,7 +149,10 @@ def test_criterio_3_sin_registro_falla(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("verdict", ["blocked: the build fails", "needs-rework: S-2 fails"])
 def test_criterio_3_veredicto_no_listo_falla(tmp_path: Path, verdict: str) -> None:
-    files = {**COMPLETE, "verify-record.md": VERIFY.replace("## Verdict\nready", f"## Verdict\n{verdict}")}
+    files = {
+        **COMPLETE,
+        "verify-record.md": VERIFY.replace("## Verdict\nready", f"## Verdict\n{verdict}"),
+    }
     _change(tmp_path, "medio", MEDIUM, files)
     assert any("the verify says" in m for m in _errors(check.check(tmp_path)))
 
@@ -159,7 +166,9 @@ def test_gate_escalado_pide_tech_lead(tmp_path: Path) -> None:
 
 
 def test_los_gates_se_piden_recien_despues_del_verify(tmp_path: Path) -> None:
-    files = {k: v for k, v in COMPLETE.items() if k not in ("verify-record.md", "gates/code_review.md")}
+    files = {
+        k: v for k, v in COMPLETE.items() if k not in ("verify-record.md", "gates/code_review.md")
+    }
     _change(tmp_path, "medio", MEDIUM, files)
     assert check.check(tmp_path).ok
 
@@ -175,8 +184,20 @@ def test_tier_4_exige_judgment_day(tmp_path: Path) -> None:
     _change(tmp_path, "grande", CRITICAL, tier4)
     messages = _errors(check.check(tmp_path))
     assert any("judgment-day" in m for m in messages)
-    changes.update_record(tmp_path, "grande", add=[("judges_invoked", {"name": "judgment-day", "result": "approved"})])
+    changes.update_record(
+        tmp_path, "grande", add=[("judges_invoked", {"name": "judgment-day", "result": "approved"})]
+    )
     assert not any("judgment-day" in m for m in _errors(check.check(tmp_path)))
+    # Revisión de cierre: cuenta la última entrada; un judgment-day posterior escalado manda.
+    later = {"name": "judgment-day", "result": "escalated: JSEC-3 (High) open after 3 rounds"}
+    changes.update_record(tmp_path, "grande", add=[("judges_invoked", later)])
+    assert any("judgment-day" in m for m in _errors(check.check(tmp_path)))
+    from exo.sdd import observability
+
+    approved = {"name": "judgment-day", "result": "approved"}
+    assert observability.judgment_approved([approved]) is True
+    assert observability.judgment_approved([approved, later]) is False
+    assert observability.judgment_approved([later, approved]) is True
 
 
 def test_los_gates_configurados_mandan(tmp_path: Path) -> None:
@@ -190,7 +211,9 @@ def test_los_gates_configurados_mandan(tmp_path: Path) -> None:
 def test_config_invalida_es_error(tmp_path: Path) -> None:
     folder = tmp_path / ".exo"
     folder.mkdir()
-    (folder / "config.json").write_text(json.dumps({"schema": 3, "review": {"host": "nada"}}), encoding="utf-8")
+    (folder / "config.json").write_text(
+        json.dumps({"schema": 3, "review": {"host": "nada"}}), encoding="utf-8"
+    )
     result = check.check(tmp_path)
     assert not result.ok
     assert any("review.host" in f.message for f in result.config)
@@ -218,9 +241,11 @@ def test_el_diff_contra_la_base_se_escanea(tmp_path: Path) -> None:
     (tmp_path / "app.py").write_text(f"KEY = '{AWS}'\n", encoding="utf-8")
     _git(tmp_path, "add", "-A")
     _git(tmp_path, "commit", "-q", "-m", "feat: app")
-    (tmp_path / "nuevo.py").write_text("ok = 1\n", encoding="utf-8")  # sin trackear
+    (tmp_path / "nuevo.py").write_text(f"OTHER = '{AWS}'\n", encoding="utf-8")  # sin trackear
     result = check.check(tmp_path, base="main")
-    assert any("app.py:1" in f.path + f":{f.line}" or "aws-access-key" in f.message for f in result.diff)
+    messages = [f.message for f in result.diff if f.severity == "error"]
+    assert any(m.startswith("app.py:1:") and "aws-access-key" in m for m in messages), messages
+    assert any(m.startswith("nuevo.py:1:") for m in messages), messages
     assert not result.ok
 
 
@@ -234,8 +259,12 @@ def test_cli_fast_y_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> 
 
 
 @pytest.mark.skipif(shutil.which("git") is None, reason="requiere git")
-def test_criterio_5_el_paso_de_ci_da_verde_y_rojo(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_criterio_5_el_paso_de_ci_da_verde_y_rojo(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     """El paso que ponen los ejemplos de CI (`exo check --base main`) en un repo temporal."""
+    contract = Path(__file__).resolve().parents[1] / "content/packs/core/shared/ci-and-review.md"
+    assert "exo check --base origin/<target branch>" in contract.read_text(encoding="utf-8")
     _git(tmp_path, "init", "-q", "-b", "main")
     _git(tmp_path, "config", "user.email", "t@example.com")
     _git(tmp_path, "config", "user.name", "T")

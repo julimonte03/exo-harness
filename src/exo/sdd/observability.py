@@ -318,13 +318,18 @@ def next_phase(
         return "verify", "verify-record.md has no valid Verdict"
     if result == "blocked":
         return "verify", "the verify is blocked: solve what it reports, then verify again"
-    approved = any(
-        isinstance(j, dict) and j.get("name") == "judgment-day" and j.get("result") == "approved"
-        for j in judges
-    )
-    if tier == 4 and not approved:
+    if tier == 4 and not judgment_approved(judges):
         return "judgment", "Tier 4 needs an approved judgment-day before archive"
     return "archive", "the verify is ready"
+
+
+def judgment_approved(judges: Any) -> bool:
+    """La última entrada de `judgment-day` dice exactamente `approved`.
+
+    Un judgment-day posterior que escaló manda sobre un `approved` viejo.
+    """
+    entries = [j for j in judges or [] if isinstance(j, dict) and j.get("name") == "judgment-day"]
+    return bool(entries) and entries[-1].get("result") == "approved"
 
 
 def change_state(project: Path, name: str) -> dict[str, Any]:

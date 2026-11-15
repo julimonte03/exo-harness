@@ -70,14 +70,21 @@ def test_cli_followup(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> Non
     _change(tmp_path, {})
     entry = tmp_path / "f.json"
     entry.write_text(json.dumps(FOLLOWUP), encoding="utf-8")
-    assert main(["change", "record", "add-login", "--followup", f"@{entry}", "--project", str(tmp_path)]) == 0
+    assert (
+        main(
+            ["change", "record", "add-login", "--followup", f"@{entry}", "--project", str(tmp_path)]
+        )
+        == 0
+    )
     assert "updated" in capsys.readouterr().out
 
 
 # -- gates -----------------------------------------------------------------------------------
 
 
-def test_criterio_4_un_texto_por_gate_con_su_marcador(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_criterio_4_un_texto_por_gate_con_su_marcador(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     _change(
         tmp_path,
         {
@@ -90,7 +97,10 @@ def test_criterio_4_un_texto_por_gate_con_su_marcador(tmp_path: Path, capsys: py
     assert [t.name for t in texts] == ["code_review", "contract_check", "security_review"]
     for text in texts:
         assert text.body.count(text.marker) == 1
-    assert main(["gate", "publish", "--change", "add-login", "--dry-run", "--project", str(tmp_path)]) == 0
+    assert (
+        main(["gate", "publish", "--change", "add-login", "--dry-run", "--project", str(tmp_path)])
+        == 0
+    )
     out = capsys.readouterr().out
     for name in ("code_review", "contract_check", "security_review"):
         assert out.count(f"<!-- exo-gate:{name} -->") == 1
@@ -98,7 +108,13 @@ def test_criterio_4_un_texto_por_gate_con_su_marcador(tmp_path: Path, capsys: py
 
 
 def test_criterio_4_el_comando_propio_se_llama_una_vez_por_gate(tmp_path: Path) -> None:
-    _change(tmp_path, {"gates/code_review.md": gate("code_review"), "gates/threat_model.md": gate("threat_model")})
+    _change(
+        tmp_path,
+        {
+            "gates/code_review.md": gate("code_review"),
+            "gates/threat_model.md": gate("threat_model"),
+        },
+    )
     log = tmp_path / "calls.log"
     script = tmp_path / "publish.py"
     script.write_text(
@@ -115,15 +131,22 @@ def test_criterio_4_el_comando_propio_se_llama_una_vez_por_gate(tmp_path: Path) 
     results = gates.publish(tmp_path, "add-login")
     assert [r.status for r in results] == ["sent", "sent"]
     lines = log.read_text().splitlines()
-    assert lines == ["code_review|<!-- exo-gate:code_review -->|True", "threat_model|<!-- exo-gate:threat_model -->|True"]
+    assert lines == [
+        "code_review|<!-- exo-gate:code_review -->|True",
+        "threat_model|<!-- exo-gate:threat_model -->|True",
+    ]
     assert gates.publish(tmp_path, "add-login", dry_run=True)[0].status == "printed"
     assert log.read_text().splitlines() == lines  # dry-run nunca ejecuta
 
 
-def test_un_comando_que_falla_se_informa(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_un_comando_que_falla_se_informa(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     _change(tmp_path, {"gates/code_review.md": gate("code_review")})
     cfg = config.defaults()
-    cfg["review"]["publish_command"] = f'"{Path(sys.executable).as_posix()}" -c "raise SystemExit(3)"'
+    cfg["review"]["publish_command"] = (
+        f'"{Path(sys.executable).as_posix()}" -c "raise SystemExit(3)"'
+    )
     config.save(tmp_path, cfg)
     assert main(["gate", "publish", "--change", "add-login", "--project", str(tmp_path)]) == 1
     assert "code_review" in capsys.readouterr().err
@@ -131,7 +154,10 @@ def test_un_comando_que_falla_se_informa(tmp_path: Path, capsys: pytest.CaptureF
 
 def test_sin_comando_se_imprime(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     _change(tmp_path, {"gates/code_review.md": gate("code_review")})
-    assert main(["gate", "publish", "--change", "add-login", "--project", str(tmp_path), "--json"]) == 0
+    assert (
+        main(["gate", "publish", "--change", "add-login", "--project", str(tmp_path), "--json"])
+        == 0
+    )
     payload = json.loads(capsys.readouterr().out)
     assert payload["gates"][0]["status"] == "printed"
     assert "<!-- exo-gate:code_review -->" in payload["gates"][0]["body"]
@@ -168,7 +194,10 @@ def test_host_desde_el_remoto(remote: str, host: str | None) -> None:
 @pytest.mark.skipif(shutil.which("git") is None, reason="requiere git")
 def test_init_guarda_el_host_detectado(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
-    subprocess.run(["git", "-C", str(tmp_path), "remote", "add", "origin", "git@github.com:acme/app.git"], check=True)
+    subprocess.run(
+        ["git", "-C", str(tmp_path), "remote", "add", "origin", "git@github.com:acme/app.git"],
+        check=True,
+    )
     assert main(["init", "--project", str(tmp_path), "--agents", "generic", "--yes"]) == 0
     assert config.load(tmp_path).config["review"]["host"] == "github"
     assert "publish_command" in capsys.readouterr().out
@@ -180,11 +209,32 @@ def test_init_guarda_el_host_detectado(tmp_path: Path, capsys: pytest.CaptureFix
 
 
 def test_flags_de_revision(tmp_path: Path) -> None:
-    assert main(["init", "--project", str(tmp_path), "--agents", "generic", "--yes", "--review-host", "gitlab", "--publish-command", "./publish.sh"]) == 0
-    assert config.load(tmp_path).config["review"] == {"host": "gitlab", "publish_command": "./publish.sh"}
+    assert (
+        main(
+            [
+                "init",
+                "--project",
+                str(tmp_path),
+                "--agents",
+                "generic",
+                "--yes",
+                "--review-host",
+                "gitlab",
+                "--publish-command",
+                "./publish.sh",
+            ]
+        )
+        == 0
+    )
+    assert config.load(tmp_path).config["review"] == {
+        "host": "gitlab",
+        "publish_command": "./publish.sh",
+    }
 
 
-def test_un_followup_arreglado_deja_de_estar_abierto(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_un_followup_arreglado_deja_de_estar_abierto(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     folder = _change(tmp_path, {})
     changes.add_followup(tmp_path, "add-login", FOLLOWUP)
     assert changes.fix_followup(tmp_path, "add-login", "JSEC-1").changed is True
@@ -193,20 +243,118 @@ def test_un_followup_arreglado_deja_de_estar_abierto(tmp_path: Path, capsys: pyt
     assert data == {"followups": [{**FOLLOWUP, "fixed": True}]}
     assert observability.followups(tmp_path, "add-login", "open") == []
     assert [f["id"] for f in observability.followups(tmp_path, "add-login", "fixed")] == ["JSEC-1"]
-    assert observability.change_state(tmp_path, "add-login")["followups"] == {"open": 0, "fixed": 1, "dismissed": 0}
+    assert observability.change_state(tmp_path, "add-login")["followups"] == {
+        "open": 0,
+        "fixed": 1,
+        "dismissed": 0,
+    }
     # Volver a mandar el hallazgo original no choca con el que ya está arreglado.
     assert changes.add_followup(tmp_path, "add-login", FOLLOWUP).changed is False
     with pytest.raises(changes.ChangeError, match="JSEC-9"):
         changes.fix_followup(tmp_path, "add-login", "JSEC-9")
-    assert main(["change", "record", "add-login", "--fixed", "JSEC-1", "--project", str(tmp_path)]) == 0
+    assert (
+        main(["change", "record", "add-login", "--fixed", "JSEC-1", "--project", str(tmp_path)])
+        == 0
+    )
     assert "unchanged" in capsys.readouterr().out
 
 
 def test_un_descarte_con_id_no_descarta_otros_de_la_misma_regla(tmp_path: Path) -> None:
     _change(tmp_path, {})
     changes.add_followup(tmp_path, "add-login", FOLLOWUP)
-    changes.add_followup(tmp_path, "add-login", {**FOLLOWUP, "id": "JSEC-2", "location": "src/a.py:1"})
-    dismissal = {"id": "JSEC-1", "judge": "judge-security", "rule": FOLLOWUP["rule"], "reason": "false positive"}
+    changes.add_followup(
+        tmp_path, "add-login", {**FOLLOWUP, "id": "JSEC-2", "location": "src/a.py:1"}
+    )
+    dismissal = {
+        "id": "JSEC-1",
+        "judge": "judge-security",
+        "rule": FOLLOWUP["rule"],
+        "reason": "false positive",
+    }
     changes.update_record(tmp_path, "add-login", add=[("dismissed_followups", dismissal)])
     states = {f["id"]: f["status"] for f in observability.followups(tmp_path, "add-login", "all")}
     assert states == {"JSEC-1": "dismissed", "JSEC-2": "open"}
+
+
+def test_cli_followups_fixed_y_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    folder = _change(tmp_path, {})
+    entry = json.dumps(FOLLOWUP)
+    assert (
+        main(
+            [
+                "change",
+                "record",
+                "add-login",
+                "--followup",
+                entry,
+                "--json",
+                "--project",
+                str(tmp_path),
+            ]
+        )
+        == 0
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["followups"]["changed"] is True
+    assert (
+        main(["change", "record", "add-login", "--fixed", "JSEC-1", "--project", str(tmp_path)])
+        == 0
+    )
+    capsys.readouterr()
+    assert (
+        main(
+            [
+                "change",
+                "followups",
+                "add-login",
+                "--status",
+                "fixed",
+                "--project",
+                str(tmp_path),
+                "--json",
+            ]
+        )
+        == 0
+    )
+    assert "JSEC-1" in capsys.readouterr().out
+    # Si el registro falla, el followup tampoco se escribe.
+    other = json.dumps({**FOLLOWUP, "id": "JSEC-2"})
+    bad = ["change", "record", "add-login", "--followup", other, "--add", "skills_used", "123"]
+    assert main([*bad, "--project", str(tmp_path)]) != 0
+    data = json.loads((folder / "followups.json").read_text(encoding="utf-8"))
+    assert [f["id"] for f in data["followups"]] == ["JSEC-1"]
+
+
+def test_publish_rechaza_marcadores_que_no_coinciden(tmp_path: Path) -> None:
+    _change(
+        tmp_path,
+        {
+            "gates/security_review.md": gate("code_review"),
+            "gates/code_review.md": gate("code_review"),
+        },
+    )
+    with pytest.raises(gates.GateError, match="security_review"):
+        gates.collect(tmp_path, "add-login")
+
+
+def test_contract_check_no_lee_el_comentario_de_la_plantilla(tmp_path: Path) -> None:
+    from exo.sdd import speclint
+
+    text = VERIFY.replace(
+        "Requires tech_lead approval: no",
+        "<!--\nRequires tech_lead approval: yes | no\n-->\nRequires tech_lead approval: no",
+    )
+    assert "yes | no" in text
+    path = tmp_path / "verify-record.md"
+    path.write_text(text, encoding="utf-8")
+    assert speclint.contract_gate(path).needs_approval is False
+
+
+def test_gate_con_digitos_en_el_nombre(tmp_path: Path) -> None:
+    from exo.sdd import speclint
+
+    path = tmp_path / "gates" / "owasp_a01.md"
+    path.parent.mkdir()
+    path.write_text(gate("owasp_a01"), encoding="utf-8")
+    assert speclint.lint_path(path).ok
+    assert speclint.gate_info(path).name == "owasp_a01"

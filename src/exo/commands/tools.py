@@ -17,6 +17,7 @@ from typing import Any
 from exo.commands import change as change_actions
 from exo.commands._output import emit_json, error
 from exo.mcp import server
+from exo.sdd import observability
 from exo.tools import registry
 from exo.tools.validation import InputError
 
@@ -66,7 +67,7 @@ def register(sub: argparse._SubParsersAction) -> None:
     )
     followups = change.add_parser("followups", help="judge followups")
     followups.add_argument("change_name")
-    followups.add_argument("--status", choices=("open", "dismissed", "all"), default="open")
+    followups.add_argument("--status", choices=observability.FOLLOWUP_STATUSES, default="open")
     _project_arg(followups)
     followups.set_defaults(
         handler=_run("get_followups", lambda a: {"change_name": a.change_name, "status": a.status})
