@@ -5,6 +5,9 @@
 - Registro de skills del proyecto.
 - `.agents/skills/` solo si algún agente destino la necesita (ADR-0007).
 - Contratos compartidos de los packs instalados (y las plantillas SDD) en la carpeta del motor.
+- Git hooks (D-21), si `governance.githooks` está activo: los scripts en la
+  carpeta del motor, ejecutables y con fin de línea LF, o bloques en husky. Los
+  activa el comando después de aplicar (`governance/githooks.py`).
 """
 
 from __future__ import annotations
@@ -18,6 +21,7 @@ from exo.adapters.base import (
     skills_dirs,
 )
 from exo.core import filemerge
+from exo.governance import githooks
 from exo.installer.ops import MergeBlock, Op, WriteFile
 from exo.packs import Skill
 
@@ -55,6 +59,38 @@ class GenericAdapter:
             WriteFile(f"{_meta.PROJECT_DIR}/shared/{rel}", data, OWNER)
             for rel, data in sorted(ctx.bundle.shared.items())
         ]
+        return ops + self._githooks(ctx)
+
+    def _githooks(self, ctx: Context) -> list[Op]:
+        if not githooks.enabled(ctx.config):
+            return []
+        kind = githooks.mechanism(ctx.project)
+        if kind == "pre-commit":
+            return []  # su YAML no se edita: el comando imprime el bloque a agregar
+        if kind == "husky":
+            return [
+                MergeBlock(
+                    f"{githooks.HUSKY}/{name}",
+                    "core",
+                    githooks.husky_block(name),
+                    OWNER,
+                    style=filemerge.STYLE_HASH,
+                )
+                for name in githooks.HOOKS
+            ]
+        ops: list[Op] = [
+            WriteFile(f"{githooks.FOLDER}/{name}", githooks.script(name), OWNER, executable=True)
+            for name in githooks.HOOKS
+        ]
+        ops.append(
+            MergeBlock(
+                ".gitattributes",
+                "core",
+                f"{githooks.FOLDER}/* text eol=lf",
+                OWNER,
+                style=filemerge.STYLE_HASH,
+            )
+        )
         return ops
 
     def _registry(self, ctx: Context) -> bytes:

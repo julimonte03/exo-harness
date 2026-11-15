@@ -43,6 +43,7 @@ class LockEntry:
     key: str | None = None
     style: str | None = None  # estilo de comentario del bloque, si no se deduce del nombre
     item: str | None = None  # valor del ítem, para kind "item"
+    executable: bool = False  # archivos con bit de ejecución (git hooks)
 
     def sort_key(self) -> tuple[str, str, str, str, str]:
         return (self.path, self.kind, self.block_id or "", self.key or "", self.item or "")
@@ -117,7 +118,12 @@ def _entry(raw: Any, index: int) -> LockEntry:
     style = raw.get("style")
     if style is not None and style not in (filemerge.STYLE_HTML, filemerge.STYLE_HASH):
         raise LockError(f"{where}: unknown style {style!r}")
-    return LockEntry(path, kind, raw["owner"], raw["sha256"], block_id, key, style, item)
+    executable = raw.get("executable", False)
+    if not isinstance(executable, bool):
+        raise LockError(f"{where}: executable must be true or false")
+    return LockEntry(
+        path, kind, raw["owner"], raw["sha256"], block_id, key, style, item, executable
+    )
 
 
 def _created(raw: Any, index: int) -> Created:
@@ -181,6 +187,8 @@ def _serialize(entry: LockEntry) -> dict[str, Any]:
         out["style"] = entry.style
     if entry.item is not None:
         out["item"] = entry.item
+    if entry.executable:
+        out["executable"] = True
     return out
 
 
