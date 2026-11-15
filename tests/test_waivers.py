@@ -68,7 +68,9 @@ def test_vencido_no_cubre_y_se_informa(tmp_path: Path) -> None:
         ({"waivers": [{**OK, "expires": "31/01/2027"}]}, "expires"),
     ],
 )
-def test_waivers_invalidos_se_informan_y_no_cubren(tmp_path: Path, data: object, fragment: str) -> None:
+def test_waivers_invalidos_se_informan_y_no_cubren(
+    tmp_path: Path, data: object, fragment: str
+) -> None:
     _write(tmp_path, data)
     loaded = waivers.load(tmp_path, today=TODAY)
     assert loaded.active == []
@@ -79,3 +81,24 @@ def test_el_esquema_conoce_los_mismos_detectores_que_el_escaner() -> None:
     schema = json.loads(waivers.SCHEMA_FILE.read_text(encoding="utf-8"))
     detector = schema["properties"]["waivers"]["items"]["properties"]["detector"]
     assert tuple(detector["enum"]) == scan.KNOWN_PII
+
+
+def test_una_entrada_invalida_no_anula_las_demas(tmp_path: Path) -> None:
+    _write(tmp_path, {"waivers": [OK, {**OK, "detector": "passport"}]})
+    loaded = waivers.load(tmp_path, today=TODAY)
+    assert len(loaded.active) == 1
+    assert any("waivers[1]" in p and "detector" in p for p in loaded.problems), loaded.problems
+
+
+def test_un_archivo_ilegible_se_informa_sin_traceback(tmp_path: Path) -> None:
+    (tmp_path / _meta.PROJECT_DIR / waivers.FILENAME).mkdir(parents=True)
+    loaded = waivers.load(tmp_path, today=TODAY)
+    assert loaded.active == [] and loaded.problems
+
+
+def test_el_vencido_que_cubriria_se_nombra(tmp_path: Path) -> None:
+    _write(tmp_path, {"waivers": [{**OK, "expires": "2026-11-14"}]})
+    loaded = waivers.load(tmp_path, today=TODAY)
+    old = waivers.expired_for(loaded, _finding(), "tests/fixtures/a")
+    assert old is not None and old.expires == date(2026, 11, 14)
+    assert waivers.expired_for(loaded, _finding(), "src/a.py") is None

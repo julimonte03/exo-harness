@@ -149,11 +149,16 @@ def scan_added(project: Path, added: dict[str, list[tuple[int, str]]], cfg: dict
             if waiver is not None:
                 continue
             what = "a secret" if finding.level == scan.CRITICAL else "personal data"
-            fix = (
-                "remove it and rotate it if it was real"
-                if finding.level == scan.CRITICAL
-                else f"remove it, or add a waiver in {_meta.PROJECT_DIR}/{waivers.FILENAME}"
-            )
+            old = waivers.expired_for(loaded, finding, rel)
+            if finding.level == scan.CRITICAL:
+                fix = "remove it and rotate it if it was real"
+            elif old is not None:
+                fix = (
+                    f"the waiver for {old.detector} in {old.path} expired on "
+                    f"{old.expires.isoformat()}: remove the data, or ask the tech_lead to renew it"
+                )
+            else:
+                fix = f"remove it, or add a waiver in {_meta.PROJECT_DIR}/{waivers.FILENAME}"
             result.errors.append(
                 f"{rel}:{finding.line}: {what} ({finding.kind}, {finding.excerpt}): {fix}"
             )

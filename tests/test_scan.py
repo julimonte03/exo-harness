@@ -178,3 +178,52 @@ def test_una_tira_de_digitos_dentro_de_un_hash_no_es_tarjeta() -> None:
         f"{card}abc",
     ):
         assert scan.scan_text(text) == [], text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "export PYTHONPATH=/app/src",
+        "LD_LIBRARY_PATH=/usr/local/lib",
+        "CLASSPATH=lib/foo.jar:lib/bar.jar",
+        "GOPATH=$HOME/go",
+        "COMPAT_MODE=enabled1",
+        "Password: required",
+        "token: optional",
+    ],
+)
+def test_env_y_claves_sin_falsos_positivos(text: str) -> None:
+    """Revisión de cierre: `PAT` como subcadena de PATH o COMPAT daba un Crítico sin waiver."""
+    assert _kinds(text, pii=()) == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "PASSWORD=hunter2hunter2",
+        "API_KEY=sk9live9abcdefgh",
+        "SECRET=s3cr3t-value-x",
+        "TOKEN=tok3n-abcdefgh",
+        "spring.datasource.password=MySecret123",
+        "password: MySecret123",
+        "  db_token: Zx9y8w7v6u",
+        "GITHUB_PAT=ghx9y8w7v6u5t4",
+    ],
+)
+def test_claves_sin_prefijo_o_en_minuscula_se_detectan(text: str) -> None:
+    kinds = [kind for _, kind, _ in _kinds(text, pii=())]
+    assert kinds in (["env-assignment"], ["credential-assignment"]), text
+
+
+def test_un_secreto_corto_no_sale_entero_en_el_extracto() -> None:
+    [finding] = scan.scan_text("Server=db;Password=abcd;", pii=())
+    assert finding.excerpt == "a…"
+    [finding] = scan.scan_text("redis://cache:k9z8y7@cache.internal:6379", pii=())
+    assert finding.excerpt == "k9…"
+
+
+def test_timestamps_e_ids_largos_no_son_tarjetas() -> None:
+    """Un timestamp en milisegundos (13 dígitos que empiezan con 1) no es una tarjeta."""
+    stamps = [str(1_700_000_000_000 + n * 7_919) for n in range(200)]
+    assert all(scan.scan_text(s) == [] for s in stamps)
+    assert scan.scan_text("id 9" + "0" * 17 + "8") == []
