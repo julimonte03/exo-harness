@@ -80,7 +80,7 @@ Show the person the confirmed findings, by severity:
 - **Critical and High** get fixed (step 4), or stay open and count toward escalation.
 - **Medium and Low:** the person decides, for each one, to fix it or to dismiss it. A dismissal goes to `dismissed_followups` with its `id`, `judge`, `rule` and the person's reason. Never dismiss one on your own.
 
-`followups.json` keeps every finding, fixed or not; the round report says which ones are fixed.
+`followups.json` keeps every finding. When a fix is in, mark it with `exo change record <change> --fixed <id>`: `exo change followups <change>` then lists only what is still open.
 
 ### 4. Fix and verify again
 
