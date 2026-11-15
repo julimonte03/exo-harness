@@ -257,11 +257,7 @@ FOLLOWUPS = observability.FOLLOWUPS
 FOLLOWUPS_SCHEMA = record.SCHEMAS_DIR / "followups.schema.json"
 
 
-def add_followup(
-    project: Path, change: str, value: Any, *, now: datetime | None = None
-) -> RecordUpdate:
-    """Agrega un hallazgo de juez a `followups.json`, validado y sin repetir su `id`."""
-    project = Path(project)
+def _load_followups(project: Path, change: str) -> tuple[str, Path, dict[str, Any]]:
     found = _get(project, change)
     rel = f"{found.path}/{FOLLOWUPS}"
     path = _within(project, rel)
@@ -273,18 +269,12 @@ def add_followup(
         raise ChangeError(f"{rel} is not valid JSON ({exc}); fix it by hand first") from exc
     if isinstance(data, list):
         data = {"followups": data}
-    items = data.get("followups") if isinstance(data, dict) else None
-    if not isinstance(items, list):
+    if not isinstance(data, dict) or not isinstance(data.get("followups"), list):
         raise ChangeError(f"{rel}: followups must be a list; fix it by hand first")
-    wanted = value.get("id") if isinstance(value, dict) else None
-    same = [i for i in items if isinstance(i, dict) and wanted and i.get("id") == wanted]
-    if same:
-        if same[0] == value:
-            return RecordUpdate(False, rel, data)
-        raise ChangeError(
-            f"{wanted} is already used by another followup of {change}; use the next number"
-        )
-    items.append(value)
+    return rel, path, data
+
+
+def _save_followups(path: Path, data: dict[str, Any]) -> None:
     schema = json.loads(FOLLOWUPS_SCHEMA.read_text(encoding="utf-8"))
     errors = jsonschema.validate(data, schema)
     if errors:
@@ -292,6 +282,44 @@ def add_followup(
             "the followup does not match its schema, nothing was written: " + "; ".join(errors)
         )
     fsutil.write_atomic(path, _dump(data))
+
+
+def add_followup(
+    project: Path, change: str, value: Any, *, now: datetime | None = None
+) -> RecordUpdate:
+    """Agrega un hallazgo de juez a `followups.json`, validado y sin repetir su `id`."""
+    project = Path(project)
+    rel, path, data = _load_followups(project, change)
+    items = data["followups"]
+    wanted = value.get("id") if isinstance(value, dict) else None
+    same = [i for i in items if isinstance(i, dict) and wanted and i.get("id") == wanted]
+    if same:
+        # El mismo hallazgo, aunque ya esté marcado como arreglado, no es un cambio.
+        if {k: v for k, v in same[0].items() if k != "fixed"} == value:
+            return RecordUpdate(False, rel, data)
+        raise ChangeError(
+            f"{wanted} is already used by another followup of {change}; use the next number"
+        )
+    items.append(value)
+    _save_followups(path, data)
+    return RecordUpdate(True, rel, data)
+
+
+def fix_followup(project: Path, change: str, followup_id: str) -> RecordUpdate:
+    """Marca un hallazgo como arreglado (`"fixed": true`); idempotente."""
+    project = Path(project)
+    rel, path, data = _load_followups(project, change)
+    found = [i for i in data["followups"] if isinstance(i, dict) and i.get("id") == followup_id]
+    if not found:
+        known = ", ".join(str(i.get("id")) for i in data["followups"] if isinstance(i, dict))
+        raise ChangeError(
+            f"{followup_id} is not a followup of {change} (known: {known or 'none'}); "
+            f"check `{_meta.NAME} change followups {change} --status all`"
+        )
+    if found[0].get("fixed") is True:
+        return RecordUpdate(False, rel, data)
+    found[0]["fixed"] = True
+    _save_followups(path, data)
     return RecordUpdate(True, rel, data)
 
 

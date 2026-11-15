@@ -154,11 +154,11 @@ def test_change_state_proyecta_ticket_y_atribucion(tmp_path: Path) -> None:
     assert state["ticket_key"] == "PROJ-11"
     assert state["attribution_schema_version"] == 2
     assert state["phase"] == "apply"
-    assert state["followups"] == {"open": 1, "dismissed": 2}
+    assert state["followups"] == {"open": 1, "fixed": 0, "dismissed": 2}
     assert state["warnings"] == []
     empty = observability.change_state(tmp_path, "PROJ-1-login")
     assert (empty["ticket_key"], empty["attribution_schema_version"]) == (None, None)
-    assert empty["followups"] == {"open": 0, "dismissed": 0}
+    assert empty["followups"] == {"open": 0, "fixed": 0, "dismissed": 0}
 
 
 def test_followups_por_estado(tmp_path: Path) -> None:
@@ -191,7 +191,7 @@ def test_json_ilegible_se_tolera_con_advertencia(tmp_path: Path) -> None:
     _touch(tmp_path / "specs" / "c" / "ai-usage-record.json", "{ roto")
     _touch(tmp_path / "specs" / "c" / "followups.json", "[1, 2")
     state = observability.change_state(tmp_path, "c")
-    assert state["followups"] == {"open": 0, "dismissed": 0}
+    assert state["followups"] == {"open": 0, "fixed": 0, "dismissed": 0}
     assert len(state["warnings"]) == 2
     assert all("unreadable" in w for w in state["warnings"])
 
@@ -243,7 +243,7 @@ def test_dismissed_followups_que_no_es_lista(tmp_path: Path) -> None:
     _touch(tmp_path / "specs" / "c" / "ai-usage-record.json", json.dumps({"dismissed_followups": {"x": 1}}))
     _touch(tmp_path / "specs" / "c" / "followups.json", json.dumps([{"id": "J1-1", "judge": "j", "rule": "r"}]))
     state = observability.change_state(tmp_path, "c")
-    assert state["followups"] == {"open": 1, "dismissed": 0}
+    assert state["followups"] == {"open": 1, "fixed": 0, "dismissed": 0}
     assert any("dismissed_followups" in w for w in state["warnings"])
 
 

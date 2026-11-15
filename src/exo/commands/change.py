@@ -72,6 +72,13 @@ def register_actions(actions: argparse._SubParsersAction) -> None:
         help="add a judge finding to followups.json (JSON, or @<file>)",
     )
     rec.add_argument(
+        "--fixed",
+        action="append",
+        default=[],
+        metavar="ID",
+        help="mark a followup as fixed, by its id (for example JSEC-1)",
+    )
+    rec.add_argument(
         "--phase-done",
         metavar="PHASE",
         help=(
@@ -146,12 +153,18 @@ def _record(args: argparse.Namespace) -> int:
     followups = _parse([["followups", raw] for raw in args.followup], "--followup")
     if isinstance(followups, str):
         return usage_error(followups)
-    if not add and not set_ and args.phase_done is None and not followups:
-        return usage_error("nothing to record: pass --add, --set, --followup or --phase-done")
+    if not add and not set_ and args.phase_done is None and not followups and not args.fixed:
+        return usage_error(
+            "nothing to record: pass --add, --set, --followup, --fixed or --phase-done"
+        )
     assert not isinstance(add, str) and not isinstance(set_, str)
     try:
         for _, value in followups:
             done = changes.add_followup(args.project, args.change, value)
+            if not args.json:
+                print(f"{done.path}: " + ("updated" if done.changed else "unchanged"))
+        for followup_id in args.fixed:
+            done = changes.fix_followup(args.project, args.change, followup_id)
             if not args.json:
                 print(f"{done.path}: " + ("updated" if done.changed else "unchanged"))
         if not add and not set_ and args.phase_done is None:
