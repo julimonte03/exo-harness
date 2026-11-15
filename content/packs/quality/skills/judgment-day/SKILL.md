@@ -84,7 +84,7 @@ Show the person the confirmed findings, by severity:
 
 ### 4. Fix and verify again
 
-- The fix goes to whoever implemented the change: `sdd-apply` in `sdd-implementer`, with the accepted findings as its input, inside the plan. It runs the tests.
+- The fix goes to whoever implemented the change: `sdd-apply` in `sdd-implementer`, with the accepted findings as its input, inside the plan. It runs the tests and, in Tier 4, the `secure_coding_check` gate again over the new diff.
 - A fix that needs to change the spec or the design is outside the plan: stop with `status: blocked` and, as `next`, the phase that owns that artifact.
 - Then `sdd-verify` runs again, so that `verify-record.md` and the gates describe the final code. The next round starts from its new Judgment Day Handoff.
 

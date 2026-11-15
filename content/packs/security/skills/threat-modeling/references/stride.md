@@ -11,7 +11,7 @@ The working material of `threat-modeling`: what each STRIDE category asks, which
 | Repudiation | Accountability | Can someone deny an action because nothing records who did it, or because the record can be changed? | Audit log with who, what and when for sensitive actions; logs the actor cannot edit (SCB-6) | A09:2021; CWE-778 |
 | Information disclosure | Confidentiality | Can data reach someone who should not see it: through responses, errors, logs, caches, URLs, exports, timing, or another tenant? | Authorization per object, data minimization, encryption, masking, generic errors (SCB-3, SCB-6, SCB-8, SCB-9) | A01:2021, A02:2021, A04:2021; CWE-200, CWE-639 |
 | Denial of service | Availability | Can someone exhaust memory, CPU, storage, connections, quotas or money, or lock other users out? | Rate limits, size and page limits, timeouts, pagination, queues with back-pressure, budgets on paid calls | CWE-400, CWE-770 |
-| Elevation of privilege | Authorization | Can someone gain rights they should not have: an admin action, another tenant's scope, code execution? | Deny by default, server-side role and tenant checks, no mass assignment, least privilege for services, safe deserialization (SCB-3, SCB-7) | A01:2021; CWE-269, CWE-862, CWE-915 |
+| Elevation of privilege | Authorization | Can someone gain rights they should not have: an admin action, another tenant's scope, code execution? | Deny by default, server-side role and tenant checks, no mass assignment, least privilege for services, safe deserialization (SCB-3, SCB-7) | A01:2021 (CWE-862); A04:2021 (CWE-269); A08:2021 (CWE-915) |
 
 ## Which categories apply to which element
 
@@ -62,7 +62,7 @@ Check the elements that a flow across a trust boundary reaches first; a process 
 | Medium | Low | Medium | High | Critical |
 | High | Medium | High | Critical | Critical |
 
-The residual risk uses the same matrix with the mitigation in place. A mitigation usually lowers the likelihood; only design changes (not storing the data, splitting a privilege) lower the impact.
+The residual risk uses the same matrix with the mitigation in place. A mitigation lowers the likelihood; only a design change (not storing or logging the data, splitting a privilege) lowers the impact. A mitigation that removes the attack path, with a test in the Test Plan that proves it, leaves the residual at Low whatever the impact: name the test. Without such a test, a High impact keeps at least a Medium residual.
 
 ## Abuse cases
 

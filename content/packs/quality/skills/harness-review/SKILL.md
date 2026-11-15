@@ -113,7 +113,7 @@ ESCALATED: S-3 is not proven by its test.
 | Severity | File:line | Finding | Rule/OWASP |
 |---|---|---|---|
 | High | tests/test_login.py:57 | The lockout test stops at the fourth attempt, so S-3 is not proven | S-3 |
-| Medium | src/auth/login.py:31 | The user's email is written to the log | OWASP A09:2021 |
+| High | src/auth/login.py:31 | The user's email is written to the log | OWASP A09:2021, CWE-532 |
 | Low | src/auth/login.py:12 | A debug print is left in | engineering: leftovers |
 
 ## Approval

@@ -40,7 +40,7 @@ An entry with the same `name` and `type` counts as already recorded: the first a
 | `judges_invoked` | `{"name": "judge-security", "result": "<short outcome>"}`; the Tier 4 review is `{"name": "judgment-day", "result": "approved"}` once the person approves it, or `"escalated: <why>"` |
 | `decisions` | `{"summary": "...", "rationale": "...", "by": "human" \| "agent"}`, including every tier change |
 | `dismissed_followups` | findings the person decided not to fix: `{"judge", "rule", "reason"}` and optionally `id` |
-| `gates` | gate results, from F5: `{"name", "status": "pass" \| "fail" \| "waived" \| "skipped"}` |
+| `gates` | gate results: `{"name", "status": "pass" \| "fail" \| "waived" \| "skipped"}`; `pass` for APPROVED, `fail` for ESCALATED, `waived` once the `tech_lead` accepts it |
 | `purpose` | one sentence: what the change is for |
 
 `ticket_key` and `epic_key` hold the exact IDs the person confirmed; they are set by `exo change new` and do not change.

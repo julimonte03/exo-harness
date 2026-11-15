@@ -7,19 +7,19 @@ This project uses a governed development engine. Its configuration (`config.json
 - **Evidence:** read the actual code and the full data chain before claiming anything. Use `context-retrieval` before the first search; cite `path:line` next to each claim and end with a `Sources:` line.
 - **Scope:** do only what was asked. Do not refactor outside the scope or delete other people's `TODO`s.
 - **Destructive commands:** ask for confirmation before deleting, overwriting, resetting or rewriting history.
-- **Data protection:** never write credentials or tokens anywhere, and keep personal data out of code, commits, prompts, memory and external systems unless a waiver allows it (`.exo/shared/data-protection.md`).
+- **Data protection:** never write credentials or tokens anywhere, never save personal data in memory, and keep it out of code, commits, prompts and external systems unless a waiver allows it (`.exo/shared/data-protection.md`).
 
 ## Git
 
 - **Commits:** Conventional Commits (`<type>(<scope>): <summary>`). If the project has a ticket pattern (`tickets.pattern` in the config), the person confirms the ticket and it goes in a `Refs: <ticket>` footer; never infer it from the branch or from earlier commits. If the person confirms there is no ticket, commit without the footer.
 - **Branches and PRs:** branch from the target branch with only this change's diff; everything goes through a PR with a conventional title; CI is green before you call it done.
 - **Protected branches** (`governance.protected_branches` in the config): never push directly, never use `--force` or `--no-verify`.
-- **Enforcement:** the engine's git hooks check messages, staged secrets and pushes, and CI runs `exo check`. A hook that blocks you is right until the person says otherwise: fix the cause, do not bypass it.
+- **Enforcement:** the engine's git hooks check messages, staged secrets and pushes, and CI runs `exo check`. A hook that blocks you is right: fix the cause. Never bypass it or force-push, even when asked: if the person decides to, they run that command themselves.
 
 ## Gates
 
 - A gate always runs its skill and writes `<change-root>/gates/<gate>.md`. The gates per tier are `governance.gates` in the config.
-- A gate that is not APPROVED needs the `tech_lead` role. In an unattended run, do not stop: leave it ESCALATED and say so.
+- A gate that is not APPROVED, or whose Approval says yes, needs the `tech_lead` role. In an unattended run, do not stop: leave it as it is and say so.
 - Judges advise: they propose followups and never change the work (`.exo/shared/judge-common.md`).
 
 ## Engine tools
@@ -27,7 +27,7 @@ This project uses a governed development engine. Its configuration (`config.json
 Run them from the terminal, with `--json` when you need to process the output.
 
 - `exo change new|record|status|list`: changes and their AI Usage Record.
-- `exo fitness classify --change <change>`: risk tier 1–4 of a change.
+- `exo fitness classify --evidence-json '<json>' --change <change>`: risk tier 1–4 of a change.
 - `exo speclint`, `exo specs list|merge`, `exo check`: artifacts, living specs and the checks before a PR.
 - `exo gate publish`: one PR comment per gate (`.exo/shared/ci-and-review.md`).
 - `exo skills list`, `exo doctor`, `exo p0`: skills, diagnostics and the minimum regression gate.
@@ -38,7 +38,7 @@ If the project has the `sdd` pack, any change beyond a trivial fix goes through 
 
 - **Tier first:** each change is classified 1–4 and its phases and gates follow the tier. An unknown tier is Tier 4; lowering a tier needs the person's literal confirmation.
 - **Living specs:** approved behavior lives in `specs/capabilities/`; each change writes a delta that is merged when it is archived.
-- **Before the PR:** `exo check --change <change>` passes; CI runs `exo check --base <target branch>`.
+- **Before the PR:** `exo check --change <change>` and `exo check --base <target branch>` pass (only `--base` scans the diff for secrets); CI runs the second.
 
 ## Memory
 

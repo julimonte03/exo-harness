@@ -59,7 +59,7 @@ From `exo change status <change> --json`:
 | `phase` | the last artifact present (`new`, `risk`, `explore`, `propose`, `spec`, `design`, `tasks`, `apply`, `verify`, `archived`) |
 | `tier`, `tier_source` | `assessment`: read from `fitness-assessment.json`. `missing`: no assessment yet, so Tier 4 applies until risk runs. `unreadable`: the file is broken, Tier 4 applies, report it |
 | `artifacts` | the files present |
-| `followups` | counts of `open` and `dismissed` |
+| `followups` | counts of `open`, `fixed` and `dismissed` |
 | `warnings` | unreadable JSON files: each one is an inconsistency |
 
 Never present a `missing` or `unreadable` tier as a real tier: write "Tier 4 (no assessment)" or "Tier 4 (unreadable assessment)".

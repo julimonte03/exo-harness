@@ -5,7 +5,7 @@ Rules every judge follows: `judge-code-reviewer` and `judge-security` (pack `qua
 ## A. Advisory first
 
 - A judge reviews and proposes; it never writes code, edits an artifact or applies its own suggestion. The person, or the agent the person asks, fixes.
-- The verdict is advisory too: the person decides. A verdict that is not `APPROVED` needs the `tech_lead` role (`governance.roles` in `.exo/config.json`) to accept the risk or send the work back.
+- The verdict is advisory too: the person decides. A verdict that is not `APPROVED`, or a gate whose Approval says yes, needs the `tech_lead` role (`governance.roles` in `.exo/config.json`) to accept the risk or send the work back.
 
 ## B. Independence
 
@@ -29,7 +29,7 @@ Each finding has:
 | `rule` | The rule, OWASP or WCAG item, requirement ID or scenario ID it breaks |
 | `summary` | What is wrong, and a suggested fix as text |
 
-Never copy secrets or personal data into a finding: point at the location.
+Never copy secrets or personal data into a finding: point at the location. Secrets or personal data written to logs, responses or error messages are at least High, for every judge.
 
 ## E. Verdict
 
@@ -43,10 +43,10 @@ The orchestrator, or the agent when there is none, records the outcome; the judg
 - **Each finding as a followup**, in `<change-root>/followups.json` (schema `.exo/shared/schemas/followups.schema.json`, severity in lowercase):
 
   ```bash
-  exo change record <change> --followup '{"id": "JSEC-1", "judge": "judge-security", "rule": "OWASP A07:2021", "severity": "high", "summary": "Password compared with ==; use a constant-time comparison", "location": "src/auth/login.py:42"}'
+  exo change record <change> --followup '{"id": "JSEC-1", "judge": "judge-security", "rule": "CWE-208", "severity": "high", "summary": "The reset token is compared with ==, which leaks timing; use a constant-time comparison such as hmac.compare_digest", "location": "src/auth/reset.py:42"}'
   ```
 
 - **The judge and its verdict** in the AI Usage Record: `--add judges_invoked '{"name": "judge-security", "result": "escalated: JSEC-1 open"}'`, and the judge in `capabilities_used` with `"type": "judge"`.
 - **A fixed followup:** once the fix is in, `exo change record <change> --fixed <id>`.
 - **A dismissed followup** (the person decides not to fix it) goes to `dismissed_followups` with its `id`, `judge`, `rule` and the person's reason. Never dismiss one on your own.
-- **A gate run by a judge** also writes its `<change-root>/gates/<gate>.md` from `.exo/shared/templates/gate.md`.
+- Judges have no gate of their own: the gates come from the skills in `.exo/shared/phase-skill-map.md`, Gates.

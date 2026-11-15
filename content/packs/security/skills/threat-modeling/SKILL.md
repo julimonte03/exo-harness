@@ -61,7 +61,7 @@ The questions per STRIDE category, the rating matrix and the patterns are in `re
 7. **Abuse cases.** At least one per entry point that crosses a boundary: `As <attacker>, I <action> through <entry point> to <goal>`. Each one names the threats it exercises.
 8. **Rate** each threat: likelihood and impact give the risk (`references/stride.md`).
 9. **Mitigate.** A concrete control and where it lands: a file of Modules / Files and the test that proves it in the Test Plan. Prefer the controls of skill:secure-coding-baseline and cite their IDs (`SCB-3`). In Tier 4, each threat also gets a negative test (skill:test-strategy).
-10. **Residual risk.** Rate the threat again with the mitigation in place. Say what remains and why it is acceptable, or that it is not.
+10. **Residual risk.** Rate the threat again with the mitigation in place (`references/stride.md`, Rating): a mitigation lowers the likelihood, a design change the impact, and only a mitigation that removes the attack path with a test that proves it brings a High impact down to Low. Say what remains and why it is acceptable, or that it is not.
 
 ## Write it into design.md
 

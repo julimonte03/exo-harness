@@ -41,7 +41,7 @@ This:      query("SELECT * FROM orders WHERE id = ?", [order_id])
 | SCB-3.4 | Function-level checks: admin and internal actions verify the role on the server, not by hiding a button. | CWE-285 |
 | SCB-3.5 | Tenancy: every query on tenant data filters by the caller's tenant, taken from the session, not from input. | CWE-639 |
 | SCB-3.6 | Tokens are fully verified: signature with an expected algorithm, expiry, issuer and audience. A token that fails any check is rejected. | CWE-347, CWE-287 |
-| SCB-3.7 | Sessions: a new session ID after login and privilege change, expiry and logout that invalidate it on the server, cookies with `Secure`, `HttpOnly` and `SameSite`. | CWE-384, CWE-613, CWE-614, CWE-1004 |
+| SCB-3.7 | Sessions: a new session ID after login and privilege change, expiry and logout that invalidate it on the server, cookies with `Secure`, `HttpOnly` and `SameSite`. | CWE-384, CWE-1463, CWE-1464, CWE-614, CWE-1004 |
 | SCB-3.8 | State-changing requests authenticated by cookies are protected against cross-site request forgery (the framework's token or `SameSite` plus an origin check). | CWE-352 |
 | SCB-3.9 | Login, password reset and similar endpoints limit attempts. Secrets and tokens are compared in constant time. | CWE-307, CWE-208 |
 
