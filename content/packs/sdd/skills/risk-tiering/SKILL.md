@@ -40,7 +40,7 @@ This skill never edits `fitness-assessment.json` by hand, never writes any other
 
 - `exo change status <change> --json` gives `path` (the change root), `artifacts`, `tier` and `tier_source`.
 - `tier_source: assessment` means a tier is recorded: this is a re-classification. Read `fitness-assessment.json` for the previous `evidence` (the scores) and `rule`.
-- What the change does: the request, `proposal.md` if it exists, and `.exo/context.md` (areas, owners, critical components, known risks). `governance.dpa_profile` in `.exo/config.json` names the data-protection profile that applies.
+- What the change does: the request, `proposal.md` if it exists, and `.exo/context.md` (areas, owners, critical components, known risks). `data_protection.pii` in `.exo/config.json` lists the personal-data detectors the project turned on.
 
 ### 2. Gather the evidence
 
