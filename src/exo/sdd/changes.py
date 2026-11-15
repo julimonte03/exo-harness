@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from exo import _meta
-from exo.core import config, fsutil, tickets
+from exo.core import config, fsutil, jsonschema, tickets
 from exo.sdd import fitness, observability, record
 
 ASSESSMENT = observability.ASSESSMENT
@@ -246,6 +246,50 @@ def update_record(
     if errors:
         raise ChangeError(
             "the record would not match its schema, nothing was written: " + "; ".join(errors)
+        )
+    fsutil.write_atomic(path, _dump(data))
+    return RecordUpdate(True, rel, data)
+
+
+# -- followups.json ---------------------------------------------------------------------------
+
+FOLLOWUPS = observability.FOLLOWUPS
+FOLLOWUPS_SCHEMA = record.SCHEMAS_DIR / "followups.schema.json"
+
+
+def add_followup(
+    project: Path, change: str, value: Any, *, now: datetime | None = None
+) -> RecordUpdate:
+    """Agrega un hallazgo de juez a `followups.json`, validado y sin repetir su `id`."""
+    project = Path(project)
+    found = _get(project, change)
+    rel = f"{found.path}/{FOLLOWUPS}"
+    path = _within(project, rel)
+    try:
+        data: Any = json.loads(fsutil.read_bytes(path).decode("utf-8"))
+    except FileNotFoundError:
+        data = {"followups": []}
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ChangeError(f"{rel} is not valid JSON ({exc}); fix it by hand first") from exc
+    if isinstance(data, list):
+        data = {"followups": data}
+    items = data.get("followups") if isinstance(data, dict) else None
+    if not isinstance(items, list):
+        raise ChangeError(f"{rel}: followups must be a list; fix it by hand first")
+    wanted = value.get("id") if isinstance(value, dict) else None
+    same = [i for i in items if isinstance(i, dict) and wanted and i.get("id") == wanted]
+    if same:
+        if same[0] == value:
+            return RecordUpdate(False, rel, data)
+        raise ChangeError(
+            f"{wanted} is already used by another followup of {change}; use the next number"
+        )
+    items.append(value)
+    schema = json.loads(FOLLOWUPS_SCHEMA.read_text(encoding="utf-8"))
+    errors = jsonschema.validate(data, schema)
+    if errors:
+        raise ChangeError(
+            "the followup does not match its schema, nothing was written: " + "; ".join(errors)
         )
     fsutil.write_atomic(path, _dump(data))
     return RecordUpdate(True, rel, data)

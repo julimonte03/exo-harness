@@ -186,6 +186,12 @@ def _first_word(section: _Section | None) -> str | None:
     return match.group(1) if match else None
 
 
+def section_text(path: Path, title: str) -> str | None:
+    """El texto de una sección `##`, con sus comentarios, o None si no está."""
+    section = _find(_sections(Path(path).read_text(encoding="utf-8-sig")), title)
+    return section.text(comments=True) if section is not None else None
+
+
 def gate_info(path: Path) -> GateInfo:
     """Nombre, veredicto y si pide aprobación de `tech_lead`, de un archivo de gate."""
     text = Path(path).read_text(encoding="utf-8-sig")

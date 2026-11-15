@@ -65,6 +65,13 @@ def register_actions(actions: argparse._SubParsersAction) -> None:
         help=f"set a field ({', '.join(changes.SET_FIELDS)})",
     )
     rec.add_argument(
+        "--followup",
+        action="append",
+        default=[],
+        metavar="JSON",
+        help="add a judge finding to followups.json (JSON, or @<file>)",
+    )
+    rec.add_argument(
         "--phase-done",
         metavar="PHASE",
         help=(
@@ -107,7 +114,7 @@ def _new(args: argparse.Namespace) -> int:
 def _parse(pairs: list[list[str]], option: str) -> list[tuple[str, Any]] | str:
     parsed: list[tuple[str, Any]] = []
     for field, raw in pairs:
-        allowed = changes.LIST_FIELDS if option == "--add" else changes.SET_FIELDS
+        allowed = {"--add": changes.LIST_FIELDS, "--set": changes.SET_FIELDS}.get(option, (field,))
         if field not in allowed:
             hint = "list fields take --add" if option == "--set" else "a scalar field takes --set"
             return f"{option} {field}: not one of {', '.join(allowed)} ({hint})"
@@ -136,10 +143,19 @@ def _record(args: argparse.Namespace) -> int:
             return usage_error(parsed)
     if args.phase_done is not None and args.phase_done not in changes.PHASES:
         return usage_error(f"--phase-done {args.phase_done}: one of {', '.join(changes.PHASES)}")
-    if not add and not set_ and args.phase_done is None:
-        return usage_error("nothing to record: pass --add, --set or --phase-done")
+    followups = _parse([["followups", raw] for raw in args.followup], "--followup")
+    if isinstance(followups, str):
+        return usage_error(followups)
+    if not add and not set_ and args.phase_done is None and not followups:
+        return usage_error("nothing to record: pass --add, --set, --followup or --phase-done")
     assert not isinstance(add, str) and not isinstance(set_, str)
     try:
+        for _, value in followups:
+            done = changes.add_followup(args.project, args.change, value)
+            if not args.json:
+                print(f"{done.path}: " + ("updated" if done.changed else "unchanged"))
+        if not add and not set_ and args.phase_done is None:
+            return 0
         result = changes.update_record(
             args.project, args.change, add=add, set_=set_, phase_done=args.phase_done
         )
