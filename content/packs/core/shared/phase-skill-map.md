@@ -60,13 +60,9 @@ These skills are named by the map but ship in later packs. When one is missing, 
 | `secure-coding-baseline` | security | Validate and encode untrusted input at the boundary, use parameterized queries, keep secrets out of code and logs, check authorization on every entry point and fail closed. |
 | `prompt-hygiene` | core | Before pasting logs, tickets or production data into the conversation, remove secrets, personal data and customer identifiers; prefer short synthetic excerpts. |
 | `frontend-design` | frontend | Reuse the project's existing UI components and design tokens. Do not add new visual styles without the person's approval. |
-| `harness-review` | quality | Re-read the diff against the spec and the tasks: every scenario has a passing test, nothing outside the scope, no debug leftovers, and tests and linters pass with the exact commands. |
 | `security-scan-node` | frontend | Run the dependency audit of the Node project (for example `npm audit --omit=dev`) and report the high and critical findings. |
 | `security-scan-jkp` | java | Run the dependency check of the Java project (for example the OWASP dependency-check plugin) and report the high and critical findings. |
 | `judge-product` | quality | In a separate read-only pass, check that the change solves the problem in the proposal for its user, and nothing else. Report gaps as findings. |
 | `judge-business` | quality | In a separate read-only pass, check the value, cost and risk stated in the proposal. Report what is missing or contradictory. |
-| `judge-security` | quality | In a separate read-only pass, review the diff for injection, broken authentication or authorization, exposed secrets, unsafe deserialization and risky dependencies. Report each finding with severity and path:line. |
-| `judge-code-reviewer` | quality | In a separate read-only pass, review correctness, readability, error handling and whether the tests prove the scenarios. Report each finding with severity and path:line. |
 | `judge-frontend` | quality | In a separate read-only pass, review the UI changes for consistency with the existing components, states (loading, empty, error) and accessibility. |
 | `judge-team` | quality | In a separate read-only pass, check that tasks.md can be split among people without overlapping files, and that each unit has its own tests. |
-| `judgment-day` | quality | Tier 4 only, after verify: a final read-only review of the whole change in fresh context, against the spec and the risks in design.md. The person approves explicitly, or the change goes back. Record the outcome in the AI Usage Record. |

@@ -1,0 +1,7 @@
+{
+  "name": "quality",
+  "version": "0.1.0",
+  "description": "Quality gates and judges: the integral review of verify, the review of a diff before committing, the blind code and security judges, and judgment-day.",
+  "requires": ["core"],
+  "optional": ["security"]
+}
