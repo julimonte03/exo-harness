@@ -96,11 +96,14 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 ### D-12 — Contenido específico de la organización de origen
 - **Contexto:** el reporte tiene piezas propias de la organización de origen: un estilo ejecutivo propio, detectores de CUIT/CUIL/DNI, una matriz DPA propia, SonarQube/Fortify, Kibana, Xray y su plataforma interna de CI.
 - **Default:** generalizar como **perfiles de organización**: `dpa_profile: legacy-profile` (incluye los detectores argentinos y la matriz del reporte), estilo visual con tokens de marca configurables, herramientas corporativas como integraciones opcionales que degradan.
-- **Estado:** Parcial (ADR-0009), 2026-11-13: la memoria no tiene perfiles ni detectores (D-24). El resto (estilo, matriz DPA, herramientas corporativas) sigue abierto para F5.
+- **Estado:** Decidida por el dueño (ADR-0014), 2026-11-15: nada atado a bancos ni a un país. Los secretos siempre se protegen. Los datos personales se protegen con detectores genéricos (tarjetas e IBAN por defecto); los documentos de cada país, el email y el teléfono son opcionales. La matriz de niveles por destino es definición propia y sale el perfil `legacy-profile`. La memoria sigue sin perfiles ni detectores (D-24, ADR-0009). El estilo visual y las herramientas corporativas quedan para F7, como integraciones opcionales.
 
 ### D-21 — Git hooks por defecto
 - **Default:** sí, instalados con `core.hooksPath=.arnes/githooks`. Si el proyecto ya usa husky o el framework pre-commit, el motor se integra con ese mecanismo en vez de reemplazarlo.
-- **Estado:** Abierta.
+- **Estado:** Decidida por el dueño (ADR-0014), 2026-11-15: el default.
+  - Con husky, el motor se suma a husky.
+  - Con el framework pre-commit, imprime el bloque a agregar (stdlib no edita su YAML sin riesgo) y `exo doctor` lo verifica.
+  - Se apagan con `governance.githooks: false`, y `exo uninstall` revierte `core.hooksPath`.
 
 ## Bloquean F6
 
@@ -168,3 +171,28 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 - **Contexto:** F4 pide los meta-comandos `/sdd-new`, `/sdd-continue`, `/sdd-ff` y `/sdd-status`. El repo usa skills como comandos y no genera prompt files ni `.claude/commands/` (`03-MATRIZ-AGENTES.md`).
 - **Opciones:** (a) un archivo de comando por agente; (b) skills finas `sdd-continue` y `sdd-ff`, que cargan el orquestador; (c) argumentos del orquestador (`/sdd-orchestrator continue`).
 - **Estado:** Decidida, 2026-11-14: (b). Sigue la política de la matriz de agentes. `/sdd-new` y `/sdd-status` ya salen de sus skills.
+
+### D-29 — Ticket en el mensaje de commit
+- **Contexto:** el reporte pone el ticket como prefijo del asunto (`PROJ-123 feat(auth): …`). Eso rompe el formato de Conventional Commits, y un ID tipo `#123` al principio de una línea es un comentario para git. La skill `work-unit-commits` de F4 ya usa un footer.
+- **Opciones:** (a) footer `Refs: <ID>`; (b) prefijo en el asunto; (c) cualquiera de los dos.
+- **Estado:** Decidida por el dueño (ADR-0014), 2026-11-15: (a). El hook `commit-msg` exige que un `Refs:` cumpla el patrón del proyecto. Sin `Refs:` acepta el commit, porque la persona puede haber confirmado que no hay ticket.
+
+### D-30 — CI y comentarios de gates en el PR
+- **Contexto:** el plan de F5 traía plantillas de GitHub Actions y GitLab y publicaba con `gh` y `glab`. ADR-0008 señala Azure DevOps.
+- **Opciones:** (a) solo Azure DevOps; (b) Azure DevOps y GitHub; (c) agnóstico.
+- **Estado:** Decidida por el dueño (ADR-0014), 2026-11-15: (c).
+  - **CI:** `exo check --base <destino>` es el único paso que una CI tiene que correr. Los contratos traen ejemplos para Azure Pipelines, GitHub Actions y GitLab CI.
+  - **Host:** el motor detecta el host desde el remoto y lo guarda en la config. El comportamiento es el mismo en cualquiera.
+  - **Publicación:** `exo gate publish` le pasa cada texto a un comando que configura el proyecto, o lo imprime.
+
+### D-31 — Hooks de agente
+- **Contexto:** F5 pedía hooks de agente como segunda línea (bloquear `git push --force` y borrados antes de ejecutarlos). La política de la organización bloquea los hooks de proyecto en Claude Code (`allowManagedHooksOnly`, D-25).
+- **Opciones:** (a) escribirlos igual, para otras organizaciones; (b) no escribirlos.
+- **Estado:** Decidida, 2026-11-15: (b), con el mismo criterio que D-25. Los git hooks y `exo check` en la CI cubren lo mismo para cualquier agente.
+
+### D-32 — Qué verifica `exo p0`
+- **Contexto:** el `_verify_p0.py` del reporte era la regresión de S1 (guarda de memoria) y S2 (validación de entradas). S1 ya no existe (ADR-0009).
+- **Estado:** Decidida, 2026-11-15. `exo p0` corre tres regresiones e imprime `P0 GATE: PASSED (3/3)`:
+  1. el escáner de secretos y datos sobre un dataset sintético empaquetado;
+  2. S2 con entradas maliciosas;
+  3. los git hooks instalados y activos en el proyecto (o husky).

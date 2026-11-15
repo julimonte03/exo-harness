@@ -1,6 +1,6 @@
 # Progreso de construcción
 
-**Fase activa:** F5 (pendiente: aprobar su plan). F4 quedó cerrada en local el 2026-11-14.
+**Fase activa:** F5, en curso (plan aprobado el 2026-11-15; rama `feat/F5-gobierno`). D-12, D-21 y D-29 a D-32 → ADR-0014.
 
 Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron con el comando exacto, la CI está verde en los tres sistemas operativos y el PR de la fase está mergeado.
 
@@ -15,7 +15,7 @@ Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron 
 | F2 Adaptadores + instalador | Terminada (local; CI diferida) | `feat/F2-adaptadores`, mergeada a `main` en local, sin PR | 2026-10-30 | 2026-11-07 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL). Criterio 1 sin macOS ni Azure. Criterio 8: Claude Code OK, Copilot pendiente (checklist manual). D-04 → ADR-0006, D-05/D-06 → ADR-0007, D-16 → ADR-0008 |
 | F3 Memoria v2 | Terminada (local; CI diferida) | `feat/F3-memoria`, mergeada a `main` en local, sin PR | 2026-11-13 | 2026-11-13 | Criterios 2–8 OK en Windows (3.14 y 3.10 sin extras) y Linux (WSL, con y sin extras). Criterio 1 fuera de alcance (ADR-0009). D-07/D-08 → ADR-0010; D-20, D-24 y D-25 → ADR-0009; D-12 parcial |
 | F4 Ciclo SDD | Terminada (local; CI diferida) | `feat/F4-ciclo-sdd`, mergeada a `main` en local, sin PR | 2026-11-14 | 2026-11-14 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL); 4 a 7 con Claude Code real. Criterio 6 sin Copilot (opcional). D-26, D-27 y D-28; D-11 → ADR-0013 |
-| F5 Gobierno y gates | Pendiente | | | | |
+| F5 Gobierno y gates | En curso | `feat/F5-gobierno` | 2026-11-15 | | D-12, D-21 y D-29 a D-32 → ADR-0014 (enforcement agnóstico) |
 | F6 Ingeniería inversa | Pendiente | | | | |
 | F7 Packs | Pendiente | | | | |
 | F8 Endurecimiento + v1.0 | Pendiente | | | | |
