@@ -256,7 +256,7 @@ def pre_push(project: Path, remote: str, lines: list[str]) -> HookResult:
         if ref.deleting or ref.creating:
             continue
         try:
-            outcome = check.check(project, base=ref.remote_sha)
+            outcome = check.check(project, base=ref.remote_sha, fast=True)
         except check.CheckError as exc:
             result.warnings.append(f"{_meta.NAME} check did not run: {exc}")
             continue
@@ -264,6 +264,5 @@ def pre_push(project: Path, remote: str, lines: list[str]) -> HookResult:
             result.errors += [
                 f"{f.path}: {f.message}" for f in item.findings if f.severity == "error"
             ]
-        for path, findings in outcome.capabilities:
-            result.errors += [f"{path}: {f.message}" for f in findings if f.severity == "error"]
+        result.errors += [f.message for f in outcome.diff if f.severity == "error"]
     return result
