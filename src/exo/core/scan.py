@@ -31,6 +31,7 @@ _PLACEHOLDER = re.compile(
     re.IGNORECASE,
 )
 _FENCE = re.compile(r"^\s*(```|~~~)")
+# Palabras completas entre guiones bajos: `PAT` no es la subcadena de PATH ni de COMPAT.
 _SECRET_WORDS = r"(?:PASSWORD|PASSWD|SECRET|TOKEN|API_?KEY|ACCESS_KEY|PRIVATE_KEY|PAT)"
 # Tarjetas de prueba publicadas por las redes y los procesadores de pago: no son datos reales.
 _TEST_CARDS = frozenset(
@@ -155,10 +156,24 @@ _SECRETS = (
         "env-assignment",
         CRITICAL,
         re.compile(
-            rf"^\s*(?:export\s+)?[A-Z][A-Z0-9_]*{_SECRET_WORDS}[A-Z0-9_]*\s*=\s*([^\s'\"#]{{8,}})"
+            rf"^\s*(?:export\s+)?(?:[A-Z][A-Z0-9]*_)*{_SECRET_WORDS}(?:_[A-Z0-9]+)*"
+            rf"\s*=\s*([^\s'\"#]{{8,}})"
         ),
         group=1,
         placeholders=True,
+    ),
+    # Claves sin comillas de properties y YAML (`spring.datasource.password=...`,
+    # `password: ...`): el valor necesita letras y dígitos, para no tomar "required".
+    _Detector(
+        "credential-assignment",
+        CRITICAL,
+        re.compile(
+            r"(?i)^\s*(?:[a-z0-9_-]+[._-])*(?:password|passwd|secret|token|api[_-]?key"
+            r"|client[_-]?secret)\s*[:=]\s*([^\s'\"#,;{}\[\]]{8,})\s*$"
+        ),
+        group=1,
+        placeholders=True,
+        valid=lambda value: any(c.isdigit() for c in value) and any(c.isalpha() for c in value),
     ),
     _Detector(
         "jwt",
@@ -188,7 +203,7 @@ _SECRETS = (
 )
 _PII = {
     "card": _Detector(
-        "card", RESTRICTED, re.compile(r"(?<![\w-])(?:\d[ -]?){12,18}\d(?![\w-])"), valid=_luhn
+        "card", RESTRICTED, re.compile(r"(?<![\w-])[2-6](?:[ -]?\d){12,18}(?![\w-])"), valid=_luhn
     ),
     "iban": _Detector(
         "iban",
@@ -225,7 +240,8 @@ _PII = {
 
 
 def _redact(value: str) -> str:
-    return value[:4] + "…"
+    """Como mucho 4 caracteres y nunca más de un tercio: un secreto corto no sale entero."""
+    return value[: min(4, len(value) // 3)] + "…"
 
 
 def _detectors(pii: Iterable[str], secrets: bool) -> list[_Detector]:
@@ -241,6 +257,7 @@ def _detectors(pii: Iterable[str], secrets: bool) -> list[_Detector]:
 
 def _scan_line(number: int, line: str, detectors: list[_Detector]) -> list[Finding]:
     found: list[Finding] = []
+    seen: set[tuple[int, int]] = set()  # el mismo valor, tomado por dos detectores, una vez
     for detector in detectors:
         if detector.context is not None and not detector.context.search(line):
             continue
@@ -250,6 +267,10 @@ def _scan_line(number: int, line: str, detectors: list[_Detector]) -> list[Findi
                 continue
             if detector.valid is not None and not detector.valid(value):
                 continue
+            span = match.span(detector.group)
+            if span in seen:
+                continue
+            seen.add(span)
             found.append(Finding(number, detector.kind, detector.level, _redact(value)))
     return found
 

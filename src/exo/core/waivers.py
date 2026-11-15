@@ -5,8 +5,9 @@ para datos personales (nivel Restringido) en rutas concretas, por ejemplo datos
 sintéticos de tests. Es del humano: el motor no lo genera ni lo registra en el
 lock. Un secreto (nivel Crítico) nunca tiene waiver.
 
-La lectura es tolerante: un archivo roto o una entrada inválida no cubre nada y
-queda en `problems`, para que el hook o `exo check` lo informen.
+La lectura es tolerante: un archivo roto no cubre nada, una entrada inválida no
+cubre nada pero no anula las demás, y los dos quedan en `problems` para que el
+hook o `exo check` los informen.
 """
 
 from __future__ import annotations
@@ -55,16 +56,27 @@ def load(project: Path, *, today: date | None = None) -> Waivers:
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         result.problems.append(f"{FILENAME} is not valid JSON ({exc}); no waiver applies")
         return result
-    schema = json.loads(SCHEMA_FILE.read_text(encoding="utf-8"))
-    errors = jsonschema.validate(data, schema)
-    if errors:
-        result.problems += [f"{FILENAME}: {error}" for error in errors]
+    except OSError as exc:
+        result.problems.append(f"{FILENAME} cannot be read ({exc}); no waiver applies")
         return result
-    for item in data["waivers"]:
+    schema = json.loads(SCHEMA_FILE.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or not isinstance(data.get("waivers"), list):
+        result.problems.append(
+            f'{FILENAME} must be an object with a "waivers" list; no waiver applies'
+        )
+        return result
+    item_schema = schema["properties"]["waivers"]["items"]
+    for index, item in enumerate(data["waivers"]):
+        errors = jsonschema.validate(item, item_schema)
+        if errors:
+            result.problems += [f"{FILENAME}: waivers[{index}]: {error}" for error in errors]
+            continue
         try:
             expires = date.fromisoformat(item["expires"])
         except ValueError:
-            result.problems.append(f"{FILENAME}: expires {item['expires']!r} is not a date")
+            result.problems.append(
+                f"{FILENAME}: waivers[{index}]: expires {item['expires']!r} is not a date"
+            )
             continue
         waiver = Waiver(
             item["detector"], item["path"], item["reason"], item["approved_by"], expires
@@ -79,6 +91,17 @@ def covers(loaded: Waivers, finding: scan.Finding, rel_path: str) -> Waiver | No
         return None
     posix = rel_path.replace("\\", "/")
     for waiver in loaded.active:
+        if waiver.detector == finding.kind and fnmatch.fnmatchcase(posix, waiver.path):
+            return waiver
+    return None
+
+
+def expired_for(loaded: Waivers, finding: scan.Finding, rel_path: str) -> Waiver | None:
+    """El waiver vencido que habría cubierto este hallazgo, para decir cuándo venció."""
+    if finding.level != scan.RESTRICTED:
+        return None
+    posix = rel_path.replace("\\", "/")
+    for waiver in loaded.expired:
         if waiver.detector == finding.kind and fnmatch.fnmatchcase(posix, waiver.path):
             return waiver
     return None
