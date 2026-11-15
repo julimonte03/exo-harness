@@ -27,7 +27,7 @@ metadata:
 
 ## What it writes and what it never touches
 
-- **Writes** only `<change-root>/design.md`, plus its memory mirror in `hybrid` and `memory` persistence (section C).
+- **Writes** only `<change-root>/design.md` and, when the tier's gates include `threat_model` (Tier 3 and 4 by default), `<change-root>/gates/threat_model.md` through `threat-modeling`; plus the memory mirror in `hybrid` and `memory` persistence (section C).
 - **Never touches** proposal.md, spec.md, exploration.md, the living specs or the code. If an earlier artifact is wrong (a scenario too vague to test, a requirement that contradicts the code), stop and return `status: needs-input` saying what is wrong: the fix belongs to the phase that owns that file.
 - **One exception:** the decision record that `architecture-decision-record` asks for (see Conditionals) lives in the project's docs. Write it only after the person approves its text.
 
@@ -36,7 +36,7 @@ metadata:
 1. Run `exo change status <change> --json` for the tier, the phase and the artifacts. An unknown tier is Tier 4.
 2. Design is a Tier 3 and 4 phase (`.exo/shared/phase-skill-map.md`, Phases per tier). In Tier 1 or 2, say so and ask the person before writing a design. Never change the tier yourself: when the evidence says the change is riskier, send a `fitness_signal`.
 3. `spec.md` must exist and pass `exo speclint <change-root>/spec.md`. If it does not, return `needs-input`.
-4. Load the skills (`.exo/shared/sdd-phase-common.md`, section A): the stack router (Required) and the Conditionals below whose trigger applies, at most 5. Read each `SKILL.md` in full. Without a stack router, follow the commands and conventions in `.exo/context.md`.
+4. Load the skills (`.exo/shared/sdd-phase-common.md`, section A): the stack router and `threat-modeling` (Required, see Threat model and gate), and the Conditionals below whose trigger applies, at most 5. Read each `SKILL.md` in full. Without a stack router, follow the commands and conventions in `.exo/context.md`.
 5. Read the earlier artifacts as the retrieval mode says (section B): proposal.md, spec.md, exploration.md when present, `.exo/context.md`, and the living specs that the delta modifies or removes (`<specs_dir>/capabilities/<capability>/spec.md`).
 6. Read the code the design will touch. Read 1 to 3 files inline; for 4 or more, delegate the reading to `sdd-explorer` (section G) and design from its findings. Without subagents, read in small batches and summarize as you go (`.exo/shared/agent-capabilities.md`).
 
@@ -72,6 +72,10 @@ One line per scenario: the scenario, the test file and test name in the project'
 - The tests may not exist yet: `sdd-apply` writes them. Name them as they will be named.
 - A scenario that no automated test can prove still gets a line that says how it is checked and why it is not automated.
 
+## Threat model and gate
+
+`threat-modeling` is Required in every design whose tier lists the gate `threat_model` in `governance.gates` (Tier 3 and 4 by default; `.exo/shared/phase-skill-map.md`, Gates). Its threats, each with its mitigation and residual risk, go to Risks & Mitigations, and its gate to `<change-root>/gates/threat_model.md`, started from `.exo/shared/templates/gate.md`. When the skill is not installed, say the degradation sentence and still write both from its inline criteria: `exo check` requires the gate.
+
 ## Conditionals
 
 Apply each one whose trigger holds (`.exo/shared/phase-skill-map.md`, row design). When the skill is not installed, say the degradation sentence, apply its inline criteria and record it (`.exo/shared/skill-resolver.md`).
@@ -79,11 +83,10 @@ Apply each one whose trigger holds (`.exo/shared/phase-skill-map.md`, row design
 | Trigger | Skill | Where its output goes |
 |---|---|---|
 | A decision that is hard to reverse | `architecture-decision-record` | A short record (context, decision, alternatives, consequences) in the project's docs, linked from Architecture Overview |
-| New surface, trust boundary, sensitive data or money | `threat-modeling` | Assets, entry points, trust boundaries and the STRIDE threats that apply, each with its mitigation, in Risks & Mitigations |
 | Large architecture | `software-solution` | Components, responsibilities and integration points in Architecture Overview, before the details |
 | Several sessions or developers | `context-anchoring` | The decisions so far in the change's state memory (`.exo/shared/memory-convention.md`) |
 
-For example: `security/threat-modeling not installed — applying inline criteria`.
+For example: `design/architecture-decision-record not installed — applying inline criteria`.
 
 ## Judges (Tier 3 and 4)
 
@@ -91,10 +94,10 @@ Once design.md passes speclint, run the design judges, each one as its own read-
 
 - `judge-security` and `judge-code-reviewer` always; `judge-frontend` when the change touches UI.
 - The prompt starts with `## Skills to load before work` and the judge's `SKILL.md` path. A judge that is not installed degrades (`quality/judge-security not installed — applying inline criteria`) and the prompt carries its inline criteria from the map.
-- Pass the change name, the change root, design.md, and the stage before it (spec.md and proposal.md), so the judge checks the design against them. Ask for findings with severity and `path:line`.
+- Pass the change name, the change root, design.md, and the stage before it (spec.md and proposal.md), so the judge checks the design against them. Ask for findings with severity and `path:line`, and give each judge the first free ID of its prefix (from `exo change followups <change> --status all`).
 - Without subagents, run each judge inline after the design, as a separate pass with that judge's criteria, and say "no isolation".
 
-Show the findings to the person. Fix the accepted ones in design.md and run speclint again. The findings the person decides not to fix go to `dismissed_followups`.
+Record each finding with `exo change record <change> --followup '<json>'` (`.exo/shared/judge-common.md`, section F) and show them to the person. Fix the accepted ones in design.md, run speclint again and mark them with `--fixed <id>`. The findings the person decides not to fix go to `dismissed_followups`, with their `id`.
 
 ## Check and approve
 
@@ -113,7 +116,7 @@ exo change record <change> --add capabilities_used '{"name": "threat-modeling", 
 exo change record <change> --add capabilities_used '{"name": "sdd-judge", "type": "subagent", "activation": "auto"}'
 exo change record <change> --add capabilities_used '{"name": "judge-security", "type": "judge", "activation": "auto", "resolution": "none", "note": "quality/judge-security not installed — applying inline criteria"}'
 exo change record <change> --add judges_invoked '{"name": "judge-security", "result": "2 findings: 1 fixed, 1 dismissed"}'
-exo change record <change> --add dismissed_followups '{"judge": "judge-security", "rule": "rate limiting", "reason": "the API gateway already limits the login route"}'
+exo change record <change> --add dismissed_followups '{"id": "JSEC-2", "judge": "judge-security", "rule": "rate limiting", "reason": "the API gateway already limits the login route"}'
 exo change record <change> --add decisions '{"summary": "Design approved", "by": "human"}'
 ```
 

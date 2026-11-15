@@ -49,7 +49,7 @@ ESCALATED
 
 | ID | Severity | path:line | Finding | Criterion | Suggested fix |
 |---|---|---|---|---|---|
-| JSEC-1 | High | src/auth/login.py:42 | The password is compared with == | OWASP A07:2021 | Use a constant-time comparison |
+| JSEC-1 | High | src/auth/reset.py:42 | The reset token is compared with ==, which leaks timing | CWE-208 | Use a constant-time comparison such as hmac.compare_digest |
 
 ## Not reviewed
 

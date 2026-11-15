@@ -53,7 +53,8 @@ metadata:
 Section A, with the verify row of `.exo/shared/phase-skill-map.md`, each `SKILL.md` read in full:
 
 - **Required:** `harness-review`. When it is not installed, say `quality/harness-review not installed — applying inline criteria` and apply them: re-read the diff against the spec and the tasks; every scenario has a passing test, nothing is outside the scope, there are no debug leftovers, and the tests and linters pass with the exact commands.
-- **Conditional:** `accessibility-audit` when the diff touches UI; `security-scan-node` or `security-scan-jkp` when a dependency or a lockfile changes. Each degrades with its inline criteria from the same map.
+- **Conditional:** `accessibility-audit` when the diff touches UI; `security-scan-node` or `security-scan-jkp` when a dependency or a lockfile changes; `skill-reviewer` when the diff adds or changes a skill. Each degrades with its inline criteria from the same map.
+- A gate skill that degrades still produces its gate: without `harness-review`, write `code_review` from its inline criteria.
 - **Gate skills:** the ones whose verify gate the tier requires, from the Gates table of the map: `security-code-review` from Tier 3. They count toward the limit of 5.
 
 ## Check
@@ -115,7 +116,9 @@ Source: skill
 
 The verifier does not run the judges. After it answers, the orchestrator runs `judge-code-reviewer`, `judge-security` and, when the diff touches UI, `judge-frontend`, each one as its own read-only delegation to `sdd-judge`, with the diff (or the list of changed files), spec.md, design.md and tasks.md. A judge that is not installed degrades (`quality/judge-code-reviewer not installed — applying inline criteria`) and the prompt carries its criteria from the map. Without subagents, run each judge inline after the verify, as a separate pass, and say "no isolation".
 
-The person decides on each finding: an accepted one sends the change back to apply and then to verify again; a dismissed one goes to `dismissed_followups`. The change does not go to archive while a finding is undecided.
+Each judge gets the first free ID of its prefix (from `exo change followups <change> --status all`), and the orchestrator records each finding with `exo change record <change> --followup '<json>'` (`.exo/shared/judge-common.md`, section F). The person decides on each finding: one to fix sends the change back to apply and then to verify again, and is marked with `--fixed <id>` once fixed; a dismissed one goes to `dismissed_followups` with its `id`. The change does not go to archive while a finding is undecided.
+
+**A risk the `tech_lead` accepts.** When the `tech_lead` role decides not to fix an open Critical or High issue or gate finding, the orchestrator records that decision (`dismissed_followups` with the finding's `id`, or a decision with `"by": "human"`) and passes it to the next verify as data, not as a conclusion. The verifier keeps the finding in Issues Found, marked `accepted by tech_lead` with the reference, and it does not block `ready`; the gate that reported it stays `ESCALATED` with `Requires tech_lead approval: yes`, so the PR shows it.
 
 ## After the verifier answers
 

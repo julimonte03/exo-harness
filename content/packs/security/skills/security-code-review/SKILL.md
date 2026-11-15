@@ -74,7 +74,7 @@ Walk each category. The items, their signals and what is not a finding are in `r
 | SCR-XSS | Cross-site scripting | A03:2021 | CWE-79 |
 | SCR-DEP | Risky dependencies | A06:2021, A08:2021 | CWE-1104, CWE-829, CWE-494 |
 | SCR-LOG | Sensitive data in logs, log injection, missing security logs | A09:2021 | CWE-532, CWE-117, CWE-778 |
-| SCR-CRYPTO | Weak cryptography and randomness | A02:2021 | CWE-327, CWE-330, CWE-916, CWE-295 |
+| SCR-CRYPTO | Weak cryptography and randomness | A02:2021 | CWE-327, CWE-330, CWE-916, CWE-319 |
 | SCR-ERR | Errors that leak details or fail open | A04:2021 | CWE-209, CWE-636 |
 
 ## Confirm before reporting

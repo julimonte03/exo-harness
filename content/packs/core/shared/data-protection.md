@@ -36,10 +36,10 @@ When in doubt between two levels, take the higher one.
 
 ## D. What the engine enforces
 
-The same scanner runs in the `pre-commit` git hook (staged lines), in `exo check` (lines the branch adds, and new files) and in `exo validate` (the engine's own content).
+The same scanner runs in the `pre-commit` git hook (staged lines), in `exo check --base <target>` (lines the branch adds, and new files; `exo check --change` alone does not scan) and in `exo validate` (the engine's own content, Critical detectors only, outside code blocks).
 
 - **Critical detectors, always on:** AWS keys, GitHub tokens, private keys, Slack tokens, credential assignments, unquoted `.env` assignments, JWTs, URLs with a password, connection strings and Azure DevOps tokens.
-- **Restricted detectors:** the ones in `data_protection.pii` in `.exo/config.json`. The default is `card` (Luhn check) and `iban` (mod 97 check). The project can add `email`, `phone` and national documents with their check digit: `ar-cuit`, `ar-dni`, `br-cpf`, `es-nif`, `us-ssn`. Add only the ones its data can contain.
+- **Restricted detectors:** the ones in `data_protection.pii` in `.exo/config.json`. The default is `card` (Luhn check) and `iban` (mod 97 check). The project can add `email`, `phone` and national documents: `ar-cuit`, `br-cpf` and `es-nif` with their check digit, `ar-dni` (next to the word DNI) and `us-ssn` (format only). Add only the ones its data can contain.
 - **Files that never get committed:** `.env` and `.env.*` (except `.env.example`, `.env.sample` and `.env.template`), `*.pem`, `*.p12`, `*.pfx` and SSH private keys (`id_rsa` and similar). The `pre-commit` hook blocks them.
 
 A blocked commit or check names the file, the line, the detector and a redacted excerpt. Fix the cause; never use `--no-verify` (CI runs the same scan).

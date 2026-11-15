@@ -92,6 +92,7 @@ exo-check:
 - **Without `review.publish_command`** (the default), it prints the texts. Paste each one as a PR comment, or put them in the PR description.
 - **With it**, it runs the command once per gate, from the project root, in the system shell (`sh` on Linux and macOS, `cmd` on Windows), with these variables in the environment: `EXO_GATE` (the gate name), `EXO_GATE_MARKER`, `EXO_GATE_BODY` (the path to a file with the text) and `EXO_CHANGE`. The command must edit the PR comment that carries the marker, or create it when there is none: one comment per gate, never a new one on each run.
 - `--dry-run` never runs the command. Nothing reaches the host until the project sets the command, with `exo init --publish-command "<command>"` or by editing `review.publish_command`.
+- **In CI, the command comes from the branch under review** (its `.exo/config.json`) and runs in a shell: never run `exo gate publish` with a write token on pull requests from forks or under `pull_request_target`. Publish from a trusted pipeline, or from the person's machine.
 
 Keep the command a single call to a script in the repo, such as `sh scripts/publish-gate.sh`. Example scripts:
 

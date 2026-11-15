@@ -34,7 +34,7 @@ The mandatory artifacts of each tier are in `.exo/shared/sdd-phase-common.md`, s
 | explore | `context-retrieval` | new or fuzzy product problem → `product-discovery` | — |
 | propose | `context-retrieval` | new feature, MVP or unclear value → `product-discovery` | `judge-product`, `judge-business` |
 | spec | — | Tier 2 → `test-strategy` · UI → `accessibility-audit` · new user flow → `product-discovery` · personal data, credentials or data leaving the system → `data-classification` | `judge-product` |
-| design | stack router; from Tier 3, `threat-modeling` (gate `threat_model`) | hard to reverse → `architecture-decision-record` · Tier 2 with a new surface, trust boundary, sensitive data or money → `threat-modeling` · personal data or credentials → `data-classification` · large architecture → `software-solution` · several sessions or developers → `context-anchoring` | `judge-security`, `judge-code-reviewer`, `judge-frontend` (UI) |
+| design | stack router; from Tier 3, `threat-modeling` (gate `threat_model`) | hard to reverse → `architecture-decision-record` · personal data or credentials → `data-classification` · large architecture → `software-solution` · several sessions or developers → `context-anchoring` | `judge-security`, `judge-code-reviewer`, `judge-frontend` (UI) |
 | tasks | `test-strategy` | two or more independent units → `parallel-dispatch` | `judge-team` (Tier 4) |
 | apply | `code-generation`, `secure-coding-baseline` (in Tier 4 also gate `secure_coding_check`), `work-unit-commits`, stack router | before each commit → `review` · logs, tickets or production data going to the model → `prompt-hygiene` · UI → `frontend-design` | — |
 | verify | `harness-review` (gate `code_review` from Tier 2); from Tier 3, `security-code-review` (gate `security_review`) | UI in the diff → `accessibility-audit` · dependency or lockfile change → `security-scan-node` or `security-scan-jkp` · the diff adds or changes a skill → `skill-reviewer` | `judge-code-reviewer`, `judge-security`, `judge-frontend` (UI) |
@@ -57,7 +57,7 @@ Threats found in design go to `design.md`, section Risks & Mitigations. Advisory
 | `security_review` | Tier 3 | verify | `security-code-review` |
 | `secure_coding_check` | Tier 4 | apply, after the last task | `secure-coding-baseline` |
 
-A gate that is not APPROVED needs the `tech_lead` role; in an unattended run, the cycle does not stop, but the gate stays ESCALATED and the closing summary says so.
+A gate that is not APPROVED, or whose Approval says yes, needs the `tech_lead` role; in an unattended run, the cycle does not stop, but the gate stays as it is and the closing summary says so.
 
 ## Inline criteria for skills not installed
 

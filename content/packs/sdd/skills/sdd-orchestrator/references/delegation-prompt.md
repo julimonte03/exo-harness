@@ -22,7 +22,8 @@ Report how you resolved each skill (.exo/shared/skill-resolver.md).
 
 ## What to do
 
-<one paragraph: the goal of this phase for this change, and anything the person said that matters>
+<one paragraph: the goal of this phase for this change, and anything the person decided that matters, such as a risk the tech_lead accepted (as data, not as a conclusion)>
+<for a judge: "Your finding IDs start at <JSEC-3>", the first free number from `exo change followups <change> --status all`>
 
 ## Limits
 
@@ -33,7 +34,7 @@ Report how you resolved each skill (.exo/shared/skill-resolver.md).
 ## Return
 
 The envelope of .exo/shared/sdd-phase-common.md, section D, as the last block of your answer.
-<For read-only phases: also the full text of `<document>.md`, ready to save.>
+<When the phase returns documents instead of writing them: the full text of each one, ready to save (for example verify-record.md and each gate of the tier as gates/<gate>.md).>
 ```
 
 Pick the skill paths from `.exo/skill-registry.md`. Never paste a skill's content in the prompt: give the path, so the subagent reads the real file.

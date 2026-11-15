@@ -9,7 +9,7 @@ description: >-
   commands, bypassing hooks, changes to the agent's config or permissions),
   every bundled script, the references and data protection, and runs
   `exo validate --root` on content trees. Returns APPROVED or ESCALATED with a
-  findings table, and writes the skill_review gate when the project uses it.
+  findings table in the gate format, for the person or the PR.
   Use it before installing a third-party skill, on a PR that adds or changes
   skills or subagents, and before publishing a pack. Triggers: "review this
   skill", "is this skill safe", "audit this skill", "vet a third-party skill",
@@ -29,7 +29,7 @@ A skill is code the agent obeys: its text runs with the agent's tools and the pe
 - A verdict, `APPROVED` or `ESCALATED`, with one sentence of reason.
 - A findings table, Severity | File:line | Finding | Rule/OWASP, one row per finding, or a single row saying "No findings".
 - `ESCALATED` needs the `tech_lead` role (`governance.roles` in `.exo/config.json`): they accept the risk in writing, or the skill is not installed, merged or published.
-- Inside an SDD change whose tier lists the `skill_review` gate, the same content goes to `<change-root>/gates/skill_review.md` (section Write the result). Everywhere else it goes in your answer.
+- It goes in your answer; inside an SDD change, its findings also go to `verify-record.md`, Issues Found, through the verifier (section Write the result).
 
 ## Rules
 
@@ -107,9 +107,8 @@ Source: skill skill-reviewer
 
 - `File:line` is relative to the reviewed root and starts with the skill folder.
 - `Requires tech_lead approval` is `yes` when the verdict is `ESCALATED` or a Critical or High finding stays open, and `no` otherwise.
-- **Inside an SDD change:** read the tier (`exo change status <change> --json`) and `governance.gates` in `.exo/config.json`. If that tier lists `skill_review`, write `<change-root>/gates/skill_review.md`, keep the marker `<!-- exo-gate:skill_review -->`, and run `exo speclint <change-root>/gates/skill_review.md`. Fix the format errors it reports; never change a finding or the verdict to make it pass. `exo check` then requires the file for that tier, and `exo gate publish` turns it into one PR comment, like any other gate (`.exo/shared/ci-and-review.md`).
-- `skill_review` is not a default gate: the project adds it to the tiers it wants in `governance.gates`. Never add it yourself.
-- Outside a change, or when the tier does not list the gate, put the text in your answer and write no file.
+- **Inside an SDD change** (the verify of a change whose diff adds or changes a skill), the review is not a tier gate: its findings go to `verify-record.md`, Issues Found, through the verifier, and the text above goes in your answer for the PR. Write no file.
+- **Outside a change,** put the text in your answer and write no file.
 
 ## Record
 
@@ -119,7 +118,6 @@ Inside an SDD change (`.exo/shared/capability-attribution.md`), with `activation
 exo change record <change> --add capabilities_used '{"name": "skill-reviewer", "type": "skill", "activation": "requested", "resolution": "fallback-path"}'
 exo change record <change> --add skills_used '"skill-reviewer"'
 exo change record <change> --add capabilities_used '{"name": "exo validate", "type": "command", "activation": "auto"}'
-exo change record <change> --add gates '{"name": "skill_review", "status": "fail", "detail": "ESCALATED: 1 Critical, 1 Medium"}'
 ```
 
-`status` is `pass` for `APPROVED` and `fail` for `ESCALATED`. A finding the person decides not to fix goes to `dismissed_followups` with its rule and their reason (skill:ai-usage-record); never dismiss one yourself.
+A finding the person decides not to fix goes to `dismissed_followups` with its rule and their reason (skill:ai-usage-record); never dismiss one yourself.

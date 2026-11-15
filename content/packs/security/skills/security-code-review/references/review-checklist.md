@@ -1,6 +1,6 @@
 # Security review checklist
 
-The criteria of `security-code-review`, also reused by `judge-security` (pack `quality`). Each check has a stable ID: cite it in the Rule/OWASP column of a gate, or in the `rule` of a judge finding, together with its OWASP Top 10 2021 category and CWE (`SCR-AUTHZ-2, A01:2021, CWE-639`).
+The criteria of `security-code-review`, also reused by `judge-security` (pack `quality`). Each check has a stable ID: cite it in the Rule/OWASP column of a gate, or in the `rule` of a judge finding, together with its OWASP Top 10 2021 category and CWE (`SCR-AUTHZ-2, A01:2021, CWE-639`). The category is the one of the section, unless the row names another one for a CWE: then cite that one (`SCR-AUTHN-6, A05:2021, CWE-614`).
 
 ## How the IDs work
 
@@ -29,12 +29,12 @@ The criteria of `security-code-review`, also reused by `judge-security` (pack `q
 | ID | Check | CWE |
 |---|---|---|
 | SCR-AUTHN-1 | A new or changed entry point (route, handler, consumer, job, webhook, CLI command) that reads or changes data has no authentication, and the plan does not say it is public. | CWE-306 |
-| SCR-AUTHN-2 | A token is accepted without full verification: signature with an expected algorithm, expiry, issuer, audience. | CWE-347, CWE-287 |
-| SCR-AUTHN-3 | Sessions: the session ID is not renewed after login or a privilege change, never expires, or logout does not invalidate it on the server. | CWE-384, CWE-613 |
+| SCR-AUTHN-2 | A token is accepted without full verification: signature with an expected algorithm, expiry, issuer, audience. | CWE-287; CWE-347 is A02:2021 |
+| SCR-AUTHN-3 | Sessions: the session ID is not renewed after login or a privilege change, never expires, or logout does not invalidate it on the server. | CWE-384, CWE-1463, CWE-1464 |
 | SCR-AUTHN-4 | Login, password reset, one-time codes or similar endpoints have no attempt limit. | CWE-307 |
-| SCR-AUTHN-5 | Passwords, tokens or signatures are compared with a regular equality instead of a constant-time comparison. | CWE-208 |
-| SCR-AUTHN-6 | Session or authentication cookies lack `Secure`, `HttpOnly` or `SameSite`. | CWE-614, CWE-1004 |
-| SCR-AUTHN-7 | A webhook or a service-to-service call is accepted without verifying its signature or the caller's identity. | CWE-345, CWE-290 |
+| SCR-AUTHN-5 | Tokens, reset codes, API keys or signatures are compared with a regular equality instead of a constant-time comparison. Passwords are never compared at all: they are checked with the library's verify function against a salted slow hash (SCR-CRYPTO-2). | CWE-208 |
+| SCR-AUTHN-6 | Session or authentication cookies lack `Secure`, `HttpOnly` or `SameSite`. | CWE-614, CWE-1004, both A05:2021 |
+| SCR-AUTHN-7 | A webhook or a service-to-service call is accepted without verifying its signature or the caller's identity. | CWE-290; CWE-345 is A08:2021 |
 
 - **Signals:** new routes or handlers, decorators or middleware lists, token parsing code, cookie settings.
 - **Not a finding:** a route covered by the project's global authentication filter (check that the diff does not exempt it).
@@ -45,12 +45,12 @@ The criteria of `security-code-review`, also reused by `judge-security` (pack `q
 |---|---|---|
 | SCR-AUTHZ-1 | An entry point that changes or returns protected data performs no authorization check. | CWE-862 |
 | SCR-AUTHZ-2 | Object-level access: an object is loaded by an ID from input and the caller's right to that object (owner, tenant, share) is not checked. | CWE-639 |
-| SCR-AUTHZ-3 | Function-level access: an admin or internal action checks the role only on the client, or not at all. | CWE-285, CWE-602 |
+| SCR-AUTHZ-3 | Function-level access: an admin or internal action checks the role only on the client, or not at all. | CWE-285; CWE-602 is A04:2021 |
 | SCR-AUTHZ-4 | The check is wrong: it tests the role but not the tenant, compares the wrong field, or can be skipped by a parameter. | CWE-863 |
-| SCR-AUTHZ-5 | Mass assignment: request fields are bound to a model, so a caller can set fields such as role, owner or price. | CWE-915 |
+| SCR-AUTHZ-5 | Mass assignment: request fields are bound to a model, so a caller can set fields such as role, owner or price. | CWE-915, A08:2021 |
 | SCR-AUTHZ-6 | A state-changing request authenticated by cookies has no protection against cross-site request forgery. | CWE-352 |
 | SCR-AUTHZ-7 | An open redirect: a redirect target comes from input without an allow-list. | CWE-601 |
-| SCR-AUTHZ-8 | A permissive cross-origin policy: any origin, or a reflected origin, together with credentials. | CWE-942 |
+| SCR-AUTHZ-8 | A permissive cross-origin policy: any origin, or a reflected origin, together with credentials. | CWE-942, A05:2021 |
 
 - **Signals:** lookups by ID from the path or body, `find`/`get` without a filter on the caller, new admin routes, request-to-model binding.
 - **Not a finding:** a query that already filters by the caller's ID or tenant taken from the session.
@@ -140,10 +140,10 @@ The criteria of `security-code-review`, also reused by `judge-security` (pack `q
 | ID | Check | CWE |
 |---|---|---|
 | SCR-CRYPTO-1 | A broken or weak algorithm or mode is used for security: MD5, SHA-1, DES, RC4, ECB. | CWE-327, CWE-328 |
-| SCR-CRYPTO-2 | Passwords are stored encrypted, in plain text, or hashed with a fast hash. | CWE-916, CWE-256 |
+| SCR-CRYPTO-2 | Passwords are stored encrypted, in plain text, or hashed with a fast hash. | CWE-916; CWE-256 is A04:2021 |
 | SCR-CRYPTO-3 | Tokens, reset codes, nonces or keys come from a non-cryptographic random generator. | CWE-330, CWE-338 |
 | SCR-CRYPTO-4 | Home-made cryptography: custom algorithms, padding or key derivation, or a reused nonce. | CWE-327, CWE-323 |
-| SCR-CRYPTO-5 | TLS certificate or host name validation is turned off, or sensitive data travels without TLS. | CWE-295, CWE-319 |
+| SCR-CRYPTO-5 | TLS certificate or host name validation is turned off, or sensitive data travels without TLS. | CWE-319; CWE-295 is A07:2021 |
 
 ## SCR-ERR Error handling (A04:2021)
 
