@@ -24,6 +24,7 @@ metadata:
 - Code and tests that do what the frozen plan says, and nothing else.
 - Each work unit committed and, in Tier 3 and 4, every finished task ticked in tasks.md.
 - The tests run with the project's exact command, with no new failures.
+- When the tier's gates (`governance.gates`) include `secure_coding_check` (Tier 4 by default): after the last task, the gate of `secure-coding-baseline` over the full diff. In `sdd-implementer`, return its full text before the envelope and the orchestrator writes `<change-root>/gates/secure_coding_check.md`; inline, write it yourself.
 - The envelope of `.exo/shared/sdd-phase-common.md`, section D, listing the files changed and the test results, with `next: verify`.
 
 ## Who runs it

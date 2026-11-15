@@ -90,6 +90,7 @@ gh pr create --base main --head feat/PROJ-123-add-login \
 
 - `gh` is the GitHub CLI. On another host, use its CLI or the link that `git push` prints, with the same title and body.
 - Give the person the full URL of the PR.
+- **Publish the gates** once the PR exists: `exo gate publish --change <change>`. With `review.publish_command` configured, it keeps one PR comment per gate; without it, it prints one text per gate: give them to the person to paste as PR comments. Host examples are in `.exo/shared/ci-and-review.md`.
 - The work is done when CI is green. If CI fails, fix it with new commits on the same branch; never force-push without the person's confirmation.
 
 Record this skill and the checks that ran in the change's AI Usage Record (skill:ai-usage-record).

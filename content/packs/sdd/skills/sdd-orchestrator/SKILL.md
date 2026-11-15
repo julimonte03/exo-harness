@@ -60,7 +60,7 @@ For each phase of the tier, in order (`.exo/shared/phase-skill-map.md`, Phases p
    - skill:sdd-explore in `sdd-explorer`, skill:sdd-apply in `sdd-implementer`, skill:sdd-verify in `sdd-verifier` (fresh context in Tier 3 and 4), judges in `sdd-judge`.
    Build the delegation with the template in `references/delegation-prompt.md`.
 4. **Read the envelope.**
-   - `ok`: persist what a read-only subagent returned (`exploration.md`, `verify-record.md`) in the change root, exactly as returned.
+   - `ok`: persist what a subagent returned as text (`exploration.md`, `verify-record.md`, and each gate as `gates/<gate>.md`) in the change root, exactly as returned.
    - `needs-input`: ask the person exactly what the envelope says, then run the phase again.
    - `blocked`: stop and explain; do not work around it.
 5. **Record** what the phase used, from the envelope notes when it ran in a subagent: `exo change record <change> --add capabilities_used ...` for every skill, subagent, judge and command, with its activation and resolution (skill:ai-usage-record). Only when the envelope says `status: ok`, also `--add skills_used '"<phase skill>"'` and `--phase-done <phase>`: the next phase is derived from that log, so never log a phase that did not finish.
@@ -74,7 +74,8 @@ For each phase of the tier, in order (`.exo/shared/phase-skill-map.md`, Phases p
   - **Upgrade:** automatic. `exo fitness classify --change` records it; tell the person which phases were added.
   - **Downgrade:** never automatic. Tell the person the current tier, the proposed one and why, and ask for an explicit confirmation in their own words. Only then run `exo fitness classify --evidence-json '<json>' --change <change> --confirm-downgrade "<their exact words>"`. Without it, the tier stays.
 - **Every tier change** goes to the record as a decision: `exo change record <change> --add decisions '{"summary": "Tier 2 -> 3: ...", "by": "agent"}'` (`"by": "human"` for a confirmed downgrade).
-- Tier ≥ 2 needs `test-spec.md`. Tier 4 needs a `judgment-day` (degraded until the quality pack exists: apply its inline criteria with `sdd-judge`) and the person's explicit approval before archive.
+- Tier ≥ 2 needs `test-spec.md`. Tier 4 needs a `judgment-day` (skill `judgment-day` of the quality pack; when it is missing, apply its inline criteria with `sdd-judge`) and the person's explicit approval before archive.
+- **Gates.** The gates of the tier are `governance.gates` in `.exo/config.json` (by default none in Tier 1; `contract_check` and `code_review` in Tier 2; plus `security_review` and `threat_model` in Tier 3; plus `secure_coding_check` in Tier 4). A gate always runs its skill (`.exo/shared/phase-skill-map.md`, Gates), even when the skill degrades, and leaves `<change-root>/gates/<gate>.md`; `exo check` fails when one is missing. A gate that is not APPROVED needs the `tech_lead` role: in interactive mode, stop and say so; in automatic mode, go on and flag it in the closing summary.
 
 ## Without subagents
 
@@ -85,7 +86,7 @@ If your agent cannot delegate (`.exo/shared/agent-capabilities.md`), run every p
 1. Wiki guard, before-PR checkpoint.
 2. `exo check --change <change>` passes; fix what it reports in the phase that owns each file.
 3. skill:sdd-archive merges the delta (`exo specs merge`), archives the change and prepares the PR with `branch-pr`.
-4. Push and open the PR only when the person asks.
+4. Push and open the PR only when the person asks. Then publish the gates as `branch-pr` says (`exo gate publish --change <change>`).
 
 ## Closing
 

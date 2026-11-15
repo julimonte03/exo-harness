@@ -23,6 +23,7 @@ metadata:
 
 - The full text of `verify-record.md`, started from `.exo/shared/templates/verify-record.md`, with exactly its 8 sections in their order: Verdict, Spec Coverage, Scenario Coverage, Issues Found, Tests, Out-of-Scope Drift, Judgment Day Handoff, Gate summary.
 - A Verdict (`ready`, `needs-rework` or `blocked`) backed by evidence with `path:line` and by tests that actually ran.
+- From Tier 2, the full text of each verify gate the tier requires (`governance.gates` in `.exo/config.json`), each started from `.exo/shared/templates/gate.md` by the skill that owns it: `code_review` (`harness-review`) and `security_review` (`security-code-review`). `contract_check` is the Gate summary of the record itself; `threat_model` comes from design and `secure_coding_check` from apply.
 - The record passes `exo speclint`, and the phase ends with the envelope of `.exo/shared/sdd-phase-common.md`, section D.
 
 ## Who runs it and who writes the record
@@ -53,6 +54,7 @@ Section A, with the verify row of `.exo/shared/phase-skill-map.md`, each `SKILL.
 
 - **Required:** `harness-review`. When it is not installed, say `quality/harness-review not installed — applying inline criteria` and apply them: re-read the diff against the spec and the tasks; every scenario has a passing test, nothing is outside the scope, there are no debug leftovers, and the tests and linters pass with the exact commands.
 - **Conditional:** `accessibility-audit` when the diff touches UI; `security-scan-node` or `security-scan-jkp` when a dependency or a lockfile changes. Each degrades with its inline criteria from the same map.
+- **Gate skills:** the ones whose verify gate the tier requires, from the Gates table of the map: `security-code-review` from Tier 3. They count toward the limit of 5.
 
 ## Check
 
@@ -119,8 +121,8 @@ The person decides on each finding: an accepted one sends the change back to app
 
 The orchestrator, or the session that ran the verify inline:
 
-1. Writes the text verbatim to `<change-root>/verify-record.md`.
-2. Runs `exo speclint <change-root>`. If the record fails, it sends the errors back to the verifier and asks for a corrected record; it never edits the findings or the Verdict itself.
+1. Writes the text verbatim to `<change-root>/verify-record.md`, and each gate text verbatim to `<change-root>/gates/<gate>.md`.
+2. Runs `exo speclint <change-root>`. If the record or a gate fails, it sends the errors back to the verifier and asks for a corrected text; it never edits the findings, the Verdict or a gate verdict itself.
 3. Records the work (below), shows the Verdict and the issues to the person, and follows section H.
 
 ## Record
