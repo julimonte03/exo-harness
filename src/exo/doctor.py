@@ -335,6 +335,16 @@ def _memory_config(project: Path) -> Check:
     return Check("memory-config", "ok", "memory is configured per user")
 
 
+def _githooks(project: Path) -> Check:
+    """Los git hooks del motor (D-21): activos en este clon, o husky / pre-commit con el bloque."""
+    from exo.governance import githooks
+
+    if lock.read(project) is None:
+        return Check("githooks", "info", "the engine is not installed here")
+    found = githooks.status(project)
+    return Check("githooks", found.status, found.detail)
+
+
 CHECKS: tuple[Callable[[Path], Check], ...] = (
     _python,
     _platform,
@@ -347,6 +357,7 @@ CHECKS: tuple[Callable[[Path], Check], ...] = (
     _selftest_snapshots,
     _config,
     _install,
+    _githooks,
     _claude_code,
     _claude_trust,
     _memory_fts5,

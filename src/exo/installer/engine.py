@@ -29,6 +29,8 @@ saltea con el aviso y la entrada se olvida.
 from __future__ import annotations
 
 import json
+import os
+import stat
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -124,12 +126,20 @@ def _current(project: Path, op: Op) -> str | None:
 def _entry(op: Op) -> lock.LockEntry:
     common = {"path": op.path, "owner": op.owner, "sha256": expected_hash(op)}
     if isinstance(op, WriteFile):
-        return lock.LockEntry(kind=op.kind, **common)
+        return lock.LockEntry(kind=op.kind, executable=op.executable, **common)
     if isinstance(op, MergeBlock):
         return lock.LockEntry(kind="block", block_id=op.block_id, style=op.style, **common)
     if isinstance(op, MergeKey):
         return lock.LockEntry(kind="key", key=op.key, **common)
     return lock.LockEntry(kind="item", key=op.key, item=op.item, **common)
+
+
+def _needs_mode(project: Path, op: Op) -> bool:
+    """¿Un ejecutable perdió el bit (por ejemplo, un checkout de algo commiteado en Windows)?"""
+    if not isinstance(op, WriteFile) or not op.executable or os.name == "nt":
+        return False
+    target = fsutil.join_within(project, op.path)
+    return target.is_file() and not target.stat().st_mode & stat.S_IXUSR
 
 
 def _creates(project: Path, op: Op) -> lock.Created | None:
@@ -181,7 +191,7 @@ def _prune_dirs(project: Path, path: Path) -> None:
 def _write(project: Path, op: Op) -> None:
     target = fsutil.join_within(project, op.path)
     if isinstance(op, WriteFile):
-        fsutil.write_atomic(target, op.content)
+        fsutil.write_atomic(target, op.content, mode=0o755 if op.executable else None)
     elif isinstance(op, MergeBlock):
         filemerge.inject(target, op.block_id, op.content, style=op.style, position=op.position)
     elif isinstance(op, MergeKey):
@@ -327,6 +337,9 @@ def apply(
             )
             entries[unit] = new_entry
         else:
+            if _needs_mode(project, op):
+                writes.append(op)
+                result.actions.append(Action("update", op.path, kind, "executable bit"))
             entries[unit] = new_entry
 
     planned = {unit_of(op) for op in ops}

@@ -22,6 +22,7 @@ from typing import Any
 from exo import _meta, adapters, content, paths
 from exo.adapters.base import Context
 from exo.core import config, fsutil, lock, snapshots
+from exo.governance import githooks
 from exo.installer import engine
 from exo.installer.bundle import build_bundle
 
@@ -135,8 +136,23 @@ def sync(
         extra=extra,
     )
     notes = [*base_notes, *loaded.warnings, *adapters.GENERIC.notes(ctx)]
+    if result.applied and not dry_run:
+        notes += _githooks(project, normalized, result)
     written = result.applied and bool(extra)
     return SyncResult(result, list(targets), list(bundle.packs), notes, written)
+
+
+def _githooks(project: Path, cfg: dict[str, Any], result: engine.Result) -> list[str]:
+    """Activa o desactiva los git hooks en este clon, después de aplicar (D-21)."""
+    if not githooks.enabled(cfg):
+        return ["git hooks turned off in this clone"] if githooks.deactivate(project) else []
+    if githooks.mechanism(project) == "husky":
+        touched = any(
+            a.path.startswith(f"{githooks.HUSKY}/") and a.action in ("create", "update")
+            for a in result.actions
+        )
+        return [f"git hooks added to husky ({githooks.HUSKY}/)"] if touched else []
+    return githooks.activate(project)
 
 
 # -- estado y desinstalación ----------------------------------------------------
@@ -200,6 +216,8 @@ def uninstall(project: Path, *, force: bool = False, dry_run: bool = False) -> U
         backup = paths.user_data_dir() / "uninstall-backups" / name
         fsutil.write_atomic(backup, archive)
     result = engine.apply(project, [], agents=[], packs=[], force=force, dry_run=dry_run)
+    if result.applied and not dry_run:
+        githooks.deactivate(project)
     also_removed = _human_files_in(project, motor_dir, data)
     if result.applied and not result.unresolved and motor_dir.is_dir():
         if fsutil.is_link(motor_dir):

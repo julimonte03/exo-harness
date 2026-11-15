@@ -28,6 +28,7 @@ class WriteFile:
     content: bytes
     owner: str
     kind: str = "file"  # "file" | "mirror"
+    executable: bool = False  # git hooks: el modo se asegura en POSIX aunque el contenido no cambie
 
 
 @dataclass(frozen=True)
