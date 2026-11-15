@@ -36,6 +36,7 @@ from pathlib import Path, PurePosixPath
 
 from exo import _meta
 from exo.core import config, fsutil
+from exo.governance.git import EMPTY_TREE
 from exo.sdd import changes, observability, record, speclint, specs
 
 # Artefactos obligatorios por tier (D-27). `spec.md` en Tier 1 es opcional: solo avisa.
@@ -111,26 +112,34 @@ def _git(project: Path, *args: str) -> list[str]:
     return [item for item in out.split("\0") if item]
 
 
-def fork_point(project: Path, base: str) -> str:
-    """El commit donde la rama salió de `base` (merge-base con HEAD)."""
+def fork_point(project: Path, base: str, head: str = "HEAD") -> str:
+    """El commit donde la rama salió de `base` (merge-base con `head`).
+
+    El árbol vacío (la base de una rama nueva sin historia en común) es su propio punto.
+    """
     if base.startswith("-") or not _SAFE_REF.match(base):
         raise CheckUsageError(f"invalid --base {base!r}: use a branch, tag or commit")
-    found = _git(project, "merge-base", base, "HEAD")
+    if base == EMPTY_TREE:
+        return base
+    found = _git(project, "merge-base", base, head)
     if not found:
-        raise CheckError(f"{base} and HEAD have no common history; pass the branch the PR goes to")
+        raise CheckError(
+            f"{base} and {head} have no common history; pass the branch the PR goes to"
+        )
     return found[0].strip()
 
 
-def touched(project: Path, base: str) -> list[str]:
-    """Rutas (relativas al proyecto) que cambian contra `base`, más las sin trackear."""
-    if base.startswith("-") or not _SAFE_REF.match(base):
-        raise CheckUsageError(f"invalid --base {base!r}: use a branch, tag or commit")
+def touched(project: Path, base: str, head: str | None = None) -> list[str]:
+    """Rutas (relativas al proyecto) que cambian contra `base`.
+
+    Sin `head`, contra el árbol de trabajo y con los archivos sin trackear (lo que va a ir
+    en el PR); con `head` (un push), solo lo que cambia hasta ese commit.
+    """
     # Contra el punto donde la rama salió de la base, no contra la punta de la base: si no,
     # lo que la base cambió después parece tocado por la rama.
-    found = _git(project, "merge-base", base, "HEAD")
-    if not found:
-        raise CheckError(f"{base} and HEAD have no common history; pass the branch the PR goes to")
-    fork = found[0].strip()
+    fork = fork_point(project, base, head or "HEAD")
+    if head is not None:
+        return sorted(_git(project, "diff", "--name-only", "-z", "--relative", fork, head, "--"))
     diff = _git(project, "diff", "--name-only", "-z", "--relative", fork, "--")
     untracked = _git(project, "ls-files", "--others", "--exclude-standard", "-z")
     return sorted(set(diff) | set(untracked))
@@ -246,9 +255,7 @@ def _judgment_day(project: Path, change: observability.Change) -> list[Finding]:
     ]
 
 
-def _readiness(
-    project: Path, change: observability.Change, tier: int, cfg: dict
-) -> list[Finding]:
+def _readiness(project: Path, change: observability.Change, tier: int, cfg: dict) -> list[Finding]:
     """Lo que se exige desde el verify: veredicto listo, gates y judgment-day."""
     folder = project / change.path
     verify = folder / "verify-record.md"
@@ -323,12 +330,19 @@ def _check_change(
     return item
 
 
-def _scan_diff(project: Path, fork: str, cfg: dict) -> list[Finding]:
-    """Secretos y datos personales en lo que agrega el diff (y en los archivos nuevos)."""
+def _scan_diff(project: Path, fork: str, cfg: dict, head: str | None = None) -> list[Finding]:
+    """Secretos y datos personales en lo que agrega el diff.
+
+    Sin `head`, el árbol de trabajo y los archivos sin trackear; con `head`, solo los commits.
+    """
     from exo.governance import git, hookrun
 
-    added = git.added_lines(project, fork)
-    for rel in _git(project, "ls-files", "--others", "--exclude-standard", "-z"):
+    try:
+        added = git.added_lines(project, fork, *([head] if head else []))
+    except git.GitError as exc:
+        return [Finding("error", "", 0, f"could not scan the diff, so it was not checked: {exc}")]
+    untracked = [] if head else _git(project, "ls-files", "--others", "--exclude-standard", "-z")
+    for rel in untracked:
         path = project / rel
         try:
             if path.stat().st_size > 1_000_000:
@@ -349,6 +363,7 @@ def check(
     base: str | None = None,
     names: list[str] | None = None,
     fast: bool = False,
+    head: str | None = None,
 ) -> CheckResult:
     project = Path(project)
     loaded = config.load(project)
@@ -360,6 +375,9 @@ def check(
         Finding("error", f"{_meta.PROJECT_DIR}/{config.FILENAME}", 0, f"config: {problem}")
         for problem in loaded.invalid
     ]
+    # Con `--base` el diff se escanea siempre: no depende de la persistencia ni de `--change`.
+    if base is not None:
+        result.diff = _scan_diff(project, fork_point(project, base, head or "HEAD"), cfg, head)
     persistence = loaded.config["sdd"]["persistence"]
     if persistence in NO_DISK:
         result.notes.append(
@@ -380,8 +398,7 @@ def check(
         touched_caps = set().union(*(_delta_capabilities(project, c) for c in selected))
         cap_files = [f for f in cap_files if f.parent.name in touched_caps]
     elif base is not None:
-        paths = touched(project, base)
-        result.diff = _scan_diff(project, fork_point(project, base), cfg)
+        paths = touched(project, base, head)
         every = observability.find_changes(project, include_archived=True)
         selected = [c for c in every if any(_within(p, c.path) for p in paths)]
         cap_files = [f for f in cap_files if _rel(project, f) in paths]
