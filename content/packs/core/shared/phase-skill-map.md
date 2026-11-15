@@ -53,12 +53,9 @@ These skills are named by the map but ship in later packs. When one is missing, 
 | `product-discovery` | product | Write who the user is, the problem, the value and how success is measured: in proposal.md, section Intent, when the phase owns proposal.md (new, propose); otherwise as open questions for the person. Ask the person when any of them is unclear. |
 | `accessibility-audit` | frontend | Check keyboard access, visible focus, labels and accessible names, contrast and text alternatives in the UI that changed (WCAG 2.2 AA). List each failure with its criterion. |
 | `architecture-decision-record` | design | When a decision is hard to reverse, propose a short record (context, decision, alternatives, consequences) for the project's docs and write it there once the person approves its text. Cite it from design.md in the design phase, or from the AI Usage Record decisions later. |
-| `threat-modeling` | security | List the assets, entry points and trust boundaries the change touches; for each, the threats that apply (STRIDE) and their mitigation. Write them in design.md, Risks & Mitigations. |
 | `software-solution` | core | Describe the components, their responsibilities and the integration points in design.md, Architecture Overview, before the details. |
 | `context-anchoring` | sdd | Keep the decisions so far in the change's state memory (`.exo/shared/memory-convention.md`) so another session or person can continue. |
 | `parallel-dispatch` | core | Group the tasks into units that do not touch the same files. Run them one after the other, unless the agent can delegate each unit to its own subagent. |
-| `secure-coding-baseline` | security | Validate and encode untrusted input at the boundary, use parameterized queries, keep secrets out of code and logs, check authorization on every entry point and fail closed. |
-| `prompt-hygiene` | core | Before pasting logs, tickets or production data into the conversation, remove secrets, personal data and customer identifiers; prefer short synthetic excerpts. |
 | `frontend-design` | frontend | Reuse the project's existing UI components and design tokens. Do not add new visual styles without the person's approval. |
 | `security-scan-node` | frontend | Run the dependency audit of the Node project (for example `npm audit --omit=dev`) and report the high and critical findings. |
 | `security-scan-jkp` | java | Run the dependency check of the Java project (for example the OWASP dependency-check plugin) and report the high and critical findings. |

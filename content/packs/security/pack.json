@@ -1,0 +1,7 @@
+{
+  "name": "security",
+  "version": "0.1.0",
+  "description": "Security for every change: secure coding, security review of the diff, threat modeling, data classification and prompt hygiene, with the security gates per tier.",
+  "requires": ["core"],
+  "optional": []
+}
