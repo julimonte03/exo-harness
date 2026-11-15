@@ -1,8 +1,10 @@
-"""Config del proyecto (`<PROJECT_DIR>/config.json`, esquema 2).
+"""Config del proyecto (`<PROJECT_DIR>/config.json`, esquema 3).
 
 Esquema en `docs/plan/02-ARQUITECTURA.md` §2.12, más `mcp.enabled` (ADR-0005).
 El esquema 2 (F4) reemplaza `tracker` por `tickets {pattern, example}`
-(ADR-0012) y suma `sdd {persistence, mode}` (§6.5 B y §6.6 del reporte).
+(ADR-0012) y suma `sdd {persistence, mode}` (§6.5 B y §6.6 del reporte). El
+esquema 3 (F5, ADR-0014) suma `governance.gates`, `data_protection.pii` y
+`review {host, publish_command}`, y saca `governance.dpa_profile`.
 La lectura es tolerante: si el archivo falta, se usan los defaults sin avisar;
 si un campo es inválido, vuelve a su default y queda una advertencia para
 `exo doctor`. Las claves desconocidas se conservan para no perder datos del
@@ -20,18 +22,33 @@ from pathlib import Path
 from typing import Any
 
 from exo import _meta
-from exo.core import fsutil, tickets
+from exo.core import fsutil, scan, tickets
 
-CURRENT_SCHEMA = 2
+CURRENT_SCHEMA = 3
 FILENAME = "config.json"
 
 SDD_PERSISTENCE = ("filesystem", "memory", "hybrid", "none")
 SDD_MODES = ("interactive", "auto")
+REVIEW_HOSTS = ("github", "azure-devops", "gitlab", "other")
+TIERS = ("1", "2", "3", "4")
+DEFAULT_GATES = {
+    "1": [],
+    "2": ["contract_check", "code_review"],
+    "3": ["contract_check", "code_review", "security_review", "threat_model"],
+    "4": [
+        "contract_check",
+        "code_review",
+        "security_review",
+        "threat_model",
+        "secure_coding_check",
+    ],
+}
 MEMORY_BACKENDS = ("auto", "lexical", "hybrid-sqlite", "qdrant")
 EMBEDDING_PROVIDERS = ("local", "none", "static", "onnx", "ollama", "openai-compatible")
 DISCOVERY_DEPTHS = ("quick", "standard", "deep")
 
 _SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+_GATE = re.compile(r"^[a-z][a-z0-9_]*$")
 _PREFIX = re.compile(r"^[A-Z][A-Z0-9]*$")
 _LANG = re.compile(r"^[a-z]{2}(?:-[A-Z]{2})?$")
 
@@ -67,9 +84,11 @@ def defaults() -> dict[str, Any]:
         "governance": {
             "protected_branches": ["main", "master", "prod", "production"],
             "roles": {"tech_lead": [], "developer": []},
-            "dpa_profile": "legacy-profile",
             "githooks": True,
+            "gates": copy.deepcopy(DEFAULT_GATES),
         },
+        "data_protection": {"pii": list(scan.DEFAULT_PII)},
+        "review": {"host": None, "publish_command": None},
         "discovery": {"ignore": [], "depth": "standard"},
         "mcp": {"enabled": False},
     }
@@ -198,6 +217,31 @@ def _schema(value: Any, path: str, col: _Collector, default: Any) -> Any:
     return CURRENT_SCHEMA
 
 
+def _gates(value: Any, path: str, col: _Collector, default: Any) -> Any:
+    """`{tier: [gate, ...]}` con los tiers 1 a 4; un tier que falta toma su default."""
+    if not isinstance(value, dict):
+        col.invalid_value(path, "must be an object {tier: [gates]}, with tiers 1 to 4")
+        return copy.deepcopy(default)
+    out = copy.deepcopy(default)
+    names = _text_list(_GATE, "must be a gate name in snake_case, such as code_review")
+    for tier, gates in value.items():
+        if str(tier) not in TIERS:
+            col.invalid_value(_join(path, str(tier)), "tiers are 1, 2, 3 and 4", "ignored")
+            continue
+        out[str(tier)] = names(gates, _join(path, str(tier)), col, default[str(tier)])
+    return out
+
+
+def _optional_choice(options: tuple[str, ...]) -> Validator:
+    def validate(value: Any, path: str, col: _Collector, default: Any) -> Any:
+        if value is None or (isinstance(value, str) and value in options):
+            return value
+        col.invalid_value(path, f"must be one of: {', '.join(options)}, or null")
+        return default
+
+    return validate
+
+
 def _tickets(value: Any, path: str, col: _Collector, default: Any) -> Any:
     """`{pattern, example}`: el ejemplo tiene que cumplir el patrón (ADR-0012)."""
     if not isinstance(value, dict):
@@ -231,6 +275,8 @@ def _tickets(value: Any, path: str, col: _Collector, default: Any) -> Any:
 
 
 _SLUG_HINT = "must be lowercase kebab-case (a-z, 0-9, hyphens)"
+_PII = re.compile("^(?:" + "|".join(re.escape(name) for name in scan.KNOWN_PII) + ")$")
+_PII_HINT = "must be a personal-data detector: " + ", ".join(scan.KNOWN_PII)
 
 _SPEC = _section(
     {
@@ -265,8 +311,17 @@ _SPEC = _section(
             {
                 "protected_branches": _text_list(None, "must be a branch name"),
                 "roles": _roles,
-                "dpa_profile": _text(_SLUG, _SLUG_HINT),
                 "githooks": _bool,
+                "gates": _gates,
+            }
+        ),
+        "data_protection": _section({"pii": _text_list(_PII, _PII_HINT)}),
+        "review": _section(
+            {
+                "host": _optional_choice(REVIEW_HOSTS),
+                "publish_command": _text(
+                    None, "must be a non-empty command line or null", optional=True
+                ),
             }
         ),
         "discovery": _section(
@@ -318,8 +373,18 @@ def _v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def _v2_to_v3(raw: dict[str, Any]) -> dict[str, Any]:
+    """ADR-0014: sale el perfil de organización; los gates, los datos y la revisión toman su default."""
+    out = dict(raw)
+    governance = out.get("governance")
+    if isinstance(governance, dict):
+        out["governance"] = {k: v for k, v in governance.items() if k != "dpa_profile"}
+    out["schema"] = 3
+    return out
+
+
 # MIGRATIONS[n] convierte un dict del esquema n al n + 1.
-MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {1: _v1_to_v2}
+MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {1: _v1_to_v2, 2: _v2_to_v3}
 
 
 def validate(raw: dict[str, Any]) -> tuple[dict[str, Any], list[str], list[str]]:

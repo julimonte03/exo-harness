@@ -30,7 +30,16 @@ def test_sin_archivo_usa_defaults_sin_advertencias(tmp_path: Path) -> None:
 
 def test_defaults_esperados() -> None:
     cfg = config.defaults()
-    assert cfg["schema"] == config.CURRENT_SCHEMA == 2
+    assert cfg["schema"] == config.CURRENT_SCHEMA == 3
+    assert "dpa_profile" not in cfg["governance"]
+    assert cfg["governance"]["gates"] == {
+        "1": [],
+        "2": ["contract_check", "code_review"],
+        "3": ["contract_check", "code_review", "security_review", "threat_model"],
+        "4": ["contract_check", "code_review", "security_review", "threat_model", "secure_coding_check"],
+    }
+    assert cfg["data_protection"] == {"pii": ["card", "iban"]}
+    assert cfg["review"] == {"host": None, "publish_command": None}
     assert cfg["specs_dir"] == "specs"
     assert cfg["tickets"] == {"pattern": None, "example": None}
     assert "tracker" not in cfg
@@ -49,7 +58,7 @@ def test_defaults_son_copias_independientes() -> None:
 
 def test_config_valida_completa(tmp_path: Path) -> None:
     payload = {
-        "schema": 2,
+        "schema": 3,
         "project": {"name": "mi-servicio", "chat_language": "es", "artifact_language": "en"},
         "agents": ["claude-code", "copilot"],
         "packs": ["core", "sdd", "quality", "security"],
@@ -63,9 +72,11 @@ def test_config_valida_completa(tmp_path: Path) -> None:
         "governance": {
             "protected_branches": ["main"],
             "roles": {"tech_lead": ["ana"], "developer": []},
-            "dpa_profile": "legacy-profile",
             "githooks": True,
+            "gates": {"1": [], "2": ["contract_check"], "3": ["contract_check", "my_gate"], "4": ["contract_check"]},
         },
+        "data_protection": {"pii": ["card", "iban", "ar-cuit", "email"]},
+        "review": {"host": "azure-devops", "publish_command": "./scripts/publish-gate.sh"},
         "discovery": {"ignore": ["vendor/"], "depth": "deep"},
         "mcp": {"enabled": True},
     }
@@ -95,7 +106,7 @@ def test_campo_invalido_vuelve_a_su_default_y_el_resto_se_conserva(tmp_path: Pat
     _write(
         tmp_path,
         {
-            "schema": 2,
+            "schema": 3,
             "tickets": {"pattern": "(", "example": "X-1"},
             "specs_dir": "mis-specs",
             "mcp": {"enabled": "si"},
@@ -116,14 +127,14 @@ def test_campo_invalido_vuelve_a_su_default_y_el_resto_se_conserva(tmp_path: Pat
     ["../fuera", "/abs/specs", "C:\\specs", "D:/specs", "\\\\srv\\share", "", 7],
 )
 def test_specs_dir_inseguro(tmp_path: Path, bad: object) -> None:
-    _write(tmp_path, {"schema": 2, "specs_dir": bad})
+    _write(tmp_path, {"schema": 3, "specs_dir": bad})
     result = config.load(tmp_path)
     assert result.config["specs_dir"] == "specs"
     assert any("specs_dir" in w for w in result.warnings)
 
 
 def test_specs_dir_se_normaliza(tmp_path: Path) -> None:
-    _write(tmp_path, {"schema": 2, "specs_dir": "./docs\\specs/"})
+    _write(tmp_path, {"schema": 3, "specs_dir": "./docs\\specs/"})
     assert config.load(tmp_path).config["specs_dir"] == "docs/specs"
 
 
@@ -138,6 +149,12 @@ def test_specs_dir_se_normaliza(tmp_path: Path) -> None:
         ({"tickets": {"example": "PROJ-1"}}, "tickets.example"),
         ({"tickets": "PROJ"}, "tickets"),
         ({"sdd": {"persistence": "nube"}}, "sdd.persistence"),
+        ({"governance": {"gates": {"5": []}}}, "governance.gates"),
+        ({"governance": {"gates": {"2": ["Code Review"]}}}, "governance.gates.2"),
+        ({"governance": {"gates": []}}, "governance.gates"),
+        ({"data_protection": {"pii": ["passport"]}}, "data_protection.pii[0]"),
+        ({"review": {"host": "bitbucket"}}, "review.host"),
+        ({"review": {"publish_command": ""}}, "review.publish_command"),
         ({"sdd": {"mode": "a veces"}}, "sdd.mode"),
         ({"memory": {"backend": "redis"}}, "memory.backend"),
         ({"memory": {"embeddings": {"allow_remote": "no"}}}, "memory.embeddings.allow_remote"),
@@ -150,18 +167,18 @@ def test_specs_dir_se_normaliza(tmp_path: Path) -> None:
     ],
 )
 def test_validaciones_por_campo(tmp_path: Path, payload: dict, field: str) -> None:
-    _write(tmp_path, {"schema": 2, **payload})
+    _write(tmp_path, {"schema": 3, **payload})
     result = config.load(tmp_path)
     assert any(w.startswith(field) for w in result.warnings), result.warnings
 
 
 def test_agentes_y_packs_sin_duplicados(tmp_path: Path) -> None:
-    _write(tmp_path, {"schema": 2, "agents": ["cursor", "cursor", "codex"]})
+    _write(tmp_path, {"schema": 3, "agents": ["cursor", "cursor", "codex"]})
     assert config.load(tmp_path).config["agents"] == ["cursor", "codex"]
 
 
 def test_claves_desconocidas_se_conservan_con_advertencia(tmp_path: Path) -> None:
-    _write(tmp_path, {"schema": 2, "extra": {"a": 1}, "tickets": {"pattern": None, "nota": "x"}})
+    _write(tmp_path, {"schema": 3, "extra": {"a": 1}, "tickets": {"pattern": None, "nota": "x"}})
     result = config.load(tmp_path)
     assert result.config["extra"] == {"a": 1}
     assert result.config["tickets"]["nota"] == "x"
@@ -184,20 +201,20 @@ def test_esquema_futuro_desconocido_da_defaults(tmp_path: Path) -> None:
 
 
 def test_migraciones_encadenadas(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    def v2_to_v3(raw: dict) -> dict:
+    def v3_to_v4(raw: dict) -> dict:
         raw = copy.deepcopy(raw)
         raw["specs_dir"] = raw.pop("specs_folder", "specs")
-        raw["schema"] = 3
+        raw["schema"] = 4
         return raw
 
-    monkeypatch.setattr(config, "CURRENT_SCHEMA", 3)
-    monkeypatch.setattr(config, "MIGRATIONS", {**config.MIGRATIONS, 2: v2_to_v3})
+    monkeypatch.setattr(config, "CURRENT_SCHEMA", 4)
+    monkeypatch.setattr(config, "MIGRATIONS", {**config.MIGRATIONS, 3: v3_to_v4})
     _write(tmp_path, {"schema": 1, "specs_folder": "legacy", "tracker": {"type": "github"}})
     result = config.load(tmp_path)
-    assert result.config["schema"] == 3
+    assert result.config["schema"] == 4
     assert result.config["specs_dir"] == "legacy"
     assert result.config["tickets"]["pattern"] == r"#\d+"
-    assert any("migrated from schema 1 to 3" in w for w in result.warnings)
+    assert any("migrated from schema 1 to 4" in w for w in result.warnings)
 
 
 @pytest.mark.parametrize(
@@ -227,7 +244,7 @@ def test_migracion_del_tracker_al_patron(tmp_path: Path, tracker: object, ticket
     assert "tracker" not in result.config
     assert result.config["agents"] == ["claude-code"]
     assert result.invalid == []
-    assert any("migrated from schema 1 to 2" in w for w in result.warnings)
+    assert any("migrated from schema 1 to 3" in w for w in result.warnings)
 
 
 def test_migracion_sin_tracker_y_con_tickets_ya_puestos(tmp_path: Path) -> None:
@@ -237,20 +254,20 @@ def test_migracion_sin_tracker_y_con_tickets_ya_puestos(tmp_path: Path) -> None:
     assert config.load(tmp_path).config["tickets"] == {"pattern": r"#\d+", "example": None}
 
 
-def test_save_de_una_config_migrada_escribe_el_esquema_2(tmp_path: Path) -> None:
+def test_save_de_una_config_migrada_escribe_el_esquema_actual(tmp_path: Path) -> None:
     _write(tmp_path, {"schema": 1, "tracker": {"type": "jira", "prefix": "PROJ"}})
     loaded = config.load(tmp_path)
     assert config.save(tmp_path, loaded.config) is True
     raw = json.loads((tmp_path / _meta.PROJECT_DIR / "config.json").read_text(encoding="utf-8"))
-    assert raw["schema"] == 2
+    assert raw["schema"] == 3
     assert raw["tickets"] == {"pattern": r"PROJ-\d+", "example": "PROJ-123"}
     assert "tracker" not in raw
 
 
 def test_migracion_faltante(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(config, "CURRENT_SCHEMA", 3)
+    monkeypatch.setattr(config, "CURRENT_SCHEMA", 4)
     monkeypatch.setattr(config, "MIGRATIONS", {})
-    _write(tmp_path, {"schema": 2, "specs_dir": "x"})
+    _write(tmp_path, {"schema": 3, "specs_dir": "x"})
     result = config.load(tmp_path)
     assert result.config == config.defaults()
     assert any("no migration" in w for w in result.warnings)
@@ -303,7 +320,7 @@ def test_load_marca_cuando_no_pudo_usar_el_archivo(tmp_path: Path, raw: str) -> 
 
 
 def test_load_lista_los_campos_invalidos(tmp_path: Path) -> None:
-    _write(tmp_path, {"schema": 2, "agents": "claude-code", "specs_dir": "s"})
+    _write(tmp_path, {"schema": 3, "agents": "claude-code", "specs_dir": "s"})
     result = config.load(tmp_path)
     assert result.fallback is False
     assert [problem.split(":")[0] for problem in result.invalid] == ["agents"]
@@ -311,7 +328,21 @@ def test_load_lista_los_campos_invalidos(tmp_path: Path) -> None:
 
 
 def test_load_valido_no_marca_nada(tmp_path: Path) -> None:
-    _write(tmp_path, {"schema": 2, "extra": True})
+    _write(tmp_path, {"schema": 3, "extra": True})
     result = config.load(tmp_path)
     assert (result.fallback, result.invalid) == (False, [])
     assert config.load(tmp_path / "otro").fallback is False
+
+
+def test_migracion_del_esquema_2_saca_el_perfil_de_organizacion(tmp_path: Path) -> None:
+    """D-12 (ADR-0014): sale `governance.dpa_profile`; entran los gates, los datos y la revisión."""
+    governance = {"protected_branches": ["main"], "roles": {}, "dpa_profile": "legacy-profile", "githooks": False}
+    _write(tmp_path, {"schema": 2, "governance": governance})
+    result = config.load(tmp_path)
+    assert result.invalid == []
+    assert "dpa_profile" not in result.config["governance"]
+    assert result.config["governance"]["githooks"] is False
+    assert result.config["governance"]["gates"] == config.defaults()["governance"]["gates"]
+    assert result.config["data_protection"] == {"pii": ["card", "iban"]}
+    assert any("migrated from schema 2 to 3" in w for w in result.warnings)
+    assert not any("dpa_profile" in w for w in result.warnings)
