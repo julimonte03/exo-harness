@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import fnmatch
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
@@ -37,7 +38,11 @@ TYPES = (
 )
 MAX_SUBJECT = 72
 _SUBJECT = re.compile(rf"^(?:{'|'.join(TYPES)})(?:\([^()\s][^()]*\))?!?: \S")
-_AUTO = re.compile(r"^(?:Merge |Revert \"|fixup! |squash! |amend! )")
+# Los asuntos que escribe git: se aceptan sin Conventional Commits, pero su `Refs:` se valida.
+_AUTO = re.compile(
+    r"^(?:Merge (?:branch|branches|remote-tracking branch|tag|commit|pull request) "
+    r"|Revert \"|fixup! |squash! |amend! )"
+)
 _REFS = re.compile(r"^Refs:\s*(.*?)\s*$", re.IGNORECASE)
 _TICKET_FIRST = re.compile(r"^\S+\s+(?:" + "|".join(TYPES) + r")\b")
 _SCISSORS = "# ------------------------ >8 ------------------------"
@@ -87,8 +92,8 @@ def check_message(text: str, *, pattern: str | None, example: str | None) -> Hoo
         result.errors.append("the commit message is empty")
         return result
     if _AUTO.match(subject):
-        return result
-    if not _SUBJECT.match(subject):
+        pass
+    elif not _SUBJECT.match(subject):
         hint = ""
         if _TICKET_FIRST.match(subject):
             hint = " Put the ticket in a `Refs: <ticket>` footer, not in the subject."
@@ -114,7 +119,7 @@ def check_message(text: str, *, pattern: str | None, example: str | None) -> Hoo
 
 def commit_msg(project: Path, message_file: Path) -> HookResult:
     cfg = config.load(project).config
-    text = Path(message_file).read_text(encoding="utf-8", errors="replace")
+    text = Path(message_file).read_text(encoding="utf-8-sig", errors="replace")
     return check_message(text, pattern=cfg["tickets"]["pattern"], example=cfg["tickets"]["example"])
 
 
@@ -224,6 +229,22 @@ class PushRef:
         return git.is_zero(self.remote_sha)
 
 
+def push_lines_from_env() -> list[str]:
+    """La ref empujada cuando corre desde el framework pre-commit, que no la pasa por stdin.
+
+    Usa las variables que documenta el framework (`PRE_COMMIT_FROM_REF`,
+    `PRE_COMMIT_TO_REF`, `PRE_COMMIT_REMOTE_BRANCH`, `PRE_COMMIT_LOCAL_BRANCH`)
+    [No verificado contra el framework real].
+    """
+    to_ref = os.environ.get("PRE_COMMIT_TO_REF", "").strip()
+    if not to_ref:
+        return []
+    from_ref = os.environ.get("PRE_COMMIT_FROM_REF", "").strip() or "0" * 40
+    remote = os.environ.get("PRE_COMMIT_REMOTE_BRANCH", "").strip()
+    local = os.environ.get("PRE_COMMIT_LOCAL_BRANCH", "").strip() or remote or "HEAD"
+    return [f"{local} {to_ref} {remote or local} {from_ref}"]
+
+
 def parse_push_lines(lines: list[str]) -> list[PushRef]:
     refs: list[PushRef] = []
     for line in lines:
@@ -239,7 +260,7 @@ def _new_branch_base(project: Path, remote: str, local_sha: str, protected: set[
     Sin ninguna en común, el árbol vacío: se escanea todo lo que la rama trae.
     """
     candidates = [f"refs/remotes/{remote}/HEAD"]
-    for branch in sorted(protected):
+    for branch in sorted(b for b in protected if not any(c in b for c in "*?[")):
         candidates += [f"refs/remotes/{remote}/{branch}", f"refs/heads/{branch}"]
     for candidate in candidates:
         tip = git.resolve(project, candidate)
@@ -261,7 +282,8 @@ def pre_push(project: Path, remote: str, lines: list[str]) -> HookResult:
     refs = parse_push_lines(lines)
     for ref in refs:
         branch = ref.remote_branch
-        if branch in protected:
+        # Los nombres admiten patrones (`release/*`).
+        if branch and any(fnmatch.fnmatchcase(branch, pattern) for pattern in protected):
             action = "deleting" if ref.deleting else "pushing straight to"
             result.errors.append(
                 f"{action} the protected branch {branch} is not allowed: open a pull request "
