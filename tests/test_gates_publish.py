@@ -182,3 +182,31 @@ def test_init_guarda_el_host_detectado(tmp_path: Path, capsys: pytest.CaptureFix
 def test_flags_de_revision(tmp_path: Path) -> None:
     assert main(["init", "--project", str(tmp_path), "--agents", "generic", "--yes", "--review-host", "gitlab", "--publish-command", "./publish.sh"]) == 0
     assert config.load(tmp_path).config["review"] == {"host": "gitlab", "publish_command": "./publish.sh"}
+
+
+def test_un_followup_arreglado_deja_de_estar_abierto(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    folder = _change(tmp_path, {})
+    changes.add_followup(tmp_path, "add-login", FOLLOWUP)
+    assert changes.fix_followup(tmp_path, "add-login", "JSEC-1").changed is True
+    assert changes.fix_followup(tmp_path, "add-login", "JSEC-1").changed is False
+    data = json.loads((folder / "followups.json").read_text(encoding="utf-8"))
+    assert data == {"followups": [{**FOLLOWUP, "fixed": True}]}
+    assert observability.followups(tmp_path, "add-login", "open") == []
+    assert [f["id"] for f in observability.followups(tmp_path, "add-login", "fixed")] == ["JSEC-1"]
+    assert observability.change_state(tmp_path, "add-login")["followups"] == {"open": 0, "fixed": 1, "dismissed": 0}
+    # Volver a mandar el hallazgo original no choca con el que ya está arreglado.
+    assert changes.add_followup(tmp_path, "add-login", FOLLOWUP).changed is False
+    with pytest.raises(changes.ChangeError, match="JSEC-9"):
+        changes.fix_followup(tmp_path, "add-login", "JSEC-9")
+    assert main(["change", "record", "add-login", "--fixed", "JSEC-1", "--project", str(tmp_path)]) == 0
+    assert "unchanged" in capsys.readouterr().out
+
+
+def test_un_descarte_con_id_no_descarta_otros_de_la_misma_regla(tmp_path: Path) -> None:
+    _change(tmp_path, {})
+    changes.add_followup(tmp_path, "add-login", FOLLOWUP)
+    changes.add_followup(tmp_path, "add-login", {**FOLLOWUP, "id": "JSEC-2", "location": "src/a.py:1"})
+    dismissal = {"id": "JSEC-1", "judge": "judge-security", "rule": FOLLOWUP["rule"], "reason": "false positive"}
+    changes.update_record(tmp_path, "add-login", add=[("dismissed_followups", dismissal)])
+    states = {f["id"]: f["status"] for f in observability.followups(tmp_path, "add-login", "all")}
+    assert states == {"JSEC-1": "dismissed", "JSEC-2": "open"}
