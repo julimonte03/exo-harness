@@ -164,14 +164,22 @@ def pre_commit(project: Path) -> HookResult:
     project = Path(project)
     cfg = config.load(project).config
     result = HookResult()
-    staged = git.staged_files(project)
+    try:
+        staged = git.staged_files(project)
+        added = git.added_lines(project, "--cached", "--diff-filter=ACMR")
+    except git.GitError as exc:
+        result.errors.append(
+            f"could not read the staged changes, so nothing was checked ({exc}); fix git and "
+            "commit again"
+        )
+        return result
     for rel in staged:
         if _blocked(rel):
             result.errors.append(
                 f"{rel}: credential files are never committed; unstage it (`git restore --staged "
                 f"{rel}`) and keep it out with .gitignore"
             )
-    found = scan_added(project, git.added_lines(project, "--cached", "--diff-filter=ACMR"), cfg)
+    found = scan_added(project, added, cfg)
     result.errors += found.errors
     result.warnings += found.warnings
     for rel in staged:
@@ -220,6 +228,24 @@ def parse_push_lines(lines: list[str]) -> list[PushRef]:
     return refs
 
 
+def _new_branch_base(project: Path, remote: str, local_sha: str, protected: set[str]) -> str:
+    """Base de una rama nueva: donde sale de la rama por defecto del remoto o de una protegida.
+
+    Sin ninguna en común, el árbol vacío: se escanea todo lo que la rama trae.
+    """
+    candidates = [f"refs/remotes/{remote}/HEAD"]
+    for branch in sorted(protected):
+        candidates += [f"refs/remotes/{remote}/{branch}", f"refs/heads/{branch}"]
+    for candidate in candidates:
+        tip = git.resolve(project, candidate)
+        if tip is None:
+            continue
+        found = git.merge_base(project, tip, local_sha)
+        if found:
+            return found
+    return git.EMPTY_TREE
+
+
 def pre_push(project: Path, remote: str, lines: list[str]) -> HookResult:
     from exo.sdd import check
 
@@ -253,12 +279,20 @@ def pre_push(project: Path, remote: str, lines: list[str]) -> HookResult:
     if result.errors:
         return result
     for ref in refs:
-        if ref.deleting or ref.creating:
+        if ref.deleting:
             continue
+        # Lo que se empuja es `local_sha`, no el árbol de trabajo: el diff va contra él.
+        if ref.creating:
+            base = _new_branch_base(project, remote, ref.local_sha, protected)
+        else:
+            base = ref.remote_sha
         try:
-            outcome = check.check(project, base=ref.remote_sha, fast=True)
+            outcome = check.check(project, base=base, head=ref.local_sha, fast=True)
         except check.CheckError as exc:
-            result.warnings.append(f"{_meta.NAME} check did not run: {exc}")
+            result.errors.append(
+                f"{_meta.NAME} check could not run on {ref.local_ref} ({exc}); fix it and push "
+                "again"
+            )
             continue
         for item in outcome.changes:
             result.errors += [
