@@ -19,14 +19,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from exo import _meta, adapters, content, paths
+from exo import _meta, adapters, content, packs, paths
 from exo.adapters.base import Context
 from exo.core import config, fsutil, lock, snapshots
 from exo.governance import githooks, hosts
 from exo.installer import engine
 from exo.installer.bundle import build_bundle
 
-DEFAULT_PACKS = ("core", "sdd")
+DEFAULT_PACKS = ("core", "sdd", "quality", "security")
+
+
+def _default_packs(root: Path) -> list[str]:
+    """Los packs por defecto que el contenido trae: un árbol propio puede no tener todos."""
+    return [name for name in DEFAULT_PACKS if (root / "packs" / name / packs.MANIFEST).is_file()]
 
 
 class ProjectError(ValueError):
@@ -125,7 +130,8 @@ def sync(
             host_note = detected
     targets = normalize_agents(cfg["agents"])
     try:
-        bundle = build_bundle(content.content_root(), list(cfg["packs"] or DEFAULT_PACKS))
+        root = content.content_root()
+        bundle = build_bundle(root, list(cfg["packs"] or _default_packs(root)))
     except ValueError as exc:
         raise ProjectError(str(exc)) from exc
     if explicit:

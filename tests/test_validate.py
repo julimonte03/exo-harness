@@ -136,7 +136,7 @@ MAP = """# Phase → skill map
 |---|---|
 | verify | `judge-security` |
 
-## Skills from packs not installed yet
+## Inline criteria for skills not installed
 
 | Skill | Pack | Inline criteria when missing |
 |---|---|---|
