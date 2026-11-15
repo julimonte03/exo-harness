@@ -32,6 +32,7 @@ CORE = (
     "branch-pr",
     "work-unit-commits",
     "project-onboarding",
+    "skill-reviewer",
 )
 # Fase -> skill de fase.
 PHASE_SKILL = {
