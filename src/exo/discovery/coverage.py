@@ -5,7 +5,9 @@
   docs, no solo una inferencia.
 - **Precisión por capacidad:** correctos sobre correctos más incorrectos de la
   auditoría. Los no verificables se informan aparte y, si pasan del 25 %, la
-  capacidad queda marcada.
+  capacidad queda marcada. Solo cuentan los veredictos de la muestra vigente: una
+  auditoría con otra semilla, o de IDs que ya no están en `sample.json`, se ignora
+  con un aviso.
 
 Escribe `coverage.md` (en inglés, ADR-0011). Una capacidad con precisión por debajo
 del umbral vuelve a la extracción (R3).
@@ -23,7 +25,40 @@ from exo.sdd import specs
 FILENAME = "coverage.md"
 THRESHOLD = 0.9
 UNVERIFIABLE_FLAG = 0.25
-_FACT = ("[Code]", "[Doc]")
+
+
+def _verdicts(project: Path) -> tuple[list[dict[str, Any]], list[str], list[str]]:
+    """(veredictos de la muestra vigente, IDs sin auditar, avisos)."""
+    sample = store.read_json(project, sampler.SAMPLE)
+    audit = store.read_json(project, sampler.AUDIT)
+    wanted = [i["id"] for i in sample["items"]] if sample else []
+    if audit is None:
+        return [], wanted, []
+    warnings: list[str] = []
+    if sample is None or audit.get("seed") != sample.get("seed"):
+        seed = sample.get("seed") if sample else None
+        warnings.append(
+            f"{store.rel(sampler.AUDIT)} is from another sample (seed {audit.get('seed')!r}; "
+            f"{store.rel(sampler.SAMPLE)} has seed {seed!r}): its verdicts were ignored, "
+            "audit the current sample"
+        )
+        return [], wanted, warnings
+    rows = [r for r in audit.get("results", []) if r["id"] in wanted]
+    stale = sorted(r["id"] for r in audit.get("results", []) if r["id"] not in wanted)
+    if stale:
+        warnings.append(
+            f"verdicts of requirements no longer in the sample were ignored: {', '.join(stale)}"
+        )
+    judged = {r["id"] for r in rows}
+    return rows, [i for i in wanted if i not in judged], warnings
+
+
+def _capability(requirement: str, known: dict[str, str]) -> str:
+    """La capacidad de un FR: la de la población, o la de su ID (`CAP-<cap>-FR-n`)."""
+    if requirement in known:
+        return known[requirement]
+    match = specs.REQUIREMENT_ID.fullmatch(requirement)
+    return match.group(1) if match else "?"
 
 
 def build(project: Path) -> dict[str, Any]:
@@ -43,13 +78,13 @@ def build(project: Path) -> dict[str, Any]:
         path = project / item["spec"]
         cap = specs.parse_capability(path.read_bytes().decode("utf-8-sig"), item["capability"])
         block = cap.requirements[item["id"]]
-        if any(marker in line for line in block.lines for marker in _FACT):
+        if any(specs.FACTS.search(line) for line in block.lines):
             evidenced += 1
-    audit = store.read_json(project, sampler.AUDIT) or {"results": []}
+    rows, missing, warnings = _verdicts(project)
     by_id = {i["id"]: i["capability"] for i in population}
     per_capability: dict[str, dict[str, int]] = {}
-    for row in audit["results"]:
-        capability = by_id.get(row["id"], row["id"].split("-")[1] if "-" in row["id"] else "?")
+    for row in rows:
+        capability = _capability(row["id"], by_id)
         entry = per_capability.setdefault(
             capability, {"correct": 0, "incorrect": 0, "unverifiable": 0}
         )
@@ -74,7 +109,8 @@ def build(project: Path) -> dict[str, Any]:
         "modules": {"total": total_modules, "covered": len(covered)},
         "requirements": {"total": len(population), "with_evidence": evidenced},
         "precision": precision,
-        "audit_missing": audit.get("missing", []),
+        "audit_missing": missing,
+        "warnings": warnings,
     }
 
 
@@ -116,6 +152,8 @@ def render(data: dict[str, Any]) -> str:
             )
     if data["audit_missing"]:
         lines += ["", f"Not audited yet: {', '.join(data['audit_missing'])}."]
+    for warning in data["warnings"]:
+        lines += ["", f"Warning: {warning}."]
     return "\n".join(lines) + "\n"
 
 

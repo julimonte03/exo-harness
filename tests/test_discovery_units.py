@@ -290,6 +290,48 @@ def test_muestra_veredictos_y_cobertura(repo: Path) -> None:
     assert "| auth | 2 | 0 | 0 | 100.0 % | - |" in text
 
 
+def test_la_cobertura_ignora_una_auditoria_vieja_y_lo_avisa(repo: Path) -> None:
+    """L1: otra semilla, o IDs que ya no están en la muestra, no cuentan."""
+    planner.write(repo)
+    _cap(repo, "auth", "src/auth/login.py:4")
+    _cap(repo, "strings", "src/util/strings.py:3")
+    sampler.sample(repo, n=4)
+    ids = ["CAP-auth-FR-1", "CAP-auth-FR-2", "CAP-strings-FR-1", "CAP-strings-FR-2"]
+    sampler.record(repo, {"results": [{"id": i, "verdict": "correct"} for i in ids]})
+    assert coverage.build(repo)["warnings"] == []
+    smaller = sampler.sample(repo, n=2)  # la misma semilla, otra muestra
+    kept = {i["id"] for i in smaller["items"]}
+    report = coverage.build(repo)
+    assert sum(r["correct"] for r in report["precision"]) == len(kept)
+    assert any("no longer in the sample" in w for w in report["warnings"])
+    sampler.sample(repo, n=2, seed=7)
+    report = coverage.build(repo)
+    assert report["precision"] == []
+    assert any("another sample" in w for w in report["warnings"])
+    assert sorted(report["audit_missing"]) == sorted(
+        i["id"] for i in store.read_json(repo, sampler.SAMPLE)["items"]
+    )
+    assert "another sample" in coverage.render(report)
+
+
+def test_la_evidencia_de_la_cobertura_y_la_capacidad_de_un_id_con_guiones(repo: Path) -> None:
+    """L9: `[Code]` sin ruta no es evidencia; `CAP-user-accounts-FR-1` es de `user-accounts`."""
+    planner.write(repo)
+    _cap(repo, "user-accounts", "src/auth/login.py:4")
+    path = repo / "specs" / "capabilities" / "user-accounts" / "spec.md"
+    text = path.read_text(encoding="utf-8")
+    path.write_text(
+        text.replace("It also does this. [Inferred: low]", "See [Code] there. [Inferred: low]"),
+        encoding="utf-8",
+    )
+    assert coverage.build(repo)["requirements"] == {"total": 2, "with_evidence": 1}
+    sampler.sample(repo, n=2)
+    sampler.record(repo, {"results": [{"id": "CAP-user-accounts-FR-1", "verdict": "correct"}]})
+    path.unlink()  # la spec se borró después de auditar: el ID ya no está en la población
+    [row] = coverage.build(repo)["precision"]
+    assert row["capability"] == "user-accounts"
+
+
 @needs_git
 def test_criterio_5_solo_escribe_en_las_rutas_permitidas(repo: Path) -> None:
     planner.write(repo)

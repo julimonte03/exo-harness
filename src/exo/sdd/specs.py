@@ -47,10 +47,11 @@ NEW_CAPABILITY = """# Capability: {name}
 """
 
 _HEADING = re.compile(r"^(#{2,4})(?!#)\s+(.*?)\s*#*\s*$")
-# Marcas de evidencia de la ingeniería inversa (ADR-0015).
-EVIDENCE = re.compile(
-    r"\[Code\]\s+[^\s\[\]]+:\d+(?:-\d+)?|\[Doc\]\s+[^\s\[\]]+|\[Inferred:\s*(?:high|medium|low)\]"
-)
+# Marcas de evidencia de la ingeniería inversa (ADR-0015). `FACTS`: solo las que citan
+# código o docs, sin las inferencias.
+_FACT_MARKS = r"\[Code\]\s+[^\s\[\]]+:\d+(?:-\d+)?|\[Doc\]\s+[^\s\[\]]+"
+FACTS = re.compile(_FACT_MARKS)
+EVIDENCE = re.compile(rf"{_FACT_MARKS}|\[Inferred:\s*(?:high|medium|low)\]")
 STATUSES = ("as-is", "as-is-validated")
 # `Status: as-is`, `**Status:** as-is`, `**Status**: as-is` o `status: as-is`.
 _PREAMBLE = re.compile(
