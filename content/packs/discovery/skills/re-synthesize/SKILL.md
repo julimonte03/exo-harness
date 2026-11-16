@@ -34,7 +34,7 @@ The contract (sections B, E and G) rules this skill. When they disagree, the con
 
 ## Before you start
 
-1. `exo discover status --json`. If `outside_changes` lists files, stop and tell the person. Every unit must be `done`; pending or stale units go back to R3 first (exo-adopt).
+1. `exo discover status --json`. If `outside_changes` lists files, stop and tell the person. Every unit must be `done` or skipped (`exo discover skip`); pending or stale units go back to R3 first (exo-adopt). A skipped unit has no extraction: name it in the capability's open questions instead of guessing its behavior.
 2. Read the engine's outputs in `.exo/discovery/`: `inventory.json` (frameworks, entrypoints, tests, CI, migrations, API contracts, infrastructure, `adr_dir`), `structure.json` and `module-graph.mmd`, `hotspots.json`, `plan.json` (units, modules, `criticality`, `detail`), and every `units/<unit>.md`. `specs_dir` is in `.exo/config.json`.
 3. Many units: read them in batches and keep a short index as you go (unit, candidate capability, entities, key rules, files cited), so you do not hold every document at once.
 4. Existing specs: `exo specs list --json`. A capability with status `as-is-validated`, or with no status (a living spec of the SDD cycle), is never rewritten here (see Synthesize again).
@@ -62,6 +62,7 @@ Use the shape in `references/formats.md`. `exo speclint` and the engine check ex
 - **Scenarios only from the project's tests:** when a unit's Tests section shows a test of the behavior, write `#### Scenario: <title>` with Given, When and Then, and cite the test on the Then line. No `S-n` IDs: they belong to change deltas. Without a test, leave the FR without a scenario; speclint warns, and the gap feeds the characterization tests of R6.
 - **NFRs** (`CAP-<capability>-NFR-n`) for measurable limits the code sets (a timeout, a page size, a retry count), with evidence. The audit samples FRs only.
 - **Check each spec:** `exo speclint <specs_dir>/capabilities/<capability>/spec.md`. Fix every error; warnings about missing scenarios are expected.
+- **Record it:** `exo discover synthesized <capability>` once the spec passes. The engine keeps the hashes of the files its FRs cite, and reports the capability as stale when that code changes, until you synthesize it again.
 
 ## 3. Synthesize again
 
@@ -77,7 +78,7 @@ After `exo discover update --json` (its `stale_capabilities`), or for a capabili
 
 | Section | From |
 |---|---|
-| Architecture | Two Mermaid diagrams, context (the system, its users, the external systems) and containers (apps, databases, queues, workers), from `inventory.json` and the units' Integrations, with the evidence of each element under the diagram |
+| Architecture | One Mermaid diagram of the context and the containers, as `project-onboarding`'s template says: the people and external systems outside, what runs on its own inside (apps, databases, queues, workers), from `inventory.json` and the units' Integrations, with the evidence of each element under the diagram |
 | Modules | `structure.json` and `plan.json`: each module, what it does (the units' Responsibilities), its capabilities, and a link to `.exo/discovery/module-graph.mmd` |
 | Main flows | Three to five flows that cross modules, from an entrypoint to storage or an external system, one step per line with its evidence |
 | Integrations | External services, databases, queues and files: what each one is for and where its configuration is read, citing the place, never the value |

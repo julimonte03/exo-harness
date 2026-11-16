@@ -25,6 +25,7 @@ metadata:
 
 - The full text of the unit's document (the `document` path that `exo discover next` gave, `.exo/discovery/units/<unit id>.md`), in English, from `.exo/shared/unit-template.md`, ready to be saved as it is.
 - `exo discover done <unit id>` accepts it on the first run: title, the nine sections, evidence on every claim, real paths and lines, and no secret or personal data.
+- **The scanner is a net, not a check you can lean on.** `done` catches secrets and only the personal-data classes in `data_protection.pii` (by default cards and IBANs). Emails, phone numbers, names and identity numbers pass it: keeping them out is yours.
 - Nothing written and no command run. The orchestrator saves the text and runs `done`.
 
 `.exo/shared/discovery-contract.md`, sections B and C, rules this document. When this skill and the contract disagree, the contract wins.

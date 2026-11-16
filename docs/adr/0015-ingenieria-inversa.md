@@ -26,10 +26,22 @@ Todo lo que produce el pipeline vive en `<carpeta del motor>/discovery/` y **se 
 | `structure.json`, `module-graph.mmd`, `hotspots.json`, `ownership.json` | R1, estructura |
 | `plan.json` | R2, unidades de trabajo y estimación |
 | `units/<id>.md`, `units/<id>.json` | R3: la extracción de cada unidad y los hashes de sus archivos al cerrarla |
+| `capabilities/<capacidad>.json` | R4: los hashes de los archivos que citan los FR de la capacidad al sintetizarla, y cuántas veces se sintetizó (`rounds`) |
 | `sample.json`, `audit.json`, `coverage.md` | R5, auditoría |
 | `open-questions.md`, `debt.md`, `pending-approval.md`, `adoption-backlog.md` | R4 y R6 (`pending-approval.md`: lo que una corrida desatendida dejó sin aprobar) |
 
-- **No hay un `state.json` compartido ni un estado "en curso".** El estado de cada unidad se deriva: está cerrada si su `units/<id>.json` existe, y stale si un hash cambió. Dos personas o dos ramas no se pisan, y una extracción cortada se rehace entera. `exo discover reopen` borra el registro de una unidad (o de las de una capacidad por debajo del umbral) para extraerla otra vez.
+- **No hay un `state.json` compartido ni un estado "en curso".** El estado de cada unidad se deriva: está cerrada si su `units/<id>.json` existe, y stale si un hash cambió. Dos personas o dos ramas no se pisan, y una extracción cortada se rehace entera.
+  - **`exo discover reopen`** borra el registro de una unidad, o el de las unidades de una capacidad por debajo del umbral, para extraerla otra vez. Esas unidades son las que tienen archivos citados por sus FR o, si no hay ninguna, las de su `Source:`.
+  - **`exo discover skip <unidad> --reason`** saca del ciclo una unidad que no se puede cerrar. Su registro guarda la razón, que pasa por el escáner porque se commitea. La unidad cuenta como no cubierta, `reopen` la devuelve, y si sus archivos cambian, `status` y `update` lo informan.
+  - **`exo discover synthesized <capacidad>`** valida la spec (preámbulo y sin errores) y registra los hashes de los archivos citados. Una capacidad es stale cuando cambia uno de esos archivos, y lo sigue siendo hasta que se vuelve a sintetizar, aunque sus unidades ya se hayan cerrado otra vez. Una spec con preámbulo que nunca se registró aparece como `unrecorded_capabilities`.
+- **`exo discover status`** es de solo lectura. Muestra:
+  - las etapas que corrieron, las unidades por estado y las salteadas con su razón;
+  - las unidades cerradas que ninguna capacidad lista en su `Source:`;
+  - las capacidades por status, las stale, las no registradas y sus `rounds`;
+  - si hay cobertura, los FR de la muestra sin auditar y las capacidades marcadas;
+  - los cambios fuera de las rutas permitidas.
+
+  Es lo que lee `exo-adopt` para retomar.
 - **Cada JSON lleva `"schema": 1`.** Un motor más viejo rechaza un esquema más nuevo, como con la config.
 - **Nada que varíe entre corridas iguales:** ni el sha de HEAD, ni la versión del motor, ni fechas.
 

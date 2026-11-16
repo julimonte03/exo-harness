@@ -28,7 +28,7 @@ One JSON object with a verdict for every sampled requirement, and nothing else:
 {"results": [{"id": "CAP-room-booking-FR-3", "verdict": "correct", "note": "src/rooms/booking.py:37-39 rejects any overlap of active bookings of the same room; touching ends are allowed"}]}
 ```
 
-The orchestrator saves it, exactly as you return it, to `.exo/discovery/audit-results.json` and runs `exo discover audit @.exo/discovery/audit-results.json`. The engine computes the precision of each capability as correct over correct plus incorrect, and flags the ones below 90 % or with more than 25 % unverifiable (`exo discover coverage`). A flagged capability goes back to extraction. The audit is only worth something if your verdicts are strict.
+The orchestrator saves it, exactly as you return it, to `.exo/discovery/audit-results.json` and runs `exo discover audit '@.exo/discovery/audit-results.json'` (the quotes keep PowerShell from breaking the `@`). You get every item of the sample: give a verdict for each one, or the audit stays incomplete. The engine computes the precision of each capability as correct over correct plus incorrect, and flags the ones below 90 % or with more than 25 % unverifiable (`exo discover coverage`). A flagged capability goes back to extraction. The audit is only worth something if your verdicts are strict.
 
 `.exo/shared/discovery-contract.md`, sections B and F, rules this skill. When they disagree, the contract wins.
 

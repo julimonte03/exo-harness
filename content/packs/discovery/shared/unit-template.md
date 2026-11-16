@@ -4,7 +4,7 @@
 One document per unit, in .exo/discovery/units/<unit id>.md (.exo/shared/discovery-contract.md, section C).
 Every section stays, in this order; write "None." when a section has nothing.
 One claim per bullet, each with its evidence: [Code] path:line, [Doc] path or [Inferred: high|medium|low].
-Cite the place, never copy a secret or personal data. `exo discover done <unit id>` checks it.
+Cite the place, never copy a secret or personal data. `exo discover done <unit id>` catches secrets and the configured personal-data classes only.
 -->
 
 ## Responsibilities

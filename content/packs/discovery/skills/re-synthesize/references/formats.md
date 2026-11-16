@@ -78,19 +78,9 @@ The structure of `project-onboarding`'s template wins. When the template you fin
 ````markdown
 ## Architecture
 
-Context:
-
 ```mermaid
 flowchart LR
-  organizer([Organizer]) --> rooms[Room booking service]
-  rooms --> calendar[External calendar service]
-  rooms --> mail[Mail delivery]
-```
-
-Containers:
-
-```mermaid
-flowchart LR
+  organizer([Organizer]) --> api
   subgraph system[Room booking service]
     api[Python application]
   end
@@ -104,10 +94,10 @@ flowchart LR
 
 ## Modules
 
-| Module | What it does | Capabilities | Evidence |
+| Module | Path | Responsibility | Depends on |
 |---|---|---|---|
-| src/rooms | Books and cancels rooms; copies bookings to the calendar | room-booking | units/src-rooms.md |
-| src/notify | Sends confirmations | room-booking | units/src-notify.md |
+| rooms | src/rooms/ | Books and cancels rooms; copies bookings to the calendar (units/src-rooms.md) | notify |
+| notify | src/notify/ | Sends confirmations (units/src-notify.md) | - |
 
 The import graph is in `.exo/discovery/module-graph.mmd`.
 
@@ -135,9 +125,10 @@ Book a room:
 ```markdown
 # 0004. Recovered: the external calendar is a best-effort copy
 
-- Status: Recovered
-- Confidence: medium
-- Source: exo discover; units: src-rooms
+Status: Recovered
+Confidence: medium
+Source: exo discover; units: src-rooms
+Date: 2026-11-16
 
 ## Context
 
@@ -155,11 +146,9 @@ Not recorded in the repository.
 
 - A booking can exist without its calendar entry, and nothing retries the copy. [Inferred: high]
 - Cancelling does not update the calendar. [Code] src/rooms/booking.py:47-51
-
-## Open questions
-
-- Why is a missing calendar entry acceptable? Only the team knows.
 ```
+
+The same four sections and header lines as the recovered ADR of `architecture-decision-record` (pack `design`), whose template wins when it is installed. What only the team can answer ("why is a missing calendar entry acceptable?") goes to `.exo/discovery/open-questions.md`, not to the ADR.
 
 - The reasons and the alternatives come from documents or from the person, never from you.
 - `NNNN` is the next free number in `adr_dir`; the file name always has `-recovered-`.
