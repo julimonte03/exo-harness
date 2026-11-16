@@ -234,8 +234,6 @@ def test_un_secreto_corto_no_sale_entero_en_el_extracto() -> None:
         "android/release.jks",
         "android/debug.keystore",
         "putty/server.ppk",
-        ".npmrc",
-        "web/.npmrc",
         ".pypirc",
         ".netrc",
         "credentials.json",
@@ -248,7 +246,16 @@ def test_archivos_de_credenciales(path: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "path", [".env.example", ".ENV.Sample", "app.py", "keyboard.py", "credentials.py", "monkey.js"]
+    "path",
+    [
+        ".env.example",
+        ".ENV.Sample",
+        "app.py",
+        "keyboard.py",
+        "credentials.py",
+        "monkey.js",
+        ".npmrc",
+    ],
 )
 def test_no_son_archivos_de_credenciales(path: str) -> None:
     assert not scan.is_credential_file(path), path
