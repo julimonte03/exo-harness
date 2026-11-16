@@ -253,8 +253,10 @@ TOOLS: tuple[Tool, ...] = (
     ),
     Tool(
         "discovery_status",
-        "Reverse-engineering state of the project: which steps ran, units pending, done or "
-        "stale, the next units, and changes outside the paths discovery may write (read-only).",
+        "Reverse-engineering state of the project: which steps ran, units pending, done, "
+        "stale or skipped, the next units, done units no capability lists, capabilities by "
+        "status (stale, unrecorded, synthesis rounds), the pending audit and flagged "
+        "capabilities, and changes outside the paths discovery may write (read-only).",
         _schema({**_CWD}),
         _discovery_status,
         ("discover", "status"),

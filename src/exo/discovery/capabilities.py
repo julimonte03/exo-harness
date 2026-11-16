@@ -25,6 +25,7 @@ from exo.sdd import specs
 FOLDER = "capabilities"
 _CITED = re.compile(r"\[Code\]\s+([^\s\[\]]+):\d+")
 _NAME = re.compile(specs.CAPABILITY_NAME)
+_SOURCE_UNITS = re.compile(r"\bunits:\s*([^;]*)", re.IGNORECASE)
 
 
 class CapabilityError(ValueError):
@@ -65,6 +66,14 @@ def cited(spec: Spec) -> set[str]:
         for line in block.lines
         for path in _CITED.findall(line)
     }
+
+
+def source_units(spec: Spec) -> list[str]:
+    """Las unidades de su `Source:` (`Source: exo discover; units: a, b`), en orden."""
+    match = _SOURCE_UNITS.search(spec.capability.source or "")
+    if match is None:
+        return []
+    return [u for u in (part.strip(" `*.") for part in match.group(1).split(",")) if u]
 
 
 def record_name(name: str) -> str:

@@ -1,9 +1,11 @@
 """Las etapas deterministas juntas, el estado y la actualización incremental (F6, ADR-0015).
 
 - `structure`: R1 (grafo y métricas de git) sobre una sola lista de archivos.
-- `status`: unidades por estado, las próximas, registros huérfanos y **los cambios
-  fuera de las rutas permitidas** (solo lectura sobre el código del proyecto). Si git
-  falla, `outside_changes_error` dice por qué: "no pude mirar" no es "no hay nada".
+- `status`: unidades por estado (las salteadas con su razón), las próximas, las cerradas
+  que ninguna capacidad lista en su `Source:`, las capacidades por status, stale, sin
+  registro y sus rondas, la auditoría pendiente y las marcadas, y **los cambios fuera
+  de las rutas permitidas** (solo lectura sobre el código del proyecto). Si git falla,
+  `outside_changes_error` dice por qué: "no pude mirar" no es "no hay nada".
 - `update`: recalcula R0 y R1 e informa unidades stale, archivos nuevos o borrados y
   capacidades stale (un archivo que citan cambió desde su `synthesized`) o sin
   registro. No persiste nada "stale" ni replanifica.
@@ -19,7 +21,17 @@ from typing import Any
 
 from exo import _meta
 from exo.core import config
-from exo.discovery import capabilities, git_metrics, graph, inventory, planner, store, units
+from exo.discovery import (
+    capabilities,
+    coverage,
+    git_metrics,
+    graph,
+    inventory,
+    planner,
+    sampler,
+    store,
+    units,
+)
 from exo.discovery import files as files_mod
 from exo.governance import git
 from exo.sdd import specs
@@ -115,6 +127,8 @@ def outside_changes(project: Path) -> list[str] | None:
 
 
 def status(project: Path) -> dict[str, Any]:
+    """El estado de la adopción, de solo lectura: lista los archivos una vez y solo lee
+    JSON y specs (no recalcula la cobertura)."""
     project = Path(project)
     plan = store.read_json(project, planner.FILENAME)
     try:
@@ -122,7 +136,9 @@ def status(project: Path) -> dict[str, Any]:
     except git.GitError as exc:
         outside, outside_error = None, str(exc)
     warnings: list[str] = []
-    capabilities.load(project, warnings)
+    loaded = capabilities.with_preamble(project, warnings)
+    recorded = capabilities.records(project)
+    present = {spec.name for spec in loaded}
     payload: dict[str, Any] = {
         "steps": {
             name: (store.root(project) / name).is_file()
@@ -130,30 +146,55 @@ def status(project: Path) -> dict[str, Any]:
         },
         "outside_changes": outside,
         "outside_changes_error": outside_error,
-        "warnings": warnings,
+        "units": None,
+        "skipped": [],
+        "unsynthesized_units": [],
+        "capabilities": {s: sum(1 for c in loaded if c.status == s) for s in specs.STATUSES},
+        "stale_capabilities": [],
+        "unrecorded_capabilities": sorted(present - set(recorded)),
+        "rounds": {name: record.get("rounds") for name, record in sorted(recorded.items())},
+        "coverage": (store.root(project) / coverage.FILENAME).is_file(),
     }
-    if plan is None:
-        payload["units"] = None
-        payload["skipped"] = []
-        return payload
-    fileset = files_mod.list_files(project)
+    fileset = files_mod.list_files(project) if plan is not None or recorded else None
+    if fileset is not None:
+        payload["stale_capabilities"] = capabilities.stale(recorded, fileset, present)
+    if plan is not None and fileset is not None:
+        payload.update(_unit_status(project, plan, fileset, loaded))
+    rows, missing, audit_warnings = coverage.precision(
+        project, sampler.population(project, loaded=loaded)
+    )
+    payload["audit_missing"] = missing
+    payload["flagged"] = [row["capability"] for row in rows if row["flags"]]
+    payload["warnings"] = warnings + audit_warnings
+    return payload
+
+
+def _unit_status(
+    project: Path,
+    plan: dict[str, Any],
+    fileset: files_mod.FileSet,
+    loaded: list[capabilities.Spec],
+) -> dict[str, Any]:
     found = units.states(project, plan, fileset)
     counts = dict.fromkeys(units.STATUSES, 0)
     for state in found:
         counts[state.status] += 1
     by_id = {s.id: s.status for s in found}
-    payload["depth"] = plan["depth"]
-    payload["units"] = counts
-    payload["next"] = [u["id"] for u in plan["units"] if by_id[u["id"]] not in ("done", "skipped")][
-        :5
-    ]
-    payload["skipped"] = [
-        {"id": s.id, "reason": s.reason, "changed": s.changed}
-        for s in found
-        if s.status == "skipped"
-    ]
-    payload["orphans"] = units.orphans(project, plan)
-    return payload
+    sourced = {unit for spec in loaded for unit in capabilities.source_units(spec)}
+    return {
+        "depth": plan["depth"],
+        "units": counts,
+        "next": [u["id"] for u in plan["units"] if by_id[u["id"]] not in ("done", "skipped")][:5],
+        "skipped": [
+            {"id": s.id, "reason": s.reason, "changed": s.changed}
+            for s in found
+            if s.status == "skipped"
+        ],
+        "unsynthesized_units": sorted(
+            s.id for s in found if s.status == "done" and s.id not in sourced
+        ),
+        "orphans": units.orphans(project, plan),
+    }
 
 
 def cited_files(project: Path, warnings: list[str] | None = None) -> dict[str, set[str]]:
