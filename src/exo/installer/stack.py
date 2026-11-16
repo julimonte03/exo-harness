@@ -13,6 +13,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from exo.discovery import files
+
 ALWAYS = ("core", "sdd")
 _PY_MANIFESTS = ("pyproject.toml", "requirements.txt", "setup.py", "setup.cfg", "Pipfile")
 _JVM_MANIFESTS = ("pom.xml", "build.gradle", "build.gradle.kts")
@@ -25,6 +27,8 @@ _JS_FRONTEND = ("react", "vue", "@angular/core", "svelte", "next", "nuxt")
 class StackReport:
     signals: dict[str, list[str]] = field(default_factory=dict)  # señal -> evidencia
     suggested: list[str] = field(default_factory=list)
+    # Packs que se muestran pero no se preseleccionan (D-33): con --yes no se instalan.
+    offered: list[str] = field(default_factory=list)
 
     def has(self, name: str) -> bool:
         return name in self.signals
@@ -94,6 +98,8 @@ def detect_stack(project: Path) -> StackReport:
     if (project / "Chart.yaml").is_file() or (project / "k8s").is_dir():
         mark("infra", "kubernetes")
     report.suggested = _suggest(report)
+    if files.has_code(project):
+        report.offered = ["discovery"]
     return report
 
 

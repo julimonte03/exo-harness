@@ -337,3 +337,20 @@ def list_files(project: Path, *, include_untracked: bool = False) -> FileSet:
     result.excluded = dict(sorted(counts.items()))
     result.files.sort(key=lambda f: f.path)
     return result
+
+
+def has_code(project: Path) -> bool:
+    """¿El proyecto ya tiene código propio? Solo mira nombres: no lee ni hashea nada."""
+    project = Path(project)
+    listed = git.run(project, "ls-files", "-z")
+    if listed.ok and listed.out:
+        names = [n for n in listed.out.split("\0") if n]
+    else:
+        names = _walked(project)
+    for rel in names:
+        pure = PurePosixPath(rel)
+        if pure.parts[0] == _meta.PROJECT_DIR or any(p in VENDORED_DIRS for p in pure.parts[:-1]):
+            continue
+        if language_of(rel) in CODE_LANGUAGES and not is_test(rel):
+            return True
+    return False
