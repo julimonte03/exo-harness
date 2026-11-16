@@ -49,6 +49,7 @@ class Index:
 
     files: set[str]
     dirs: set[str] = field(default_factory=set)
+    by_dir: dict[str, list[str]] = field(default_factory=dict)  # carpeta -> archivos, ordenados
     python_roots: list[str] = field(default_factory=list)
     java_roots: list[str] = field(default_factory=list)
     # nombre -> (carpeta, entradas posibles en orden)
@@ -61,7 +62,8 @@ class Index:
     ) -> Index:
         reader = reader or files_mod.TextReader(project)
         index = cls(set(paths))
-        for path in paths:
+        for path in sorted(paths):
+            index.by_dir.setdefault(posixpath.dirname(path) or ".", []).append(path)
             parent = PurePosixPath(path).parent
             while True:
                 index.dirs.add(parent.as_posix())
@@ -405,11 +407,9 @@ def java_imports(path: str, text: str, index: Index) -> tuple[set[str], set[str]
         found = None
         for root in index.java_roots:
             if wildcard and not static:
+                # El paquete: su primer `.java`, del índice por carpeta (ya ordenado).
                 folder = _join(root, *parts)
-                if folder in index.dirs:
-                    found = next(
-                        (f for f in sorted(index.files) if posixpath.dirname(f) == folder), None
-                    )
+                found = next((f for f in index.by_dir.get(folder, ()) if f.endswith(".java")), None)
             else:
                 candidate = _join(root, *parts) + ".java"
                 if candidate in index.files:
@@ -469,8 +469,12 @@ def build(project: Path, fileset: files_mod.FileSet | None = None) -> dict[str, 
             other = module_of(target)
             if other != module:
                 edges[(module, other)] = edges.get((module, other), 0) + 1
-    fan_in = {m: len({a for a, b in edges if b == m}) for m in modules}
-    fan_out = {m: len({b for a, b in edges if a == m}) for m in modules}
+    # Cada par (origen, destino) aparece una vez en `edges`: una sola pasada alcanza.
+    fan_in = dict.fromkeys(modules, 0)
+    fan_out = dict.fromkeys(modules, 0)
+    for source, target in edges:
+        fan_out[source] += 1
+        fan_in[target] += 1
     return {
         "modules": [
             {
