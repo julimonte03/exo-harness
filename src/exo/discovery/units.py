@@ -39,6 +39,8 @@ SECTIONS = (
 # Las secciones cuyas viñetas son afirmaciones sobre el sistema: cada una lleva evidencia.
 CLAIM_SECTIONS = SECTIONS[:8]
 _NONE = re.compile(r"^\s*(?:none|n/a)\.?\s*$", re.IGNORECASE)
+_NOT_EXTRACTED = re.compile(r"^not extracted\b", re.IGNORECASE)  # una unidad `summary`
+_BULLET = re.compile(r"^(?:[-*+]|\d+\.)\s+")
 _HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*$")
 _CODE_REF = re.compile(r"\[Code\]\s+([^\s\[\]]+):(\d+)(?:-(\d+))?")
 _DOC_REF = re.compile(r"\[Doc\]\s+([^\s\[\]]+)")
@@ -151,7 +153,13 @@ def _sections(text: str) -> dict[str, list[tuple[int, str]]]:
 def validate_doc(
     project: Path, item: dict[str, Any], text: str, fileset: files_mod.FileSet
 ) -> tuple[list[str], dict[str, int]]:
-    """(errores, conteo de afirmaciones) del documento de una unidad."""
+    """(errores, conteo de afirmaciones) del documento de una unidad.
+
+    En las secciones de afirmaciones, cada línea no vacía es una viñeta (`-`, `*`, `+` o
+    `1.`) con su evidencia, `None.` o `Not extracted …`: un párrafo suelto se saltearía la
+    validación. Una unidad `full` con código cita al menos un `[Code]` o un `[Doc]`, y un
+    `[Doc]` nunca apunta a un archivo de credenciales.
+    """
     errors: list[str] = []
     counts = {"claims": 0, "code": 0, "doc": 0, "inferred": 0}
     rel = store.rel(unit_doc(item["id"]))
@@ -167,16 +175,23 @@ def validate_doc(
     allowed = set(item["files"]) | set(item["tests"])
     lines_of = {f.path: f.lines for f in fileset.files}
     analyzed = set(lines_of)
+    sensitive = {f.path for f in fileset.files if f.sensitive}
     for name in CLAIM_SECTIONS:
         for number, line in sections.get(name, []):
             stripped = line.strip()
-            if not stripped.startswith(("- ", "* ")):
+            if not stripped:
+                continue
+            bullet = _BULLET.match(stripped)
+            body = stripped[bullet.end() :] if bullet else stripped
+            if _NONE.match(body) or _NOT_EXTRACTED.match(body):
+                continue
+            if bullet is None:
+                errors.append(
+                    f"{rel}:{number}: write each claim as a bullet with its evidence, or "
+                    "'None.' when the section has nothing"
+                )
                 continue
             counts["claims"] += 1
-            body = stripped[2:]
-            if _NONE.match(body):
-                counts["claims"] -= 1
-                continue
             if not specs.EVIDENCE.search(body):
                 errors.append(
                     f"{rel}:{number}: a claim without evidence: add [Code] path:line, "
@@ -196,10 +211,22 @@ def validate_doc(
                     )
                 counts["code"] += 1
             for match in _DOC_REF.finditer(body):
-                if match.group(1) not in analyzed:
-                    errors.append(f"{rel}:{number}: [Doc] {match.group(1)} is not an analyzed file")
+                target = match.group(1)
+                if target in sensitive or scan.is_credential_file(target):
+                    errors.append(
+                        f"{rel}:{number}: [Doc] {target} is a credentials file: it is never "
+                        "read, so it is not evidence; cite the code that uses it"
+                    )
+                elif target not in analyzed:
+                    errors.append(f"{rel}:{number}: [Doc] {target} is not an analyzed file")
                 counts["doc"] += 1
             counts["inferred"] += len(_INFERRED.findall(body))
+    has_code = any(lines_of.get(p, 0) > 0 for p in item["files"])
+    if item.get("detail") == "full" and has_code and not counts["code"] + counts["doc"]:
+        errors.append(
+            f"{rel}: a unit in full detail needs at least one claim with [Code] path:line or "
+            "[Doc] path, not only inferences"
+        )
     pii = config.load(project).config["data_protection"]["pii"]
     for finding in scan.scan_text(text, skip_code_blocks=False, pii=pii):
         what = "a secret" if finding.level == scan.CRITICAL else "personal data"
