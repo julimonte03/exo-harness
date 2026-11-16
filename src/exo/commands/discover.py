@@ -212,7 +212,7 @@ def _load(raw: str) -> Any:
 def _audit(args: argparse.Namespace) -> int:
     try:
         results = _load(args.results)
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+    except (OSError, ValueError) as exc:  # ValueError: no es UTF-8, o no es JSON
         return usage_error(f"cannot read the results: {exc}")
     try:
         data = sampler.record(args.project, results)

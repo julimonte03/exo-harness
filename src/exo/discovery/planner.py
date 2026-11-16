@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from exo import _meta
-from exo.core import config, fsutil
+from exo.core import config
 from exo.discovery import files as files_mod
 from exo.discovery import graph, store
 
@@ -116,21 +116,13 @@ def _chunks(paths: list[str], lines: dict[str, int], budget: int) -> list[list[s
 def _tests_by_file(project: Path, fileset: files_mod.FileSet) -> dict[str, set[str]]:
     """Archivo de producción -> tests que lo importan."""
     readable = [f.path for f in fileset.files if not f.sensitive]
-    index = graph.Index.build(project, readable)
+    reader = files_mod.TextReader(project)  # sus avisos ya los dan el inventario y el grafo
+    index = graph.Index.build(project, readable, reader)
     found: dict[str, set[str]] = {}
     for item in fileset.files:
         if item.category != "test":
             continue
-        if item.language == "python":
-            targets, _ = graph.python_imports(
-                item.path, fsutil.read_bytes(project / item.path), index
-            )
-        elif item.language in ("javascript", "typescript"):
-            targets, _ = graph.js_imports(item.path, graph._read(project, item.path), index)
-        elif item.language == "java":
-            targets, _ = graph.java_imports(item.path, graph._read(project, item.path), index)
-        else:
-            continue
+        targets, _ = graph.imports(item, index, reader)
         for target in targets:
             found.setdefault(target, set()).add(item.path)
     return found

@@ -89,11 +89,11 @@ def states(project: Path, plan: dict[str, Any], fileset: files_mod.FileSet) -> l
 def _flags(project: Path, rel: str) -> dict[str, Any]:
     from exo.validate import suspicious_instructions
 
-    try:
-        text = fsutil.read_text_auto(project / rel)
-    except (OSError, UnicodeDecodeError):
-        return {}
+    reader = files_mod.TextReader(project)
+    text = reader.text(rel)
     flags: dict[str, Any] = {}
+    if reader.lossy:
+        flags["warnings"] = [files_mod.not_utf8("the file")]
     secrets = sorted({f.line for f in scan.scan_text(text, skip_code_blocks=False, pii=())})
     if secrets:
         flags["secret_lines"] = secrets
@@ -221,8 +221,10 @@ def done(project: Path, unit_id: str) -> dict[str, Any]:
         text = fsutil.read_text_auto(path)
     except FileNotFoundError as exc:
         raise UnitError(f"{rel} does not exist: write the unit's extraction there first") from exc
-    except UnicodeDecodeError as exc:
-        raise UnitError(f"{rel} is not UTF-8 text") from exc
+    except ValueError as exc:  # ni UTF-8 ni UTF-16 (`read_text_auto`)
+        raise UnitError(
+            f"{rel} is not UTF-8 text: write the unit's extraction again as UTF-8"
+        ) from exc
     fileset = files_mod.list_files(project)
     errors, counts = validate_doc(project, item, text, fileset)
     if errors:

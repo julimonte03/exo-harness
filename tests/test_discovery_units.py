@@ -334,3 +334,60 @@ def test_reabrir_unidades_por_id_o_por_capacidad(repo: Path) -> None:
         units.reopen(repo, ["nope"])
     with pytest.raises(units.UnitError, match="cites no file"):
         units.reopen(repo, capability="ghost")
+
+
+JAVA = "src/main/java/com/example"
+
+
+@needs_git
+def test_un_archivo_java_en_latin_1_no_rompe_nada(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """H4: inventario, grafo y `next` lo leen con reemplazos y avisan; nunca un traceback."""
+    from exo.cli import main
+    from exo.discovery import graph
+
+    root = tmp_path / "lib"
+    app = (
+        "package com.example;\nimport com.example.util.Texto;\n// Autor: José Núñez\n"
+        "public class App {\n  public static void main(String[] a) {}\n}\n"
+    )
+    tree = {
+        f"{JAVA}/App.java": app.encode("latin-1"),
+        f"{JAVA}/util/Texto.java": b"package com.example.util;\npublic class Texto {}\n",
+    }
+    for rel, data in tree.items():
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_bytes(data)
+    init_repo(root)
+    inv = inventory.build(root)
+    assert {e["path"]: e["kinds"] for e in inv["entrypoints"]} == {
+        f"{JAVA}/App.java": ["java-main"]
+    }
+    assert any(f"{JAVA}/App.java" in w and "not UTF-8" in w for w in inv["warnings"])
+    structure = graph.build(root)
+    assert {(e["from"], e["to"]) for e in structure["edges"]} == {(JAVA, f"{JAVA}/util")}
+    assert any(f"{JAVA}/App.java" in w for w in structure["warnings"])
+    for step in ("inventory", "structure", "plan"):
+        assert main(["discover", step, "--project", str(root)]) == 0
+    err = capsys.readouterr().err
+    assert f"{JAVA}/App.java" in err
+    assert "save it" not in err and "Set-Content" not in err  # nada que modificar en el proyecto
+    [unit] = [u for u in units.next_units(root, count=10) if f"{JAVA}/App.java" in u["files"]]
+    assert "not UTF-8" in unit["flags"][f"{JAVA}/App.java"]["warnings"][0]
+    assert main(["discover", "next", "--count", "5", "--project", str(root)]) == 0
+
+
+def test_un_json_o_un_documento_de_unidad_que_no_es_utf8_da_un_error_claro(repo: Path) -> None:
+    """H4: `read_json` da DiscoveryError y `done` da UnitError, no un ValueError suelto."""
+    planner.write(repo)
+    path = store.root(repo) / units.unit_doc("src-auth")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(_doc("src-auth", "Login, José. [Code] src/auth/login.py:4").encode("latin-1"))
+    with pytest.raises(units.UnitError, match="not UTF-8"):
+        units.done(repo, "src-auth")
+    (store.root(repo) / planner.FILENAME).write_bytes(
+        '{"schema": 1, "x": "José"}'.encode("latin-1")
+    )
+    with pytest.raises(store.DiscoveryError, match="not UTF-8"):
+        planner.load(repo)
