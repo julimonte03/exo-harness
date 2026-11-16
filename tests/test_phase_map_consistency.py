@@ -81,6 +81,9 @@ TOOLS = {
     "sdd-implementer": {"Read", "Grep", "Glob", "Edit", "Write", "Bash"},
     "sdd-verifier": {"Read", "Grep", "Glob", "Bash"},
     "sdd-judge": {"Read", "Grep", "Glob"},
+    # Pack discovery (F6): solo lectura; devuelven texto y el orquestador escribe.
+    "re-extractor": {"Read", "Grep", "Glob"},
+    "re-auditor": {"Read", "Grep", "Glob"},
 }
 
 
