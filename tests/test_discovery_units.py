@@ -241,3 +241,17 @@ def test_los_comentarios_de_la_plantilla_no_son_afirmaciones(repo: Path) -> None
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
     assert units.done(repo, "src-auth")["counts"]["claims"] == 1
+
+
+def test_reabrir_unidades_por_id_o_por_capacidad(repo: Path) -> None:
+    planner.write(repo)
+    _close_all(repo)
+    _cap(repo, "auth", "src/auth/login.py:4")
+    assert units.reopen(repo, ["src-util"]) == ["src-util"]
+    assert [u["id"] for u in units.next_units(repo, count=10)] == ["src-util"]
+    assert units.reopen(repo, capability="auth") == ["src-auth"]
+    assert {u["id"] for u in units.next_units(repo, count=10)} == {"src-auth", "src-util"}
+    with pytest.raises(units.UnitError, match="not a unit"):
+        units.reopen(repo, ["nope"])
+    with pytest.raises(units.UnitError, match="cites no file"):
+        units.reopen(repo, capability="ghost")

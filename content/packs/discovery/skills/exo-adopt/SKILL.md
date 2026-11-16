@@ -73,14 +73,14 @@ The full text of `.exo/discovery/units/<unit id>.md`, from .exo/shared/unit-temp
 
 ## R4: synthesis
 
-Run `re-synthesize` inline: it groups the units into capabilities and writes the as-is specs, proposes the wiki sections and the recovered ADRs, and fills the open questions and the debt. Check each spec with `exo speclint <spec>`. Show the person the wiki sections and the ADRs before writing them: they own the wiki.
+Run `re-synthesize` inline: it groups the units into capabilities and writes the as-is specs, proposes the wiki sections and the recovered ADRs, and fills the open questions and the debt. Check each spec with `exo speclint <spec>`. Show the person the wiki sections and the ADRs before writing them: they own the wiki. In an unattended run without that approval, they go to `.exo/discovery/pending-approval.md` instead.
 
 ## R5: audit
 
 1. `exo discover sample --json`.
 2. Delegate to the `re-auditor` subagent with `re-audit`'s path, the sample items and nothing else: no extraction notes, no conclusions. Without subagents, run `re-audit` inline after a clear break and say "no isolation".
 3. Write the verdicts to `.exo/discovery/audit-results.json` and run `exo discover audit @.exo/discovery/audit-results.json`, then `exo discover coverage`.
-4. For each capability flagged in `coverage.md`, extract its units again (they are the files its FRs cite), synthesize it again and audit it again. After two rounds, report it to the person as it is.
+4. For each capability flagged in `coverage.md`, send its units back with `exo discover reopen --capability <name>` (the units whose files its FRs cite), extract them again (R3), synthesize the capability again and audit it again. After two rounds, report it to the person as it is.
 
 ## R6: validation and adoption
 
@@ -98,7 +98,7 @@ Run `re-adoption-plan` with the person: they walk the capabilities and validate 
 | every unit done, no as-is spec | R4 |
 | specs but no `coverage.md` | R5 |
 | a flagged capability in `coverage.md` | R5, step 4 |
-| everything audited | R6 |
+| everything audited | R6, starting with `.exo/discovery/pending-approval.md` if it exists (the wiki sections and ADRs an unattended run left unapproved) |
 
 ## Before you finish
 

@@ -2,6 +2,6 @@
   "name": "discovery",
   "version": "0.1.0",
   "description": "Reverse engineering of an existing project: deterministic inventory and plan, evidence-based extraction, as-is specs, audit and an adoption backlog.",
-  "requires": ["core", "sdd"],
-  "optional": ["design", "security"]
+  "requires": ["core", "sdd", "design"],
+  "optional": ["security"]
 }

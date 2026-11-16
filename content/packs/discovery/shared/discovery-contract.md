@@ -95,7 +95,7 @@ The total is the sum of the lines minus the discount, plus tax. [Code] src/billi
 1. `exo discover sample --json` picks the requirements to check, weighted by criticality, at least one per capability, with a recorded seed.
 2. `re-audit` runs in `re-auditor`, in fresh context: for each sampled FR, it reads the cited code and returns `correct`, `incorrect` or `unverifiable`, with a one-line note.
 3. The orchestrator writes the verdicts to `.exo/discovery/audit-results.json` as `{"results": [{"id", "verdict", "note"}]}` and runs `exo discover audit @.exo/discovery/audit-results.json`.
-4. `exo discover coverage` writes `coverage.md`. A capability below 90 % precision, or with too many unverifiable claims, goes back to R3 for its units and then to R4.
+4. `exo discover coverage` writes `coverage.md`. A capability below 90 % precision, or with too many unverifiable claims, goes back to R3: `exo discover reopen --capability <name>` sends its units back, and then R4 synthesizes it again.
 
 ## G. What discovery may write
 
