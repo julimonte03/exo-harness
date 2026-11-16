@@ -392,6 +392,59 @@ def test_los_comentarios_de_la_plantilla_no_son_afirmaciones(repo: Path) -> None
     assert units.done(repo, "src-auth")["counts"]["claims"] == 1
 
 
+def _write_text_doc(repo: Path, unit_id: str, text: str) -> None:
+    path = store.root(repo) / units.unit_doc(unit_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def test_done_cuenta_todas_las_vinetas_y_rechaza_el_texto_suelto(repo: Path) -> None:
+    """M5: `-`, `*`, `+` y `1.` son afirmaciones; otra línea no vacía es un error."""
+    planner.write(repo)
+    claims = (
+        "- Login issues a token. [Code] src/auth/login.py:4-5\n"
+        "* It checks the user. [Code] src/auth/login.py:4\n"
+        "+ Tokens are strings. [Code] src/auth/tokens.py:1-2\n"
+        "1. It has no rate limit. [Inferred: low]\n"
+    )
+    text = _doc("src-auth", "PLACEHOLDER").replace("- PLACEHOLDER", claims.rstrip("\n"))
+    text = text.replace("## Integrations\n\nNone.", "## Integrations\n\nNot extracted: summary.")
+    _write_text_doc(repo, "src-auth", text)
+    record = units.done(repo, "src-auth")
+    assert record["counts"] == {"claims": 4, "code": 3, "doc": 0, "inferred": 1}
+    bad = [
+        ("Login issues a token. [Code] src/auth/login.py:4", "as a bullet"),
+        ("+ Login issues a token.", "without evidence"),
+        ("1. Login issues a token.", "without evidence"),
+    ]
+    for line, fragment in bad:
+        text = _doc("src-auth", "PLACEHOLDER").replace("- PLACEHOLDER", line)
+        _write_text_doc(repo, "src-auth", text)
+        with pytest.raises(units.UnitError, match=fragment):
+            units.done(repo, "src-auth")
+
+
+@needs_git
+def test_done_exige_un_hecho_en_detalle_full_y_rechaza_doc_de_credenciales(repo: Path) -> None:
+    """M5 y L4: en `full`, al menos un [Code] o [Doc]; un [Doc] a credenciales es error."""
+    (repo / ".env").write_text("TOKEN=never-read\n", encoding="utf-8")
+    (repo / "README.md").write_text("# App\n", encoding="utf-8")
+    git(repo, "add", ".env", "README.md")
+    plan, _ = planner.write(repo, "quick")
+    by_detail = {u["detail"]: u["id"] for u in plan["units"]}
+    full, summary = by_detail["full"], by_detail["summary"]
+    _write_doc(repo, full, "It does something. [Inferred: high]")
+    with pytest.raises(units.UnitError, match=r"\[Code\] path:line or \[Doc\] path"):
+        units.done(repo, full)
+    _write_doc(repo, full, "It reads its config. [Doc] .env")
+    with pytest.raises(units.UnitError, match="credentials file"):
+        units.done(repo, full)
+    _write_doc(repo, full, "It is documented. [Doc] README.md")
+    assert units.done(repo, full)["counts"]["doc"] == 1
+    _write_doc(repo, summary, "It does something. [Inferred: high]")
+    assert units.done(repo, summary)["counts"]["inferred"] == 1
+
+
 def test_reabrir_unidades_por_id_o_por_capacidad(repo: Path) -> None:
     planner.write(repo)
     _close_all(repo)
