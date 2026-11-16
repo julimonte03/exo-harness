@@ -90,6 +90,7 @@ class FileReport:
     kind: str
     template: str
     errors: list[Issue] = field(default_factory=list)
+    warnings: list[Issue] = field(default_factory=list)
 
 
 @dataclass
@@ -246,9 +247,13 @@ def _check_delta(text: str, errors: list[Issue]) -> dict[str, int]:
     return {**delta.ids(), **delta.scenarios}
 
 
-def _check_capability(text: str, name: str, errors: list[Issue]) -> dict[str, int]:
+def _check_capability(
+    text: str, name: str, errors: list[Issue], warnings: list[Issue]
+) -> dict[str, int]:
     cap = specs.parse_capability(text, name)
-    errors.extend(Issue(p.line, p.message) for p in cap.problems)
+    for problem in cap.problems:
+        target = warnings if problem.severity == "warning" else errors
+        target.append(Issue(problem.line, problem.message))
     return {block.id: block.line for block in cap.requirements.values()}
 
 
@@ -299,7 +304,7 @@ def _lint_file(path: Path, template: str) -> tuple[FileReport, list[_Section], d
     else:
         _check_structure(sections, template, report.errors)
     if template == "capability-spec":
-        defined = _check_capability(text, path.parent.name, report.errors)
+        defined = _check_capability(text, path.parent.name, report.errors, report.warnings)
         if specs.parse_capability(text, path.parent.name).removed:
             # Todos los requisitos se borraron: quedan las lápidas, y vale.
             report.errors = [e for e in report.errors if e.message != _EMPTY_REQUIREMENTS]

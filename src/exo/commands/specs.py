@@ -65,6 +65,7 @@ def _list(args: argparse.Namespace) -> int:
                         "non_functional": c.non_functional,
                         "removed": c.removed,
                         "problems": c.problems,
+                        "status": c.status,
                     }
                     for c in found
                 ]
@@ -76,6 +77,8 @@ def _list(args: argparse.Namespace) -> int:
         return 0
     for c in found:
         extra = f", {c.problems} problems (run exo speclint {c.path})" if c.problems else ""
+        if c.status:
+            extra = f", {c.status}{extra}"
         print(
             f"{c.name}\t{c.functional} FR, {c.non_functional} NFR, {c.removed} removed"
             f"\t{c.path}{extra}"
