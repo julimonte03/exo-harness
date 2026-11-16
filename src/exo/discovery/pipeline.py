@@ -2,7 +2,8 @@
 
 - `structure`: R1 (grafo y métricas de git) sobre una sola lista de archivos.
 - `status`: unidades por estado, las próximas, registros huérfanos y **los cambios
-  fuera de las rutas permitidas** (solo lectura sobre el código del proyecto).
+  fuera de las rutas permitidas** (solo lectura sobre el código del proyecto). Si git
+  falla, `outside_changes_error` dice por qué: "no pude mirar" no es "no hay nada".
 - `update`: recalcula R0 y R1 e informa unidades stale, archivos nuevos o borrados y
   capacidades stale (una de sus citas `[Code]` apunta a un archivo que cambió). No
   persiste nada "stale" ni replanifica.
@@ -10,9 +11,11 @@
 
 from __future__ import annotations
 
+import fnmatch
 import posixpath
 import re
-from pathlib import Path, PurePosixPath
+import shutil
+from pathlib import Path
 from typing import Any
 
 from exo import _meta
@@ -50,16 +53,42 @@ def allowed(project: Path) -> tuple[list[str], list[str]]:
 
 
 def _is_allowed(path: str, prefixes: list[str], patterns: list[str]) -> bool:
+    """Por prefijo desde la raíz, o por patrón sobre la ruta entera (`*` no cruza carpetas)."""
     if any(path.startswith(prefix) for prefix in prefixes):
         return True
-    return any(PurePosixPath(path).match(pattern) for pattern in patterns)
+    return any(
+        path.count("/") == pattern.count("/") and fnmatch.fnmatchcase(path, pattern)
+        for pattern in patterns
+    )
+
+
+def _in_repo(project: Path) -> bool:
+    """¿Hay git y el proyecto está en un repo? Sin correr git: su mensaje depende del idioma."""
+    if shutil.which("git") is None:
+        return False
+    folder = Path(project).resolve()
+    return any((p / ".git").exists() for p in (folder, *folder.parents))
 
 
 def outside_changes(project: Path) -> list[str] | None:
-    """Rutas que `git status` muestra cambiadas fuera de las permitidas; None sin git."""
-    done = git.run(project, "status", "--porcelain=v1", "-z", "--untracked-files=all")
-    if not done.ok:
+    """Rutas que `git status` muestra cambiadas fuera de las permitidas.
+
+    None solo sin git (no está instalado o el proyecto no es un repo). Si git falla
+    (timeout, error), `git.GitError` con el detalle.
+    """
+    if not _in_repo(project):
         return None
+    # `--no-optional-locks`: mirar no toma el lock del índice ni lo reescribe.
+    done = git.run(
+        project,
+        "--no-optional-locks",
+        "status",
+        "--porcelain=v1",
+        "-z",
+        "--untracked-files=all",
+    )
+    if not done.ok:
+        raise git.GitError(f"git status failed: {done.err.strip() or 'no output'}")
     entries = done.out.split("\0")
     paths: list[str] = []
     index = 0
@@ -71,13 +100,17 @@ def outside_changes(project: Path) -> list[str] | None:
         code, path = entry[:2], entry[3:]
         paths.append(path)
         if "R" in code or "C" in code:
-            index += 1  # el origen del rename viene en la entrada siguiente
+            # El origen viene en la entrada siguiente: sacar algo de una ruta no permitida
+            # también es un cambio fuera de las permitidas.
+            if index < len(entries) and entries[index]:
+                paths.append(entries[index])
+            index += 1
     # El formato porcelain da rutas relativas a la raíz del repo: se pasan al proyecto.
     top = git.toplevel(project)
-    base = ""
-    if top is not None:
-        relative = Path(project).resolve().relative_to(top.resolve()).as_posix()
-        base = "" if relative == "." else relative + "/"
+    if top is None:
+        raise git.GitError("git rev-parse --show-toplevel failed")
+    relative = Path(project).resolve().relative_to(top.resolve()).as_posix()
+    base = "" if relative == "." else relative + "/"
     local = [p[len(base) :] for p in paths if p.startswith(base)]
     prefixes, patterns = allowed(project)
     return sorted({p for p in local if not _is_allowed(p, prefixes, patterns)})
@@ -86,12 +119,17 @@ def outside_changes(project: Path) -> list[str] | None:
 def status(project: Path) -> dict[str, Any]:
     project = Path(project)
     plan = store.read_json(project, planner.FILENAME)
+    try:
+        outside, outside_error = outside_changes(project), None
+    except git.GitError as exc:
+        outside, outside_error = None, str(exc)
     payload: dict[str, Any] = {
         "steps": {
             name: (store.root(project) / name).is_file()
             for name in (inventory.FILENAME, graph.FILENAME, planner.FILENAME)
         },
-        "outside_changes": outside_changes(project),
+        "outside_changes": outside,
+        "outside_changes_error": outside_error,
     }
     if plan is None:
         payload["units"] = None

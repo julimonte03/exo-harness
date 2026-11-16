@@ -151,6 +151,11 @@ def _print_human(tool: str, result: dict[str, Any]) -> None:
             print("changes outside the paths discovery may write:")
             for path in outside:
                 print(f"  {path}")
+        if result.get("outside_changes_error"):
+            print(
+                "could not check for changes outside the paths discovery may write: "
+                f"{result['outside_changes_error']}"
+            )
     elif tool == "get_followups":
         for item in result["followups"]:
             print(f"{item.get('id', '-')}\t{item['status']}\t{item.get('summary', '')}")

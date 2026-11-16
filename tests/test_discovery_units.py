@@ -310,6 +310,76 @@ def test_criterio_5_solo_escribe_en_las_rutas_permitidas(repo: Path) -> None:
     assert json.loads((store.root(repo) / "plan.json").read_text(encoding="utf-8"))["schema"] == 1
 
 
+@needs_git
+def test_cambios_fuera_renames_rutas_ancladas_y_sin_lock(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """M1, L3 y M9: el origen de un rename cuenta, el patrón se ancla a la raíz y no se
+    toma el lock del índice."""
+    from exo.governance import git as git_mod
+
+    planner.write(repo)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "docs: discovery")
+    assert pipeline.outside_changes(repo) == []
+    git(repo, "mv", "src/util/strings.py", ".exo/discovery/strings.py")
+    assert pipeline.outside_changes(repo) == ["src/util/strings.py"]
+    git(repo, "mv", ".exo/discovery/strings.py", "src/util/strings.py")
+    nested = repo / "src" / ".exo" / "context.md"
+    nested.parent.mkdir(parents=True)
+    nested.write_text("# Context\n", encoding="utf-8")
+    deeper = repo / "docs" / "adr" / "old" / "0001-recovered-x.md"
+    deeper.parent.mkdir(parents=True)
+    deeper.write_text("# 1\n", encoding="utf-8")
+    assert pipeline.outside_changes(repo) == [
+        "docs/adr/old/0001-recovered-x.md",
+        "src/.exo/context.md",
+    ]
+    calls: list[tuple[str, ...]] = []
+    real = git_mod.run
+
+    def spy(project: Path, *args: str, **kwargs: object) -> git_mod.Run:
+        calls.append(args)
+        return real(project, *args, **kwargs)
+
+    monkeypatch.setattr(git_mod, "run", spy)
+    pipeline.outside_changes(repo)
+    [status_call] = [c for c in calls if "status" in c]
+    assert status_call.index("--no-optional-locks") < status_call.index("status")
+
+
+@needs_git
+def test_si_git_falla_status_lo_dice(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """L8: None solo sin git; una falla de git va a `outside_changes_error`."""
+    from exo.cli import main
+    from exo.governance import git as git_mod
+
+    planner.write(repo)
+    real = git_mod.run
+
+    def failing(project: Path, *args: str, **kwargs: object) -> git_mod.Run:
+        if "status" in args:
+            return git_mod.Run(False, "", "timed out after 30 seconds")
+        return real(project, *args, **kwargs)
+
+    monkeypatch.setattr(git_mod, "run", failing)
+    payload = pipeline.status(repo)
+    assert payload["outside_changes"] is None
+    assert "timed out" in payload["outside_changes_error"]
+    assert main(["discover", "status", "--project", str(repo)]) == 0
+    assert "timed out" in capsys.readouterr().out
+    monkeypatch.setattr(git_mod, "run", real)
+    assert pipeline.status(repo)["outside_changes_error"] is None
+
+
+def test_sin_git_no_hay_cambios_fuera_ni_error(tmp_path: Path) -> None:
+    (tmp_path / "app.py").write_text("x = 1\n", encoding="utf-8")
+    payload = pipeline.status(tmp_path)
+    assert payload["outside_changes"] is None and payload["outside_changes_error"] is None
+
+
 def test_los_comentarios_de_la_plantilla_no_son_afirmaciones(repo: Path) -> None:
     planner.write(repo)
     text = _doc("src-auth", "Login issues a token. [Code] src/auth/login.py:4-5")
