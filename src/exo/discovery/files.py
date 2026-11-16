@@ -1,8 +1,13 @@
 """Los archivos que analiza la ingeniería inversa (R0, ADR-0015).
 
 - **Fuente:** `git ls-files -s` (solo lo versionado; lo sin trackear con un flag),
-  filtrado por existencia; sin symlinks ni submódulos. Sin git, se recorre la carpeta
-  con las mismas exclusiones y un aviso (no se aplica `.gitignore`).
+  filtrado por existencia; sin submódulos y sin seguir nunca un symlink ni una junction
+  (tampoco si la copia de trabajo cambió una carpeta versionada por un link). Sin git,
+  se recorre la carpeta con las mismas exclusiones, sin entrar en las excluidas, y un
+  aviso (no se aplica `.gitignore`).
+- **Carpetas de terceros:** `node_modules`, `.venv` y similares siempre; las de build
+  (`build`, `dist`, `target`, `coverage`, `vendor`, `out`) solo en la raíz o junto a un
+  manifiesto: `src/insurance/coverage/` es código del proyecto.
 - **Exclusiones:** la carpeta del motor, `specs_dir`, los archivos que instaló el
   motor (lock), los ADRs recuperados, carpetas de terceros o de build, minificados y
   generados, binarios, lo que pasa de 1 MB y `discovery.ignore`. Lo que produce el
@@ -19,6 +24,8 @@
 from __future__ import annotations
 
 import fnmatch
+import os
+import posixpath
 import re
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
@@ -29,7 +36,7 @@ from exo.governance import git
 
 MAX_BYTES = 1_000_000
 _SNIFF = 8192
-# Carpetas de terceros, de build o de herramientas: no son código del proyecto.
+# Carpetas de terceros o de herramientas: nunca son código del proyecto.
 VENDORED_DIRS = frozenset(
     {
         ".git",
@@ -42,14 +49,22 @@ VENDORED_DIRS = frozenset(
         ".vscode",
         "__pycache__",
         "bower_components",
-        "build",
-        "coverage",
-        "dist",
         "node_modules",
-        "target",
-        "vendor",
         "venv",
     }
+)
+# Carpetas de build o de terceros solo en la raíz o junto a un manifiesto: más adentro
+# pueden ser código (`src/insurance/coverage/`).
+BUILD_DIRS = frozenset({"build", "coverage", "dist", "out", "target", "vendor"})
+MANIFESTS = (
+    "package.json",
+    "pyproject.toml",
+    "pom.xml",
+    "build.gradle*",
+    "go.mod",
+    "Cargo.toml",
+    "composer.json",
+    "setup.py",
 )
 GENERATED_PATTERNS = ("*.min.js", "*.min.css", "*.map", "*_pb2.py", "*_pb2_grpc.py", "*.pb.go")
 LOCK_FILES = frozenset(
@@ -311,7 +326,31 @@ def _engine_paths(project: Path) -> set[str]:
     return owned
 
 
-def _tracked(project: Path, include_untracked: bool) -> list[str] | None:
+def is_manifest(name: str) -> bool:
+    return any(fnmatch.fnmatchcase(name, pattern) for pattern in MANIFESTS)
+
+
+def manifest_dirs(paths: list[str]) -> set[str]:
+    """Las carpetas (`.` para la raíz) que tienen un manifiesto de paquete."""
+    return {posixpath.dirname(p) or "." for p in paths if is_manifest(PurePosixPath(p).name)}
+
+
+def _excluded_dir(name: str, parent: str, manifests: set[str]) -> bool:
+    """¿La carpeta `name`, dentro de `parent` (`.` para la raíz), es de terceros o de build?"""
+    if name in VENDORED_DIRS:
+        return True
+    return name in BUILD_DIRS and (parent == "." or parent in manifests)
+
+
+def is_vendored(rel: str, manifests: set[str]) -> bool:
+    parts = PurePosixPath(rel).parts[:-1]
+    return any(
+        _excluded_dir(part, "/".join(parts[:i]) or ".", manifests) for i, part in enumerate(parts)
+    )
+
+
+def _tracked(project: Path, include_untracked: bool) -> tuple[list[str], int] | None:
+    """(rutas, cuántas versionadas), o None si git no responde."""
     listed = git.run(project, "ls-files", "-s", "-z")
     if not listed.ok:
         return None
@@ -323,20 +362,53 @@ def _tracked(project: Path, include_untracked: bool) -> list[str] | None:
         mode = meta.split(" ", 1)[0]
         if mode in ("100644", "100755"):  # sin symlinks (120000) ni submódulos (160000)
             paths.append(path)
+    tracked = len(paths)
     if include_untracked:
         others = git.run(project, "ls-files", "--others", "--exclude-standard", "-z")
         if others.ok:
             paths += [p for p in others.out.split("\0") if p]
-    return sorted(set(paths))
+    return sorted(set(paths)), tracked
 
 
 def _walked(project: Path) -> list[str]:
+    """Sin git: los archivos regulares, sin entrar en links ni en las carpetas excluidas."""
+    project = Path(project)
     found: list[str] = []
-    for path in fsutil.walk_files(project):
-        rel = path.relative_to(project).as_posix()
-        if not any(part in VENDORED_DIRS for part in PurePosixPath(rel).parts[:-1]):
-            found.append(rel)
-    return found
+    pending = ["."]
+    while pending:
+        folder = pending.pop()
+        try:
+            entries = sorted(os.scandir(project if folder == "." else project / folder), key=_name)
+        except (FileNotFoundError, NotADirectoryError, PermissionError):
+            continue
+        manifests = {folder} if any(e.is_file() and is_manifest(e.name) for e in entries) else set()
+        for entry in entries:
+            rel = entry.name if folder == "." else f"{folder}/{entry.name}"
+            if fsutil.is_link(Path(entry.path)):
+                continue
+            if entry.is_dir(follow_symlinks=False):
+                engine = folder == "." and entry.name == _meta.PROJECT_DIR
+                if not engine and not _excluded_dir(entry.name, folder, manifests):
+                    pending.append(rel)
+            elif entry.is_file(follow_symlinks=False):
+                found.append(rel)
+    return sorted(found)
+
+
+def _name(entry: os.DirEntry[str]) -> str:
+    return entry.name
+
+
+def _through_link(project: Path, rel: str, seen: dict[str, bool]) -> bool:
+    """¿La ruta es un link o pasa por uno? Cada carpeta se mira una sola vez."""
+    parts = rel.split("/")
+    for depth in range(1, len(parts)):
+        folder = "/".join(parts[:depth])
+        if folder not in seen:
+            seen[folder] = fsutil.is_link(project / folder)
+        if seen[folder]:
+            return True
+    return fsutil.is_link(project / rel)
 
 
 def is_recovered_adr(rel: str) -> bool:
@@ -345,7 +417,9 @@ def is_recovered_adr(rel: str) -> bool:
     return pure.parent.as_posix() in ADR_DIRS and fnmatch.fnmatchcase(pure.name, RECOVERED_ADR)
 
 
-def _exclusion(rel: str, specs_dir: str, engine: set[str], cfg: dict) -> str | None:
+def _exclusion(
+    rel: str, specs_dir: str, engine: set[str], cfg: dict, manifests: set[str]
+) -> str | None:
     pure = PurePosixPath(rel)
     if pure.parts[0] == _meta.PROJECT_DIR:
         return "engine"
@@ -355,7 +429,7 @@ def _exclusion(rel: str, specs_dir: str, engine: set[str], cfg: dict) -> str | N
         return "engine"
     if is_recovered_adr(rel):
         return "recovered"
-    if any(part in VENDORED_DIRS for part in pure.parts[:-1]):
+    if is_vendored(rel, manifests):
         return "vendored"
     if pure.name in LOCK_FILES or any(
         fnmatch.fnmatchcase(pure.name, p) for p in GENERATED_PATTERNS
@@ -372,20 +446,28 @@ def list_files(project: Path, *, include_untracked: bool = False) -> FileSet:
     specs_dir = cfg["specs_dir"].strip("/")
     engine = _engine_paths(project)
     result = FileSet()
-    paths = _tracked(project, include_untracked)
-    if paths is None:
+    listed = _tracked(project, include_untracked)
+    if listed is None:
         result.git = False
         result.warnings.append(
             "not a git repository: .gitignore is not applied, only the built-in exclusions "
             "and discovery.ignore"
         )
         paths = _walked(project)
+    else:
+        paths, tracked = listed
+        if not tracked:
+            result.warnings.append(
+                "no tracked files: commit the project first (discovery analyzes what git tracks)"
+            )
+    manifests = manifest_dirs(paths)
+    links: dict[str, bool] = {}
     counts: dict[str, int] = {}
     for rel in paths:
-        reason = _exclusion(rel, specs_dir, engine, cfg)
+        reason = _exclusion(rel, specs_dir, engine, cfg, manifests)
         path = project / rel
-        if reason is None and not path.is_file():
-            continue  # versionado pero borrado de la copia de trabajo
+        if reason is None and (_through_link(project, rel, links) or not path.is_file()):
+            continue  # un link (no se sigue nunca), o versionado y borrado de la copia
         if reason is None:
             sensitive = scan.is_credential_file(rel)
             if sensitive:
@@ -434,9 +516,9 @@ def has_code(project: Path) -> bool:
         names = [n for n in listed.out.split("\0") if n]
     else:
         names = _walked(project)
+    manifests = manifest_dirs(names)
     for rel in names:
-        pure = PurePosixPath(rel)
-        if pure.parts[0] == _meta.PROJECT_DIR or any(p in VENDORED_DIRS for p in pure.parts[:-1]):
+        if PurePosixPath(rel).parts[0] == _meta.PROJECT_DIR or is_vendored(rel, manifests):
             continue
         if language_of(rel) in CODE_LANGUAGES and not is_test(rel):
             return True

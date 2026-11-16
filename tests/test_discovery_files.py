@@ -163,6 +163,107 @@ def test_sin_git_se_recorre_con_las_exclusiones_y_avisa(repo: Path) -> None:
     assert f"{_meta.PROJECT_DIR}/discovery/inventory.json" not in paths
 
 
+BUILD_TREE = {
+    "package.json": "{}\n",
+    "src/insurance/coverage/policy.py": "x = 1\n",
+    "src/out/report.py": "x = 1\n",
+    "coverage/lcov.js": "x = 1;\n",
+    "out/main.js": "x = 1;\n",
+    "web/package.json": "{}\n",
+    "web/dist/bundle.js": "x = 1;\n",
+    "web/src/app.js": "x = 1;\n",
+    "svc/build.gradle.kts": "\n",
+    "svc/build/classes/A.java": "class A {}\n",
+    "svc/target/B.java": "class B {}\n",
+    "lib/vendor/x.py": "x = 1\n",
+    "lib/node_modules/y/index.js": "x = 1;\n",
+}
+
+
+@pytest.mark.parametrize("with_git", [True, False])
+def test_las_carpetas_de_build_solo_en_la_raiz_o_junto_a_un_manifiesto(
+    tmp_path: Path, with_git: bool
+) -> None:
+    """M8: `coverage`, `out`, `build`... de un paquete se excluyen; dentro del código, no."""
+    if with_git and shutil.which("git") is None:
+        pytest.skip("requiere git")
+    for rel, text in BUILD_TREE.items():
+        _write(tmp_path, rel, text)
+    if with_git:
+        init_repo(tmp_path)
+    found = files.list_files(tmp_path)
+    paths = {f.path for f in found.files}
+    assert {
+        "src/insurance/coverage/policy.py",
+        "src/out/report.py",
+        "web/src/app.js",
+        "lib/vendor/x.py",
+    } <= paths
+    for excluded in (
+        "coverage/lcov.js",
+        "out/main.js",
+        "web/dist/bundle.js",
+        "svc/build/classes/A.java",
+        "svc/target/B.java",
+        "lib/node_modules/y/index.js",
+    ):
+        assert excluded not in paths, excluded
+    assert files.has_code(tmp_path)
+
+
+def test_sin_git_no_se_entra_en_las_carpetas_excluidas(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """L11: el recorrido poda `node_modules` en lugar de recorrerlo entero."""
+    import os
+
+    _write(tmp_path, "app.py", "x = 1\n")
+    _write(tmp_path, "node_modules/left-pad/lib/index.js", "x = 1;\n")
+    _write(tmp_path, "dist/deep/bundle.js", "x = 1;\n")
+    visited: list[str] = []
+    real = os.scandir
+
+    def spy(path: object) -> object:
+        visited.append(str(path))
+        return real(path)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(os, "scandir", spy)
+    assert [f.path for f in files.list_files(tmp_path).files] == ["app.py"]
+    assert not any("node_modules" in v or "dist" in v for v in visited), visited
+
+
+@needs_git
+def test_nunca_se_siguen_links(tmp_path: Path, make_dir_link) -> None:
+    """L5: ni un typechange de una carpeta versionada a link, ni un link sin trackear."""
+    root = tmp_path / "repo"
+    outside = tmp_path / "outside"
+    _write(outside, "a.py", "SECRET = 1\n")
+    _write(outside, "b.py", "OTHER = 1\n")
+    _write(root, "app.py", "x = 1\n")
+    _write(root, "lib/a.py", "x = 1\n")
+    init_repo(root)
+    shutil.rmtree(root / "lib")
+    make_dir_link(root / "lib", outside)  # el índice dice lib/a.py; la copia es un link
+    make_dir_link(root / "linked", outside)
+    for found in (files.list_files(root), files.list_files(root, include_untracked=True)):
+        paths = [f.path for f in found.files]
+        assert paths == ["app.py"], paths
+    plain = tmp_path / "plain"  # sin git
+    _write(plain, "app.py", "x = 1\n")
+    make_dir_link(plain / "linked", outside)
+    assert [f.path for f in files.list_files(plain).files] == ["app.py"]
+
+
+@needs_git
+def test_un_repo_sin_archivos_versionados_avisa(tmp_path: Path) -> None:
+    """L6."""
+    _write(tmp_path, "app.py", "x = 1\n")
+    git(tmp_path, "init", "-q", "-b", "main")
+    found = files.list_files(tmp_path)
+    assert found.git is True and found.files == []
+    assert any("no tracked files: commit the project first" in w for w in found.warnings)
+
+
 @needs_git
 def test_los_archivos_del_lock_no_se_analizan(tmp_path: Path) -> None:
     from exo.installer import project
