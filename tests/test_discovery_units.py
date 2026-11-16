@@ -6,6 +6,7 @@ Criterios 5 (solo lectura), 6 (reanudable) y 7 (incremental).
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -238,11 +239,15 @@ def test_un_replan_que_cambia_los_archivos_de_una_unidad_la_deja_stale(repo: Pat
 
 
 def test_criterio_7_update_marca_solo_lo_afectado(repo: Path) -> None:
+    from exo.discovery import capabilities
+
     planner.write(repo)
     _close_all(repo)
     _cap(repo, "auth", "src/auth/login.py:4")
     _cap(repo, "strings", "src/util/strings.py:3")
-    assert pipeline.update(repo)["stale_units"] == {}
+    capabilities.synthesized(repo, ["auth", "strings"])
+    report = pipeline.update(repo)
+    assert report["stale_units"] == {} and report["stale_capabilities"] == []
     (repo / "src/auth/login.py").write_text(
         TREE["src/auth/login.py"] + "# changed\n", encoding="utf-8"
     )
@@ -252,6 +257,72 @@ def test_criterio_7_update_marca_solo_lo_afectado(repo: Path) -> None:
     (repo / "src/auth/extra.py").write_text("x = 1\n", encoding="utf-8")
     git(repo, "add", "src/auth/extra.py")  # el inventario ve solo lo versionado
     assert "src/auth/extra.py" in pipeline.update(repo)["new_files"]
+
+
+def test_synthesized_registra_lo_citado_y_la_senal_queda_hasta_otro_synthesized(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """E2: valida la spec, registra los hashes de lo citado y cuenta las rondas."""
+    from exo.cli import main
+    from exo.discovery import capabilities, files
+
+    planner.write(repo)
+    _close_all(repo)
+    _cap(repo, "auth", "src/auth/login.py:4")
+    _cap(repo, "strings", "src/util/strings.py:3")
+    living = repo / "specs" / "capabilities" / "living" / "spec.md"
+    living.parent.mkdir(parents=True)
+    living.write_text(
+        "# Capability: living\n\n## Purpose\n\nX.\n\n## Requirements\n\n"
+        "### CAP-living-FR-1: Rule\n\nIt does it.\n\n#### Scenario: One\n\n"
+        "- Given a\n- When b\n- Then c\n",
+        encoding="utf-8",
+    )
+    broken = repo / "specs" / "capabilities" / "broken" / "spec.md"
+    broken.parent.mkdir(parents=True)
+    broken.write_text(
+        "# Capability: broken\n\nStatus: as-is\n\n## Purpose\n\nX.\n\n## Requirements\n\n"
+        "### CAP-broken-FR-1: Rule\n\nNo evidence here.\n",
+        encoding="utf-8",
+    )
+    cases = {
+        "ghost": "does not exist",
+        "../x": "not a capability name",
+        "living": "no preamble",
+        "broken": "specs/capabilities/broken/spec.md:11: CAP-broken-FR-1 needs evidence",
+    }
+    for name, fragment in cases.items():
+        with pytest.raises(capabilities.CapabilityError, match=re.escape(fragment)):
+            capabilities.synthesized(repo, ["auth", name])
+        assert store.read_json(repo, "capabilities/auth.json") is None  # todo o nada
+    assert pipeline.update(repo)["unrecorded_capabilities"] == ["auth", "broken", "strings"]
+    shutil.rmtree(broken.parent)
+    sha = {f.path: f.sha for f in files.list_files(repo).files}
+    [record] = capabilities.synthesized(repo, ["auth"])  # los warnings no frenan
+    assert record == {
+        "capability": "auth",
+        "files": {"src/auth/login.py": sha["src/auth/login.py"]},
+        "rounds": 1,
+    }
+    assert store.read_json(repo, "capabilities/auth.json")["rounds"] == 1
+    assert capabilities.synthesized(repo, ["auth"])[0]["rounds"] == 2
+    report = pipeline.update(repo)
+    assert (report["stale_capabilities"], report["unrecorded_capabilities"]) == ([], ["strings"])
+    (repo / "src/auth/login.py").write_text("changed = True\n", encoding="utf-8")
+    assert pipeline.update(repo)["stale_capabilities"] == ["auth"]
+    _write_doc(repo, "src-auth", "Login changed. [Code] src/auth/login.py:1")
+    units.done(repo, "src-auth")
+    assert pipeline.update(repo)["stale_capabilities"] == ["auth"]  # hasta otro synthesized
+    p = ["--project", str(repo)]
+    assert main(["discover", "synthesized", "auth", "strings", *p]) == 0
+    out = capsys.readouterr().out
+    assert "auth: recorded (round 3" in out and "strings: recorded (round 1" in out
+    report = pipeline.update(repo)
+    assert (report["stale_capabilities"], report["unrecorded_capabilities"]) == ([], [])
+    (repo / "src/util/strings.py").unlink()  # un archivo citado que falta también la marca
+    assert pipeline.update(repo)["stale_capabilities"] == ["strings"]
+    assert main(["discover", "synthesized", "living", *p]) == 1
+    assert "no preamble" in capsys.readouterr().err
 
 
 def _latin1_cap(repo: Path, name: str = "legacy") -> Path:
