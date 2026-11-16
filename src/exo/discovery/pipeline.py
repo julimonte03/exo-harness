@@ -13,20 +13,18 @@ from __future__ import annotations
 
 import fnmatch
 import posixpath
-import re
 import shutil
 from pathlib import Path
 from typing import Any
 
 from exo import _meta
 from exo.core import config
+from exo.discovery import capabilities, git_metrics, graph, inventory, planner, store, units
 from exo.discovery import files as files_mod
-from exo.discovery import git_metrics, graph, inventory, planner, store, units
 from exo.governance import git
 from exo.sdd import specs
 
 CONTEXT_FILE = "context.md"
-_CITED = re.compile(r"\[Code\]\s+([^\s\[\]]+):\d+")
 
 
 def structure(project: Path, fileset: files_mod.FileSet | None = None) -> dict[str, Any]:
@@ -123,6 +121,8 @@ def status(project: Path) -> dict[str, Any]:
         outside, outside_error = outside_changes(project), None
     except git.GitError as exc:
         outside, outside_error = None, str(exc)
+    warnings: list[str] = []
+    capabilities.load(project, warnings)
     payload: dict[str, Any] = {
         "steps": {
             name: (store.root(project) / name).is_file()
@@ -130,6 +130,7 @@ def status(project: Path) -> dict[str, Any]:
         },
         "outside_changes": outside,
         "outside_changes_error": outside_error,
+        "warnings": warnings,
     }
     if plan is None:
         payload["units"] = None
@@ -147,21 +148,13 @@ def status(project: Path) -> dict[str, Any]:
     return payload
 
 
-def cited_files(project: Path) -> dict[str, set[str]]:
-    """Capacidad con preámbulo -> archivos que citan sus FR."""
-    root = specs.capabilities_root(project)
-    found: dict[str, set[str]] = {}
-    if not root.is_dir():
-        return found
-    for folder in sorted(p for p in root.iterdir() if p.is_dir() and p.name[0] not in "._"):
-        path = folder / specs.SPEC_FILE
-        if not path.is_file():
-            continue
-        text = path.read_bytes().decode("utf-8-sig")
-        if specs.parse_capability(text, folder.name).status is None:
-            continue
-        found[folder.name] = set(_CITED.findall(text))
-    return found
+def cited_files(project: Path, warnings: list[str] | None = None) -> dict[str, set[str]]:
+    """Capacidad con preámbulo -> archivos que citan sus FR (las specs que no son UTF-8 se
+    saltean, en `warnings`)."""
+    return {
+        spec.name: capabilities.cited(spec)
+        for spec in capabilities.with_preamble(project, warnings)
+    }
 
 
 def update(project: Path) -> dict[str, Any]:
@@ -176,14 +169,16 @@ def update(project: Path) -> dict[str, Any]:
     code = {f.path for f in fileset.files if f.category == "code"}
     changed = {p for paths in stale.values() for p in paths}
     deleted = sorted(planned - code)
-    capabilities = sorted(
+    warnings: list[str] = []
+    stale_capabilities = sorted(
         name
-        for name, paths in cited_files(project).items()
+        for name, paths in cited_files(project, warnings).items()
         if paths & changed or paths & set(deleted)
     )
     return {
         "stale_units": {k: v for k, v in sorted(stale.items())},
         "new_files": sorted(code - planned),
         "deleted_files": deleted,
-        "stale_capabilities": capabilities,
+        "stale_capabilities": stale_capabilities,
+        "warnings": warnings,
     }

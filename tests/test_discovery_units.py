@@ -254,6 +254,42 @@ def test_criterio_7_update_marca_solo_lo_afectado(repo: Path) -> None:
     assert "src/auth/extra.py" in pipeline.update(repo)["new_files"]
 
 
+def _latin1_cap(repo: Path, name: str = "legacy") -> Path:
+    path = repo / "specs" / "capabilities" / name / "spec.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    text = (
+        f"# Capability: {name}\n\nStatus: as-is\n\n## Purpose\n\nJosé.\n\n## Requirements\n\n"
+        f"### CAP-{name}-FR-1: Rule\n\nIt does it. [Code] src/auth/login.py:4\n"
+    )
+    path.write_bytes(text.encode("latin-1"))
+    return path
+
+
+def test_una_spec_que_no_es_utf8_se_saltea_con_un_aviso(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """E5: población, citas, cobertura y status la saltean y la nombran; nunca un traceback."""
+    from exo.cli import main
+
+    planner.write(repo)
+    _close_all(repo)
+    _cap(repo, "auth", "src/auth/login.py:4")
+    _latin1_cap(repo)
+    named = "specs/capabilities/legacy/spec.md"
+    warnings: list[str] = []
+    assert {i["capability"] for i in sampler.population(repo, warnings)} == {"auth"}
+    assert len(warnings) == 1 and named in warnings[0]
+    assert set(pipeline.cited_files(repo)) == {"auth"}
+    assert any(named in w for w in coverage.build(repo)["warnings"])
+    assert any(named in w for w in pipeline.status(repo)["warnings"])
+    assert any(named in w for w in sampler.sample(repo)["warnings"])
+    assert "warnings" not in store.read_json(repo, sampler.SAMPLE)
+    for step in ("sample", "coverage", "update", "status"):
+        assert main(["discover", step, "--project", str(repo)]) == 0, step
+        captured = capsys.readouterr()
+        assert named in captured.out + captured.err, step
+
+
 def test_update_arma_un_solo_fileset(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """L12: inventario, grafo, métricas y estados usan la misma lista de archivos."""
     from exo.discovery import files

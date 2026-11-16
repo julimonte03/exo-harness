@@ -50,8 +50,9 @@ def _common(parser: argparse.ArgumentParser) -> None:
 
 
 def _list(args: argparse.Namespace) -> int:
+    warnings: list[str] = []
     try:
-        found = specs.list_capabilities(args.project)
+        found = specs.list_capabilities(args.project, warnings)
     except (ValueError, OSError) as exc:
         return error(str(exc))
     if args.json:
@@ -68,10 +69,13 @@ def _list(args: argparse.Namespace) -> int:
                         "status": c.status,
                     }
                     for c in found
-                ]
+                ],
+                "warnings": warnings,
             }
         )
         return 0
+    for warning in warnings:
+        print(f"warning: {warning}", file=sys.stderr)
     if not found:
         print("no capabilities yet (they appear when a change's delta is merged)")
         return 0
