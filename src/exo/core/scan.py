@@ -27,7 +27,8 @@ DEFAULT_PII = ("card", "iban")
 OPTIONAL_PII = ("email", "phone", "ar-cuit", "ar-dni", "br-cpf", "es-nif", "us-ssn")
 KNOWN_PII = DEFAULT_PII + OPTIONAL_PII
 # Archivos de credenciales: no se commitean ni se leen (los ejemplos, sí). Sin distinguir
-# mayúsculas: en Windows y macOS `.ENV` es el mismo archivo que `.env`.
+# mayúsculas: en Windows y macOS `.ENV` es el mismo archivo que `.env`. `.npmrc` no está:
+# muchos repos lo versionan solo con la URL del registro.
 CREDENTIAL_FILES = (
     ".env",
     ".env.*",
@@ -42,7 +43,6 @@ CREDENTIAL_FILES = (
     "id_dsa",
     "id_ecdsa",
     "id_ed25519",
-    ".npmrc",
     ".pypirc",
     ".netrc",
     "credentials.json",
