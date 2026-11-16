@@ -33,6 +33,7 @@ CORE = (
     "work-unit-commits",
     "project-onboarding",
     "skill-reviewer",
+    "context-config-audit",
 )
 # Fase -> skill de fase.
 PHASE_SKILL = {

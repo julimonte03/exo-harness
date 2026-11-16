@@ -18,9 +18,9 @@ metadata:
 
 ## Result
 
-`.exo/context.md` describes the project as it is today, and the person confirmed it. It has the sections Stack, Commands, Conventions, Areas and Risks, and ends with a `Last reviewed:` line with the date and the commit. Its test command was run once. A short summary is in memory under the topic key `project/context`.
+`.exo/context.md` describes the project as it is today, and the person confirmed it. It has the sections Stack, Commands, Conventions, Areas and Risks, it may have the optional sections Architecture, Modules, Main flows and Integrations, and it ends with a `Last reviewed:` line with the date and the commit. Its test command was run once. A short summary is in memory under the topic key `project/context`.
 
-`.exo/context.md` is the project wiki that the agents and the SDD cycle read (`.exo/shared/project-wiki-guard.md`). The engine never generates or overwrites it: this skill writes it with the person's approval, and the person owns it.
+`.exo/context.md` is the project wiki that the agents and the SDD cycle read (`.exo/shared/project-wiki-guard.md`). The engine never generates or overwrites it: this skill writes it with the person's approval, and the person owns it. In an adoption with reverse engineering, `re-synthesize` (pack `discovery`) fills its optional sections the same way, one section at a time and with the person's approval.
 
 ## Before you start
 
@@ -39,6 +39,7 @@ Read before writing, and cite `path:line` for every fact (skill:context-retrieva
 | Conventions | linter and formatter configs, contributing guides, existing agent rules, the test layout and naming, `git log --oneline -20` for the commit style |
 | Areas | the top-level folders and modules; `CODEOWNERS` for the owners |
 | Risks | code without tests, code that handles money, credentials or personal data, generated or vendored code, flaky tests, incidents in memory |
+| Architecture, Modules, Main flows, Integrations (optional) | in an adopted project, `.exo/discovery/` (`module-graph.mmd`, `structure.json`, the units) and the as-is specs; otherwise compose files, infrastructure as code, the entrypoints and the clients of external services |
 
 - **4 or more files:** when the agent has subagents, delegate the reading to a read-only explorer (`sdd-explorer` when the sdd pack is installed) and work from its findings. Without subagents, read in small batches and summarize as you go.
 - **No secrets in the profile.** Write where a secret comes from (for example "the API key comes from the environment, `src/config.py:12`"), never its value. No personal data.
@@ -63,10 +64,14 @@ Write what they confirmed and what you verified; everything else stays `(unverif
 
 ## Write .exo/context.md
 
-- Follow the structure in `references/context-template.md`: Stack, Commands, Conventions, Areas, Risks, and the `Last reviewed:` line.
+- Follow the structure in `references/context-template.md`: Stack, Commands, Conventions, Areas, the optional sections, Risks, and the `Last reviewed:` line.
 - Commands are exact and copyable. Under Conventions, write `TDD: strict` or `TDD: not required`, as the person said: skill:test-strategy and skill:code-generation read that line.
+- **Optional sections:** Architecture (a Mermaid diagram of the context and the containers), Modules, Main flows and Integrations.
+  - Reverse engineering fills them with evidence (`re-synthesize`, pack `discovery`).
+  - A manual onboarding may leave them empty or omit them; fill one only when you have its evidence.
+  - In a refresh, keep them, and change only what the code shows has changed.
 - The last line is `Last reviewed: <YYYY-MM-DD> at <commit>`, with today's date and the output of `git rev-parse --short HEAD`.
-- Keep it short, a page or two. Link to the docs instead of copying them.
+- Keep it short: a page or two without the optional sections. Link to the docs and the specs instead of copying them.
 - In a refresh, show the person what changes before writing it.
 - Commit it as its own unit when the person agrees (skill:work-unit-commits), for example `docs: add project context`.
 
