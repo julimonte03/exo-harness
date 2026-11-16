@@ -140,6 +140,56 @@ def test_no_lee_el_archivo_de_credenciales(repo: Path, monkeypatch: pytest.Monke
     assert inventory.build(repo)["sensitive_files"] == [".env"]
 
 
+def test_toml_encabezado_con_comentario() -> None:
+    """M7."""
+    text = '[project]  # metadata\nname = "invoices"\ndependencies = ["fastapi"]\n'
+    assert inventory._pyproject(text)[:2] == ("invoices", ["fastapi"])
+
+
+def test_toml_una_tabla_de_arreglos_no_pisa_project() -> None:
+    text = (
+        '[project]\nname = "invoices"\ndependencies = ["fastapi"]\n\n'
+        '[[tool.poetry.source]]\nname = "private"\nurl = "https://example.com/simple"\n'
+    )
+    assert inventory._pyproject(text)[:2] == ("invoices", ["fastapi"])
+
+
+def test_toml_saltea_los_strings_multilinea() -> None:
+    for quote in ('"""', "'''"):
+        text = (
+            f'[project]\nname = "invoices"\ndescription = {quote}\n[tool.fake]\nname = "evil"\n'
+            f'dependencies = ["evil"]\n{quote}\ndependencies = ["fastapi"]\n'
+        )
+        assert inventory._pyproject(text)[:2] == ("invoices", ["fastapi"]), quote
+
+
+def test_toml_poetry_sin_python_tambien_en_tablas_inline() -> None:
+    text = (
+        "[tool.poetry.dependencies]\n"
+        'python = { version = "^3.10" }\n'
+        'fastapi = { version = "^0.110", extras = ["all"] }\n'
+        'requests = "^2"\n'
+        '"Flask" = "^3"\n'
+        "\n[tool.poetry.dev-dependencies]\n"
+        'pytest = "^8"\n'
+        "\n[tool.poetry.group.lint.dependencies]\n"
+        'ruff = "^0.4"\n'
+    )
+    assert inventory._pyproject(text)[1] == ["fastapi", "flask", "pytest", "requests", "ruff"]
+
+
+def test_toml_dependency_groups_y_optional_dependencies_inline() -> None:
+    text = (
+        '[project]\nname = "app"\ndependencies = []\n'
+        'optional-dependencies = { dev = ["alembic>=1", "pytest"], "docs" = ["mkdocs"] }\n'
+        "\n[dependency-groups]\n"
+        'test = ["coverage>=7", {include-group = "lint"}]\n'
+        'lint = ["ruff"]\n'
+    )
+    deps = inventory._pyproject(text)[1]
+    assert deps == ["alembic", "coverage", "mkdocs", "pytest", "ruff"]
+
+
 def test_sin_carpeta_de_adrs_el_default(tmp_path: Path) -> None:
     root = tmp_path / "r"
     root.mkdir()
