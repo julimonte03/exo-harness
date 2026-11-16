@@ -1,9 +1,10 @@
 """R3, unidades: estado derivado, la próxima unidad y el cierre validado (F6, ADR-0015).
 
 - **Estado derivado:** una unidad está `done` si existe `units/<id>.json` y los hashes
-  de sus archivos no cambiaron; `stale` si cambió alguno; `pending` si no hay
-  `units/<id>.json`. No hay un estado compartido ni "en curso" (D-34): una extracción
-  cortada se rehace entera, y dos personas no se pisan.
+  de sus archivos no cambiaron; `stale` si cambió alguno o si el plan le agregó o
+  le sacó archivos o tests (un `--replan`); `pending` si no hay `units/<id>.json`.
+  No hay un estado compartido ni "en curso" (D-34): una extracción cortada se rehace
+  entera, y dos personas no se pisan.
 - **`next`:** entrega N unidades pendientes por prioridad. Marca las líneas de
   secretos (para no copiarlas; leerlas igual las manda al modelo) y las posibles
   instrucciones sospechosas.
@@ -78,8 +79,10 @@ def states(project: Path, plan: dict[str, Any], fileset: files_mod.FileSet) -> l
             continue
         recorded = dict(record.get("files", {}))
         recorded.update(record.get("tests", {}))
-        changed = sorted(p for p, sha in recorded.items() if current.get(p) != sha)
-        found.append(UnitState(item["id"], "stale" if changed else "done", changed))
+        planned = set(item["files"]) | set(item["tests"])
+        changed = {p for p, sha in recorded.items() if current.get(p) != sha}
+        changed |= planned ^ set(recorded)  # los que el plan agregó o sacó
+        found.append(UnitState(item["id"], "stale" if changed else "done", sorted(changed)))
     return found
 
 

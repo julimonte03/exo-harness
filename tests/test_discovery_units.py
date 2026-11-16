@@ -215,6 +215,28 @@ def _close_all(repo: Path) -> None:
         units.done(repo, item["id"])
 
 
+@needs_git
+def test_un_replan_que_cambia_los_archivos_de_una_unidad_la_deja_stale(repo: Path) -> None:
+    """H3: el conjunto de archivos y tests del plan distinto del registrado es `stale`."""
+    from exo.discovery import files
+
+    planner.write(repo)
+    _close_all(repo)
+    (repo / "src/auth/extra.py").write_text("x = 1\n", encoding="utf-8", newline="\n")
+    git(repo, "add", "src/auth/extra.py")
+    plan, _ = planner.write(repo, replan=True)
+    by_id = {s.id: s for s in units.states(repo, plan, files.list_files(repo))}
+    assert (by_id["src-auth"].status, by_id["src-auth"].changed) == ("stale", ["src/auth/extra.py"])
+    assert by_id["src-util"].status == "done"
+    [util] = [u for u in plan["units"] if u["id"] == "src-util"]
+    util["files"].remove("src/util/__init__.py")  # un replan que lo sacó de la unidad
+    by_id = {s.id: s for s in units.states(repo, plan, files.list_files(repo))}
+    assert (by_id["src-util"].status, by_id["src-util"].changed) == (
+        "stale",
+        ["src/util/__init__.py"],
+    )
+
+
 def test_criterio_7_update_marca_solo_lo_afectado(repo: Path) -> None:
     planner.write(repo)
     _close_all(repo)
