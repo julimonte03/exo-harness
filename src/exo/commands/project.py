@@ -236,9 +236,16 @@ def _init(args: argparse.Namespace) -> int:
             if not agents:
                 print("warning: no agent detected; installing the generic base (AGENTS.md)")
         if chosen_packs is None and installed is None:
-            suggested = stack.detect_stack(root).suggested
+            report = stack.detect_stack(root)
             available = _available_packs()
-            chosen_packs = [p for p in suggested if p in available]
+            chosen_packs = [p for p in report.suggested if p in available]
+            offered = [p for p in report.offered if p in available]
+            if offered:
+                packs_flag = ",".join([*chosen_packs, *offered])
+                print(
+                    f"note: {', '.join(offered)} is available for this existing codebase (reverse "
+                    f"engineering); install it with --packs {packs_flag}"
+                )
         kwargs = dict(
             agents=agents,
             packs=chosen_packs,
