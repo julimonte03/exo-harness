@@ -12,7 +12,9 @@ Two checkpoints that keep the branch and the project wiki (`.exo/context.md`) ho
 4. **Wiki fresh.** Read it. If the change touches an area the wiki does not describe, or what it says contradicts the code you read, note it: it is a wiki update for the end of the change.
 5. **Discovery fresh.** If the project has `.exo/discovery/` (it was adopted with reverse engineering), run `exo discover update --json`. It recomputes the inventory and the structure, and reports:
    - `stale_units`: closed units whose files changed since they were extracted;
-   - `stale_capabilities`: capability specs with a `Status:` preamble whose evidence cites a changed or deleted file;
+   - `stale_capabilities`: capability specs with a `Status:` preamble whose cited files changed or were deleted since they were last recorded (`exo discover synthesized`). They stay stale until they are synthesized again;
+   - `unrecorded_capabilities`: capability specs with a `Status:` preamble that were never recorded, so the engine cannot tell whether they are stale;
+   - `changed_skipped_units`: units the adoption skipped whose files changed;
    - `new_files` and `deleted_files`.
 
    What to do with the report:
@@ -25,7 +27,7 @@ Two checkpoints that keep the branch and the project wiki (`.exo/context.md`) ho
 
 1. **Wiki update.** If the change altered something the wiki describes (a command, a dependency, a convention, an area, a module, a flow, an integration), update `.exo/context.md` in the same change, or ask the person to.
    - **Stale discovery.** In a project with `.exo/discovery/`, run `exo discover update --json` again: the change's own edits make their units stale too.
-   - **Propose the update** of what it reports and the start noted: extract the stale units again and re-synthesize their `as-is` capabilities with the discovery skills (`exo-adopt` resumes from `exo discover status`), then update the wiki sections they feed. A validated capability changes only through the change's own delta.
+   - **Propose the update** of what it reports and the start noted: extract the stale units again and re-synthesize their `as-is` capabilities with the discovery skills (`exo-adopt` resumes from `exo discover status`), then update the wiki sections they feed. Do it after the change's commit: until then, the change's own files show up as changes outside discovery's paths, and `exo-adopt` would stop. A validated capability changes only through the change's own delta.
    - **Who does it:** do it in this change when the person agrees, or leave it to them as a note in the PR.
 2. **Branch clean.** `git status`: everything that belongs to the change is committed (`work-unit-commits`) and nothing else is.
 3. **Fresh review done.** In Tier 3 and 4, `verify-record.md` comes from a fresh-context verify: a subagent, or a new session when the agent has none. If the person chose an inline verify instead, the record says `no isolation`, as `.exo/shared/agent-capabilities.md` allows (in Tier 4, only with their approval recorded as a decision).

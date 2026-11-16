@@ -33,7 +33,7 @@ metadata:
 ## Before you start
 
 1. **Interactive only.** Every step needs the person. In an unattended run, stop here and report what is ready for them.
-2. `exo discover status --json`: no `outside_changes`, and every unit `done`. `.exo/discovery/coverage.md` exists. A capability it still flags (below 90 %, or too many unverifiable claims) already had its two rounds in exo-adopt: show the person its precision before they validate it.
+2. `exo discover status --json`: no `outside_changes`, and every unit `done` or skipped. Discovery's output is committed on the adoption's branch, as exo-adopt says before R6; if it is not, ask the person to commit it first. `.exo/discovery/coverage.md` exists. A capability it still flags (below 90 %, or too many unverifiable claims) already had its two rounds in exo-adopt: show the person its precision before they validate it.
 3. **Pending approvals.** If `.exo/discovery/pending-approval.md` exists (wiki sections or ADRs that `re-synthesize` proposed in an unattended run), walk it first: show each entry, write the approved ones to their target as skill:re-synthesize says, and remove each entry once it is decided. Delete the file when it is empty.
 
 ## 1. Validate each capability
@@ -61,6 +61,8 @@ metadata:
 5. **Close its questions:** mark the ones answered in `open-questions.md`, with the answer.
 
 ## 2. Find the adoption gaps
+
+Before the gaps, confirm the recovered ADRs (`<adr_dir>/*-recovered-*.md`) with the person, one by one: a confirmed one moves from `Recovered` to `Accepted` as `architecture-decision-record` (pack `design`) says, and keeps its file name; a rejected one is deleted, and its open question stays.
 
 Go through the checklist of `references/gaps.md`: test runner, linters and formatters, CI, git hooks, CODEOWNERS, minimum docs, commit conventions, secret ignores, ADRs, the agent configuration, and the test baseline.
 
