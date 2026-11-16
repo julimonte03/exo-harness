@@ -47,6 +47,12 @@ NEW_CAPABILITY = """# Capability: {name}
 """
 
 _HEADING = re.compile(r"^(#{2,4})(?!#)\s+(.*?)\s*#*\s*$")
+# Marcas de evidencia de la ingeniería inversa (ADR-0015).
+EVIDENCE = re.compile(
+    r"\[Code\]\s+[^\s\[\]]+:\d+(?:-\d+)?|\[Doc\]\s+[^\s\[\]]+|\[Inferred:\s*(?:high|medium|low)\]"
+)
+STATUSES = ("as-is", "as-is-validated")
+_PREAMBLE = re.compile(r"^(Status|Source):\s*(.*?)\s*$")
 _REQ_HEADING = re.compile(r"^([^\s:]+)\s*:?\s*(.*)$")
 _SCENARIO = re.compile(r"^Scenario\b\s*(S-[0-9]+)?\s*:?\s*(.*)$", re.IGNORECASE)
 _FENCE = re.compile(r"^\s*(```|~~~)")
@@ -74,6 +80,7 @@ class MergeError(SpecsError):
 class Problem:
     line: int
     message: str
+    severity: str = "error"  # error | warning (ADR-0015)
 
 
 @dataclass(frozen=True)
@@ -113,6 +120,12 @@ class Capability:
     requirements: dict[str, Block]
     removed: dict[str, Block]
     problems: tuple[Problem, ...]
+    status: str | None = None  # None: una spec viva normal; as-is | as-is-validated (ADR-0015)
+    source: str | None = None
+
+    @property
+    def errors(self) -> tuple[Problem, ...]:
+        return tuple(p for p in self.problems if p.severity == "error")
 
 
 @dataclass(frozen=True)
@@ -122,7 +135,8 @@ class CapabilityInfo:
     functional: int
     non_functional: int
     removed: int
-    problems: int
+    problems: int  # solo errores; los warnings no cuentan
+    status: str | None = None
 
 
 @dataclass(frozen=True)
@@ -234,8 +248,14 @@ def _check_block(
     delta: bool,
     problems: list[Problem],
     scenarios: dict[str, int],
+    evidence_required: bool = False,
 ) -> tuple[str, ...]:
-    """Valida un bloque de requisito y devuelve los IDs de sus escenarios."""
+    """Valida un bloque de requisito y devuelve los IDs de sus escenarios.
+
+    En una capacidad, un requisito que trae evidencia (`[Code] path:line`, `[Doc] path`
+    o `[Inferred: …]`) puede no tener escenario: es un warning. Con `evidence_required`
+    (una spec `as-is`), un requisito sin evidencia es un error (ADR-0015).
+    """
     heads = [(i, text) for i, level, text in _headings(masked[start:end]) if level == 4]
     heads = [(start + i, text) for i, text in heads]
     body_end = heads[0][0] if heads else end
@@ -287,8 +307,21 @@ def _check_block(
         for word in ("Given", "When", "Then"):
             if not re.search(rf"\b{word}\b", body, re.IGNORECASE):
                 problems.append(Problem(index + 1, f"{label} has no {word}"))
+    has_evidence = not delta and any(EVIDENCE.search(line) for line in masked[start + 1 : end])
+    if evidence_required and not has_evidence:
+        problems.append(
+            Problem(
+                start + 1,
+                f"{block_id} needs evidence in an as-is spec: [Code] path:line, [Doc] path or "
+                "[Inferred: high|medium|low]",
+            )
+        )
     if not heads and "-FR-" in block_id and "-NFR-" not in block_id:
-        problems.append(Problem(start + 1, f"{block_id} has no scenarios"))
+        if has_evidence:
+            message = f"{block_id} has no scenarios yet: add one when a change touches it"
+            problems.append(Problem(start + 1, message, "warning"))
+        else:
+            problems.append(Problem(start + 1, f"{block_id} has no scenarios"))
     return tuple(found)
 
 
@@ -366,10 +399,32 @@ def parse_delta(text: str) -> Delta:
 # -- capacidad -------------------------------------------------------------------
 
 
+def _preamble(masked: list[str], problems: list[Problem]) -> tuple[str | None, str | None]:
+    """`Status:` y `Source:` antes del primer `##`, fuera de los bloques (ADR-0015)."""
+    status = source = None
+    for index, line in enumerate(masked):
+        if _HEADING.match(line):
+            break
+        match = _PREAMBLE.match(line)
+        if match is None:
+            continue
+        key, value = match.groups()
+        if key == "Source":
+            source = value or None
+        elif value in STATUSES:
+            status = value
+        else:
+            problems.append(
+                Problem(index + 1, f"Status must be {' or '.join(STATUSES)}, not {value!r}")
+            )
+    return status, source
+
+
 def parse_capability(text: str, name: str) -> Capability:
     lines, _, _ = _split(text)
     masked = _mask(lines)
     problems: list[Problem] = []
+    status, source = _preamble(masked, problems)
     requirements: dict[str, Block] = {}
     removed: dict[str, Block] = {}
     seen: dict[str, int] = {}
@@ -421,9 +476,11 @@ def parse_capability(text: str, name: str) -> Capability:
                 delta=False,
                 problems=problems,
                 scenarios={},
+                evidence_required=status == "as-is",
             )
             target[token] = _block(masked, start, end, token, label, ())
-    return Capability(name, requirements, removed, tuple(sorted(problems, key=lambda p: p.line)))
+    ordered = tuple(sorted(problems, key=lambda p: p.line))
+    return Capability(name, requirements, removed, ordered, status, source)
 
 
 def capabilities_root(project: Path) -> Path:
@@ -453,7 +510,8 @@ def list_capabilities(project: Path) -> list[CapabilityInfo]:
                 functional,
                 len(cap.requirements) - functional,
                 len(cap.removed),
-                len(cap.problems),
+                len(cap.errors),
+                cap.status,
             )
         )
     return found
@@ -699,9 +757,14 @@ def merge(project: Path, change: str, *, dry_run: bool = False) -> MergeResult:
             rel = _relative(project, path)
             problems.append(f"{rel}: not UTF-8 text ({exc.reason}); save it as UTF-8")
             continue
-        if cap.problems:
-            rel = _relative(project, path)
-            problems += [f"{rel}:{p.line}: {p.message}" for p in cap.problems]
+        rel = _relative(project, path)
+        if cap.errors:
+            problems += [f"{rel}:{p.line}: {p.message}" for p in cap.errors]
+        if cap.status == "as-is":
+            problems.append(
+                f"{rel}: the capability is an as-is spec recovered from code; a person validates "
+                "it first (Status: as-is-validated), then changes modify it by delta"
+            )
         docs[name] = (doc, cap)
     plan, plan_problems = _plan(change, delta, docs)
     problems += plan_problems

@@ -38,6 +38,7 @@ def run(args: argparse.Namespace) -> int:
                         "path": str(f.path),
                         "type": f.kind,
                         "errors": [{"line": i.line, "message": i.message} for i in f.errors],
+                        "warnings": [{"line": i.line, "message": i.message} for i in f.warnings],
                     }
                     for f in report.files
                 ],
@@ -49,6 +50,8 @@ def run(args: argparse.Namespace) -> int:
         for issue in item.errors:
             total += 1
             print(f"{item.path}:{issue.line}: {issue.message}")
+        for issue in item.warnings:
+            print(f"{item.path}:{issue.line}: warning: {issue.message}")
     if total:
         print(f"{total} errors in {len(report.files)} files")
         return 1
