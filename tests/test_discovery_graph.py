@@ -1,0 +1,161 @@
+"""R1, módulos y aristas (F6, ADR-0015): los casos difíciles de cada lenguaje."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from exo.discovery import graph
+
+
+def _repo(root: Path, tree: dict[str, str]) -> Path:
+    for rel, text in tree.items():
+        path = root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8", newline="\n")
+    return root
+
+
+def _edges(root: Path) -> set[tuple[str, str]]:
+    return {(e["from"], e["to"]) for e in graph.build(root)["edges"]}
+
+
+def test_python_relativos_ciclo_alias_try_y_strings(tmp_path: Path) -> None:
+    root = _repo(
+        tmp_path,
+        {
+            "pyproject.toml": "[project]\nname = 'app'\n",
+            "src/app/__init__.py": "from .api import router  # re-export\n",
+            "src/app/api/__init__.py": "",
+            "src/app/api/routes.py": "from ..billing import service as svc\nfrom ..core.errors import AppError\n",
+            "src/app/billing/__init__.py": "",
+            "src/app/billing/service.py": "import app.payments.luhn as luhn\n",
+            "src/app/payments/__init__.py": "",
+            "src/app/payments/luhn.py": (
+                "try:\n    from app.billing import service\nexcept ImportError:\n    service = None\n"
+                "import importlib\nplugin = importlib.import_module('app.plugins.' + 'x')\n"
+                "import requests\n"
+            ),
+            "src/app/core/__init__.py": "",
+            "src/app/core/errors.py": "class AppError(Exception):\n    pass\n",
+            "tests/test_routes.py": "from app.api import routes\n",
+        },
+    )
+    assert _edges(root) == {
+        ("src/app", "src/app/api"),
+        ("src/app/api", "src/app/billing"),
+        ("src/app/api", "src/app/core"),
+        ("src/app/billing", "src/app/payments"),
+        ("src/app/payments", "src/app/billing"),
+    }
+    data = graph.build(root)
+    modules = {m["path"]: m for m in data["modules"]}
+    assert "tests" not in modules
+    assert modules["src/app/payments"]["external"] == ["importlib", "requests"]
+    assert modules["src/app/billing"]["fan_in"] == 2 and modules["src/app/billing"]["fan_out"] == 1
+
+
+def test_python_que_no_parsea_cae_a_regex(tmp_path: Path) -> None:
+    root = _repo(
+        tmp_path,
+        {
+            "app/__init__.py": "",
+            "app/a.py": "from app.b import x\ndef broken(:\n",
+            "app/b/__init__.py": "x = 1\n",
+        },
+    )
+    assert _edges(root) == {("app", "app/b")}
+
+
+def test_js_ts_alias_index_workspace_dinamico_y_require_con_variable(tmp_path: Path) -> None:
+    root = _repo(
+        tmp_path,
+        {
+            "package.json": json.dumps({"name": "shop", "workspaces": ["packages/*"]}),
+            "packages/shared/package.json": json.dumps(
+                {"name": "@shop/shared", "main": "src/index.ts"}
+            ),
+            "packages/shared/src/index.ts": "export const price = 1;\n",
+            "packages/web/package.json": json.dumps({"name": "@shop/web"}),
+            "packages/web/tsconfig.json": (
+                '{\n  // comments are allowed\n  "compilerOptions": {"baseUrl": ".", "paths": {"@/*": ["src/*"]},},\n}\n'
+            ),
+            "packages/web/src/main.tsx": (
+                "import { App } from '@/pages/App';\nimport { price } from '@shop/shared';\n"
+                "import React from 'react';\nimport { Link } from 'react-router';\n"
+            ),
+            "packages/web/src/pages/App.tsx": (
+                "import Button from '../components';\n"
+                "const Admin = () => import('./admin/Admin');\n"
+                "// import { old } from '../legacy/old';\n"
+            ),
+            "packages/web/src/pages/admin/Admin.tsx": "export default 1;\n",
+            "packages/web/src/components/index.ts": "export { default } from './Button';\n",
+            "packages/web/src/components/Button.tsx": "export default () => null;\n",
+            "packages/web/src/legacy/old.ts": "export const old = 1;\n",
+            "packages/api/src/db/index.js": (
+                "const name = 'pg';\nconst driver = require(name);\n"
+                "const routes = require('../routes/orders');\n"
+            ),
+            "packages/api/src/routes/orders.js": "const { price } = require('@shop/shared');\nmodule.exports = {};\n",
+            "packages/api/src/routes/orders.test.js": "require('./orders');\n",
+        },
+    )
+    assert _edges(root) == {
+        ("packages/web/src", "packages/web/src/pages"),
+        ("packages/web/src", "packages/shared/src"),
+        ("packages/web/src/pages", "packages/web/src/components"),
+        ("packages/web/src/pages", "packages/web/src/pages/admin"),
+        ("packages/api/src/db", "packages/api/src/routes"),
+        ("packages/api/src/routes", "packages/shared/src"),
+    }
+    modules = {m["path"]: m for m in graph.build(root)["modules"]}
+    assert modules["packages/web/src"]["external"] == ["react", "react-router"]
+
+
+def test_java_wildcard_static_mismo_paquete_y_calificado(tmp_path: Path) -> None:
+    base = "src/main/java/com/example/library"
+    root = _repo(
+        tmp_path,
+        {
+            f"{base}/LibraryApplication.java": "package com.example.library;\nimport org.springframework.boot.SpringApplication;\n",
+            f"{base}/loans/LoanService.java": (
+                "package com.example.library.loans;\n"
+                "import com.example.library.books.*;\n"
+                "import static com.example.library.common.Dates.today;\n"
+                "import com.example.library.members.Member;\n"
+                "// import com.example.library.legacy.Old;\n"
+                "class LoanService { com.example.library.notifications.Notifier n; Loan l; }\n"
+            ),
+            f"{base}/loans/Loan.java": "package com.example.library.loans;\n",
+            f"{base}/members/Member.java": "package com.example.library.members;\nimport com.example.library.loans.Loan;\n",
+            f"{base}/books/Book.java": "package com.example.library.books;\n",
+            f"{base}/common/Dates.java": "package com.example.library.common;\n",
+            f"{base}/notifications/Notifier.java": "package com.example.library.notifications;\n",
+            "src/test/java/com/example/library/loans/LoanServiceTest.java": "import com.example.library.loans.LoanService;\n",
+        },
+    )
+    assert _edges(root) == {
+        (f"{base}/loans", f"{base}/books"),
+        (f"{base}/loans", f"{base}/common"),
+        (f"{base}/loans", f"{base}/members"),
+        (f"{base}/members", f"{base}/loans"),
+    }
+
+
+def test_strip_comments_respeta_los_strings() -> None:
+    text = "const url = 'http://example.com'; // trailing\n/* block\n */ const x = `a // b`;\n"
+    clean = graph.strip_comments(text)
+    assert "http://example.com" in clean and "a // b" in clean
+    assert "trailing" not in clean and "block" not in clean
+    assert clean.count("\n") == text.count("\n")
+
+
+def test_mermaid_y_escritura_idempotente(tmp_path: Path) -> None:
+    root = _repo(tmp_path, {"a/x.py": "import b.y\n", "b/y.py": "", "b/__init__.py": ""})
+    _, wrote = graph.write(root)
+    assert wrote is True
+    _, wrote = graph.write(root)
+    assert wrote is False
+    text = (root / ".exo" / "discovery" / graph.MERMAID).read_text(encoding="utf-8")
+    assert text.startswith("graph LR\n") and '["a"]' in text and "-->" in text
