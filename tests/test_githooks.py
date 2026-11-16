@@ -280,7 +280,7 @@ def test_doctor_y_el_bit_de_ejecucion(repo: Path) -> None:
         hook.chmod(0o644)
         result = project.sync(repo)
         assert hook.stat().st_mode & stat.S_IXUSR
-        assert any(a.reason == "executable bit" for a in result.engine.actions)
+        assert any(a.detail == "executable bit" for a in result.engine.actions)
 
 
 def test_cli_hook_commit_msg(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
