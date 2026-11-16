@@ -8,7 +8,9 @@
   generados, binarios, lo que pasa de 1 MB y `discovery.ignore`. Lo que produce el
   propio flujo (motor, specs, ADRs recuperados) ni se cuenta: commitear los
   resultados no puede cambiar el inventario.
-- **Hash:** sha256 con los fines de línea normalizados, igual en Windows y Linux.
+- **Hash, tamaño y corte de 1 MB:** sobre los bytes con los fines de línea
+  normalizados a LF, así dan igual en un checkout de Windows con `core.autocrlf` y en
+  Linux. Lo que pasa de 2 MB en disco se excluye sin leerlo: con LF sigue pasando 1 MB.
 - **Archivos de credenciales** (`.env`, claves): se listan por nombre y nunca se leen.
 """
 
@@ -136,7 +138,7 @@ _UNCOUNTED = frozenset({"engine", "specs", "recovered"})
 @dataclass(frozen=True)
 class SourceFile:
     path: str  # relativa al proyecto, con /
-    size: int
+    size: int  # bytes con LF (los de credenciales, que no se leen: el tamaño en disco)
     sha: str  # vacío para los archivos de credenciales, que no se leen
     language: str | None
     category: str  # code | test | migration | sensitive | other
@@ -162,17 +164,22 @@ def _generated(head: bytes) -> bool:
     )
 
 
+def to_lf(data: bytes) -> bytes:
+    """CRLF y CR sueltos como LF: los bytes que da el mismo archivo en cualquier checkout."""
+    return data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+
+
 def count_lines(data: bytes) -> int:
     """Líneas del archivo: una última línea sin salto también cuenta."""
     if not data:
         return 0
-    normalized = data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    normalized = to_lf(data)
     return normalized.count(b"\n") + (0 if normalized.endswith(b"\n") else 1)
 
 
 def normalized_hash(data: bytes) -> str:
     """sha256 con CRLF y CR sueltos como LF: el mismo archivo da el mismo hash en todo SO."""
-    return fsutil.sha256_bytes(data.replace(b"\r\n", b"\n").replace(b"\r", b"\n"))
+    return fsutil.sha256_bytes(to_lf(data))
 
 
 def language_of(path: str) -> str | None:
@@ -326,13 +333,16 @@ def list_files(project: Path, *, include_untracked: bool = False) -> FileSet:
                     SourceFile(rel, path.stat().st_size, "", language_of(rel), "sensitive", True)
                 )
                 continue
-            size = path.stat().st_size
-            if size > MAX_BYTES:
+            # Con CRLF un archivo ocupa como mucho el doble que con LF: lo que pasa de 2 MB
+            # en disco pasa de 1 MB en cualquier checkout, y no hace falta leerlo.
+            if path.stat().st_size > 2 * MAX_BYTES:
                 reason = "large"
             else:
-                data = fsutil.read_bytes(path)
+                data = to_lf(fsutil.read_bytes(path))
                 head = data[:_SNIFF]
-                if b"\0" in head:
+                if len(data) > MAX_BYTES:
+                    reason = "large"
+                elif b"\0" in head:
                     reason = "binary"
                 elif _generated(head[:512].lower()):
                     reason = "generated"
@@ -341,8 +351,8 @@ def list_files(project: Path, *, include_untracked: bool = False) -> FileSet:
                     result.files.append(
                         SourceFile(
                             rel,
-                            size,
-                            normalized_hash(data),
+                            len(data),
+                            fsutil.sha256_bytes(data),
                             language_of(rel),
                             category,
                             lines=count_lines(data),

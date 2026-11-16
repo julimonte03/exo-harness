@@ -3,6 +3,9 @@
 Los JSON se escriben deterministas (claves ordenadas, indentados, salto final) y solo
 si cambian, con `"schema"`: un motor más viejo rechaza un esquema más nuevo. Nada que
 varíe entre corridas iguales (sha de HEAD, versión del motor, fechas) entra acá.
+
+"Si cambian" ignora los fines de línea: en un checkout de Windows con `core.autocrlf`
+los archivos commiteados tienen CRLF, y reescribirlos con LF sería un cambio falso.
 """
 
 from __future__ import annotations
@@ -36,15 +39,29 @@ def dumps(payload: dict[str, Any]) -> bytes:
     return (json.dumps(data, indent=2, ensure_ascii=False, sort_keys=True) + "\n").encode("utf-8")
 
 
+def _lf(data: bytes) -> bytes:
+    return data.replace(b"\r\n", b"\n")
+
+
+def _write(project: Path, name: str, data: bytes) -> bool:
+    """Escribe `discovery/<name>` si cambió algo más que los fines de línea."""
+    path = fsutil.join_within(Path(project), rel(name))
+    try:
+        if _lf(fsutil.read_bytes(path)) == _lf(data):
+            return False
+    except (FileNotFoundError, IsADirectoryError):
+        pass
+    fsutil.write_atomic(path, data)
+    return True
+
+
 def write_json(project: Path, name: str, payload: dict[str, Any]) -> bool:
     """Escribe `discovery/<name>` si cambió. Devuelve si escribió."""
-    path = fsutil.join_within(Path(project), rel(name))
-    return fsutil.write_if_changed(path, dumps(payload))
+    return _write(project, name, dumps(payload))
 
 
 def write_text(project: Path, name: str, text: str) -> bool:
-    path = fsutil.join_within(Path(project), rel(name))
-    return fsutil.write_if_changed(path, text.encode("utf-8"))
+    return _write(project, name, text.encode("utf-8"))
 
 
 def read_json(project: Path, name: str) -> dict[str, Any] | None:

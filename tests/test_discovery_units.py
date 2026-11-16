@@ -81,6 +81,34 @@ def test_commitear_los_resultados_no_cambia_el_inventario(repo: Path) -> None:
     assert _discovery_bytes(repo) == before
 
 
+def _to_crlf(root: Path) -> None:
+    """Simula un checkout de Windows con `core.autocrlf=true`: todo texto con CRLF."""
+    for path in root.rglob("*"):
+        if path.is_file() and ".git" not in path.relative_to(root).parts:
+            data = path.read_bytes().replace(b"\r\n", b"\n")
+            path.write_bytes(data.replace(b"\n", b"\r\n"))
+
+
+@needs_git
+def test_un_checkout_con_crlf_da_lo_mismo_y_no_reescribe(repo: Path) -> None:
+    """H2: la misma historia con CRLF da los mismos JSON, no reescribe y no bloquea `plan`."""
+    planner.write(repo)
+    _write_doc(repo, "src-auth", "Login issues a token. [Code] src/auth/login.py:4-5")
+    units.done(repo, "src-auth")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "docs: discovery")
+    git(repo, "config", "core.autocrlf", "true")
+    lf = _discovery_bytes(repo)
+    _to_crlf(repo)
+    crlf = _discovery_bytes(repo)
+    assert crlf != lf
+    assert inventory.write(repo)[1] is False
+    assert pipeline.structure(repo)["written"] is False
+    assert planner.write(repo)[1] is False  # sin PlanError: el plan es el mismo
+    assert _discovery_bytes(repo) == crlf
+    assert pipeline.status(repo)["units"] == {"pending": 3, "done": 1, "stale": 0}
+
+
 def test_plan_ids_estables_partidos_entre_archivos_y_prioridad(repo: Path) -> None:
     plan, wrote = planner.write(repo)
     assert wrote is True
