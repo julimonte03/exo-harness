@@ -71,6 +71,8 @@ show_missing = true
 line-length = 100
 target-version = "py310"
 src = ["src", "tests"]
+# Los repos de prueba de la ingeniería inversa imitan proyectos ajenos: no se lintean.
+extend-exclude = ["tests/fixtures/repos"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]
