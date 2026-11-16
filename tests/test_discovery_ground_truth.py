@@ -7,7 +7,6 @@ se copia a una carpeta temporal con su propia historia git (ADR-0015).
 from __future__ import annotations
 
 import shutil
-from pathlib import Path
 
 import pytest
 
