@@ -24,7 +24,6 @@ import re
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from exo.core import fsutil
 from exo.discovery import files as files_mod
 from exo.discovery import store
 
@@ -110,13 +109,6 @@ _ARTIFACT = re.compile(r"<artifactId>\s*([^<\s]+)\s*</artifactId>")
 def _match(path: str, patterns: tuple[str, ...]) -> bool:
     name = PurePosixPath(path).name
     return any(fnmatch.fnmatchcase(path if "/" in p else name, p) for p in patterns)
-
-
-def _read(project: Path, rel: str) -> str:
-    try:
-        return fsutil.read_text_auto(project / rel)
-    except (OSError, UnicodeDecodeError):
-        return ""
 
 
 def _dep_name(spec: str) -> str | None:
@@ -250,44 +242,47 @@ def _java_frameworks(artifacts: list[str], build: str) -> set[str]:
     return found
 
 
-def _manifests(project: Path, paths: list[str]) -> tuple[list[dict[str, Any]], set[str]]:
+def _manifests(
+    reader: files_mod.TextReader, paths: list[str]
+) -> tuple[list[dict[str, Any]], set[str]]:
     manifests: list[dict[str, Any]] = []
     frameworks: set[str] = set()
+    _read = reader.text
     for rel in paths:
         name = PurePosixPath(rel).name
         if name == "pyproject.toml":
-            pkg, deps, scripts = _pyproject(_read(project, rel))
+            pkg, deps, scripts = _pyproject(_read(rel))
             manifests.append(
                 {"path": rel, "ecosystem": "python", "name": pkg, "dependencies": deps}
             )
             frameworks |= {PYTHON_FRAMEWORKS[d] for d in deps if d in PYTHON_FRAMEWORKS}
         elif fnmatch.fnmatchcase(name, "requirements*.txt"):
-            deps = _requirements(_read(project, rel))
+            deps = _requirements(_read(rel))
             manifests.append(
                 {"path": rel, "ecosystem": "python", "name": None, "dependencies": deps}
             )
             frameworks |= {PYTHON_FRAMEWORKS[d] for d in deps if d in PYTHON_FRAMEWORKS}
         elif name == "package.json":
-            data = _package_json(_read(project, rel))
+            data = _package_json(_read(rel))
             deps = _node_deps(data)
             pkg = data.get("name") if isinstance(data.get("name"), str) else None
             manifests.append({"path": rel, "ecosystem": "node", "name": pkg, "dependencies": deps})
             frameworks |= {NODE_FRAMEWORKS[d] for d in deps if d in NODE_FRAMEWORKS}
         elif name == "pom.xml":
-            deps = _maven_deps(_read(project, rel))
+            deps = _maven_deps(_read(rel))
             manifests.append(
                 {"path": rel, "ecosystem": "maven", "name": None, "dependencies": deps}
             )
             frameworks |= _java_frameworks(deps, "maven")
         elif name in ("build.gradle", "build.gradle.kts"):
-            text = _read(project, rel)
+            text = _read(rel)
             deps = sorted(set(re.findall(r"['\"][\w.-]+:([\w.-]+)(?::[\w.+-]+)?['\"]", text)))
             manifests.append(
                 {"path": rel, "ecosystem": "gradle", "name": None, "dependencies": deps}
             )
             frameworks |= _java_frameworks(deps, "gradle")
         elif name == "go.mod":
-            text = _read(project, rel)
+            text = _read(rel)
             module = re.search(r"(?m)^module\s+(\S+)", text)
             deps = sorted(set(re.findall(r"(?m)^\s*([\w.-]+\.[\w./-]+)\s+v[\w.+-]+", text)))
             manifests.append(
@@ -300,15 +295,13 @@ def _manifests(project: Path, paths: list[str]) -> tuple[list[dict[str, Any]], s
             )
             frameworks.add("go")
         elif name.endswith(".csproj"):
-            deps = sorted(
-                set(re.findall(r'PackageReference\s+Include="([^"]+)"', _read(project, rel)))
-            )
+            deps = sorted(set(re.findall(r'PackageReference\s+Include="([^"]+)"', _read(rel))))
             manifests.append(
                 {"path": rel, "ecosystem": "dotnet", "name": None, "dependencies": deps}
             )
             frameworks.add("dotnet")
         elif name == "Cargo.toml":
-            sections = _toml_sections(_read(project, rel))
+            sections = _toml_sections(_read(rel))
             deps = sorted(
                 {
                     line.split("=")[0].strip()
@@ -352,10 +345,11 @@ def _node_path(base: PurePosixPath, target: str, existing: set[str]) -> str | No
 
 
 def _entrypoints(
-    project: Path, fileset: files_mod.FileSet, manifests: list[dict[str, Any]]
+    reader: files_mod.TextReader, fileset: files_mod.FileSet, manifests: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
     existing = {f.path for f in fileset.files}
     found: dict[str, set[str]] = {}
+    _read = reader.text
 
     def add(path: str | None, kind: str) -> None:
         if path:
@@ -368,10 +362,10 @@ def _entrypoints(
         if item.language == "python":
             if name == "__main__.py":
                 add(item.path, "python-main")
-            if _MAIN_GUARD.search(_read(project, item.path)):
+            if _MAIN_GUARD.search(_read(item.path)):
                 add(item.path, "main-guard")
         elif item.language == "java":
-            text = _read(project, item.path)
+            text = _read(item.path)
             if _SPRING_APP.search(text):
                 add(item.path, "spring-boot")
             elif _JAVA_MAIN.search(text):
@@ -379,11 +373,11 @@ def _entrypoints(
     for manifest in manifests:
         base = PurePosixPath(manifest["path"]).parent
         if manifest["ecosystem"] == "python" and manifest["path"].endswith("pyproject.toml"):
-            _, _, scripts = _pyproject(_read(project, manifest["path"]))
+            _, _, scripts = _pyproject(_read(manifest["path"]))
             for target in scripts.values():
                 add(_script_target(base, target, existing), "console-script")
         if manifest["ecosystem"] == "node":
-            data = _package_json(_read(project, manifest["path"]))
+            data = _package_json(_read(manifest["path"]))
             main = data.get("main")
             if isinstance(main, str):
                 add(_node_path(base, main, existing), "node-main")
@@ -399,7 +393,7 @@ def _entrypoints(
     for item in fileset.files:
         if PurePosixPath(item.path).name == "index.html":
             base = PurePosixPath(item.path).parent
-            for a, b in _HTML_MODULE.findall(_read(project, item.path)):
+            for a, b in _HTML_MODULE.findall(_read(item.path)):
                 src = a or b
                 if "://" not in src:
                     target = src.lstrip("/")
@@ -432,7 +426,8 @@ def build(project: Path, fileset: files_mod.FileSet | None = None) -> dict[str, 
             entry["files"] += 1
             entry["lines"] += item.lines
     readable = [f.path for f in fileset.files if not f.sensitive]
-    manifests, frameworks = _manifests(project, readable)
+    reader = files_mod.TextReader(project)
+    manifests, frameworks = _manifests(reader, readable)
     if any(PurePosixPath(p).name.startswith("tsconfig") for p in readable):
         frameworks.add("typescript")
     if any(PurePosixPath(p).name == "conftest.py" for p in readable):
@@ -441,6 +436,7 @@ def build(project: Path, fileset: files_mod.FileSet | None = None) -> dict[str, 
         frameworks.add("alembic")
     tests = [f.path for f in fileset.files if f.category == "test"]
     adr_dir, adr_exists = _adr_dir(paths)
+    entrypoints = _entrypoints(reader, fileset, manifests)
     return {
         "files": {
             "analyzed": len(fileset.files),
@@ -451,7 +447,7 @@ def build(project: Path, fileset: files_mod.FileSet | None = None) -> dict[str, 
         "categories": dict(sorted(categories.items())),
         "manifests": manifests,
         "frameworks": sorted(frameworks),
-        "entrypoints": _entrypoints(project, fileset, manifests),
+        "entrypoints": entrypoints,
         "tests": {
             "frameworks": sorted(f for f in frameworks if f in TEST_FRAMEWORKS),
             "files": tests,
@@ -464,7 +460,7 @@ def build(project: Path, fileset: files_mod.FileSet | None = None) -> dict[str, 
         "sensitive_files": [f.path for f in fileset.files if f.sensitive],
         "adr_dir": adr_dir,
         "adr_dir_exists": adr_exists,
-        "warnings": list(fileset.warnings),
+        "warnings": [*fileset.warnings, *reader.warnings],
     }
 
 

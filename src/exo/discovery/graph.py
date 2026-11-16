@@ -10,6 +10,8 @@ Los extractores son heurísticos con stdlib (D-14):
 - **JS/TS:** regex sobre el texto sin comentarios, con extensiones, `index`, los
   `paths` del `tsconfig.json` y los workspaces del repo.
 - **Java:** regex de `import`, con las raíces `src/main/java/`.
+
+Un archivo que no es UTF-8 se lee con caracteres de reemplazo y queda en `warnings`.
 """
 
 from __future__ import annotations
@@ -22,7 +24,6 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from exo.core import fsutil
 from exo.discovery import files as files_mod
 from exo.discovery import store
 
@@ -55,7 +56,10 @@ class Index:
     tsconfigs: dict[str, tuple[str, dict[str, list[str]]]] = field(default_factory=dict)
 
     @classmethod
-    def build(cls, project: Path, paths: list[str]) -> Index:
+    def build(
+        cls, project: Path, paths: list[str], reader: files_mod.TextReader | None = None
+    ) -> Index:
+        reader = reader or files_mod.TextReader(project)
         index = cls(set(paths))
         for path in paths:
             parent = PurePosixPath(path).parent
@@ -77,8 +81,8 @@ class Index:
         index.java_roots = sorted(
             {d for d in index.dirs if d == "src/main/java" or d.endswith("/src/main/java")}
         )
-        index.workspaces = _workspaces(project, paths)
-        index.tsconfigs = _tsconfigs(project, paths)
+        index.workspaces = _workspaces(reader, paths)
+        index.tsconfigs = _tsconfigs(reader, paths)
         return index
 
 
@@ -130,7 +134,7 @@ def python_imports(path: str, source: bytes, index: Index) -> tuple[set[str], se
                 statements.append((node.level, node.module or "", names))
     except (SyntaxError, ValueError):
         statements = []
-        text = source.decode("utf-8", errors="replace")
+        text = files_mod.decode(files_mod.to_lf(source))[0]
         for match in _PY_FALLBACK.finditer(text):
             if match.group(3):
                 for item in match.group(3).split(","):
@@ -212,16 +216,11 @@ def _loose_json(text: str) -> Any:
         return None
 
 
-def _read(project: Path, rel: str) -> str:
-    try:
-        return fsutil.read_text_auto(project / rel)
-    except (OSError, UnicodeDecodeError):
-        return ""
-
-
-def _workspaces(project: Path, paths: list[str]) -> dict[str, tuple[str, str | None]]:
+def _workspaces(
+    reader: files_mod.TextReader, paths: list[str]
+) -> dict[str, tuple[str, str | None]]:
     """Paquetes del propio repo, por nombre: (carpeta, archivo de entrada)."""
-    root = _loose_json(_read(project, "package.json")) if "package.json" in paths else None
+    root = _loose_json(reader.text("package.json")) if "package.json" in paths else None
     patterns: list[str] = []
     if isinstance(root, dict):
         spaces = root.get("workspaces")
@@ -236,7 +235,7 @@ def _workspaces(project: Path, paths: list[str]) -> dict[str, tuple[str, str | N
         folder = posixpath.dirname(path)
         if patterns and not any(PurePosixPath(folder).match(p) for p in patterns):
             continue
-        data = _loose_json(_read(project, path))
+        data = _loose_json(reader.text(path))
         if not isinstance(data, dict) or not isinstance(data.get("name"), str):
             continue
         entry = data.get("main")
@@ -249,14 +248,16 @@ def _workspaces(project: Path, paths: list[str]) -> dict[str, tuple[str, str | N
     return found
 
 
-def _tsconfigs(project: Path, paths: list[str]) -> dict[str, tuple[str, dict[str, list[str]]]]:
+def _tsconfigs(
+    reader: files_mod.TextReader, paths: list[str]
+) -> dict[str, tuple[str, dict[str, list[str]]]]:
     """Por carpeta de cada `tsconfig.json`: (baseUrl resuelto, paths)."""
     found: dict[str, tuple[str, dict[str, list[str]]]] = {}
     for path in paths:
         if PurePosixPath(path).name != "tsconfig.json":
             continue
         folder = posixpath.dirname(path) or "."
-        data = _loose_json(_read(project, path))
+        data = _loose_json(reader.text(path))
         options = data.get("compilerOptions") if isinstance(data, dict) else None
         if not isinstance(options, dict):
             continue
@@ -375,11 +376,25 @@ def module_of(path: str) -> str:
     return posixpath.dirname(path) or "."
 
 
+def imports(
+    item: files_mod.SourceFile, index: Index, reader: files_mod.TextReader
+) -> tuple[set[str], set[str]]:
+    """(archivos del proyecto importados, paquetes externos) de un archivo, por lenguaje."""
+    if item.language == "python":
+        return python_imports(item.path, reader.python(item.path), index)
+    if item.language in ("javascript", "typescript"):
+        return js_imports(item.path, reader.text(item.path), index)
+    if item.language == "java":
+        return java_imports(item.path, reader.text(item.path), index)
+    return set(), set()
+
+
 def build(project: Path, fileset: files_mod.FileSet | None = None) -> dict[str, Any]:
     project = Path(project)
     fileset = fileset or files_mod.list_files(project)
     readable = [f.path for f in fileset.files if not f.sensitive]
-    index = Index.build(project, readable)
+    reader = files_mod.TextReader(project)
+    index = Index.build(project, readable, reader)
     code = [f for f in fileset.files if f.category == "code"]
     modules: dict[str, dict[str, Any]] = {}
     edges: dict[tuple[str, str], int] = {}
@@ -392,15 +407,7 @@ def build(project: Path, fileset: files_mod.FileSet | None = None) -> dict[str, 
         entry["lines"] += item.lines
         if item.language:
             entry["languages"].add(item.language)
-        if item.language == "python":
-            raw = fsutil.read_bytes(project / item.path)
-            targets, outside = python_imports(item.path, raw, index)
-        elif item.language in ("javascript", "typescript"):
-            targets, outside = js_imports(item.path, _read(project, item.path), index)
-        elif item.language == "java":
-            targets, outside = java_imports(item.path, _read(project, item.path), index)
-        else:
-            targets, outside = set(), set()
+        targets, outside = imports(item, index, reader)
         external.setdefault(module, set()).update(outside)
         for target in targets:
             if target not in production:
@@ -424,6 +431,7 @@ def build(project: Path, fileset: files_mod.FileSet | None = None) -> dict[str, 
             for name, data in sorted(modules.items())
         ],
         "edges": [{"from": a, "to": b, "imports": n} for (a, b), n in sorted(edges.items())],
+        "warnings": reader.warnings,
     }
 
 

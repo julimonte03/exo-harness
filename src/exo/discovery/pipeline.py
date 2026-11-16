@@ -33,7 +33,7 @@ def structure(project: Path) -> dict[str, Any]:
     return {
         "modules": len(data["modules"]),
         "edges": len(data["edges"]),
-        "warnings": metrics["hotspots"]["warnings"],
+        "warnings": [*data["warnings"], *metrics["hotspots"]["warnings"]],
         "written": wrote or wrote_metrics,
     }
 

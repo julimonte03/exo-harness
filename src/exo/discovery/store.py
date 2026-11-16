@@ -68,10 +68,14 @@ def read_json(project: Path, name: str) -> dict[str, Any] | None:
     """El JSON de `discovery/<name>`, o None si no existe."""
     path = root(project) / name
     try:
-        data = json.loads(fsutil.read_text_auto(path))
+        text = fsutil.read_text_auto(path)
     except FileNotFoundError:
         return None
-    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+    except ValueError as exc:  # ni UTF-8 ni UTF-16
+        raise DiscoveryError(f"{rel(name)} is not UTF-8 text; run the step again") from exc
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
         raise DiscoveryError(f"{rel(name)} is not valid JSON ({exc}); run the step again") from exc
     if not isinstance(data, dict):
         raise DiscoveryError(f"{rel(name)} must be a JSON object; run the step again")

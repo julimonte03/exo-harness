@@ -12,11 +12,14 @@
   normalizados a LF, así dan igual en un checkout de Windows con `core.autocrlf` y en
   Linux. Lo que pasa de 2 MB en disco se excluye sin leerlo: con LF sigue pasando 1 MB.
 - **Archivos de credenciales** (`.env`, claves): se listan por nombre y nunca se leen.
+- **Texto que no es UTF-8:** se lee con caracteres de reemplazo y queda un aviso
+  (`TextReader`). Nunca se le pide a la persona que lo cambie: es código del proyecto.
 """
 
 from __future__ import annotations
 
 import fnmatch
+import re
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
@@ -180,6 +183,59 @@ def count_lines(data: bytes) -> int:
 def normalized_hash(data: bytes) -> str:
     """sha256 con CRLF y CR sueltos como LF: el mismo archivo da el mismo hash en todo SO."""
     return fsutil.sha256_bytes(to_lf(data))
+
+
+# PEP 263: la declaración de codificación en la primera o la segunda línea.
+_PY_CODING = re.compile(rb"^[ \t\f]*#.*?coding[:=][ \t]*[-\w.]+", re.MULTILINE)
+
+
+def decode(data: bytes) -> tuple[str, bool]:
+    """(texto, si hubo que reemplazar caracteres). UTF-8 con o sin BOM, o UTF-16 con BOM."""
+    codec = "utf-16" if data.startswith((b"\xff\xfe", b"\xfe\xff")) else "utf-8-sig"
+    try:
+        return data.decode(codec), False
+    except UnicodeDecodeError:
+        return data.decode(codec, errors="replace"), True
+
+
+def not_utf8(rel: str) -> str:
+    return (
+        f"{rel} is not UTF-8 text: it was read with replacement characters, so names in it "
+        "may not match"
+    )
+
+
+class TextReader:
+    """Lee archivos del proyecto sin fallar nunca y junta los que no eran UTF-8."""
+
+    def __init__(self, project: Path) -> None:
+        self.project = Path(project)
+        self.lossy: set[str] = set()
+
+    def raw(self, rel: str) -> bytes:
+        try:
+            return fsutil.read_bytes(self.project / rel)
+        except OSError:
+            return b""
+
+    def text(self, rel: str) -> str:
+        text, lossy = decode(self.raw(rel))
+        if lossy:
+            self.lossy.add(rel)
+        return text
+
+    def python(self, rel: str) -> bytes:
+        """Los bytes de un archivo Python, para `ast`: con una declaración de codificación
+        (PEP 263) no es un problema que no sea UTF-8."""
+        data = self.raw(rel)
+        head = b"\n".join(data.split(b"\n", 2)[:2])
+        if not _PY_CODING.search(head) and decode(data)[1]:
+            self.lossy.add(rel)
+        return data
+
+    @property
+    def warnings(self) -> list[str]:
+        return [not_utf8(rel) for rel in sorted(self.lossy)]
 
 
 def language_of(path: str) -> str | None:
