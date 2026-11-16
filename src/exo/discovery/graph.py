@@ -30,7 +30,7 @@ from exo.discovery import store
 
 FILENAME = "structure.json"
 MERMAID = "module-graph.mmd"
-JS_EXTENSIONS = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
+JS_EXTENSIONS = (".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")
 _PY_FALLBACK = re.compile(
     r"^\s*(?:from\s+(\.*[\w.]*)\s+import\s+(.+)|import\s+(.+))$", re.MULTILINE
 )
@@ -51,9 +51,8 @@ class Index:
     dirs: set[str] = field(default_factory=set)
     python_roots: list[str] = field(default_factory=list)
     java_roots: list[str] = field(default_factory=list)
-    workspaces: dict[str, tuple[str, str | None]] = field(
-        default_factory=dict
-    )  # nombre -> (dir, main)
+    # nombre -> (carpeta, entradas posibles en orden)
+    workspaces: dict[str, tuple[str, tuple[str, ...]]] = field(default_factory=dict)
     tsconfigs: dict[str, tuple[str, dict[str, list[str]]]] = field(default_factory=dict)
 
     @classmethod
@@ -88,8 +87,8 @@ class Index:
 
 
 def _join(*parts: str) -> str:
-    joined = posixpath.normpath(posixpath.join(*[p for p in parts if p and p != "."]) or ".")
-    return joined
+    kept = [p for p in parts if p and p != "."]
+    return posixpath.normpath(posixpath.join(*kept)) if kept else "."
 
 
 # -- Python ---------------------------------------------------------------------------------
@@ -225,8 +224,12 @@ def _loose_json(text: str) -> Any:
 
 def _workspaces(
     reader: files_mod.TextReader, paths: list[str]
-) -> dict[str, tuple[str, str | None]]:
-    """Paquetes del propio repo, por nombre: (carpeta, archivo de entrada)."""
+) -> dict[str, tuple[str, tuple[str, ...]]]:
+    """Paquetes del propio repo, por nombre: (carpeta, entradas posibles en orden).
+
+    `exports` o `main` suelen apuntar a lo compilado (`dist/`, excluido): después se
+    prueban `types`/`typings` y `src/index.*`.
+    """
     root = _loose_json(reader.text("package.json")) if "package.json" in paths else None
     patterns: list[str] = []
     if isinstance(root, dict):
@@ -235,7 +238,7 @@ def _workspaces(
             spaces = spaces.get("packages")
         if isinstance(spaces, list):
             patterns = [str(p).rstrip("/") for p in spaces]
-    found: dict[str, tuple[str, str | None]] = {}
+    found: dict[str, tuple[str, tuple[str, ...]]] = {}
     for path in paths:
         if PurePosixPath(path).name != "package.json" or path == "package.json":
             continue
@@ -245,43 +248,84 @@ def _workspaces(
         data = _loose_json(reader.text(path))
         if not isinstance(data, dict) or not isinstance(data.get("name"), str):
             continue
-        entry = data.get("main")
         exports = data.get("exports")
-        if isinstance(exports, dict) and isinstance(exports.get("."), str):
-            entry = exports["."]
-        elif isinstance(exports, str):
-            entry = exports
-        found[data["name"]] = (folder, entry if isinstance(entry, str) else None)
+        if isinstance(exports, dict):
+            exports = exports.get(".")
+        declared = [exports, data.get("main")]
+        entries = [e for e in declared if isinstance(e, str)]
+        if not entries:
+            entries.append("index")  # lo que usa Node sin `main`
+        entries += [e for e in (data.get("types"), data.get("typings")) if isinstance(e, str)]
+        entries.append("src/index")
+        found[data["name"]] = (folder, tuple(dict.fromkeys(entries)))
     return found
+
+
+def _tsconfig_options(
+    reader: files_mod.TextReader, path: str, paths: set[str], seen: frozenset[str] = frozenset()
+) -> dict[str, Any]:
+    """Las `compilerOptions` que importan (`baseUrl`, `paths`) de un tsconfig, con las de
+    sus `extends` relativos fusionadas debajo (varios niveles, sin ciclos).
+
+    Como en TypeScript, cada ruta es relativa al tsconfig que la declara: `baseUrl` queda
+    resuelto y `paths` lleva su carpeta, la base cuando no hay `baseUrl`.
+    """
+    if path in seen or path not in paths:
+        return {}
+    data = _loose_json(reader.text(path))
+    if not isinstance(data, dict):
+        return {}
+    folder = posixpath.dirname(path) or "."
+    merged: dict[str, Any] = {}
+    parents = data.get("extends")
+    for parent in parents if isinstance(parents, list) else [parents]:
+        if not isinstance(parent, str) or not parent.startswith(("./", "../")):
+            continue  # un paquete (`@tsconfig/node20`) no está en el repo
+        target = _join(folder, parent)
+        for candidate in (target, target + ".json"):
+            if candidate in paths:
+                merged.update(_tsconfig_options(reader, candidate, paths, seen | {path}))
+                break
+    options = data.get("compilerOptions")
+    if isinstance(options, dict):
+        if isinstance(options.get("baseUrl"), str):
+            merged["baseUrl"] = _join(folder, options["baseUrl"])
+        aliases = options.get("paths")
+        if isinstance(aliases, dict):
+            merged["paths"] = {
+                str(k): [str(v) for v in values]
+                for k, values in aliases.items()
+                if isinstance(values, list)
+            }
+            merged["paths_base"] = folder
+    return merged
 
 
 def _tsconfigs(
     reader: files_mod.TextReader, paths: list[str]
 ) -> dict[str, tuple[str, dict[str, list[str]]]]:
-    """Por carpeta de cada `tsconfig.json`: (baseUrl resuelto, paths)."""
+    """Por carpeta de cada `tsconfig.json` con `paths` (propios o heredados por `extends`):
+    (base resuelta, paths). Uno sin `paths` no figura: sus archivos usan los del tsconfig
+    padre más cercano."""
+    existing = set(paths)
     found: dict[str, tuple[str, dict[str, list[str]]]] = {}
     for path in paths:
         if PurePosixPath(path).name != "tsconfig.json":
             continue
-        folder = posixpath.dirname(path) or "."
-        data = _loose_json(reader.text(path))
-        options = data.get("compilerOptions") if isinstance(data, dict) else None
-        if not isinstance(options, dict):
-            continue
-        base = _join(folder, str(options.get("baseUrl", ".")))
-        aliases = options.get("paths")
-        clean = {
-            str(k): [str(v) for v in values]
-            for k, values in (aliases.items() if isinstance(aliases, dict) else [])
-            if isinstance(values, list)
-        }
-        found[folder] = (base, clean)
+        options = _tsconfig_options(reader, path, existing)
+        if "paths" in options:
+            base = options.get("baseUrl", options["paths_base"])
+            found[posixpath.dirname(path) or "."] = (base, options["paths"])
     return found
 
 
 def _js_file(stem: str, index: Index) -> str | None:
     candidates = [stem] + [stem + ext for ext in JS_EXTENSIONS]
     candidates += [_join(stem, "index" + ext) for ext in JS_EXTENSIONS]
+    # `./x.js` en TypeScript (ESM) apunta a `x.ts`: el especificador es el del compilado.
+    root, ext = posixpath.splitext(stem)
+    if ext in (".js", ".mjs", ".cjs"):
+        candidates += [root + ts for ts in (".ts", ".tsx", ".mts", ".cts")]
     for candidate in candidates:
         if candidate in index.files:
             return candidate
@@ -291,7 +335,7 @@ def _js_file(stem: str, index: Index) -> str | None:
 def _nearest_tsconfig(path: str, index: Index) -> tuple[str, dict[str, list[str]]] | None:
     folder = PurePosixPath(path).parent
     while True:
-        key = folder.as_posix()
+        key = folder.as_posix() or "."
         if key in index.tsconfigs:
             return index.tsconfigs[key]
         if folder == folder.parent:
@@ -319,10 +363,13 @@ def _js_resolve(path: str, spec: str, index: Index) -> tuple[str | None, str | N
                     found = _js_file(_join(base, target), index)
                     if found:
                         return found, None
-    for name, (folder, entry) in index.workspaces.items():
+    for name, (folder, entries) in index.workspaces.items():
         if spec == name:
-            found = _js_file(_join(folder, entry or "index"), index)
-            return found, None if found else name
+            for entry in entries:
+                found = _js_file(_join(folder, entry), index)
+                if found:
+                    return found, None
+            return None, name
         if spec.startswith(name + "/"):
             return _js_file(_join(folder, spec[len(name) + 1 :]), index), None
     parts = spec.split("/")
