@@ -1,6 +1,6 @@
 # Progreso de construcción
 
-**Fase activa:** ninguna. F5 cerrada el 2026-11-16 (hito M2, v0.1.0); la próxima es F6, que arranca con su plan.
+**Fase activa:** F6, en curso (plan aprobado el 2026-11-16; rama `feat/F6-ingenieria-inversa`). D-14, D-19 y D-33 a D-37 → ADR-0015.
 
 Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron con el comando exacto, la CI está verde en los tres sistemas operativos y el PR de la fase está mergeado.
 
@@ -16,7 +16,7 @@ Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron 
 | F3 Memoria v2 | Terminada (local; CI diferida) | `feat/F3-memoria`, mergeada a `main` en local, sin PR | 2026-11-13 | 2026-11-13 | Criterios 2–8 OK en Windows (3.14 y 3.10 sin extras) y Linux (WSL, con y sin extras). Criterio 1 fuera de alcance (ADR-0009). D-07/D-08 → ADR-0010; D-20, D-24 y D-25 → ADR-0009; D-12 parcial |
 | F4 Ciclo SDD | Terminada (local; CI diferida) | `feat/F4-ciclo-sdd`, mergeada a `main` en local, sin PR | 2026-11-14 | 2026-11-14 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL); 4 a 7 con Claude Code real. Criterio 6 sin Copilot (opcional). D-26, D-27 y D-28; D-11 → ADR-0013 |
 | F5 Gobierno y gates | Terminada (local; CI diferida) | `feat/F5-gobierno`, mergeada a `main` en local, sin PR | 2026-11-15 | 2026-11-16 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL); 7 con Claude Code real (Tier 1 y Tier 2), Copilot opcional. Hito M2 (v0.1.0). D-12, D-21 y D-29 a D-32 → ADR-0014 |
-| F6 Ingeniería inversa | Pendiente | | | | |
+| F6 Ingeniería inversa | En curso | `feat/F6-ingenieria-inversa` | 2026-11-16 | | D-14, D-19 y D-33 a D-37 → ADR-0015. Criterio 8 diferido a F8 (D-35) |
 | F7 Packs | Pendiente | | | | |
 | F8 Endurecimiento + v1.0 | Pendiente | | | | |
 

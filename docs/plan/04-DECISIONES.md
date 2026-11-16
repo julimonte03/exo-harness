@@ -109,11 +109,11 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 
 ### D-14 — Parsers para ingeniería inversa
 - **Default:** heurísticas con stdlib en la v1 (`ast` para Python, expresiones regulares para imports de JS/TS y Java, nivel de archivo para el resto). tree-sitter como extra opcional más adelante.
-- **Estado:** Abierta.
+- **Estado:** Decidida (ADR-0015), 2026-11-16: el default.
 
 ### D-19 — Ejecutar build/tests durante la ingeniería inversa
 - **Default:** solo con confirmación explícita del humano, para medir la línea base de calidad. Sin confirmación, se infiere desde archivos de test y configuración.
-- **Estado:** Abierta.
+- **Estado:** Decidida (ADR-0015), 2026-11-16: en F6 el pipeline no corre build ni tests. Medir la línea base queda como item del backlog de adopción, con confirmación.
 
 ## No bloquean (se pueden decidir más tarde)
 
@@ -196,3 +196,26 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
   1. el escáner de secretos y datos sobre un dataset sintético empaquetado;
   2. S2 con entradas maliciosas;
   3. los git hooks instalados y activos en el proyecto (o husky).
+
+### D-33 — El pack `discovery` y la instalación por defecto
+- **Contexto:** `discovery` sirve para adoptar un proyecto que ya existe; en un repo vacío no tiene sentido.
+- **Opciones:** (a) por defecto siempre; (b) solo si el repo ya tiene código; (c) nunca por defecto.
+- **Estado:** Decidida por el dueño (ADR-0015), 2026-11-16: (b). El wizard lo **ofrece** cuando detecta código, sin instalarlo solo; se suma con `--packs`.
+
+### D-34 — ¿Se commitea `.exo/discovery/`?
+- **Contexto:** la ingeniería inversa deja inventario, grafo, plan, unidades, muestra y auditoría.
+- **Opciones:** (a) se commitea; (b) va a `.gitignore`.
+- **Estado:** Decidida por el dueño (ADR-0015), 2026-11-16: (a). Es conocimiento del proyecto, y otra persona u otra máquina retoma desde ahí. Por eso el estado no tiene datos que varíen entre corridas ni un archivo compartido que se pise.
+
+### D-35 — Prueba de escala de la adopción
+- **Contexto:** el criterio 8 de F6 pide adoptar un repo real de 20 a 50 mil líneas y medir una cobertura de módulos ≥ 80 %.
+- **Opciones:** (a) un repo público que se descarga; (b) uno que ya tenga el dueño; (c) diferirla.
+- **Estado:** Decidida por el dueño, 2026-11-16: (c), a F8, junto con el resto de las pruebas de escala.
+
+### D-36 — `exo uninstall` y lo que produjo la ingeniería inversa
+- **Contexto:** `uninstall` borra toda la carpeta del motor. `discovery/` y `context.md` son conocimiento del proyecto, no instalación del motor.
+- **Estado:** Decidida (ADR-0015), 2026-11-16: `uninstall` los conserva y lo informa.
+
+### D-37 — Memoria en la ingeniería inversa
+- **Contexto:** el plan de F6 guardaba un resumen por unidad en memoria (`discovery/<unidad>`). La memoria es por usuario (ADR-0009) y el estado ya se commitea (D-34).
+- **Estado:** Decidida (ADR-0015), 2026-11-16: las skills de discovery no escriben memoria. Es un desvío del plan.
