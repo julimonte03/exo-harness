@@ -65,6 +65,20 @@ def register_actions(actions: argparse._SubParsersAction) -> None:
         help=f"set a field ({', '.join(changes.SET_FIELDS)})",
     )
     rec.add_argument(
+        "--followup",
+        action="append",
+        default=[],
+        metavar="JSON",
+        help="add a judge finding to followups.json (JSON, or @<file>)",
+    )
+    rec.add_argument(
+        "--fixed",
+        action="append",
+        default=[],
+        metavar="ID",
+        help="mark a followup as fixed, by its id (for example JSEC-1)",
+    )
+    rec.add_argument(
         "--phase-done",
         metavar="PHASE",
         help=(
@@ -107,7 +121,7 @@ def _new(args: argparse.Namespace) -> int:
 def _parse(pairs: list[list[str]], option: str) -> list[tuple[str, Any]] | str:
     parsed: list[tuple[str, Any]] = []
     for field, raw in pairs:
-        allowed = changes.LIST_FIELDS if option == "--add" else changes.SET_FIELDS
+        allowed = {"--add": changes.LIST_FIELDS, "--set": changes.SET_FIELDS}.get(option, (field,))
         if field not in allowed:
             hint = "list fields take --add" if option == "--set" else "a scalar field takes --set"
             return f"{option} {field}: not one of {', '.join(allowed)} ({hint})"
@@ -136,17 +150,44 @@ def _record(args: argparse.Namespace) -> int:
             return usage_error(parsed)
     if args.phase_done is not None and args.phase_done not in changes.PHASES:
         return usage_error(f"--phase-done {args.phase_done}: one of {', '.join(changes.PHASES)}")
-    if not add and not set_ and args.phase_done is None:
-        return usage_error("nothing to record: pass --add, --set or --phase-done")
+    followups = _parse([["followups", raw] for raw in args.followup], "--followup")
+    if isinstance(followups, str):
+        return usage_error(followups)
+    if not add and not set_ and args.phase_done is None and not followups and not args.fixed:
+        return usage_error(
+            "nothing to record: pass --add, --set, --followup, --fixed or --phase-done"
+        )
     assert not isinstance(add, str) and not isinstance(set_, str)
+    values = [value for _, value in followups]
+    touches_followups = bool(values or args.fixed)
+    touches_record = bool(add or set_ or args.phase_done is not None)
     try:
-        result = changes.update_record(
-            args.project, args.change, add=add, set_=set_, phase_done=args.phase_done
+        # Los followups se validan antes de tocar el registro: o se escriben los dos, o ninguno.
+        if touches_followups:
+            changes.record_followups(args.project, args.change, values, args.fixed, dry_run=True)
+        result = (
+            changes.update_record(
+                args.project, args.change, add=add, set_=set_, phase_done=args.phase_done
+            )
+            if touches_record
+            else None
+        )
+        done = (
+            changes.record_followups(args.project, args.change, values, args.fixed)
+            if touches_followups
+            else None
         )
     except (changes.ChangeError, OSError) as exc:
         return error(str(exc))
     if args.json:
-        emit_json({"changed": result.changed, "path": result.path, "record": result.record})
-    else:
-        print(f"{result.path}: " + ("updated" if result.changed else "unchanged"))
+        payload: dict = {}
+        if result is not None:
+            payload.update(changed=result.changed, path=result.path, record=result.record)
+        if done is not None:
+            payload["followups"] = {"changed": done.changed, "path": done.path}
+        emit_json(payload)
+        return 0
+    for item in (done, result):
+        if item is not None:
+            print(f"{item.path}: " + ("updated" if item.changed else "unchanged"))
     return 0

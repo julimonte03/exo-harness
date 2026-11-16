@@ -12,7 +12,7 @@ import pytest
 from exo.cli import main
 from exo.core import config
 from exo.sdd import changes, check, fitness, record
-from test_speclint import CAPABILITY, DESIGN, PROPOSAL, SPEC, TEST_SPEC
+from test_speclint import CAPABILITY, DESIGN, PROPOSAL, SPEC, TEST_SPEC, VERIFY
 
 LOW = {dimension: 0 for dimension in fitness.DIMENSIONS}
 MEDIUM = {**LOW, "blast_radius": 2}  # FM-20: Tier 2
@@ -221,7 +221,7 @@ def test_base_revisa_el_change_archivado_en_el_diff(tmp_path: Path) -> None:
     (tmp_path / "README.md").write_text("x\n", encoding="utf-8")
     _git(tmp_path, "add", "-A")
     _git(tmp_path, "commit", "-q", "-m", "base")
-    folder = _change(tmp_path, "a", LOW, {"proposal.md": PROPOSAL})
+    folder = _change(tmp_path, "a", LOW, {"proposal.md": PROPOSAL, "verify-record.md": VERIFY})
     _archive(tmp_path, folder)
     result = check.check(tmp_path, base="HEAD")
     assert [(c.name, c.path) for c in result.changes] == [("a", "specs/archive/2026-11-14-a")]

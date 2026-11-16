@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "followups.schema.json",
+  "title": "Judge followups",
+  "description": "Findings the judges propose for a change: <change-root>/followups.json, written with `exo change record <change> --followup`. Judges never fix anything themselves; the person fixes each followup (then `exo change record <change> --fixed <id>` marks it) or dismisses it in the AI Usage Record (dismissed_followups).",
+  "type": "object",
+  "required": ["followups"],
+  "additionalProperties": false,
+  "properties": {
+    "followups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "judge", "rule", "severity", "summary"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"description": "J<judge code>-<n>, unique in the change, for example JSEC-1 or JCR-2.", "type": "string", "pattern": "^J[A-Z0-9]*-[0-9]+$"},
+          "judge": {"type": "string", "minLength": 1},
+          "rule": {"description": "The rule, OWASP category or criterion behind the finding.", "type": "string", "minLength": 1},
+          "severity": {"enum": ["critical", "high", "medium", "low"]},
+          "summary": {"type": "string", "minLength": 1},
+          "location": {"description": "path:line, when the finding points at code.", "type": "string", "minLength": 1},
+          "fixed": {"description": "true once the finding was fixed; written with `exo change record <change> --fixed <id>`.", "type": "boolean"}
+        }
+      }
+    }
+  }
+}

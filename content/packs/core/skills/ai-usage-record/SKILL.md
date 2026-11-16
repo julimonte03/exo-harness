@@ -87,7 +87,7 @@ exo change record <change> --add decisions '{"summary": "Tier raised from 2 to 3
 exo change record <change> --add decisions '{"summary": "Tier lowered from 3 to 2", "rationale": "the person confirmed it in writing: yes, lower it to Tier 2", "by": "human"}'
 
 # A finding the person decided not to fix
-exo change record <change> --add dismissed_followups '{"id": "J1-2", "judge": "judge-code-reviewer", "rule": "error-handling", "reason": "the caller retries; see src/api/handler.py:88"}'
+exo change record <change> --add dismissed_followups '{"id": "JCR-2", "judge": "judge-code-reviewer", "rule": "error-handling", "reason": "the caller retries; see src/api/handler.py:88"}'
 
 # The purpose, when exo change new ran without --purpose
 exo change record <change> --set purpose '"Let employees sign in with SSO."'
@@ -104,7 +104,7 @@ Keep `summary` to one line and put the why in `rationale`.
 ## Dismissed findings
 
 - Only when the person decided not to fix it. The `reason` is theirs, not yours.
-- Copy `judge`, `rule` and, when the finding has one, `id` exactly as the finding shows them: in `exo change followups <change> --json` once followups exist (F5), and in the judge's answer or `verify-record.md` until then. That is how the engine matches the dismissal to the finding.
+- Copy `judge`, `rule` and, when the finding has one, `id` exactly as the finding shows them: in `exo change followups <change> --json`, or in the judge's answer or `verify-record.md` for a finding that is not a followup. That is how the engine matches the dismissal to the finding.
 
 ## Fields you do not write
 

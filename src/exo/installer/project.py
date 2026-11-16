@@ -19,13 +19,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from exo import _meta, adapters, content, paths
+from exo import _meta, adapters, content, packs, paths
 from exo.adapters.base import Context
 from exo.core import config, fsutil, lock, snapshots
+from exo.governance import githooks, hosts
 from exo.installer import engine
 from exo.installer.bundle import build_bundle
 
-DEFAULT_PACKS = ("core", "sdd")
+DEFAULT_PACKS = ("core", "sdd", "quality", "security")
+
+
+def _default_packs(root: Path) -> list[str]:
+    """Los packs por defecto que el contenido trae: un árbol propio puede no tener todos."""
+    return [name for name in DEFAULT_PACKS if (root / "packs" / name / packs.MANIFEST).is_file()]
 
 
 class ProjectError(ValueError):
@@ -95,6 +101,8 @@ def sync(
     packs: Iterable[str] | None = None,
     mcp: bool | None = None,
     tickets: dict[str, Any] | None = None,
+    review: dict[str, Any] | None = None,
+    detect_host: bool = False,
     claude_md: bool = False,
     force: bool = False,
     dry_run: bool = False,
@@ -110,9 +118,20 @@ def sync(
         cfg["mcp"]["enabled"] = mcp
     if tickets is not None:
         cfg["tickets"] = dict(tickets)
+    if review:
+        cfg["review"].update(review)
+        explicit = True
+    host_note = None
+    if detect_host and not cfg["review"].get("host"):
+        detected = hosts.detect(project)
+        if detected:
+            cfg["review"]["host"] = detected
+            explicit = True
+            host_note = detected
     targets = normalize_agents(cfg["agents"])
     try:
-        bundle = build_bundle(content.content_root(), list(cfg["packs"] or DEFAULT_PACKS))
+        root = content.content_root()
+        bundle = build_bundle(root, list(cfg["packs"] or _default_packs(root)))
     except ValueError as exc:
         raise ProjectError(str(exc)) from exc
     if explicit:
@@ -135,8 +154,28 @@ def sync(
         extra=extra,
     )
     notes = [*base_notes, *loaded.warnings, *adapters.GENERIC.notes(ctx)]
+    if result.applied and not dry_run:
+        notes += _githooks(project, normalized, result)
+    if host_note and not normalized["review"].get("publish_command"):
+        notes.append(
+            f"the repo lives on {host_note} (review.host); to publish the gates as PR comments, "
+            "set review.publish_command (examples in the ci-and-review contract)"
+        )
     written = result.applied and bool(extra)
     return SyncResult(result, list(targets), list(bundle.packs), notes, written)
+
+
+def _githooks(project: Path, cfg: dict[str, Any], result: engine.Result) -> list[str]:
+    """Activa o desactiva los git hooks en este clon, después de aplicar (D-21)."""
+    if not githooks.enabled(cfg):
+        return ["git hooks turned off in this clone"] if githooks.deactivate(project) else []
+    if githooks.mechanism(project) == "husky":
+        touched = any(
+            a.path.startswith(f"{githooks.HUSKY}/") and a.action in ("create", "update")
+            for a in result.actions
+        )
+        return [f"git hooks added to husky ({githooks.HUSKY}/)"] if touched else []
+    return githooks.activate(project)
 
 
 # -- estado y desinstalación ----------------------------------------------------
@@ -200,6 +239,8 @@ def uninstall(project: Path, *, force: bool = False, dry_run: bool = False) -> U
         backup = paths.user_data_dir() / "uninstall-backups" / name
         fsutil.write_atomic(backup, archive)
     result = engine.apply(project, [], agents=[], packs=[], force=force, dry_run=dry_run)
+    if result.applied and not dry_run:
+        githooks.deactivate(project)
     also_removed = _human_files_in(project, motor_dir, data)
     if result.applied and not result.unresolved and motor_dir.is_dir():
         if fsutil.is_link(motor_dir):

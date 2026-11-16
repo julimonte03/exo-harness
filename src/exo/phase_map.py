@@ -5,11 +5,13 @@ contrato compartido. Tiene dos tablas que el motor lee:
 
 - `## Map`: qué skills carga cada fase. Toda skill entre comillas invertidas en
   esa sección es una mención.
-- `## Skills from packs not installed yet`: las skills que el mapa nombra pero
-  todavía no existen, con su pack y el criterio inline que se aplica cuando
-  faltan. `exo validate` acepta una referencia `skill:` sin resolver solo si
-  está declarada acá, y el test de consistencia exige que toda mención exista o
-  esté declarada (F4, tarea 8).
+- `## Inline criteria for skills not installed`: las skills de packs que un
+  proyecto puede no tener (opcionales o todavía no escritos), con su pack y el
+  criterio inline que se aplica cuando faltan. `exo validate` acepta una
+  referencia `skill:` sin resolver solo si está declarada acá, y el test de
+  consistencia exige que toda mención exista o esté declarada (F4, tarea 8) y
+  que una fila de una skill que existe nombre su pack real, que tiene que ser
+  opcional (F5).
 
 Los comentarios HTML y los bloques de código no cuentan.
 """
@@ -22,7 +24,7 @@ from pathlib import Path, PurePosixPath
 
 MAP_FILE = PurePosixPath("packs/core/shared/phase-skill-map.md")
 MAP_SECTION = "Map"
-DEGRADATIONS_SECTION = "Skills from packs not installed yet"
+DEGRADATIONS_SECTION = "Inline criteria for skills not installed"
 NOTE = "{pack}/{skill} not installed — applying inline criteria"
 
 _NAME = r"[a-z0-9]+(?:-[a-z0-9]+)*"

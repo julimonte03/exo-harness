@@ -1,6 +1,6 @@
 # Progreso de construcción
 
-**Fase activa:** F5 (pendiente: aprobar su plan). F4 quedó cerrada en local el 2026-11-14.
+**Fase activa:** ninguna. F5 cerrada el 2026-11-16 (hito M2, v0.1.0); la próxima es F6, que arranca con su plan.
 
 Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron con el comando exacto, la CI está verde en los tres sistemas operativos y el PR de la fase está mergeado.
 
@@ -15,7 +15,7 @@ Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron 
 | F2 Adaptadores + instalador | Terminada (local; CI diferida) | `feat/F2-adaptadores`, mergeada a `main` en local, sin PR | 2026-10-30 | 2026-11-07 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL). Criterio 1 sin macOS ni Azure. Criterio 8: Claude Code OK, Copilot pendiente (checklist manual). D-04 → ADR-0006, D-05/D-06 → ADR-0007, D-16 → ADR-0008 |
 | F3 Memoria v2 | Terminada (local; CI diferida) | `feat/F3-memoria`, mergeada a `main` en local, sin PR | 2026-11-13 | 2026-11-13 | Criterios 2–8 OK en Windows (3.14 y 3.10 sin extras) y Linux (WSL, con y sin extras). Criterio 1 fuera de alcance (ADR-0009). D-07/D-08 → ADR-0010; D-20, D-24 y D-25 → ADR-0009; D-12 parcial |
 | F4 Ciclo SDD | Terminada (local; CI diferida) | `feat/F4-ciclo-sdd`, mergeada a `main` en local, sin PR | 2026-11-14 | 2026-11-14 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL); 4 a 7 con Claude Code real. Criterio 6 sin Copilot (opcional). D-26, D-27 y D-28; D-11 → ADR-0013 |
-| F5 Gobierno y gates | Pendiente | | | | |
+| F5 Gobierno y gates | Terminada (local; CI diferida) | `feat/F5-gobierno`, mergeada a `main` en local, sin PR | 2026-11-15 | 2026-11-16 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL); 7 con Claude Code real (Tier 1 y Tier 2), Copilot opcional. Hito M2 (v0.1.0). D-12, D-21 y D-29 a D-32 → ADR-0014 |
 | F6 Ingeniería inversa | Pendiente | | | | |
 | F7 Packs | Pendiente | | | | |
 | F8 Endurecimiento + v1.0 | Pendiente | | | | |
@@ -363,4 +363,85 @@ Se regeneraron los goldens de `tests/golden/` (6 archivos) y se revisó el diff.
 - **Para F5:**
   - `exo check` v1 no mira el veredicto (da PASS con `blocked`);
   - los gates tienen que hacerlo.
+- **Cierre local sin remoto**, según la regla del principio de este archivo.
+
+### F5 — Gobierno, seguridad y gates — 2026-11-16
+
+**Entorno:**
+- Windows 11, con Python 3.14.5 (`.venv`) y Python 3.10.20 (venv con `uv`, sin extras).
+- Linux Ubuntu 24.04 en WSL2, con Python 3.12 de `uv`, sobre un clon limpio de la rama.
+- Claude Code 2.1.325, con `claude -p` sobre copias de `tests/fixtures/repos/toy-python/`, con hooks activos.
+- Los datos aislados con `EXO_DATA_DIR` y `EXO_MEMORY_DB`.
+
+**Resultados:**
+
+| Entorno | Resultado |
+|---|---|
+| Windows, Python 3.14 | 1456 passed, cobertura 94,17 % |
+| Windows, Python 3.10 sin extras | 1450 passed |
+| Linux | 1454 passed; `ruff check .` limpio y `exo validate` «all valid» |
+
+| # | Criterio | Comando ejecutado | Resultado |
+|---|---|---|---|
+| 1 | Reglas acotadas | `exo validate` | OK: «4 packs, 34 skills, 4 subagents, 11 shared contracts: all valid», sin advertencias. `AGENTS.base.md` tiene 54 líneas (el límite es 60) |
+| 2 | Hooks efectivos | `pytest -k criterio_2 tests/test_githooks.py`, más `pytest tests/test_git_diff.py` | OK (3 passed; `test_git_diff.py`, 18 passed). En repos git temporales: mensaje inválido rechazado y válido aceptado, con y sin `Refs:`; secreto y PII sintéticos en el stage rechazados, y aceptados con waiver; push a `main`, force-push y borrado de rama protegida rechazados. `test_git_diff.py` cubre las vías de evasión que encontró la revisión |
+| 3 | Check estricto | `pytest -k criterio_3 tests/test_check_f5.py` | OK (6 passed). Un Tier 2 sin `test-spec.md`, sin registro, con veredicto `blocked` o sin su gate falla; completo, pasa |
+| 4 | Gates publicables | `pytest -k criterio_4 tests/test_gates_publish.py` | OK (2 passed). `--dry-run` da exactamente un texto por gate, con su marcador; con un `publish_command` de prueba, una llamada por gate. En la corrida de Tier 2, `exo gate publish --dry-run` imprimió `code_review` y `contract_check` |
+| 5 | CI de proyecto (agnóstica) | `pytest -k criterio_5 tests/test_check_f5.py` | OK (1 passed). En un repo temporal, `exo check --base main` (el paso de los ejemplos) da 0 con un change Tier 2 completo y 1 sin su gate. Sin remoto no hay CI real: los ejemplos de `ci-and-review.md` quedan `[No verificado]` |
+| 6 | P0 | `exo p0` en el proyecto de la corrida real, más `pytest -k criterio_6 tests/test_p0.py` | OK: `=== P0 GATE: PASSED (3/3) ===` (escáner con 26 casos, 8 entradas maliciosas rechazadas, `core.hooksPath = .exo/githooks`) |
+| 7 | Proyecto nuevo de punta a punta | Claude Code real (`docs/checklists/F5-proyecto-nuevo.md`) | OK en dos corridas. Tier 1 (`--version`, PROJ-7) y Tier 2 (rechazar títulos vacíos, PROJ-8): `exo init` con los cuatro packs y los hooks activos, commits con `Refs:` por los hooks, gates (`contract_check` y `code_review`, este escrito por `harness-review` en el verifier) y `exo check --base main` en verde. Copilot queda opcional |
+
+**Extras:**
+- `ruff check .` limpio.
+- **La corrida en Linux encontró un test roto:** la rama POSIX del test del bit de ejecución leía un atributo que no existe. En Windows no corre; el motor estaba bien.
+- **Al subir la versión,** el install editable se reinstala (`uv pip install -e .`) para que la metadata diga 0.1.0 y `test_meta` pase.
+- **En la corrida de Tier 2,** la respuesta del verifier se cortó por un error de stream y Claude Code lo informó como "interrupted by user". Se retomó con `claude -p --resume` (`docs/checklists/F5-proyecto-nuevo.md`).
+
+**Tres subagentes escribieron los packs** (worktrees manuales, contra los contratos ya mergeados): `security`, `quality`, y `skill-reviewer` con el pre-chequeo de `exo validate`. Lo integré con cherry-pick:
+- **El mapa fase → skills** ganó la sección Gates. La tabla de degradaciones pasó a «Inline criteria for skills not installed»: puede tener filas de skills que existen si viven en un pack opcional, para que un proyecto con `sdd` y sin `quality` o `security` siga degradando con criterio.
+- **Los gates se conectaron al ciclo:** quién escribe cada uno y en qué fase, y que el orquestador persiste los que devuelve un subagente.
+- **Dos huecos del motor que expuso `quality`:** followups arreglados (`--fixed`) y descartes por `id`.
+
+**La preparación de la corrida real encontró un bug:** el `pre-commit` bloqueaba el commit de `exo init` porque un hash de `lock.json` tenía una tira de dígitos que pasaba Luhn. Se corrigió el detector de tarjetas.
+
+**Revisión final con contexto fresco** (dos subagentes: motor y contenido). Todo lo que encontraron se corrigió con su test:
+- **Motor (3 High, 4 Medium, 13 Low):**
+  - el escaneo del diff se podía esquivar (una línea que empieza con `++ `, `-diff` en `.gitattributes`, nombres que git entrecomilla, `diff.noprefix`) y fallaba abierto si git fallaba;
+  - `--base` no escaneaba con persistencia `memory` o `none` ni junto con `--change`;
+  - `env-assignment` daba un Crítico con `PYTHONPATH` o `COMPAT_MODE` y no veía `PASSWORD=`;
+  - `pre-push` escaneaba el árbol de trabajo en vez de lo empujado y no revisaba ramas nuevas;
+  - la activación pisaba un `core.hooksPath` global y apagaba los hooks de `.git/hooks` (git-lfs);
+  - el framework pre-commit no traía `pre-push` y su estado daba «ok» sin instalar;
+  - menores: `--status fixed`, escrituras parciales de `exo change record`, BOM en `commit-msg`, la redacción de secretos cortos, falsos positivos de tarjetas, waivers, nombres de gate con dígitos, marcadores duplicados en `publish`, `judgment-day` que no contaba la última entrada, scripts de skills sin revisar, ramas protegidas con patrón.
+- **Contenido (1 High, 6 Medium, 15 Low):**
+  - `sdd-design` no escribía el gate `threat_model`, así que un Tier 3 terminaba con `exo check` en rojo;
+  - no había camino para un riesgo que el `tech_lead` acepta;
+  - los jueces de design y verify no registraban followups y sus IDs chocaban;
+  - un ejemplo enseñaba a comparar contraseñas con tiempo constante (en vez de verificar un hash);
+  - nueve pares OWASP ↔ CWE mal mapeados (verificados en cwe.mitre.org), y CWE-613, deprecado en CWE 5.0;
+  - el umbral de tech_lead no era uno solo;
+  - restos de F4 en el contenido instalado.
+
+**Decisiones tomadas durante la fase:**
+- **D-12** (del dueño): protección de datos agnóstica; fuera `legacy-profile`.
+- **D-21** (del dueño): git hooks por defecto.
+- **D-29** (del dueño): el ticket como footer `Refs:`.
+- **D-30** (del dueño): CI y PR agnósticos, con el host detectado y guardado.
+- **D-31:** sin hooks de agente.
+- **D-32:** `exo p0` redefinido.
+- **ADR-0014:** enforcement agnóstico.
+
+**Desvíos respecto del plan y por qué:**
+- **`secure_coding_check` corre al final de apply,** no en verify. Es una pasada con ciclo de arreglo propio, y la revisión independiente ya la hace `security_review` en verify. Así verify no carga tres skills de gate.
+- **`skill-reviewer` no es un gate de tier:** sus hallazgos van a Issues Found del verify. Un gate opt-in que ninguna fase escribía dejaba `exo check` en rojo.
+- **Packs por defecto:** si el contenido no trae alguno (un árbol propio), se saltea; pedidos explícitamente, siguen fallando.
+- **Un riesgo aceptado por el `tech_lead`** llega al siguiente verify como dato y no bloquea `ready`; el gate sigue ESCALATED para el PR.
+- **Tarea 9 (hooks de agente) fuera de alcance** (D-31): el enforcement real son los git hooks y la CI.
+- **Plantillas de CI → ejemplos** en el contrato `ci-and-review.md` (D-30), sin `exo init --ci`.
+
+**Limitaciones conocidas:**
+- **Husky:** se soporta husky 9; los scripts nuevos que crea el motor no tienen el preámbulo de husky 8.
+- **Framework pre-commit:** el `pre-push` toma la ref de las variables `PRE_COMMIT_*` cuando no llega por stdin [No verificado contra el framework real].
+- **Nombre de la skill `review`:** puede chocar con el comando integrado `/review` de Claude Code. Se mantiene porque el plan lo nombra así; a revisar en F7.
+- **Ejemplos de CI y de `publish_command`** (`gh`, `az`, `glab`): `[No verificado]`, porque no hay remoto.
 - **Cierre local sin remoto**, según la regla del principio de este archivo.

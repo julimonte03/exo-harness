@@ -10,7 +10,7 @@ from typing import Any
 from exo import _meta, content, packs
 from exo.adapters import KNOWN_AGENTS, detect
 from exo.commands._output import emit_json, error, usage_error
-from exo.core import tickets
+from exo.core import config, tickets
 from exo.installer import engine, project, stack, wizard
 
 
@@ -56,6 +56,16 @@ def register(sub: argparse._SubParsersAction) -> None:
     )
     init.add_argument(
         "--ticket-example", metavar="ID", help="example ticket ID shown in messages"
+    )
+    init.add_argument(
+        "--review-host",
+        choices=config.REVIEW_HOSTS,
+        help="where the repo lives (detected from the git remote if not given)",
+    )
+    init.add_argument(
+        "--publish-command",
+        metavar="CMD",
+        help="command that publishes one gate as a PR comment (see the ci-and-review contract)",
     )
     init.add_argument(
         "--no-tickets",
@@ -235,6 +245,8 @@ def _init(args: argparse.Namespace) -> int:
             packs=chosen_packs,
             mcp=True if args.mcp else None,
             tickets=ticket_cfg,
+            review=_review(args),
+            detect_host=True,
             claude_md=args.claude_md,
             force=args.force,
         )
@@ -380,3 +392,9 @@ def _uninstall(args: argparse.Namespace) -> int:
     if result.also_removed:
         extra["also_removed"] = result.also_removed
     return _report(result.engine, args, extra)
+
+
+def _review(args: argparse.Namespace) -> dict[str, Any] | None:
+    pairs = (("host", args.review_host), ("publish_command", args.publish_command))
+    found = {key: value for key, value in pairs if value}
+    return found or None

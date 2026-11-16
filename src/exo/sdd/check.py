@@ -1,4 +1,4 @@
-"""`exo check` v1: los chequeos de un change antes del PR (F4; F5 los extiende).
+"""`exo check`: los chequeos de un change antes del PR (F4 y F5, ADR-0014).
 
 Por cada change (los activos; o los nombrados, o los tocados en el diff contra
 `--base`, que pueden estar archivados: `sdd-archive` mueve el change antes del PR
@@ -10,7 +10,18 @@ y el chequeo del PR lo tiene que seguir viendo):
 - el tier de `fitness-assessment.json` (si falta o no se lee, Tier 4 y error);
 - los artefactos que exige el tier (D-27).
 
-También lintea las specs de capacidad (todas, o las tocadas en el diff). Con
+Desde que hay `verify-record.md` (o el change está archivado), además:
+
+- el veredicto tiene que ser `ready`;
+- los gates del tier (`governance.gates`) tienen que estar, bien formados; uno
+  escalado o que pide aprobación queda como aviso para `tech_lead` (el motor no
+  verifica roles, §7.3);
+- en Tier 4, `judgment-day` aprobado en el AI Usage Record.
+
+También: la config válida, el escaneo de secretos y datos personales de lo que
+agrega el diff contra `--base` (con los waivers vigentes) y las specs de
+capacidad. `--fast` (lo usa `pre-push`) deja solo lo que vale para una rama en
+curso: speclint de lo que existe, el registro y el escaneo del diff. Con
 persistencia `memory` o `none` los artefactos no están en disco y no hay nada
 que revisar.
 """
@@ -25,6 +36,7 @@ from pathlib import Path, PurePosixPath
 
 from exo import _meta
 from exo.core import config, fsutil
+from exo.governance.git import EMPTY_TREE
 from exo.sdd import changes, observability, record, speclint, specs
 
 # Artefactos obligatorios por tier (D-27). `spec.md` en Tier 1 es opcional: solo avisa.
@@ -72,12 +84,15 @@ class ChangeCheck:
 class CheckResult:
     changes: list[ChangeCheck] = field(default_factory=list)
     capabilities: list[tuple[str, list[Finding]]] = field(default_factory=list)
+    config: list[Finding] = field(default_factory=list)
+    diff: list[Finding] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
         cap_errors = any(f.severity == "error" for _, items in self.capabilities for f in items)
-        return all(c.ok for c in self.changes) and not cap_errors
+        other = any(f.severity == "error" for f in self.config + self.diff)
+        return all(c.ok for c in self.changes) and not cap_errors and not other
 
 
 def _rel(project: Path, path: Path) -> str:
@@ -97,16 +112,34 @@ def _git(project: Path, *args: str) -> list[str]:
     return [item for item in out.split("\0") if item]
 
 
-def touched(project: Path, base: str) -> list[str]:
-    """Rutas (relativas al proyecto) que cambian contra `base`, más las sin trackear."""
+def fork_point(project: Path, base: str, head: str = "HEAD") -> str:
+    """El commit donde la rama salió de `base` (merge-base con `head`).
+
+    El árbol vacío (la base de una rama nueva sin historia en común) es su propio punto.
+    """
     if base.startswith("-") or not _SAFE_REF.match(base):
         raise CheckUsageError(f"invalid --base {base!r}: use a branch, tag or commit")
+    if base == EMPTY_TREE:
+        return base
+    found = _git(project, "merge-base", base, head)
+    if not found:
+        raise CheckError(
+            f"{base} and {head} have no common history; pass the branch the PR goes to"
+        )
+    return found[0].strip()
+
+
+def touched(project: Path, base: str, head: str | None = None) -> list[str]:
+    """Rutas (relativas al proyecto) que cambian contra `base`.
+
+    Sin `head`, contra el árbol de trabajo y con los archivos sin trackear (lo que va a ir
+    en el PR); con `head` (un push), solo lo que cambia hasta ese commit.
+    """
     # Contra el punto donde la rama salió de la base, no contra la punta de la base: si no,
     # lo que la base cambió después parece tocado por la rama.
-    found = _git(project, "merge-base", base, "HEAD")
-    if not found:
-        raise CheckError(f"{base} and HEAD have no common history; pass the branch the PR goes to")
-    fork = found[0].strip()
+    fork = fork_point(project, base, head or "HEAD")
+    if head is not None:
+        return sorted(_git(project, "diff", "--name-only", "-z", "--relative", fork, head, "--"))
     diff = _git(project, "diff", "--name-only", "-z", "--relative", fork, "--")
     untracked = _git(project, "ls-files", "--others", "--exclude-standard", "-z")
     return sorted(set(diff) | set(untracked))
@@ -169,7 +202,87 @@ def _delta_capabilities(project: Path, change: observability.Change) -> set[str]
     return {block.capability for _, block in delta.blocks()}
 
 
-def _check_change(project: Path, change: observability.Change) -> ChangeCheck:
+def _gates(project: Path, change: observability.Change, tier: int, cfg: dict) -> list[Finding]:
+    folder = project / change.path
+    found: list[Finding] = []
+    for name in cfg["governance"]["gates"].get(str(tier), []):
+        if name == speclint.CONTRACT_GATE:
+            path = folder / "verify-record.md"
+            info = speclint.contract_gate(path) if path.is_file() else None
+        else:
+            path = folder / speclint.GATES_DIR / f"{name}.md"
+            info = speclint.gate_info(path) if path.is_file() else None
+        if info is None:
+            found.append(
+                Finding(
+                    "error",
+                    change.path,
+                    0,
+                    f"Tier {tier} requires the gate {name} ({speclint.GATES_DIR}/{name}.md): "
+                    "run the skill that owns it",
+                )
+            )
+        elif info.needs_approval:
+            why = (
+                "is APPROVED but its Approval says yes"
+                if info.verdict == "APPROVED"
+                else f"is {info.verdict or 'without a readable verdict'}"
+            )
+            found.append(
+                Finding(
+                    "warning",
+                    _rel(project, info.path),
+                    0,
+                    f"the gate {name} {why}: it needs the tech_lead role's approval in the PR",
+                )
+            )
+    return found
+
+
+def _judgment_day(project: Path, change: observability.Change) -> list[Finding]:
+    data = observability.ai_usage_record(project, change.name).get("record") or {}
+    judges = data.get("judges_invoked") if isinstance(data, dict) else None
+    if observability.judgment_approved(judges):
+        return []
+    return [
+        Finding(
+            "error",
+            change.path,
+            0,
+            "Tier 4 needs an approved judgment-day: judges_invoked has no "
+            '{"name": "judgment-day", "result": "approved"}',
+        )
+    ]
+
+
+def _readiness(project: Path, change: observability.Change, tier: int, cfg: dict) -> list[Finding]:
+    """Lo que se exige desde el verify: veredicto listo, gates y judgment-day."""
+    folder = project / change.path
+    verify = folder / "verify-record.md"
+    if not verify.is_file():
+        if change.archived:
+            return [Finding("error", change.path, 0, "archived without verify-record.md")]
+        return []
+    found: list[Finding] = []
+    result = speclint.verdict(verify.read_text(encoding="utf-8-sig"))
+    if result != "ready":
+        found.append(
+            Finding(
+                "error",
+                _rel(project, verify),
+                0,
+                f"the verify says {result or 'nothing readable'}: the change is not ready",
+            )
+        )
+    found += _gates(project, change, tier, cfg)
+    if tier == 4:
+        found += _judgment_day(project, change)
+    return found
+
+
+def _check_change(
+    project: Path, change: observability.Change, cfg: dict | None = None, fast: bool = False
+) -> ChangeCheck:
     folder = project / change.path
     tier = changes.read_tier(folder)
     assessment = folder / changes.ASSESSMENT
@@ -178,6 +291,11 @@ def _check_change(project: Path, change: observability.Change) -> ChangeCheck:
     )
     effective = changes.effective_tier(folder)
     item = ChangeCheck(change.name, change.path, effective, source)
+    if fast:
+        if any((folder / name).is_file() for name in speclint.ARTIFACTS):
+            item.findings += _lint(project, folder)
+        item.findings += _check_record(project, change)
+        return item
     if source != "assessment":
         problem = "is not readable" if source == "unreadable" else "is missing"
         item.findings.append(
@@ -207,15 +325,59 @@ def _check_change(project: Path, change: observability.Change) -> ChangeCheck:
                 "(D-27); otherwise write the delta",
             )
         )
+    if cfg is not None:
+        item.findings += _readiness(project, change, effective, cfg)
     return item
 
 
-def check(project: Path, *, base: str | None = None, names: list[str] | None = None) -> CheckResult:
+def _scan_diff(project: Path, fork: str, cfg: dict, head: str | None = None) -> list[Finding]:
+    """Secretos y datos personales en lo que agrega el diff.
+
+    Sin `head`, el árbol de trabajo y los archivos sin trackear; con `head`, solo los commits.
+    """
+    from exo.governance import git, hookrun
+
+    try:
+        added = git.added_lines(project, fork, *([head] if head else []))
+    except git.GitError as exc:
+        return [Finding("error", "", 0, f"could not scan the diff, so it was not checked: {exc}")]
+    untracked = [] if head else _git(project, "ls-files", "--others", "--exclude-standard", "-z")
+    for rel in untracked:
+        path = project / rel
+        try:
+            if path.stat().st_size > 1_000_000:
+                continue
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        added.setdefault(rel, []).extend(enumerate(text.splitlines(), start=1))
+    outcome = hookrun.scan_added(project, added, cfg)
+    found = [Finding("error", "", 0, message) for message in outcome.errors]
+    found += [Finding("warning", "", 0, message) for message in outcome.warnings]
+    return found
+
+
+def check(
+    project: Path,
+    *,
+    base: str | None = None,
+    names: list[str] | None = None,
+    fast: bool = False,
+    head: str | None = None,
+) -> CheckResult:
     project = Path(project)
     loaded = config.load(project)
     if loaded.fallback:
         raise CheckError("the project config cannot be used: " + "; ".join(loaded.warnings))
     result = CheckResult()
+    cfg = loaded.config
+    result.config = [
+        Finding("error", f"{_meta.PROJECT_DIR}/{config.FILENAME}", 0, f"config: {problem}")
+        for problem in loaded.invalid
+    ]
+    # Con `--base` el diff se escanea siempre: no depende de la persistencia ni de `--change`.
+    if base is not None:
+        result.diff = _scan_diff(project, fork_point(project, base, head or "HEAD"), cfg, head)
     persistence = loaded.config["sdd"]["persistence"]
     if persistence in NO_DISK:
         result.notes.append(
@@ -236,7 +398,7 @@ def check(project: Path, *, base: str | None = None, names: list[str] | None = N
         touched_caps = set().union(*(_delta_capabilities(project, c) for c in selected))
         cap_files = [f for f in cap_files if f.parent.name in touched_caps]
     elif base is not None:
-        paths = touched(project, base)
+        paths = touched(project, base, head)
         every = observability.find_changes(project, include_archived=True)
         selected = [c for c in every if any(_within(p, c.path) for p in paths)]
         cap_files = [f for f in cap_files if _rel(project, f) in paths]
@@ -244,7 +406,9 @@ def check(project: Path, *, base: str | None = None, names: list[str] | None = N
     else:
         selected = active
     for change in selected:
-        result.changes.append(_check_change(project, change))
+        result.changes.append(_check_change(project, change, cfg, fast))
+    if fast:
+        return result
     for path in cap_files:
         result.capabilities.append((_rel(project, path), _lint(project, path, "capability")))
     return result

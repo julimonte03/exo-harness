@@ -35,15 +35,15 @@ With `memory` or `none`, `exo check` has nothing on disk to check, and it says s
 | explore | `sdd-explore` | `exploration.md` |
 | propose | `sdd-propose` | `proposal.md` (refines the one from `sdd-new`) |
 | spec | `sdd-spec` | `spec.md` (delta); in Tier 2 also `test-spec.md` |
-| design | `sdd-design` | `design.md` |
+| design | `sdd-design` | `design.md`; from Tier 3, `gates/threat_model.md` through `threat-modeling` |
 | tasks | `sdd-tasks` | `tasks.md` and `test-spec.md` |
-| apply | `sdd-apply` | code and tests; ticks the boxes in `tasks.md` |
-| verify | `sdd-verify` | `verify-record.md` |
+| apply | `sdd-apply` | code and tests; ticks the boxes in `tasks.md`; in Tier 4, `gates/secure_coding_check.md` through `secure-coding-baseline` |
+| verify | `sdd-verify` | `verify-record.md`, and the verify gates of the tier in `gates/` |
 | archive | `sdd-archive` | merges the delta into the living specs, moves the change to `<specs_dir>/archive/[<epic>/]YYYY-MM-DD-<change-name>/`, and `pr.md` through `branch-pr` |
 
   **When the tier rises,** ownership moves with it: from Tier 2 on `sdd-spec` owns `spec.md` and completes the one `sdd-new` wrote; in Tier 3 and 4 `sdd-tasks` completes the `test-spec.md` that `sdd-spec` wrote in Tier 2.
 
-- **Templates:** start each document from `.exo/shared/templates/` (`proposal.md`, `spec.md`, `design.md`, `test-spec.md`, `verify-record.md`, `pr.md`). `exo speclint <file or change root>` checks them.
+- **Templates:** start each document from `.exo/shared/templates/` (`proposal.md`, `spec.md`, `design.md`, `test-spec.md`, `verify-record.md`, `gate.md`, `pr.md`). `exo speclint <file or change root>` checks them.
 - **Mandatory artifacts per tier** (what `exo check` requires):
 
 | Tier | Requires |
@@ -53,6 +53,7 @@ With `memory` or `none`, `exo check` has nothing on disk to check, and it says s
 | 3 and 4 | `proposal.md`, `spec.md`, `design.md`, `tasks.md`, `test-spec.md` |
 
   Every tier also needs `ai-usage-record.json` and `fitness-assessment.json`. Without a readable assessment the tier is unknown and Tier 4 rules apply.
+- **Gates per tier:** `governance.gates` in `.exo/config.json` lists them; `exo check` requires one `<change-root>/gates/<gate>.md` per gate, from `.exo/shared/templates/gate.md`, except `contract_check`, which is the Gate summary of `verify-record.md`. The skill that writes each gate is in `.exo/shared/phase-skill-map.md`, Gates. A gate written in a read-only subagent comes back as text, and the orchestrator writes it verbatim, like `verify-record.md`.
 - **Living specs:** `spec.md` is a delta over `<specs_dir>/capabilities/<capability>/spec.md`, with `## ADDED Requirements`, `## MODIFIED Requirements` and `## REMOVED Requirements`. Requirement IDs are `CAP-<capability>-FR-n` or `CAP-<capability>-NFR-n`; scenarios in the delta are `#### Scenario S-n: <title>` with Given, When and Then. A new requirement takes the next free number of its capability (`exo specs list`); a removed ID is never reused. `exo specs merge <change>` applies the delta.
 - **Memory mirror** (`hybrid` and `memory`): save each artifact as `.exo/shared/memory-convention.md` says.
 
