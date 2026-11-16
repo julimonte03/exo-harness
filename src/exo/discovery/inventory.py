@@ -92,8 +92,12 @@ ADR_DIRS = files_mod.ADR_DIRS
 DEFAULT_ADR_DIR = "docs/adr"
 
 _REQ_NAME = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)")
-_TOML_SECTION = re.compile(r"^\s*\[([^\]]+)\]\s*$")
-_TOML_STRING = re.compile(r"\"([^\"]*)\"|'([^']*)'")
+_TOML_SECTION = re.compile(r"^\s*\[\s*([^\[\]]+?)\s*\]\s*(?:#.*)?$")
+_TOML_ARRAY_TABLE = re.compile(r"^\s*\[\[\s*([^\[\]]+?)\s*\]\]\s*(?:#.*)?$")
+_TOML_KEY = re.compile(r"^\s*(\"[^\"]+\"|'[^']+'|[A-Za-z0-9_.-]+)\s*=")
+_POETRY_DEPS = re.compile(
+    r"^tool\.poetry\.(?:dependencies|dev-dependencies|group\.[^.]+\.dependencies)$"
+)
 _MAIN_GUARD = re.compile(r"^if\s+__name__\s*==\s*['\"]__main__['\"]\s*:", re.MULTILINE)
 _SPRING_APP = re.compile(r"@SpringBootApplication\b")
 _JAVA_MAIN = re.compile(r"public\s+static\s+void\s+main\s*\(")
@@ -120,51 +124,90 @@ def _dep_name(spec: str) -> str | None:
 
 
 def _toml_sections(text: str) -> dict[str, list[str]]:
-    """Las líneas de cada sección de un TOML, sin comentarios de línea entera."""
+    """Las líneas de cada sección de un TOML, sin comentarios de línea entera.
+
+    Un encabezado puede tener un comentario al final. Una tabla de arreglos (`[[x]]`) es
+    su propia sección (`[x]`), así sus claves no pisan las de la sección anterior. Las
+    líneas de adentro de un string multilínea (`\"\"\"` o `'''`) no son estructura.
+    """
     sections: dict[str, list[str]] = {"": []}
     current = ""
+    open_string: str | None = None
     for line in text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("#"):
+        if open_string is not None:
+            if line.count(open_string) % 2:
+                open_string = None
             continue
-        header = _TOML_SECTION.match(line)
+        if line.strip().startswith("#"):
+            continue
+        array = _TOML_ARRAY_TABLE.match(line)
+        header = array or _TOML_SECTION.match(line)
         if header:
-            current = header.group(1).strip()
+            current = f"[{header.group(1)}]" if array else header.group(1)
             sections.setdefault(current, [])
             continue
         sections.setdefault(current, []).append(line)
+        open_string = next((q for q in ('"""', "'''") if line.count(q) % 2), None)
     return sections
 
 
-def _toml_strings(lines: list[str]) -> list[str]:
-    return [a or b for a, b in _TOML_STRING.findall("\n".join(lines))]
+def _toml_string_end(text: str, index: int) -> tuple[str, int]:
+    """El string que empieza en `index` y dónde termina (sin escapes en los literales `'`)."""
+    quote = text[index]
+    delimiter = quote * 3 if text.startswith(quote * 3, index) else quote
+    position = index + len(delimiter)
+    while position < len(text):
+        if quote == '"' and text[position] == "\\":
+            position += 2
+            continue
+        if text.startswith(delimiter, position):
+            return text[index + len(delimiter) : position], position + len(delimiter)
+        position += 1
+    return text[index + len(delimiter) :], len(text)
 
 
-def _toml_array(lines: list[str], key: str) -> list[str]:
-    """Los strings del arreglo `key = [ ... ]`, aunque ocupe varias líneas."""
-    text = "\n".join(lines)
-    match = re.search(rf"(?m)^\s*{re.escape(key)}\s*=\s*\[", text)
-    if match is None:
-        return []
+def _toml_array_strings(text: str, start: int = 0, *, single: bool = False) -> list[str]:
+    """Los strings que son elementos de arreglos, desde `start`: no las claves ni los
+    valores de una tabla inline dentro de un arreglo (`{include-group = "x"}`).
+
+    Con `single`, solo el valor que empieza en `start`, hasta que se cierra.
+    """
     found: list[str] = []
-    index = match.end()
+    stack: list[str] = []
+    index = start
     while index < len(text):
         char = text[index]
-        if char == "]":
-            break
         if char == "#":  # comentario hasta el fin de línea
-            index = text.find("\n", index)
-            index = len(text) if index < 0 else index
+            newline = text.find("\n", index)
+            index = len(text) if newline < 0 else newline
             continue
         if char in "\"'":
-            close = text.find(char, index + 1)
-            if close < 0:
-                break
-            found.append(text[index + 1 : close])
-            index = close + 1
+            value, index = _toml_string_end(text, index)
+            if stack and stack[-1] == "[":
+                found.append(value)
             continue
+        if char in "[{":
+            stack.append(char)
+        elif char in "]}" and stack:
+            stack.pop()
+            if single and not stack:
+                break
         index += 1
     return found
+
+
+def _toml_value(lines: list[str], key: str, opener: str) -> list[str]:
+    """Los strings de los arreglos del valor `key = [ ... ]` o `key = { ... }`, aunque
+    ocupe varias líneas."""
+    text = "\n".join(lines)
+    match = re.search(rf"(?m)^\s*{re.escape(key)}\s*=\s*{re.escape(opener)}", text)
+    if match is None:
+        return []
+    return _toml_array_strings(text, match.end() - 1, single=True)
+
+
+def _toml_keys(lines: list[str]) -> list[str]:
+    return [m.group(1).strip("\"'") for m in map(_TOML_KEY.match, lines) if m]
 
 
 def _toml_pairs(lines: list[str]) -> dict[str, str]:
@@ -177,16 +220,19 @@ def _toml_pairs(lines: list[str]) -> dict[str, str]:
 
 
 def _pyproject(text: str) -> tuple[str | None, list[str], dict[str, str]]:
+    """(nombre, dependencias, scripts): PEP 621 (también `optional-dependencies` inline),
+    PEP 735 (`[dependency-groups]`) y Poetry (dependencias, dev y grupos)."""
     sections = _toml_sections(text)
     project = sections.get("project", [])
     name = _toml_pairs(project).get("name")
-    deps = list(_toml_array(project, "dependencies"))
-    deps += _toml_strings(sections.get("project.optional-dependencies", []))
-    poetry = sections.get("tool.poetry.dependencies", []) + sections.get(
-        "tool.poetry.group.dev.dependencies", []
-    )
-    deps += [k for k in _toml_pairs(poetry) if k != "python"]
-    deps += [line.split("=")[0].strip() for line in poetry if "=" in line and "{" in line]
+    deps = _toml_value(project, "dependencies", "[")
+    deps += _toml_value(project, "optional-dependencies", "{")
+    for table in ("project.optional-dependencies", "dependency-groups"):
+        deps += _toml_array_strings("\n".join(sections.get(table, [])))
+    poetry = [
+        line for table, lines in sections.items() if _POETRY_DEPS.match(table) for line in lines
+    ]
+    deps += [key for key in _toml_keys(poetry) if key.lower() != "python"]
     scripts = _toml_pairs(sections.get("project.scripts", []))
     names = sorted({n for n in (_dep_name(d) for d in deps) if n})
     if "tool.pytest.ini_options" in sections and "pytest" not in names:
