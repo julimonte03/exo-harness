@@ -55,6 +55,55 @@ def test_python_relativos_ciclo_alias_try_y_strings(tmp_path: Path) -> None:
     assert modules["src/app/billing"]["fan_in"] == 2 and modules["src/app/billing"]["fan_out"] == 1
 
 
+PY_FILES = [
+    "app/__init__.py",
+    "app/main.py",
+    "app/util.py",
+    "app/helpers/__init__.py",
+    "app/services/__init__.py",
+    "app/services/billing.py",
+    "app/services/users.py",
+]
+
+
+def test_python_from_import_resuelve_cada_nombre(tmp_path: Path) -> None:
+    """M3: `from x import a, b` suma todos los destinos; si ninguno resuelve, el módulo."""
+    index = graph.Index.build(tmp_path, PY_FILES)
+    cases = {
+        b"from app.services import billing, users, LIMIT\n": {
+            "app/services/billing.py",
+            "app/services/users.py",
+        },
+        b"from app.services import LIMIT, Client\n": {"app/services/__init__.py"},
+        b"from . import util, helpers\n": {"app/util.py", "app/helpers/__init__.py"},
+        b"from .services import (billing,\n    users)\n": {
+            "app/services/billing.py",
+            "app/services/users.py",
+        },
+        b"from .services import LIMIT\n": {"app/services/__init__.py"},
+        # Si no parsea, el fallback con regex hace lo mismo.
+        b"from app.services import billing, users\ndef broken(:\n": {
+            "app/services/billing.py",
+            "app/services/users.py",
+        },
+    }
+    for source, expected in cases.items():
+        assert graph.python_imports("app/main.py", source, index)[0] == expected, source
+
+
+def test_ast_no_emite_avisos(tmp_path: Path) -> None:
+    """L2: un escape inválido en un string del proyecto no ensucia la salida."""
+    import warnings
+
+    index = graph.Index.build(tmp_path, PY_FILES)
+    source = b"import app.util\nPATTERN = '" + bytes([92]) + b"d'\n"
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        resolved, _ = graph.python_imports("app/main.py", source, index)
+    assert resolved == {"app/util.py"}
+    assert [str(w.message) for w in caught] == []
+
+
 def test_python_que_no_parsea_cae_a_regex(tmp_path: Path) -> None:
     root = _repo(
         tmp_path,
