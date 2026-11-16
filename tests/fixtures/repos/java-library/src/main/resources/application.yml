@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/library}
+    username: ${DB_USER:library}
+    password: ${DB_PASSWORD}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+
+library:
+  catalog:
+    team-email: catalog@example.com
+  loans:
+    max-renewals: 2
+    daily-fine-cents: 25
+    max-fine-cents: 1000
+    grace-days: 1
+  reminders:
+    cron: "0 0 8 * * *"

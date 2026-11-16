@@ -1,0 +1,37 @@
+openapi: 3.0.3
+info:
+  title: Library circulation API
+  version: 0.4.0
+paths:
+  /api/books:
+    get:
+      summary: Search active titles; size is capped at 50
+      responses: { "200": { description: A page of books } }
+    post:
+      summary: Register a title (ISBN-10 or ISBN-13, 1 to 20 copies)
+      responses: { "201": { description: Registered }, "422": { $ref: "#/components/responses/Error" } }
+  /api/members:
+    post:
+      summary: Register a member; students need a students.example.com address
+      responses: { "201": { description: Registered }, "400": { $ref: "#/components/responses/Error" } }
+  /api/loans:
+    post:
+      summary: Check out a copy within the member type's limits
+      responses: { "201": { description: Loan with its due date }, "422": { $ref: "#/components/responses/Error" } }
+  /api/loans/{id}/renewal:
+    post:
+      summary: Renew a loan that is not overdue, two times at most
+      responses: { "200": { description: Renewed }, "422": { $ref: "#/components/responses/Error" } }
+  /api/loans/{id}/return:
+    post:
+      summary: Return a copy; late returns carry a fine
+      responses: { "200": { description: Returned, with fineCents } }
+components:
+  responses:
+    Error:
+      description: The request breaks a circulation rule
+      content:
+        application/json:
+          schema:
+            type: object
+            properties: { code: { type: string }, message: { type: string } }
