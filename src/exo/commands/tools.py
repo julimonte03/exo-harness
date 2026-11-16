@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from exo.commands import change as change_actions
+from exo.commands import discover as discover_actions
 from exo.commands._output import emit_json, error
 from exo.mcp import server
 from exo.sdd import observability
@@ -75,6 +76,15 @@ def register(sub: argparse._SubParsersAction) -> None:
 
     change_actions.register_actions(change)
 
+    discover = _group(sub, "discover", "reverse engineering of an existing project (read-only)")
+    dstatus = discover.add_parser(
+        "status",
+        help="steps that ran, units by state, next units, writes outside the allowed paths",
+    )
+    _project_arg(dstatus)
+    dstatus.set_defaults(handler=_run("discovery_status", lambda a: {}))
+    discover_actions.register_actions(discover)
+
     mcp = sub.add_parser(
         "mcp",
         help="MCP server over stdio (optional; see ADR-0005)",
@@ -123,6 +133,24 @@ def _print_human(tool: str, result: dict[str, Any]) -> None:
             print(f"{state['name']}\t{state['phase']}\t{state['path']}")
         if not result["changes"]:
             print("no active changes")
+    elif tool == "discovery_status":
+        steps = ", ".join(name for name, ran in result["steps"].items() if ran) or "none"
+        print(f"steps that ran: {steps}")
+        if result.get("units") is not None:
+            counts = result["units"]
+            print(
+                f"units: {counts['done']} done, {counts['pending']} pending, "
+                f"{counts['stale']} stale (depth {result['depth']})"
+            )
+            if result["next"]:
+                print(f"next: {', '.join(result['next'])}")
+            for orphan in result["orphans"]:
+                print(f"orphan unit record (not in the plan): {orphan}")
+        outside = result.get("outside_changes")
+        if outside:
+            print("changes outside the paths discovery may write:")
+            for path in outside:
+                print(f"  {path}")
     elif tool == "get_followups":
         for item in result["followups"]:
             print(f"{item.get('id', '-')}\t{item['status']}\t{item.get('summary', '')}")

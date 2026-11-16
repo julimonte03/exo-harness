@@ -329,6 +329,24 @@ def test_uninstall_avisa_lo_del_humano_en_la_carpeta_del_motor(tmp_path: Path, c
     assert snapshots.read_archive(backup.read_bytes()).files[f"{_meta.PROJECT_DIR}/notas.md"][0] == b"mis notas\n"
 
 
+def test_uninstall_conserva_lo_de_la_ingenieria_inversa(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """D-36: `discovery/` y `context.md` son conocimiento del proyecto, no instalación."""
+    _init(tmp_path)
+    motor = tmp_path / _meta.PROJECT_DIR
+    (motor / "discovery" / "units").mkdir(parents=True)
+    (motor / "discovery" / "plan.json").write_bytes(b"{}\n")
+    (motor / "discovery" / "units" / "a.md").write_bytes(b"# Unit: a\n")
+    (motor / "context.md").write_bytes(b"# Context\n")
+    capsys.readouterr()
+    assert main(["uninstall", "--project", str(tmp_path), "--yes"]) == 0
+    out = capsys.readouterr().out
+    assert "kept" in out and f"{_meta.PROJECT_DIR}/discovery" in out
+    assert (motor / "discovery" / "units" / "a.md").read_bytes() == b"# Unit: a\n"
+    assert (motor / "context.md").is_file()
+    assert sorted(p.name for p in motor.iterdir()) == ["context.md", "discovery"]
+    assert f"{_meta.PROJECT_DIR}/context.md" not in out.split("kept")[0]
+
+
 def test_uninstall_dos_veces(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     _init(tmp_path)
     assert main(["uninstall", "--project", str(tmp_path), "--yes"]) == 0

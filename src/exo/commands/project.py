@@ -54,9 +54,7 @@ def register(sub: argparse._SubParsersAction) -> None:
             "'[A-Z][A-Z0-9]*-\\d+' or '#\\d+'); empty for no tickets"
         ),
     )
-    init.add_argument(
-        "--ticket-example", metavar="ID", help="example ticket ID shown in messages"
-    )
+    init.add_argument("--ticket-example", metavar="ID", help="example ticket ID shown in messages")
     init.add_argument(
         "--review-host",
         choices=config.REVIEW_HOSTS,
@@ -113,6 +111,7 @@ def register(sub: argparse._SubParsersAction) -> None:
 _LABELS = {
     "safety_backup": "safety backup",
     "also_removed": "also removed (kept in the backup)",
+    "kept": "kept (project knowledge from discovery; delete it yourself if you want)",
 }
 
 
@@ -391,6 +390,8 @@ def _uninstall(args: argparse.Namespace) -> int:
     extra: dict[str, Any] = {"safety_backup": backup}
     if result.also_removed:
         extra["also_removed"] = result.also_removed
+    if result.kept:
+        extra["kept"] = result.kept
     return _report(result.engine, args, extra)
 
 
