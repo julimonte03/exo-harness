@@ -625,6 +625,24 @@ def test_reabrir_unidades_por_id_o_por_capacidad(repo: Path) -> None:
         units.reopen(repo, capability="ghost")
 
 
+def test_reopen_por_capacidad_sin_citas_cae_a_las_unidades_de_su_source(repo: Path) -> None:
+    """E4: una capacidad con solo `[Inferred]` o `[Doc]` reabre las unidades de su `Source:`."""
+    planner.write(repo)
+    _close_all(repo)
+    for name, listed in (("rules", "src-billing-1, src-gone"), ("orphan", "src-gone")):
+        path = repo / "specs" / "capabilities" / name / "spec.md"
+        path.parent.mkdir(parents=True)
+        path.write_text(
+            f"# Capability: {name}\n\nStatus: as-is\nSource: exo discover; units: {listed}\n\n"
+            f"## Purpose\n\nX.\n\n## Requirements\n\n### CAP-{name}-FR-1: Rule\n\n"
+            "It rounds totals. [Inferred: medium]\n",
+            encoding="utf-8",
+        )
+    assert units.reopen(repo, capability="rules") == ["src-billing-1"]  # src-gone no es del plan
+    with pytest.raises(units.UnitError, match="cites no file of a unit of the plan"):
+        units.reopen(repo, capability="orphan")
+
+
 def _sourced_cap(repo: Path, name: str, cited: str, units_list: str, status: str = "as-is") -> None:
     _cap(repo, name, cited)
     path = repo / "specs" / "capabilities" / name / "spec.md"

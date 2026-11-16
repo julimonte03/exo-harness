@@ -24,8 +24,8 @@ from pathlib import Path
 from typing import Any
 
 from exo.core import config, fsutil, scan
+from exo.discovery import capabilities, planner, store
 from exo.discovery import files as files_mod
-from exo.discovery import planner, store
 from exo.sdd import specs
 
 FOLDER = "units"
@@ -325,21 +325,27 @@ def reopen(
     """Vuelve a pendientes unidades cerradas o salteadas, para extraerlas otra vez (R5 por
     debajo del umbral, o una unidad `skipped` que ya se puede cerrar).
 
-    Por ID, o las unidades que contienen los archivos que citan los FR de una capacidad.
-    Borra solo `units/<id>.json`: el documento queda como referencia hasta la nueva extracción.
+    Por ID, o las unidades que contienen los archivos que citan los FR de una capacidad; si
+    no cita ninguno (solo `[Inferred]` o `[Doc]`), las unidades del plan que lista su
+    `Source:`. Borra solo `units/<id>.json`: el documento queda como referencia hasta la
+    nueva extracción.
     """
-    from exo.discovery import pipeline
-
     project = Path(project)
     plan = planner.load(project)
     known = {item["id"] for item in plan["units"]}
     wanted = list(ids or [])
     if capability is not None:
-        cited = pipeline.cited_files(project).get(capability, set())
+        spec = next((s for s in capabilities.with_preamble(project) if s.name == capability), None)
         owners = file_unit(plan)
+        cited = capabilities.cited(spec) if spec else set()
         found = sorted({owners[p] for p in cited if p in owners})
+        if not found and spec is not None:
+            found = sorted({u for u in capabilities.source_units(spec) if u in known})
         if not found:
-            raise UnitError(f"the capability {capability} cites no file of a unit of the plan")
+            raise UnitError(
+                f"the capability {capability} cites no file of a unit of the plan, and its "
+                "Source: lists none"
+            )
         wanted += found
     unknown = sorted(set(wanted) - known)
     if unknown:
