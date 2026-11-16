@@ -126,6 +126,12 @@ def status_lines(result: dict[str, Any]) -> list[str]:
             )
             lines.append(f"skipped {item['id']}: {item['reason']}{changed}")
         lines += [f"orphan unit record (not in the plan): {o}" for o in result["orphans"]]
+        if result["unsynthesized_units"]:
+            lines.append(
+                "done units that no capability lists in its Source: "
+                + ", ".join(result["unsynthesized_units"])
+            )
+    lines += _capability_lines(result)
     outside = result.get("outside_changes")
     if outside:
         lines.append("changes outside the paths discovery may write:")
@@ -136,6 +142,37 @@ def status_lines(result: dict[str, Any]) -> list[str]:
             f"{result['outside_changes_error']}"
         )
     lines += [f"warning: {warning}" for warning in result.get("warnings", [])]
+    return lines
+
+
+def _capability_lines(result: dict[str, Any]) -> list[str]:
+    lines: list[str] = []
+    counts = result["capabilities"]
+    if any(counts.values()):
+        lines.append("capabilities: " + ", ".join(f"{n} {status}" for status, n in counts.items()))
+    if result["rounds"]:
+        rounds = ", ".join(f"{name} {n}" for name, n in result["rounds"].items())
+        lines.append(f"synthesis rounds: {rounds}")
+    if result["stale_capabilities"]:
+        lines.append(
+            "stale capabilities (code they cite changed since `synthesized`): "
+            + ", ".join(result["stale_capabilities"])
+        )
+    if result["unrecorded_capabilities"]:
+        lines.append(
+            f"capabilities without a synthesis record (run `{_meta.NAME} discover synthesized "
+            "<name>`): " + ", ".join(result["unrecorded_capabilities"])
+        )
+    if result["units"] is not None:
+        written = "written" if result["coverage"] else f"not yet (`{_meta.NAME} discover coverage`)"
+        lines.append(f"coverage.md: {written}")
+    if result["audit_missing"]:
+        lines.append(f"not audited yet: {', '.join(result['audit_missing'])}")
+    if result["flagged"]:
+        lines.append(
+            f"flagged by the audit: {', '.join(result['flagged'])} "
+            f"(`{_meta.NAME} discover reopen --capability <name>`)"
+        )
     return lines
 
 

@@ -31,10 +31,18 @@ class AuditError(ValueError):
     """No hay población, o los veredictos no corresponden a la muestra."""
 
 
-def population(project: Path, warnings: list[str] | None = None) -> list[dict[str, Any]]:
-    """Los FR de las specs con preámbulo. Las que no son UTF-8 se saltean (en `warnings`)."""
+def population(
+    project: Path,
+    warnings: list[str] | None = None,
+    *,
+    loaded: list[capabilities.Spec] | None = None,
+) -> list[dict[str, Any]]:
+    """Los FR de las specs con preámbulo. Las que no son UTF-8 se saltean (en `warnings`).
+
+    `loaded`: las specs con preámbulo ya cargadas, para no leerlas dos veces.
+    """
     found: list[dict[str, Any]] = []
-    for spec in capabilities.with_preamble(project, warnings):
+    for spec in loaded if loaded is not None else capabilities.with_preamble(project, warnings):
         for block in spec.capability.requirements.values():
             if "-NFR-" in block.id:
                 continue

@@ -625,6 +625,63 @@ def test_reabrir_unidades_por_id_o_por_capacidad(repo: Path) -> None:
         units.reopen(repo, capability="ghost")
 
 
+def _sourced_cap(repo: Path, name: str, cited: str, units_list: str, status: str = "as-is") -> None:
+    _cap(repo, name, cited)
+    path = repo / "specs" / "capabilities" / name / "spec.md"
+    text = path.read_text(encoding="utf-8")
+    text = text.replace("Status: as-is\n", f"Status: {status}\n").replace(
+        "Source: exo discover\n", f"Source: exo discover; units: {units_list}\n"
+    )
+    path.write_text(text, encoding="utf-8")
+
+
+def test_status_resume_capacidades_auditoria_y_unidades_sin_sintetizar(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """E3: lo que falta para cerrar la adopción, de solo lectura."""
+    from exo.cli import main
+    from exo.discovery import capabilities
+
+    planner.write(repo)
+    _close_all(repo)
+    _sourced_cap(repo, "auth", "src/auth/login.py:4", "src-auth, src-util")
+    _sourced_cap(repo, "strings", "src/util/strings.py:3", "src-util", "as-is-validated")
+    capabilities.synthesized(repo, ["auth"])
+    capabilities.synthesized(repo, ["auth"])
+    payload = pipeline.status(repo)
+    assert payload["capabilities"] == {"as-is": 1, "as-is-validated": 1}
+    assert payload["rounds"] == {"auth": 2}
+    assert (payload["stale_capabilities"], payload["unrecorded_capabilities"]) == ([], ["strings"])
+    assert payload["unsynthesized_units"] == ["src-billing-1", "src-billing-2"]
+    assert (payload["coverage"], payload["audit_missing"], payload["flagged"]) == (False, [], [])
+    sampler.sample(repo, n=4)
+    verdicts = {"CAP-auth-FR-1": "correct", "CAP-auth-FR-2": "incorrect"}
+    verdicts["CAP-strings-FR-1"] = "correct"
+    sampler.record(repo, {"results": [{"id": k, "verdict": v} for k, v in verdicts.items()]})
+    coverage.write(repo)
+    before = _discovery_bytes(repo)
+    payload = pipeline.status(repo)
+    assert _discovery_bytes(repo) == before  # solo lectura
+    assert payload["coverage"] is True
+    assert payload["audit_missing"] == ["CAP-strings-FR-2"]
+    assert payload["flagged"] == ["auth"]
+    (repo / "src/auth/login.py").write_text("changed = True\n", encoding="utf-8")
+    assert pipeline.status(repo)["stale_capabilities"] == ["auth"]
+    assert main(["discover", "status", "--project", str(repo)]) == 0
+    out = capsys.readouterr().out
+    for fragment in (
+        "capabilities: 1 as-is, 1 as-is-validated",
+        "synthesis rounds: auth 2",
+        "stale capabilities",
+        "without a synthesis record",
+        "src-billing-1, src-billing-2",
+        "not audited yet: CAP-strings-FR-2",
+        "flagged by the audit: auth",
+        "coverage.md: written",
+    ):
+        assert fragment in out, fragment
+
+
 def test_skip_saca_una_unidad_del_ciclo(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """E1: una unidad que no se puede cerrar queda `skipped`, con su razón, hasta un reopen."""
     from exo.cli import main

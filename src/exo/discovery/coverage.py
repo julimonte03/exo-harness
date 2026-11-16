@@ -73,20 +73,35 @@ def build(project: Path) -> dict[str, Any]:
     structure = store.read_json(project, graph.FILENAME)
     total_modules = len(structure["modules"]) if structure else len(modules)
     covered = sorted(m for m, sts in modules.items() if all(s == "done" for s in sts))
-    spec_warnings: list[str] = []
-    population = sampler.population(project, spec_warnings)
-    blocks = {
-        block.id: block
-        for spec in capabilities.with_preamble(project)
-        for block in spec.capability.requirements.values()
-    }
+    warnings: list[str] = []
+    loaded = capabilities.with_preamble(project, warnings)
+    population = sampler.population(project, loaded=loaded)
+    blocks = {block.id: block for spec in loaded for block in spec.capability.requirements.values()}
     evidenced = sum(
         1
         for item in population
         if any(specs.FACTS.search(line) for line in blocks[item["id"]].lines)
     )
+    rows, missing, audit_warnings = precision(project, population)
+    statuses = list(unit_states.values())
+    return {
+        "units": {"total": len(plan["units"])} | {s: statuses.count(s) for s in units.STATUSES},
+        "modules": {"total": total_modules, "covered": len(covered)},
+        "requirements": {"total": len(population), "with_evidence": evidenced},
+        "precision": rows,
+        "audit_missing": missing,
+        "warnings": warnings + audit_warnings,
+    }
+
+
+def precision(
+    project: Path, population: list[dict[str, Any]]
+) -> tuple[list[dict[str, Any]], list[str], list[str]]:
+    """(precisión por capacidad, IDs de la muestra sin veredicto, avisos de la auditoría).
+
+    Solo lee `sample.json` y `audit.json`: `status` la usa sin recalcular la cobertura.
+    """
     rows, missing, warnings = _verdicts(project)
-    warnings = spec_warnings + warnings
     by_id = {i["id"]: i["capability"] for i in population}
     per_capability: dict[str, dict[str, int]] = {}
     for row in rows:
@@ -95,7 +110,7 @@ def build(project: Path) -> dict[str, Any]:
             capability, {"correct": 0, "incorrect": 0, "unverifiable": 0}
         )
         entry[row["verdict"]] += 1
-    precision: list[dict[str, Any]] = []
+    found: list[dict[str, Any]] = []
     for capability, counts in sorted(per_capability.items()):
         judged = counts["correct"] + counts["incorrect"]
         total = judged + counts["unverifiable"]
@@ -105,16 +120,8 @@ def build(project: Path) -> dict[str, Any]:
             flags.append("below threshold: extract again")
         if total and counts["unverifiable"] / total > UNVERIFIABLE_FLAG:
             flags.append("too many unverifiable claims")
-        precision.append({"capability": capability, **counts, "precision": value, "flags": flags})
-    statuses = list(unit_states.values())
-    return {
-        "units": {"total": len(plan["units"])} | {s: statuses.count(s) for s in units.STATUSES},
-        "modules": {"total": total_modules, "covered": len(covered)},
-        "requirements": {"total": len(population), "with_evidence": evidenced},
-        "precision": precision,
-        "audit_missing": missing,
-        "warnings": warnings,
-    }
+        found.append({"capability": capability, **counts, "precision": value, "flags": flags})
+    return found, missing, warnings
 
 
 def _percent(part: int, whole: int) -> str:
