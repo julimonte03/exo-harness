@@ -115,6 +115,31 @@ def test_un_archivo_borrado_de_la_copia_no_aparece(repo: Path) -> None:
     assert "README.md" not in [f.path for f in files.list_files(repo).files]
 
 
+def test_el_tamano_y_el_corte_se_miden_con_lf(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """H2: con CRLF, el tamaño (y el corte de 1 MB) es el de los bytes con LF."""
+    from exo.core import fsutil
+
+    _write(tmp_path, "a.py", b"x = 1\r\ny = 2\r\n")
+    _write(tmp_path, "b.py", b"x = 1\ny = 2\n")
+    _write(tmp_path, "crlf.txt", b"x\r\n" * 400_000)  # 1,2 MB en disco, 800 KB con LF
+    _write(tmp_path, "huge.txt", b"x" * (2 * files.MAX_BYTES + 1))
+    real = fsutil.read_bytes
+
+    def guard(path: Path) -> bytes:
+        assert Path(path).name != "huge.txt", "a file over 2 MB was read"
+        return real(path)
+
+    monkeypatch.setattr(fsutil, "read_bytes", guard)
+    found = files.list_files(tmp_path)
+    by_path = {f.path: f for f in found.files}
+    assert by_path["a.py"].size == by_path["b.py"].size == len(b"x = 1\ny = 2\n")
+    assert by_path["a.py"].sha == by_path["b.py"].sha
+    assert by_path["crlf.txt"].size == 800_000
+    assert "huge.txt" not in by_path and found.excluded["large"] == 1
+
+
 def test_el_hash_ignora_los_fines_de_linea() -> None:
     assert files.normalized_hash(b"a\r\nb\r\n") == files.normalized_hash(b"a\nb\n")
     assert files.normalized_hash(b"a\nb") != files.normalized_hash(b"a\nc")
