@@ -54,6 +54,33 @@ def _ids(plan: dict) -> list[str]:
     return [u["id"] for u in plan["units"]]
 
 
+def _discovery_bytes(repo: Path) -> dict[str, bytes]:
+    root = store.root(repo)
+    return {p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob("*") if p.is_file()}
+
+
+@needs_git
+def test_commitear_los_resultados_no_cambia_el_inventario(repo: Path) -> None:
+    """H1: `.exo/discovery/`, las specs y un ADR recuperado commiteados no cambian R0 a R2."""
+    planner.write(repo)
+    inv = store.read_json(repo, inventory.FILENAME)
+    assert inv is not None and inv["adr_dir_exists"] is False
+    adr = repo / "docs" / "adr" / "0001-recovered-token-login.md"
+    adr.parent.mkdir(parents=True)
+    adr.write_text("# 1. Token login\n", encoding="utf-8", newline="\n")
+    _cap(repo, "auth", "src/auth/login.py:4")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "docs: discovery")
+    before = _discovery_bytes(repo)
+    data, wrote = inventory.write(repo)
+    assert wrote is False
+    assert data["adr_dir_exists"] is False
+    assert "engine" not in data["files"]["excluded"] and "specs" not in data["files"]["excluded"]
+    assert pipeline.structure(repo)["written"] is False
+    assert planner.write(repo)[1] is False
+    assert _discovery_bytes(repo) == before
+
+
 def test_plan_ids_estables_partidos_entre_archivos_y_prioridad(repo: Path) -> None:
     plan, wrote = planner.write(repo)
     assert wrote is True
@@ -236,7 +263,9 @@ def test_criterio_5_solo_escribe_en_las_rutas_permitidas(repo: Path) -> None:
 def test_los_comentarios_de_la_plantilla_no_son_afirmaciones(repo: Path) -> None:
     planner.write(repo)
     text = _doc("src-auth", "Login issues a token. [Code] src/auth/login.py:4-5")
-    text = text.replace("## Entities\n", "## Entities\n\n<!--\n- An example claim without evidence\n-->\n", 1)
+    text = text.replace(
+        "## Entities\n", "## Entities\n\n<!--\n- An example claim without evidence\n-->\n", 1
+    )
     path = store.root(repo) / units.unit_doc("src-auth")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")

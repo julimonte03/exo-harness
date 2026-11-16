@@ -42,6 +42,8 @@ TREE = {
     ".env.example": "SECRET_VALUE=\n",
     "README.md": "# App\n",
     "docs/notes/skip-me.md": "ignored by config\n",
+    "docs/adr/0001-use-fastapi.md": "# 1. Use FastAPI\n",
+    "docs/adr/0002-recovered-token-login.md": "# 2. Token login\n",
 }
 
 
@@ -71,6 +73,7 @@ def test_solo_lo_versionado_y_sin_lo_excluido(repo: Path) -> None:
         ".env.example",
         "README.md",
         "api/migrations/001_init.js",
+        "docs/adr/0001-use-fastapi.md",
         "src/app/__init__.py",
         "src/app/main.py",
         "tests/test_main.py",
@@ -78,13 +81,12 @@ def test_solo_lo_versionado_y_sin_lo_excluido(repo: Path) -> None:
         "web/src/App.tsx",
     ]
     assert found.git is True
+    # Lo del motor y las specs no se cuenta: commitear los resultados no cambia el inventario.
     assert found.excluded == {
         "binary": 1,
-        "engine": 2,
         "generated": 2,
         "ignored": 1,
         "large": 1,
-        "specs": 1,
         "vendored": 3,
     }
     with_untracked = files.list_files(repo, include_untracked=True)

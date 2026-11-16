@@ -89,7 +89,7 @@ CONFIG_PATTERNS = (
     ".prettierrc*",
     "logback*.xml",
 )
-ADR_DIRS = ("docs/adr", "doc/adr", "docs/decisions", "docs/architecture/decisions", "adr")
+ADR_DIRS = files_mod.ADR_DIRS
 DEFAULT_ADR_DIR = "docs/adr"
 
 _REQ_NAME = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)")
@@ -411,6 +411,8 @@ def _entrypoints(
 
 
 def _adr_dir(paths: list[str]) -> tuple[str, bool]:
+    """La carpeta de ADRs del proyecto. Los recuperados no están en `paths` (se excluyen),
+    así que escribirlos no la "crea"."""
     for folder in ADR_DIRS:
         if any(p.startswith(folder + "/") and p.endswith(".md") for p in paths):
             return folder, True

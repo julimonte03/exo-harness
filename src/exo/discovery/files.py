@@ -4,8 +4,10 @@
   filtrado por existencia; sin symlinks ni submódulos. Sin git, se recorre la carpeta
   con las mismas exclusiones y un aviso (no se aplica `.gitignore`).
 - **Exclusiones:** la carpeta del motor, `specs_dir`, los archivos que instaló el
-  motor (lock), carpetas de terceros o de build, minificados y generados, binarios,
-  lo que pasa de 1 MB y `discovery.ignore`.
+  motor (lock), los ADRs recuperados, carpetas de terceros o de build, minificados y
+  generados, binarios, lo que pasa de 1 MB y `discovery.ignore`. Lo que produce el
+  propio flujo (motor, specs, ADRs recuperados) ni se cuenta: commitear los
+  resultados no puede cambiar el inventario.
 - **Hash:** sha256 con los fines de línea normalizados, igual en Windows y Linux.
 - **Archivos de credenciales** (`.env`, claves): se listan por nombre y nunca se leen.
 """
@@ -123,6 +125,12 @@ CODE_LANGUAGES = frozenset(
     }
 )
 MIGRATION_DIRS = (("migrations",), ("alembic", "versions"), ("db", "migration"))
+# Las carpetas de ADRs que se reconocen, en orden de preferencia, y el nombre de los que
+# escribe la ingeniería inversa (ADR-0015).
+ADR_DIRS = ("docs/adr", "doc/adr", "docs/decisions", "docs/architecture/decisions", "adr")
+RECOVERED_ADR = "*-recovered-*.md"
+# Lo que produce o gestiona el propio flujo: se excluye y no se cuenta.
+_UNCOUNTED = frozenset({"engine", "specs", "recovered"})
 
 
 @dataclass(frozen=True)
@@ -264,6 +272,12 @@ def _walked(project: Path) -> list[str]:
     return found
 
 
+def is_recovered_adr(rel: str) -> bool:
+    """Un ADR que escribió la ingeniería inversa (`<carpeta de ADRs>/*-recovered-*.md`)."""
+    pure = PurePosixPath(rel)
+    return pure.parent.as_posix() in ADR_DIRS and fnmatch.fnmatchcase(pure.name, RECOVERED_ADR)
+
+
 def _exclusion(rel: str, specs_dir: str, engine: set[str], cfg: dict) -> str | None:
     pure = PurePosixPath(rel)
     if pure.parts[0] == _meta.PROJECT_DIR:
@@ -272,6 +286,8 @@ def _exclusion(rel: str, specs_dir: str, engine: set[str], cfg: dict) -> str | N
         return "specs"
     if rel in engine:
         return "engine"
+    if is_recovered_adr(rel):
+        return "recovered"
     if any(part in VENDORED_DIRS for part in pure.parts[:-1]):
         return "vendored"
     if pure.name in LOCK_FILES or any(
@@ -333,7 +349,8 @@ def list_files(project: Path, *, include_untracked: bool = False) -> FileSet:
                         )
                     )
                     continue
-        counts[reason] = counts.get(reason, 0) + 1
+        if reason not in _UNCOUNTED:
+            counts[reason] = counts.get(reason, 0) + 1
     result.excluded = dict(sorted(counts.items()))
     result.files.sort(key=lambda f: f.path)
     return result
