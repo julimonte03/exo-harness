@@ -58,8 +58,16 @@ def register_actions(actions: argparse._SubParsersAction) -> None:
     done.add_argument("unit", help="unit id, as `next` gives it")
     _common(done)
     done.set_defaults(handler=_done)
+    skip = actions.add_parser(
+        "skip", help="R3: take out of the loop a unit that cannot be closed, with the reason"
+    )
+    skip.add_argument("unit", help="unit id, as `next` gives it")
+    skip.add_argument("--reason", required=True, help="why it cannot be closed (committed)")
+    _common(skip)
+    skip.set_defaults(handler=_skip)
     reopen = actions.add_parser(
-        "reopen", help="R5: send closed units back to extraction (a capability below threshold)"
+        "reopen",
+        help="R5: send closed or skipped units back to extraction (a capability below threshold)",
     )
     reopen.add_argument("units", nargs="*", help="unit ids")
     reopen.add_argument("--capability", help="the units whose files the capability's FRs cite")
@@ -93,10 +101,15 @@ def status_lines(result: dict[str, Any]) -> list[str]:
         counts = result["units"]
         lines.append(
             f"units: {counts['done']} done, {counts['pending']} pending, "
-            f"{counts['stale']} stale (depth {result['depth']})"
+            f"{counts['stale']} stale, {counts['skipped']} skipped (depth {result['depth']})"
         )
         if result["next"]:
             lines.append(f"next: {', '.join(result['next'])}")
+        for item in result["skipped"]:
+            changed = (
+                f" (its files changed: {', '.join(item['changed'])})" if item["changed"] else ""
+            )
+            lines.append(f"skipped {item['id']}: {item['reason']}{changed}")
         lines += [f"orphan unit record (not in the plan): {o}" for o in result["orphans"]]
     outside = result.get("outside_changes")
     if outside:
@@ -201,6 +214,21 @@ def _done(args: argparse.Namespace) -> int:
     return 0
 
 
+def _skip(args: argparse.Namespace) -> int:
+    try:
+        record = units.skip(args.project, args.unit, args.reason)
+    except _ERRORS as exc:
+        return _fail(exc)
+    if args.json:
+        emit_json(record)
+    else:
+        print(
+            f"{args.unit} skipped: {record['skipped']} "
+            f"(`{_meta.NAME} discover reopen {args.unit}` brings it back)"
+        )
+    return 0
+
+
 def _reopen(args: argparse.Namespace) -> int:
     if not args.units and args.capability is None:
         return usage_error("pass unit ids or --capability <name>")
@@ -284,6 +312,11 @@ def _update(args: argparse.Namespace) -> int:
         print("nothing changed since the units were closed")
     for unit_id, changed in data["stale_units"].items():
         print(f"stale unit {unit_id}: {', '.join(changed)}")
+    for unit_id, changed in data["changed_skipped_units"].items():
+        print(
+            f"skipped unit {unit_id} changed: {', '.join(changed)} (it stays skipped; "
+            f"`{_meta.NAME} discover reopen {unit_id}` sends it back to extraction)"
+        )
     for name in data["stale_capabilities"]:
         print(f"stale capability {name}: extract its units again, then synthesize it")
     for path in data["new_files"]:

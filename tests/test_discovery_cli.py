@@ -56,7 +56,7 @@ def test_el_recorrido_completo_por_cli(repo: Path, capsys: pytest.CaptureFixture
     data = _json(capsys, ["discover", "plan", "--depth", "standard", *p])
     assert [u["id"] for u in data["units"]] == ["src-app", "src-app-billing"]
     status = _json(capsys, ["discover", "status", *p])
-    assert status["units"] == {"pending": 2, "done": 0, "stale": 0}
+    assert status["units"] == {"pending": 2, "done": 0, "stale": 0, "skipped": 0}
     nxt = _json(capsys, ["discover", "next", "--count", "2", *p])
     assert [u["id"] for u in nxt["units"]] == ["src-app", "src-app-billing"]
     doc = store.root(repo) / units.unit_doc("src-app")
@@ -67,7 +67,7 @@ def test_el_recorrido_completo_por_cli(repo: Path, capsys: pytest.CaptureFixture
     data = _json(capsys, ["discover", "done", "src-app", *p])
     assert data["id"] == "src-app"
     status = _json(capsys, ["discover", "status", *p])
-    assert status["units"] == {"pending": 1, "done": 1, "stale": 0}
+    assert status["units"] == {"pending": 1, "done": 1, "stale": 0, "skipped": 0}
     assert status["outside_changes"] == [] or status["outside_changes"] is None
 
 

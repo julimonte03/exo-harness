@@ -106,7 +106,7 @@ def test_un_checkout_con_crlf_da_lo_mismo_y_no_reescribe(repo: Path) -> None:
     assert pipeline.structure(repo)["written"] is False
     assert planner.write(repo)[1] is False  # sin PlanError: el plan es el mismo
     assert _discovery_bytes(repo) == crlf
-    assert pipeline.status(repo)["units"] == {"pending": 3, "done": 1, "stale": 0}
+    assert pipeline.status(repo)["units"] == {"pending": 3, "done": 1, "stale": 0, "skipped": 0}
 
 
 def test_plan_ids_estables_partidos_entre_archivos_y_prioridad(repo: Path) -> None:
@@ -401,7 +401,7 @@ def test_criterio_5_solo_escribe_en_las_rutas_permitidas(repo: Path) -> None:
     (repo / "docs" / "adr" / "0002-new-decision.md").write_text("# 2\n", encoding="utf-8")
     assert pipeline.outside_changes(repo) == ["docs/adr/0002-new-decision.md", "src/auth/login.py"]
     status = pipeline.status(repo)
-    assert status["units"] == {"pending": 0, "done": 3, "stale": 1}  # login.py cambió
+    assert status["units"] == {"pending": 0, "done": 3, "stale": 1, "skipped": 0}  # login.py cambió
     assert json.loads((store.root(repo) / "plan.json").read_text(encoding="utf-8"))["schema"] == 1
 
 
@@ -552,6 +552,59 @@ def test_reabrir_unidades_por_id_o_por_capacidad(repo: Path) -> None:
         units.reopen(repo, ["nope"])
     with pytest.raises(units.UnitError, match="cites no file"):
         units.reopen(repo, capability="ghost")
+
+
+def test_skip_saca_una_unidad_del_ciclo(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """E1: una unidad que no se puede cerrar queda `skipped`, con su razón, hasta un reopen."""
+    from exo.cli import main
+    from exo.discovery import files
+
+    planner.write(repo)
+    with pytest.raises(units.UnitError, match="reason"):
+        units.skip(repo, "src-util", "   ")
+    with pytest.raises(units.UnitError, match="a secret"):
+        units.skip(repo, "src-util", f"It holds the key {AWS}")
+    with pytest.raises(planner.PlanError, match="not a unit"):
+        units.skip(repo, "nope", "x")
+    reason = "Generated client; nobody can answer for it"
+    record = units.skip(repo, "src-util", f"  {reason}\n")
+    assert record["skipped"] == reason
+    assert set(record["files"]) == {"src/util/__init__.py", "src/util/strings.py"}
+    assert record["tests"] == {}
+    assert units.skip(repo, "src-util", reason) == record  # idempotente
+    by_id = {s.id: s for s in units.states(repo, planner.load(repo), files.list_files(repo))}
+    assert (by_id["src-util"].status, by_id["src-util"].reason) == ("skipped", reason)
+    assert "src-util" not in [u["id"] for u in units.next_units(repo, count=10)]
+    for item in planner.load(repo)["units"]:
+        if item["id"] != "src-util":
+            _write_doc(repo, item["id"], f"Does its job. [Code] {item['files'][-1]}:1")
+            units.done(repo, item["id"])
+    payload = pipeline.status(repo)
+    assert payload["units"] == {"pending": 0, "done": 3, "stale": 0, "skipped": 1}
+    assert payload["skipped"] == [{"id": "src-util", "reason": reason, "changed": []}]
+    assert payload["next"] == []
+    report = coverage.build(repo)
+    assert report["units"] == {"total": 4, "done": 3, "skipped": 1, "pending": 0, "stale": 0}
+    assert report["modules"]["covered"] == 2  # src/util no queda cubierto
+    assert "1 skipped" in coverage.render(report)
+    (repo / "src/util/strings.py").write_text("changed = True\n", encoding="utf-8")
+    payload = pipeline.status(repo)
+    assert payload["units"]["skipped"] == 1  # la decisión fue humana: sigue skipped
+    assert payload["skipped"][0]["changed"] == ["src/util/strings.py"]
+    assert pipeline.update(repo)["changed_skipped_units"] == {"src-util": ["src/util/strings.py"]}
+    assert main(["discover", "update", "--project", str(repo)]) == 0
+    assert "skipped unit src-util changed" in capsys.readouterr().out
+    assert main(["discover", "status", "--project", str(repo)]) == 0
+    out = capsys.readouterr().out
+    assert "1 skipped" in out and reason in out
+    assert units.reopen(repo, ["src-util"]) == ["src-util"]
+    assert [u["id"] for u in units.next_units(repo, count=10)] == ["src-util"]
+    p = ["--project", str(repo)]
+    assert main(["discover", "skip", "src-util", "--reason", reason, *p]) == 0
+    assert "src-util skipped" in capsys.readouterr().out
+    with pytest.raises(SystemExit) as exited:  # --reason es obligatorio
+        main(["discover", "skip", "src-util", *p])
+    assert exited.value.code == 2
 
 
 JAVA = "src/main/java/com/example"
