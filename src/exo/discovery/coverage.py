@@ -18,8 +18,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from exo.discovery import capabilities, graph, planner, sampler, store, units
 from exo.discovery import files as files_mod
-from exo.discovery import graph, planner, sampler, store, units
 from exo.sdd import specs
 
 FILENAME = "coverage.md"
@@ -72,15 +72,20 @@ def build(project: Path) -> dict[str, Any]:
     structure = store.read_json(project, graph.FILENAME)
     total_modules = len(structure["modules"]) if structure else len(modules)
     covered = sorted(m for m, sts in modules.items() if all(s == "done" for s in sts))
-    population = sampler.population(project)
-    evidenced = 0
-    for item in population:
-        path = project / item["spec"]
-        cap = specs.parse_capability(path.read_bytes().decode("utf-8-sig"), item["capability"])
-        block = cap.requirements[item["id"]]
-        if any(specs.FACTS.search(line) for line in block.lines):
-            evidenced += 1
+    spec_warnings: list[str] = []
+    population = sampler.population(project, spec_warnings)
+    blocks = {
+        block.id: block
+        for spec in capabilities.with_preamble(project)
+        for block in spec.capability.requirements.values()
+    }
+    evidenced = sum(
+        1
+        for item in population
+        if any(specs.FACTS.search(line) for line in blocks[item["id"]].lines)
+    )
     rows, missing, warnings = _verdicts(project)
+    warnings = spec_warnings + warnings
     by_id = {i["id"]: i["capability"] for i in population}
     per_capability: dict[str, dict[str, int]] = {}
     for row in rows:

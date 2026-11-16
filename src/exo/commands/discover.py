@@ -84,6 +84,33 @@ def register_actions(actions: argparse._SubParsersAction) -> None:
     update.set_defaults(handler=_update)
 
 
+def status_lines(result: dict[str, Any]) -> list[str]:
+    """La salida humana de `discover status` (la tool `discovery_status`)."""
+    lines: list[str] = []
+    steps = ", ".join(name for name, ran in result["steps"].items() if ran) or "none"
+    lines.append(f"steps that ran: {steps}")
+    if result.get("units") is not None:
+        counts = result["units"]
+        lines.append(
+            f"units: {counts['done']} done, {counts['pending']} pending, "
+            f"{counts['stale']} stale (depth {result['depth']})"
+        )
+        if result["next"]:
+            lines.append(f"next: {', '.join(result['next'])}")
+        lines += [f"orphan unit record (not in the plan): {o}" for o in result["orphans"]]
+    outside = result.get("outside_changes")
+    if outside:
+        lines.append("changes outside the paths discovery may write:")
+        lines += [f"  {path}" for path in outside]
+    if result.get("outside_changes_error"):
+        lines.append(
+            "could not check for changes outside the paths discovery may write: "
+            f"{result['outside_changes_error']}"
+        )
+    lines += [f"warning: {warning}" for warning in result.get("warnings", [])]
+    return lines
+
+
 def _fail(exc: Exception) -> int:
     lines = str(exc).split("\n")
     if len(lines) == 1:
@@ -201,7 +228,13 @@ def _sample(args: argparse.Namespace) -> int:
     print(f"seed {data['seed']}: {len(data['items'])} of {data['population']} requirements")
     for item in data["items"]:
         print(f"  {item['id']}\t{item['spec']}:{item['line']}")
+    _warn(data["warnings"])
     return 0
+
+
+def _warn(warnings: list[str]) -> None:
+    for warning in warnings:
+        print(f"warning: {warning}", file=sys.stderr)
 
 
 def _load(raw: str) -> Any:
@@ -247,7 +280,7 @@ def _update(args: argparse.Namespace) -> int:
     if args.json:
         emit_json(data)
         return 0
-    if not any(data.values()):
+    if not any(value for key, value in data.items() if key != "warnings"):
         print("nothing changed since the units were closed")
     for unit_id, changed in data["stale_units"].items():
         print(f"stale unit {unit_id}: {', '.join(changed)}")
@@ -257,4 +290,5 @@ def _update(args: argparse.Namespace) -> int:
         print(f"new file without a unit: {path} (run `{_meta.NAME} discover plan --replan`)")
     for path in data["deleted_files"]:
         print(f"deleted file: {path}")
+    _warn(data["warnings"])
     return 0

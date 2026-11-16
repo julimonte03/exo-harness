@@ -134,28 +134,10 @@ def _print_human(tool: str, result: dict[str, Any]) -> None:
         if not result["changes"]:
             print("no active changes")
     elif tool == "discovery_status":
-        steps = ", ".join(name for name, ran in result["steps"].items() if ran) or "none"
-        print(f"steps that ran: {steps}")
-        if result.get("units") is not None:
-            counts = result["units"]
-            print(
-                f"units: {counts['done']} done, {counts['pending']} pending, "
-                f"{counts['stale']} stale (depth {result['depth']})"
-            )
-            if result["next"]:
-                print(f"next: {', '.join(result['next'])}")
-            for orphan in result["orphans"]:
-                print(f"orphan unit record (not in the plan): {orphan}")
-        outside = result.get("outside_changes")
-        if outside:
-            print("changes outside the paths discovery may write:")
-            for path in outside:
-                print(f"  {path}")
-        if result.get("outside_changes_error"):
-            print(
-                "could not check for changes outside the paths discovery may write: "
-                f"{result['outside_changes_error']}"
-            )
+        from exo.commands import discover
+
+        for line in discover.status_lines(result):
+            print(line)
     elif tool == "get_followups":
         for item in result["followups"]:
             print(f"{item.get('id', '-')}\t{item['status']}\t{item.get('summary', '')}")

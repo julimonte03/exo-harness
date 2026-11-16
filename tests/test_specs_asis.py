@@ -161,6 +161,26 @@ def test_speclint_check_y_list_respetan_la_severidad(
     assert (info.status, info.problems) == ("as-is", 0)
 
 
+def test_list_capabilities_saltea_una_spec_que_no_es_utf8(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """E5: la spec se saltea con un aviso que la nombra, sin traceback."""
+    _cap(tmp_path, AS_IS)
+    legacy = _cap(tmp_path, "# Capability: legacy\n\n## Purpose\n\nJosé.\n", "legacy")
+    legacy.write_bytes(legacy.read_text(encoding="utf-8").encode("latin-1"))
+    warnings: list[str] = []
+    assert [c.name for c in specs.list_capabilities(tmp_path, warnings)] == ["billing"]
+    assert len(warnings) == 1 and "specs/capabilities/legacy/spec.md" in warnings[0]
+    assert [c.name for c in specs.list_capabilities(tmp_path)] == ["billing"]
+    assert main(["specs", "list", "--project", str(tmp_path)]) == 0
+    captured = capsys.readouterr()
+    assert "billing" in captured.out and "specs/capabilities/legacy/spec.md" in captured.err
+    assert main(["specs", "list", "--project", str(tmp_path), "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert [c["name"] for c in payload["capabilities"]] == ["billing"]
+    assert "legacy" in payload["warnings"][0]
+
+
 def test_no_se_integra_un_delta_en_una_spec_as_is_sin_validar(tmp_path: Path) -> None:
     _cap(tmp_path, AS_IS)
     created = changes.new_change(tmp_path, "cap-discount")

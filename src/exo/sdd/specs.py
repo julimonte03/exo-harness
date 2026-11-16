@@ -525,21 +525,46 @@ def _relative(project: Path, path: Path) -> str:
     return path.relative_to(project).as_posix()
 
 
-def list_capabilities(project: Path) -> list[CapabilityInfo]:
+def capability_texts(
+    project: Path, warnings: list[str] | None = None
+) -> list[tuple[str, Path, str]]:
+    """(nombre, ruta, texto) de cada spec de capacidad, por nombre.
+
+    Una spec que no es UTF-8 se saltea y, si se pasa `warnings`, deja un aviso que la
+    nombra: una spec ilegible no frena a las demás.
+    """
     project = Path(project)
     root = capabilities_root(project)
     if not root.is_dir():
         return []
-    found: list[CapabilityInfo] = []
+    found: list[tuple[str, Path, str]] = []
     for folder in sorted(p for p in root.iterdir() if p.is_dir() and p.name[0] not in "._"):
         path = folder / SPEC_FILE
         if not path.is_file():
             continue
-        cap = parse_capability(path.read_bytes().decode("utf-8-sig"), folder.name)
+        try:
+            text = path.read_bytes().decode("utf-8-sig")
+        except UnicodeDecodeError as exc:
+            if warnings is not None:
+                warnings.append(
+                    f"{_relative(project, path)} is not UTF-8 text ({exc.reason}), so it was "
+                    "skipped; save it as UTF-8 to include it"
+                )
+            continue
+        found.append((folder.name, path, text))
+    return found
+
+
+def list_capabilities(project: Path, warnings: list[str] | None = None) -> list[CapabilityInfo]:
+    """Las capacidades, salteando con un aviso (en `warnings`) las que no son UTF-8."""
+    project = Path(project)
+    found: list[CapabilityInfo] = []
+    for name, path, text in capability_texts(project, warnings):
+        cap = parse_capability(text, name)
         functional = sum(1 for key in cap.requirements if "-NFR-" not in key)
         found.append(
             CapabilityInfo(
-                folder.name,
+                name,
                 _relative(project, path),
                 functional,
                 len(cap.requirements) - functional,

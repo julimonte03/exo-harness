@@ -19,8 +19,7 @@ import math
 from pathlib import Path
 from typing import Any
 
-from exo.discovery import planner, store
-from exo.sdd import specs
+from exo.discovery import capabilities, planner, store
 
 SAMPLE = "sample.json"
 AUDIT = "audit.json"
@@ -32,31 +31,21 @@ class AuditError(ValueError):
     """No hay población, o los veredictos no corresponden a la muestra."""
 
 
-def population(project: Path) -> list[dict[str, Any]]:
-    project = Path(project)
-    root = specs.capabilities_root(project)
+def population(project: Path, warnings: list[str] | None = None) -> list[dict[str, Any]]:
+    """Los FR de las specs con preámbulo. Las que no son UTF-8 se saltean (en `warnings`)."""
     found: list[dict[str, Any]] = []
-    if not root.is_dir():
-        return found
-    for folder in sorted(p for p in root.iterdir() if p.is_dir() and p.name[0] not in "._"):
-        path = folder / specs.SPEC_FILE
-        if not path.is_file():
-            continue
-        cap = specs.parse_capability(path.read_bytes().decode("utf-8-sig"), folder.name)
-        if cap.status is None:
-            continue
-        rel = path.relative_to(project).as_posix()
-        for block in cap.requirements.values():
+    for spec in capabilities.with_preamble(project, warnings):
+        for block in spec.capability.requirements.values():
             if "-NFR-" in block.id:
                 continue
             text = "\n".join(block.lines)
             found.append(
                 {
                     "id": block.id,
-                    "capability": folder.name,
-                    "spec": rel,
+                    "capability": spec.name,
+                    "spec": spec.path,
                     "line": block.line,
-                    "critical": bool(planner.criticality(f"{folder.name} {text}")),
+                    "critical": bool(planner.criticality(f"{spec.name} {text}")),
                 }
             )
     return sorted(found, key=lambda item: item["id"])
@@ -89,13 +78,16 @@ def choose(items: list[dict[str, Any]], n: int, seed: int) -> list[dict[str, Any
 
 
 def sample(project: Path, n: int = DEFAULT_N, seed: int | None = None) -> dict[str, Any]:
-    items = population(project)
+    """Elige la muestra y la escribe en `sample.json`. Devuelve también `warnings` (las specs
+    salteadas), que no se guardan."""
+    warnings: list[str] = []
+    items = population(project, warnings)
     if not items:
         raise AuditError("no as-is specs to audit yet: synthesize the capabilities first (R4)")
     used = default_seed(items) if seed is None else seed
     data = {"seed": used, "n": n, "population": len(items), "items": choose(items, n, used)}
     store.write_json(project, SAMPLE, data)
-    return data
+    return {**data, "warnings": warnings}
 
 
 def record(project: Path, results: Any) -> dict[str, Any]:
