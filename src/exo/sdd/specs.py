@@ -52,7 +52,12 @@ EVIDENCE = re.compile(
     r"\[Code\]\s+[^\s\[\]]+:\d+(?:-\d+)?|\[Doc\]\s+[^\s\[\]]+|\[Inferred:\s*(?:high|medium|low)\]"
 )
 STATUSES = ("as-is", "as-is-validated")
-_PREAMBLE = re.compile(r"^(Status|Source):\s*(.*?)\s*$")
+# `Status: as-is`, `**Status:** as-is`, `**Status**: as-is` o `status: as-is`.
+_PREAMBLE = re.compile(
+    r"^\s*(?:\*\*|__)?(status|source)(?:\*\*|__)?\s*:\s*(?:\*\*|__)?\s*(.*?)\s*$",
+    re.IGNORECASE,
+)
+_LATE_STATUS = "Status goes before ## Purpose"
 _REQ_HEADING = re.compile(r"^([^\s:]+)\s*:?\s*(.*)$")
 _SCENARIO = re.compile(r"^Scenario\b\s*(S-[0-9]+)?\s*:?\s*(.*)$", re.IGNORECASE)
 _FENCE = re.compile(r"^\s*(```|~~~)")
@@ -248,13 +253,14 @@ def _check_block(
     delta: bool,
     problems: list[Problem],
     scenarios: dict[str, int],
-    evidence_required: bool = False,
+    status: str | None = None,
 ) -> tuple[str, ...]:
     """Valida un bloque de requisito y devuelve los IDs de sus escenarios.
 
-    En una capacidad, un requisito que trae evidencia (`[Code] path:line`, `[Doc] path`
-    o `[Inferred: …]`) puede no tener escenario: es un warning. Con `evidence_required`
-    (una spec `as-is`), un requisito sin evidencia es un error (ADR-0015).
+    En una capacidad con preámbulo (`status`), un requisito que trae evidencia
+    (`[Code] path:line`, `[Doc] path` o `[Inferred: …]`) puede no tener escenario: es un
+    warning. En una `as-is`, un requisito sin evidencia es un error. Sin preámbulo todo
+    es como antes de la ingeniería inversa (ADR-0015).
     """
     heads = [(i, text) for i, level, text in _headings(masked[start:end]) if level == 4]
     heads = [(start + i, text) for i, text in heads]
@@ -307,8 +313,10 @@ def _check_block(
         for word in ("Given", "When", "Then"):
             if not re.search(rf"\b{word}\b", body, re.IGNORECASE):
                 problems.append(Problem(index + 1, f"{label} has no {word}"))
-    has_evidence = not delta and any(EVIDENCE.search(line) for line in masked[start + 1 : end])
-    if evidence_required and not has_evidence:
+    has_evidence = status is not None and any(
+        EVIDENCE.search(line) for line in masked[start + 1 : end]
+    )
+    if status == "as-is" and not has_evidence:
         problems.append(
             Problem(
                 start + 1,
@@ -399,24 +407,49 @@ def parse_delta(text: str) -> Delta:
 # -- capacidad -------------------------------------------------------------------
 
 
+def _status_value(value: str) -> str:
+    return value.strip("`*_ ").lower()
+
+
 def _preamble(masked: list[str], problems: list[Problem]) -> tuple[str | None, str | None]:
-    """`Status:` y `Source:` antes del primer `##`, fuera de los bloques (ADR-0015)."""
+    """`Status:` y `Source:` antes del primer `##`, fuera de los bloques (ADR-0015).
+
+    Un `Status:` desconocido es un warning: una spec viva que ya tenía, por ejemplo,
+    `Status: draft` sigue siendo una spec viva y no bloquea nada. Un `Status: as-is`
+    después del primer `##` no cuenta, y es un warning.
+    """
     status = source = None
-    for index, line in enumerate(masked):
-        if _HEADING.match(line):
-            break
+    first = next((i for i, line in enumerate(masked) if _HEADING.match(line)), len(masked))
+    for index, line in enumerate(masked[:first]):
         match = _PREAMBLE.match(line)
         if match is None:
             continue
         key, value = match.groups()
-        if key == "Source":
+        if key.lower() == "source":
             source = value or None
-        elif value in STATUSES:
-            status = value
+        elif _status_value(value) in STATUSES:
+            status = _status_value(value)
         else:
             problems.append(
-                Problem(index + 1, f"Status must be {' or '.join(STATUSES)}, not {value!r}")
+                Problem(
+                    index + 1,
+                    f"Status must be {' or '.join(STATUSES)}, not {value!r}; without one of "
+                    "them this is a normal living spec",
+                    "warning",
+                )
             )
+    in_code = False
+    for index in range(first, len(masked)):
+        line = masked[index]
+        if _FENCE.match(line):
+            in_code = not in_code
+            continue
+        match = None if in_code else _PREAMBLE.match(line)
+        if match is None or match.group(1).lower() != "status":
+            continue
+        if _status_value(match.group(2)) in STATUSES:
+            message = f"{_LATE_STATUS}: move it above the first section, or it does not count"
+            problems.append(Problem(index + 1, message, "warning"))
     return status, source
 
 
@@ -476,7 +509,7 @@ def parse_capability(text: str, name: str) -> Capability:
                 delta=False,
                 problems=problems,
                 scenarios={},
-                evidence_required=status == "as-is",
+                status=status,
             )
             target[token] = _block(masked, start, end, token, label, ())
     ordered = tuple(sorted(problems, key=lambda p: p.line))

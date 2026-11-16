@@ -72,15 +72,74 @@ def test_sin_preambulo_un_fr_sin_escenario_ni_evidencia_sigue_siendo_error() -> 
     assert sum("no scenarios" in e for e in _errors(cap)) == 2
 
 
-def test_la_evidencia_relaja_el_escenario_aunque_no_haya_status() -> None:
+def test_la_evidencia_relaja_el_escenario_solo_con_status() -> None:
+    """M2: sin preámbulo todo es como antes de F6, aunque el FR traiga evidencia."""
     text = AS_IS.replace("Status: as-is\n", "")
     cap = specs.parse_capability(text, "billing")
+    assert cap.status is None
+    assert sum("no scenarios" in e for e in _errors(cap)) == 2
+    validated = specs.parse_capability(AS_IS.replace("as-is\n", "as-is-validated\n", 1), "billing")
+    assert validated.status == "as-is-validated" and _errors(validated) == []
+
+
+LIVING = """# Capability: billing
+
+Status: draft
+
+## Purpose
+
+Totals of invoices.
+
+## Requirements
+
+### CAP-billing-FR-1: Invoice total
+
+The total is the sum of the lines.
+
+#### Scenario: Two lines
+
+- Given two lines of 10
+- When the invoice is closed
+- Then the total is 20
+"""
+
+
+def test_un_status_desconocido_es_warning_y_no_bloquea_el_pre_commit(tmp_path: Path) -> None:
+    """M2: una spec viva que ya tenía `Status: draft` no bloquea nada."""
+    import shutil
+    import subprocess
+
+    cap = specs.parse_capability(LIVING, "billing")
     assert cap.status is None and _errors(cap) == []
+    assert any("Status" in w and "draft" in w for w in _warnings(cap))
+    if shutil.which("git") is None:
+        pytest.skip("requiere git")
+    subprocess.run(["git", "init", "-q", "-b", "main", str(tmp_path)], check=True)
+    path = _cap(tmp_path, LIVING)
+    subprocess.run(["git", "-C", str(tmp_path), "add", str(path)], check=True)
+    assert hookrun.pre_commit(tmp_path).errors == []
 
 
-def test_status_invalido() -> None:
-    text = AS_IS.replace("Status: as-is", "Status: draft")
-    assert any("Status" in e for e in _errors(specs.parse_capability(text, "billing")))
+@pytest.mark.parametrize(
+    "line",
+    ["**Status:** as-is", "**Status**: as-is", "status: as-is", "STATUS: As-Is", "Status: `as-is`"],
+)
+def test_el_status_se_reconoce_en_negrita_y_sin_distinguir_mayusculas(line: str) -> None:
+    text = AS_IS.replace("Status: as-is", line).replace("Source:", "**Source:**")
+    cap = specs.parse_capability(text, "billing")
+    assert (cap.status, cap.source) == ("as-is", "exo discover; units: src-billing")
+    assert _errors(cap) == []
+
+
+def test_un_status_despues_del_primer_encabezado_es_un_warning() -> None:
+    text = AS_IS.replace("Status: as-is\n", "").replace(
+        "## Purpose\n\n", "## Purpose\n\nStatus: as-is\n\n"
+    )
+    cap = specs.parse_capability(text, "billing")
+    assert cap.status is None
+    assert any("Status goes before ## Purpose" in w for w in _warnings(cap))
+    fenced = text.replace("Status: as-is\n", "```\nStatus: as-is\n```\n")
+    assert not any("Status goes" in w for w in _warnings(specs.parse_capability(fenced, "billing")))
 
 
 def test_speclint_check_y_list_respetan_la_severidad(
