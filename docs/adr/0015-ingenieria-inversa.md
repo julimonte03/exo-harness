@@ -27,9 +27,9 @@ Todo lo que produce el pipeline vive en `<carpeta del motor>/discovery/` y **se 
 | `plan.json` | R2, unidades de trabajo y estimación |
 | `units/<id>.md`, `units/<id>.json` | R3: la extracción de cada unidad y los hashes de sus archivos al cerrarla |
 | `sample.json`, `audit.json`, `coverage.md` | R5, auditoría |
-| `open-questions.md`, `debt.md`, `adoption-backlog.md` | R4 y R6 |
+| `open-questions.md`, `debt.md`, `pending-approval.md`, `adoption-backlog.md` | R4 y R6 (`pending-approval.md`: lo que una corrida desatendida dejó sin aprobar) |
 
-- **No hay un `state.json` compartido ni un estado "en curso".** El estado de cada unidad se deriva: está cerrada si su `units/<id>.json` existe, y stale si un hash cambió. Dos personas o dos ramas no se pisan, y una extracción cortada se rehace entera.
+- **No hay un `state.json` compartido ni un estado "en curso".** El estado de cada unidad se deriva: está cerrada si su `units/<id>.json` existe, y stale si un hash cambió. Dos personas o dos ramas no se pisan, y una extracción cortada se rehace entera. `exo discover reopen` borra el registro de una unidad (o de las de una capacidad por debajo del umbral) para extraerla otra vez.
 - **Cada JSON lleva `"schema": 1`.** Un motor más viejo rechaza un esquema más nuevo, como con la config.
 - **Nada que varíe entre corridas iguales:** ni el sha de HEAD, ni la versión del motor, ni fechas.
 

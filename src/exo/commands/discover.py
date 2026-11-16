@@ -58,6 +58,13 @@ def register_actions(actions: argparse._SubParsersAction) -> None:
     done.add_argument("unit", help="unit id, as `next` gives it")
     _common(done)
     done.set_defaults(handler=_done)
+    reopen = actions.add_parser(
+        "reopen", help="R5: send closed units back to extraction (a capability below threshold)"
+    )
+    reopen.add_argument("units", nargs="*", help="unit ids")
+    reopen.add_argument("--capability", help="the units whose files the capability's FRs cite")
+    _common(reopen)
+    reopen.set_defaults(handler=_reopen)
     sample = actions.add_parser("sample", help="R5: pick the requirements to audit")
     sample.add_argument("--n", type=int, default=sampler.DEFAULT_N, help="sample size")
     sample.add_argument("--seed", type=int, help="default: derived from the specs")
@@ -164,6 +171,20 @@ def _done(args: argparse.Namespace) -> int:
     else:
         counts = record["counts"]
         print(f"{args.unit} closed: {counts['claims']} claims ({counts['inferred']} inferred)")
+    return 0
+
+
+def _reopen(args: argparse.Namespace) -> int:
+    if not args.units and args.capability is None:
+        return usage_error("pass unit ids or --capability <name>")
+    try:
+        reopened = units.reopen(args.project, args.units, capability=args.capability)
+    except _ERRORS as exc:
+        return _fail(exc)
+    if args.json:
+        emit_json({"reopened": reopened})
+    else:
+        print(f"reopened: {', '.join(reopened) or 'none (they were not closed)'}")
     return 0
 
 

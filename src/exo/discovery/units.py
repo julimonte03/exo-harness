@@ -247,3 +247,36 @@ def orphans(project: Path, plan: dict[str, Any]) -> list[str]:
     if not folder.is_dir():
         return []
     return sorted(p.stem for p in folder.glob("*.json") if p.stem not in ids)
+
+
+def reopen(
+    project: Path, ids: list[str] | None = None, *, capability: str | None = None
+) -> list[str]:
+    """Vuelve a pendientes unidades cerradas, para extraerlas otra vez (R5 por debajo del umbral).
+
+    Por ID, o las unidades que contienen los archivos que citan los FR de una capacidad.
+    Borra solo `units/<id>.json`: el documento queda como referencia hasta la nueva extracción.
+    """
+    from exo.discovery import pipeline
+
+    project = Path(project)
+    plan = planner.load(project)
+    known = {item["id"] for item in plan["units"]}
+    wanted = list(ids or [])
+    if capability is not None:
+        cited = pipeline.cited_files(project).get(capability, set())
+        owners = file_unit(plan)
+        found = sorted({owners[p] for p in cited if p in owners})
+        if not found:
+            raise UnitError(f"the capability {capability} cites no file of a unit of the plan")
+        wanted += found
+    unknown = sorted(set(wanted) - known)
+    if unknown:
+        raise UnitError(f"{', '.join(unknown)} is not a unit of the plan")
+    reopened = []
+    for unit_id in sorted(set(wanted)):
+        path = store.root(project) / unit_record(unit_id)
+        if path.is_file():
+            path.unlink()
+            reopened.append(unit_id)
+    return reopened
