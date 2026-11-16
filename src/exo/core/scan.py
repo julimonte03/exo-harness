@@ -26,17 +26,26 @@ RESTRICTED = "restricted"
 DEFAULT_PII = ("card", "iban")
 OPTIONAL_PII = ("email", "phone", "ar-cuit", "ar-dni", "br-cpf", "es-nif", "us-ssn")
 KNOWN_PII = DEFAULT_PII + OPTIONAL_PII
-# Archivos de credenciales: no se commitean ni se leen (los ejemplos, sí).
+# Archivos de credenciales: no se commitean ni se leen (los ejemplos, sí). Sin distinguir
+# mayúsculas: en Windows y macOS `.ENV` es el mismo archivo que `.env`.
 CREDENTIAL_FILES = (
     ".env",
     ".env.*",
     "*.pem",
     "*.p12",
     "*.pfx",
+    "*.key",
+    "*.jks",
+    "*.keystore",
+    "*.ppk",
     "id_rsa",
     "id_dsa",
     "id_ecdsa",
     "id_ed25519",
+    ".npmrc",
+    ".pypirc",
+    ".netrc",
+    "credentials.json",
 )
 CREDENTIAL_EXAMPLES = (".env.example", ".env.sample", ".env.template")
 
@@ -322,8 +331,9 @@ def scan_text(
 
 
 def is_credential_file(path: str) -> bool:
-    """Un archivo con nombre de credencial (`.env`, claves privadas), salvo los ejemplos."""
-    name = PurePosixPath(path.replace("\\", "/")).name
+    """Un archivo con nombre de credencial (`.env`, claves privadas, tokens de registros),
+    salvo los ejemplos. Sin distinguir mayúsculas."""
+    name = PurePosixPath(path.replace("\\", "/")).name.lower()
     if name in CREDENTIAL_EXAMPLES:
         return False
     return any(fnmatch.fnmatchcase(name, pattern) for pattern in CREDENTIAL_FILES)
