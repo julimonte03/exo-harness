@@ -29,8 +29,8 @@ CONTEXT_FILE = "context.md"
 _CITED = re.compile(r"\[Code\]\s+([^\s\[\]]+):\d+")
 
 
-def structure(project: Path) -> dict[str, Any]:
-    fileset = files_mod.list_files(project)
+def structure(project: Path, fileset: files_mod.FileSet | None = None) -> dict[str, Any]:
+    fileset = fileset if fileset is not None else files_mod.list_files(project)
     data, wrote = graph.write(project, fileset)
     metrics, wrote_metrics = git_metrics.write(project, fileset)
     return {
@@ -166,10 +166,10 @@ def cited_files(project: Path) -> dict[str, set[str]]:
 
 def update(project: Path) -> dict[str, Any]:
     project = Path(project)
-    inventory.write(project)
-    structure(project)
+    fileset = files_mod.list_files(project)  # una sola lista para R0, R1 y los estados
+    inventory.write(project, fileset)
+    structure(project, fileset)
     plan = planner.load(project)
-    fileset = files_mod.list_files(project)
     found = units.states(project, plan, fileset)
     stale = {s.id: s.changed for s in found if s.status == "stale"}
     planned = {p for item in plan["units"] for p in item["files"]}

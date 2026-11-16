@@ -254,6 +254,23 @@ def test_criterio_7_update_marca_solo_lo_afectado(repo: Path) -> None:
     assert "src/auth/extra.py" in pipeline.update(repo)["new_files"]
 
 
+def test_update_arma_un_solo_fileset(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """L12: inventario, grafo, métricas y estados usan la misma lista de archivos."""
+    from exo.discovery import files
+
+    planner.write(repo)
+    real = files.list_files
+    calls: list[Path] = []
+
+    def counting(project: Path, **kwargs: object) -> files.FileSet:
+        calls.append(project)
+        return real(project, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(files, "list_files", counting)
+    assert pipeline.update(repo)["stale_units"] == {}
+    assert len(calls) == 1
+
+
 def test_muestra_veredictos_y_cobertura(repo: Path) -> None:
     planner.write(repo)
     _close_all(repo)

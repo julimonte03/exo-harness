@@ -524,7 +524,7 @@ def _infrastructure(path: str) -> bool:
     )
 
 
-def write(project: Path) -> tuple[dict[str, Any], bool]:
+def write(project: Path, fileset: files_mod.FileSet | None = None) -> tuple[dict[str, Any], bool]:
     """Arma el inventario y lo escribe en `discovery/inventory.json`. Devuelve (datos, escribió)."""
-    data = build(project)
+    data = build(project, fileset)
     return data, store.write_json(project, FILENAME, data)
