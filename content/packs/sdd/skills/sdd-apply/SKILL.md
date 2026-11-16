@@ -24,6 +24,7 @@ metadata:
 - Code and tests that do what the frozen plan says, and nothing else.
 - Each work unit committed and, in Tier 3 and 4, every finished task ticked in tasks.md.
 - The tests run with the project's exact command, with no new failures.
+- When the tier's gates (`governance.gates`) include `secure_coding_check` (Tier 4 by default): after the last task, the gate of `secure-coding-baseline` over the full diff. In `sdd-implementer`, return its full text before the envelope and the orchestrator writes `<change-root>/gates/secure_coding_check.md`; inline, write it yourself.
 - The envelope of `.exo/shared/sdd-phase-common.md`, section D, listing the files changed and the test results, with `next: verify`.
 
 ## Who runs it
@@ -52,7 +53,7 @@ Permissions are denied by default (section G).
 Section A, with these skills (`.exo/shared/phase-skill-map.md`, row apply), each `SKILL.md` read in full:
 
 - **Required:** `code-generation`, `secure-coding-baseline`, `work-unit-commits`, and the stack router. Without a stack router, follow the commands and conventions in `.exo/context.md`.
-- **Conditional:** `prompt-hygiene` when logs, tickets or production data would reach the model; `frontend-design` when the change touches UI.
+- **Conditional:** `review` before each commit; `prompt-hygiene` when logs, tickets or production data go to the model; `frontend-design` when the change touches UI.
 - **Degraded:** a skill from a pack that is not installed degrades as `.exo/shared/skill-resolver.md` says. For example: `security/secure-coding-baseline not installed — applying inline criteria`, then validate and encode untrusted input at the boundary, use parameterized queries, keep secrets out of code and logs, check authorization on every entry point and fail closed.
 - `code-generation` and `work-unit-commits` ship in `core`, which `sdd` requires. If one is missing, the installation is incomplete: say so, suggest `exo doctor`, and return `status: blocked`.
 

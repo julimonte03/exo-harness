@@ -37,10 +37,10 @@ An entry with the same `name` and `type` counts as already recorded: the first a
 |---|---|
 | `skills_used` | names of the skills read in full while working on the change |
 | `knowledge_used` | sources consulted before making claims: `{"source": "code" \| "docs" \| "memory" \| "mcp", "ref": "<path:line, URL or memory id>"}` |
-| `judges_invoked` | `{"name": "judge-security", "result": "<short outcome>"}`; the Tier 4 review is `{"name": "judgment-day", "result": "approved"}` once the person approves it, or `"rejected: <why>"` |
+| `judges_invoked` | `{"name": "judge-security", "result": "<short outcome>"}`; the Tier 4 review is `{"name": "judgment-day", "result": "approved"}` once the person approves it, or `"escalated: <why>"` |
 | `decisions` | `{"summary": "...", "rationale": "...", "by": "human" \| "agent"}`, including every tier change |
 | `dismissed_followups` | findings the person decided not to fix: `{"judge", "rule", "reason"}` and optionally `id` |
-| `gates` | gate results, from F5: `{"name", "status": "pass" \| "fail" \| "waived" \| "skipped"}` |
+| `gates` | gate results: `{"name", "status": "pass" \| "fail" \| "waived" \| "skipped"}`; `pass` for APPROVED, `fail` for ESCALATED, `waived` once the `tech_lead` accepts it |
 | `purpose` | one sentence: what the change is for |
 
 `ticket_key` and `epic_key` hold the exact IDs the person confirmed; they are set by `exo change new` and do not change.
@@ -55,7 +55,12 @@ An entry with the same `name` and `type` counts as already recorded: the first a
 
 ## Findings
 
-In F4 no command writes `followups.json` yet (judges arrive with F5), so `exo change followups` lists nothing. Judge findings live in the judge's answer and in `verify-record.md`, section Issues Found. The person decides each one: it is fixed, or it goes to `dismissed_followups` with the `judge` and `rule` the finding shows and their reason.
+Judge findings go to `<change-root>/followups.json` with `exo change record <change> --followup '<json>'` (`.exo/shared/judge-common.md`, section F); the verifier's own findings stay in `verify-record.md`, section Issues Found. The person decides each one:
+
+- **Fixed:** once the fix is in, `exo change record <change> --fixed <id>` marks it.
+- **Dismissed:** it goes to `dismissed_followups` with its `id`, the `judge` and `rule` the finding shows, and their reason. A dismissal with an `id` covers only that finding.
+
+`exo change followups <change> --status open|fixed|dismissed|all` lists them.
 
 ## Check
 

@@ -32,6 +32,7 @@ CORE = (
     "branch-pr",
     "work-unit-commits",
     "project-onboarding",
+    "skill-reviewer",
 )
 # Fase -> skill de fase.
 PHASE_SKILL = {
@@ -66,7 +67,9 @@ def _who_runs() -> dict[str, tuple[str, str | None]]:
         inline = where.startswith(("inline", "the orchestrator"))
         for phase in (p.strip() for p in row.group(1).split(",")):
             if phase in PHASE_SKILL:
-                found[phase] = ("inline", None) if inline or not agent else ("subagent", agent.group(1))
+                found[phase] = (
+                    ("inline", None) if inline or not agent else ("subagent", agent.group(1))
+                )
     return found
 
 
@@ -97,18 +100,43 @@ def test_criterio_2_toda_skill_del_mapa_existe_o_degrada() -> None:
     assert missing == [], f"mencionadas sin skill ni degradación declarada: {missing}"
 
 
-def test_criterio_2_las_degradaciones_son_de_skills_que_faltan() -> None:
-    """Si una skill ya existe, su fila de degradación sobra; cada fila tiene criterio y pack declarado."""
+def test_criterio_2_las_degradaciones_son_de_packs_opcionales() -> None:
+    """Cada fila tiene criterio y un pack declarado por `sdd` (F4).
+
+    Desde F5 una fila puede ser de una skill que existe, si vive en un pack opcional:
+    un proyecto sin ese pack degrada con el criterio inline. La fila tiene que nombrar
+    el pack real de la skill, y una skill de `core` o `sdd` (que siempre se instalan
+    con el ciclo) no puede tener fila.
+    """
     assert MAP is not None
     sdd = COLLECTION.packs["sdd"]
+    always = set(packs.resolve(COLLECTION.packs, ["sdd"]))
     for item in MAP.degradations.values():
-        assert item.skill not in SKILLS, (
-            f"{item.skill} ya existe: sacala de la tabla de degradaciones"
-        )
         assert item.criteria, f"{item.skill} no tiene criterio inline"
         assert item.pack in ("core", "sdd", *sdd.optional), (
             f"{item.skill}: pack {item.pack} sin declarar"
         )
+        skill = SKILLS.get(item.skill)
+        if skill is None:
+            continue
+        assert skill.pack == item.pack, (
+            f"{item.skill} vive en el pack {skill.pack}, no en {item.pack}"
+        )
+        assert skill.pack not in always, (
+            f"{item.skill} es de {skill.pack}, que siempre se instala con sdd: sacala de la tabla"
+        )
+
+
+def test_las_skills_de_packs_opcionales_del_mapa_degradan() -> None:
+    """Toda skill de un pack opcional que nombra el mapa tiene su criterio inline (F5)."""
+    assert MAP is not None
+    always = set(packs.resolve(COLLECTION.packs, ["sdd"]))
+    missing = sorted(
+        m
+        for m in MAP.mentions
+        if m in SKILLS and SKILLS[m].pack not in always and m not in MAP.degradations
+    )
+    assert missing == [], f"skills de packs opcionales sin criterio inline: {missing}"
 
 
 def test_la_tabla_de_la_seccion_g_cubre_todas_las_fases() -> None:
@@ -117,7 +145,9 @@ def test_la_tabla_de_la_seccion_g_cubre_todas_las_fases() -> None:
     assert PHASES["risk-tiering"] == ("inline", None)
 
 
-@pytest.mark.parametrize("phase", sorted(p for p in (MAP.required if MAP else {}) if p in PHASE_SKILL))
+@pytest.mark.parametrize(
+    "phase", sorted(p for p in (MAP.required if MAP else {}) if p in PHASE_SKILL)
+)
 def test_cada_skill_de_fase_nombra_las_required_de_su_fila(phase: str) -> None:
     """Si el mapa exige una skill en una fase, la skill de esa fase la tiene que cargar."""
     assert MAP is not None
@@ -125,7 +155,9 @@ def test_cada_skill_de_fase_nombra_las_required_de_su_fila(phase: str) -> None:
     body = (SKILLS[skill].path / packs.SKILL_FILE).read_text(encoding="utf-8")
     for required in MAP.required[phase]:
         if required != skill:
-            assert f"`{required}`" in body or f"skill:{required}" in body, f"{skill} no nombra {required}"
+            assert f"`{required}`" in body or f"skill:{required}" in body, (
+                f"{skill} no nombra {required}"
+            )
 
 
 def test_criterio_2_las_skills_requeridas_del_ciclo_existen() -> None:

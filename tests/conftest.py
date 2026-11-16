@@ -25,6 +25,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 def _datos_de_usuario_aislados(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
     """Ningún test toca la carpeta de datos real ni la memoria real del usuario.
 
+    Tampoco ve la config global de git del dev: un `core.hooksPath` o un
+    `init.templateDir` globales cambiarían lo que prueban los tests de hooks.
     Usa un MonkeyPatch propio: si un test hace `monkeypatch.undo()`, no deshace esto.
     """
     from exo import paths
@@ -33,6 +35,10 @@ def _datos_de_usuario_aislados(tmp_path_factory: pytest.TempPathFactory) -> Iter
     patch = pytest.MonkeyPatch()
     patch.setenv(paths.ENV_DATA_DIR, str(tmp_path_factory.mktemp("datos-usuario")))
     patch.delenv(paths.ENV_MEMORY_DB, raising=False)
+    gitconfig = tmp_path_factory.mktemp("git-global") / "gitconfig"
+    gitconfig.write_text("", encoding="utf-8")
+    patch.setenv("GIT_CONFIG_GLOBAL", str(gitconfig))
+    patch.setenv("GIT_CONFIG_NOSYSTEM", "1")
     embeddings._CACHE.clear()
     yield
     embeddings._CACHE.clear()

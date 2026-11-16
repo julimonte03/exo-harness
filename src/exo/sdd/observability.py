@@ -55,7 +55,7 @@ ARTIFACT_ORDER = (
     AI_USAGE_RECORD,
     FOLLOWUPS,
 )
-FOLLOWUP_STATUSES = ("open", "dismissed", "all")
+FOLLOWUP_STATUSES = ("open", "fixed", "dismissed", "all")
 _ARCHIVED = re.compile(r"^(\d{4}-\d{2}-\d{2})-(.+)$")
 _CHECKED = re.compile(r"^\s*[-*+]\s+\[[xX]\]", re.MULTILINE)
 _UNCHECKED = re.compile(r"^\s*[-*+]\s+\[ \]", re.MULTILINE)
@@ -194,10 +194,17 @@ def _projection(record: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def _dismissal(item: dict[str, Any], dismissed: list[dict[str, Any]]) -> str | None:
+    """Un descarte con `id` vale solo para ese hallazgo; sin `id`, para su juez y su regla."""
     for entry in dismissed:
-        same_id = entry.get("id") is not None and entry.get("id") == item.get("id")
-        same_rule = (entry.get("judge"), entry.get("rule")) == (item.get("judge"), item.get("rule"))
-        if same_id or (entry.get("judge") is not None and same_rule):
+        if entry.get("id") is not None:
+            matches = entry.get("id") == item.get("id")
+        else:
+            same_rule = (entry.get("judge"), entry.get("rule")) == (
+                item.get("judge"),
+                item.get("rule"),
+            )
+            matches = entry.get("judge") is not None and same_rule
+        if matches:
             return str(entry.get("reason", entry.get("motivo", "")))
     return None
 
@@ -219,7 +226,10 @@ def _followups(project: Path, change: Change, warnings: list[str]) -> list[dict[
         if not isinstance(item, dict):
             continue
         reason = _dismissal(item, dismissed)
-        state = "open" if reason is None else "dismissed"
+        if reason is not None:
+            state = "dismissed"
+        else:
+            state = "fixed" if item.get("fixed") is True else "open"
         result.append({**item, "status": state, "dismissal": reason})
     return result
 
@@ -308,13 +318,18 @@ def next_phase(
         return "verify", "verify-record.md has no valid Verdict"
     if result == "blocked":
         return "verify", "the verify is blocked: solve what it reports, then verify again"
-    approved = any(
-        isinstance(j, dict) and j.get("name") == "judgment-day" and j.get("result") == "approved"
-        for j in judges
-    )
-    if tier == 4 and not approved:
+    if tier == 4 and not judgment_approved(judges):
         return "judgment", "Tier 4 needs an approved judgment-day before archive"
     return "archive", "the verify is ready"
+
+
+def judgment_approved(judges: Any) -> bool:
+    """La última entrada de `judgment-day` dice exactamente `approved`.
+
+    Un judgment-day posterior que escaló manda sobre un `approved` viejo.
+    """
+    entries = [j for j in judges or [] if isinstance(j, dict) and j.get("name") == "judgment-day"]
+    return bool(entries) and entries[-1].get("result") == "approved"
 
 
 def change_state(project: Path, name: str) -> dict[str, Any]:
@@ -342,6 +357,7 @@ def state_of(project: Path, change: Change) -> dict[str, Any]:
         **_projection(record),
         "followups": {
             "open": sum(f["status"] == "open" for f in items),
+            "fixed": sum(f["status"] == "fixed" for f in items),
             "dismissed": sum(f["status"] == "dismissed" for f in items),
         },
         "warnings": warnings,

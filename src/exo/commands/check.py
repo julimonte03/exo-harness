@@ -23,6 +23,11 @@ def register(sub: argparse._SubParsersAction) -> None:
     parser.add_argument(
         "--change", dest="names", action="append", help="check only this change (repeatable)"
     )
+    parser.add_argument(
+        "--fast",
+        action="store_true",
+        help="only what fits a branch in progress (lint, record, diff scan); pre-push uses it",
+    )
     parser.add_argument("--project", type=Path, default=Path("."), help="project root")
     parser.add_argument("--json", action="store_true", help="JSON output")
     parser.set_defaults(handler=run)
@@ -30,7 +35,7 @@ def register(sub: argparse._SubParsersAction) -> None:
 
 def run(args: argparse.Namespace) -> int:
     try:
-        result = check.check(args.project, base=args.base, names=args.names)
+        result = check.check(args.project, base=args.base, names=args.names, fast=args.fast)
     except check.CheckUsageError as exc:
         return usage_error(str(exc))
     except (check.CheckError, ValueError, OSError) as exc:
@@ -55,6 +60,8 @@ def run(args: argparse.Namespace) -> int:
                     {"path": path, "findings": [_finding(f) for f in items]}
                     for path, items in result.capabilities
                 ],
+                "config": [_finding(f) for f in result.config],
+                "diff": [_finding(f) for f in result.diff],
             }
         )
         return 0 if result.ok else 1
@@ -69,13 +76,17 @@ def run(args: argparse.Namespace) -> int:
         print(f"{'FAIL' if bad else 'PASS'} {path}")
         for f in items:
             print(f"  {f.severity}: {_where(f)}{f.message}")
+    for label, items in (("config", result.config), ("diff", result.diff)):
+        if items:
+            bad = any(f.severity == "error" for f in items)
+            print(f"{'FAIL' if bad else 'PASS'} {label}")
+            for f in items:
+                print(f"  {f.severity}: {_where(f)}{f.message}")
     if not result.changes and not result.capabilities:
         print("nothing to check")
-    errors = sum(
-        f.severity == "error"
-        for group in [c.findings for c in result.changes] + [i for _, i in result.capabilities]
-        for f in group
-    )
+    groups = [c.findings for c in result.changes] + [i for _, i in result.capabilities]
+    groups += [result.config, result.diff]
+    errors = sum(f.severity == "error" for group in groups for f in group)
     print(f"{'OK' if result.ok else 'FAILED'}: {errors} errors")
     return 0 if result.ok else 1
 
@@ -85,4 +96,6 @@ def _finding(f: check.Finding) -> dict[str, object]:
 
 
 def _where(f: check.Finding) -> str:
+    if not f.path:
+        return ""
     return f"{f.path}:{f.line}: " if f.line else f"{f.path}: "
