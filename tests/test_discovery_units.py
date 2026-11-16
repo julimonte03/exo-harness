@@ -231,3 +231,13 @@ def test_criterio_5_solo_escribe_en_las_rutas_permitidas(repo: Path) -> None:
     status = pipeline.status(repo)
     assert status["units"] == {"pending": 0, "done": 3, "stale": 1}  # login.py cambió
     assert json.loads((store.root(repo) / "plan.json").read_text(encoding="utf-8"))["schema"] == 1
+
+
+def test_los_comentarios_de_la_plantilla_no_son_afirmaciones(repo: Path) -> None:
+    planner.write(repo)
+    text = _doc("src-auth", "Login issues a token. [Code] src/auth/login.py:4-5")
+    text = text.replace("## Entities\n", "## Entities\n\n<!--\n- An example claim without evidence\n-->\n", 1)
+    path = store.root(repo) / units.unit_doc("src-auth")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    assert units.done(repo, "src-auth")["counts"]["claims"] == 1

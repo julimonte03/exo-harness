@@ -42,6 +42,7 @@ _HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*$")
 _CODE_REF = re.compile(r"\[Code\]\s+([^\s\[\]]+):(\d+)(?:-(\d+))?")
 _DOC_REF = re.compile(r"\[Doc\]\s+([^\s\[\]]+)")
 _INFERRED = re.compile(r"\[Inferred:\s*(?:high|medium|low)\]")
+_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 
 
 class UnitError(ValueError):
@@ -125,10 +126,15 @@ def next_units(project: Path, count: int = 1) -> list[dict[str, Any]]:
     return picked
 
 
+def _without_comments(text: str) -> str:
+    """Los comentarios HTML (la guía de la plantilla) como líneas vacías: no son afirmaciones."""
+    return _COMMENT.sub(lambda m: "\n" * m.group(0).count("\n"), text)
+
+
 def _sections(text: str) -> dict[str, list[tuple[int, str]]]:
     found: dict[str, list[tuple[int, str]]] = {}
     current: str | None = None
-    for number, line in enumerate(text.split("\n"), start=1):
+    for number, line in enumerate(_without_comments(text).split("\n"), start=1):
         heading = _HEADING.match(line)
         if heading and len(heading.group(1)) == 2:
             current = heading.group(2).strip()
