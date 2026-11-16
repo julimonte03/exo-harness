@@ -133,6 +133,7 @@ class SourceFile:
     language: str | None
     category: str  # code | test | migration | sensitive | other
     sensitive: bool = False
+    lines: int = 0
 
 
 @dataclass
@@ -151,6 +152,14 @@ def _generated(head: bytes) -> bool:
     return any(m in head for m in _GENERATED_MARKERS) or (
         b"generated" in head and b"do not edit" in head
     )
+
+
+def count_lines(data: bytes) -> int:
+    """Líneas del archivo: una última línea sin salto también cuenta."""
+    if not data:
+        return 0
+    normalized = data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return normalized.count(b"\n") + (0 if normalized.endswith(b"\n") else 1)
 
 
 def normalized_hash(data: bytes) -> str:
@@ -314,7 +323,14 @@ def list_files(project: Path, *, include_untracked: bool = False) -> FileSet:
                 else:
                     category = _category(rel, False)
                     result.files.append(
-                        SourceFile(rel, size, normalized_hash(data), language_of(rel), category)
+                        SourceFile(
+                            rel,
+                            size,
+                            normalized_hash(data),
+                            language_of(rel),
+                            category,
+                            lines=count_lines(data),
+                        )
                     )
                     continue
         counts[reason] = counts.get(reason, 0) + 1
