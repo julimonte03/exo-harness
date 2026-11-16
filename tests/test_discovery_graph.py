@@ -274,6 +274,24 @@ def test_java_wildcard_static_mismo_paquete_y_calificado(tmp_path: Path) -> None
     }
 
 
+class _NoScan(set):
+    """Un conjunto que se puede consultar pero no recorrer."""
+
+    def __iter__(self):  # type: ignore[override]
+        raise AssertionError("index.files was scanned")
+
+
+def test_el_wildcard_de_java_usa_el_indice_por_carpeta(tmp_path: Path) -> None:
+    """M6: un `import x.*` no ordena todos los archivos del proyecto en cada import."""
+    base = "src/main/java/com/example"
+    paths = [f"{base}/books/Aaa.md", f"{base}/books/Book.java", f"{base}/loans/Loan.java"]
+    index = graph.Index.build(tmp_path, paths)
+    index.files = _NoScan(index.files)
+    text = "import com.example.books.*;\n"
+    resolved, _ = graph.java_imports(f"{base}/loans/Loan.java", text, index)
+    assert resolved == {f"{base}/books/Book.java"}  # el primer .java de la carpeta
+
+
 def test_strip_comments_respeta_los_strings() -> None:
     text = "const url = 'http://example.com'; // trailing\n/* block\n */ const x = `a // b`;\n"
     clean = graph.strip_comments(text)
