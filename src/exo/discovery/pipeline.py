@@ -5,8 +5,8 @@
   fuera de las rutas permitidas** (solo lectura sobre el código del proyecto). Si git
   falla, `outside_changes_error` dice por qué: "no pude mirar" no es "no hay nada".
 - `update`: recalcula R0 y R1 e informa unidades stale, archivos nuevos o borrados y
-  capacidades stale (una de sus citas `[Code]` apunta a un archivo que cambió). No
-  persiste nada "stale" ni replanifica.
+  capacidades stale (un archivo que citan cambió desde su `synthesized`) o sin
+  registro. No persiste nada "stale" ni replanifica.
 """
 
 from __future__ import annotations
@@ -175,20 +175,24 @@ def update(project: Path) -> dict[str, Any]:
     stale = {s.id: s.changed for s in found if s.status == "stale"}
     planned = {p for item in plan["units"] for p in item["files"]}
     code = {f.path for f in fileset.files if f.category == "code"}
-    changed = {p for paths in stale.values() for p in paths}
-    deleted = sorted(planned - code)
     warnings: list[str] = []
-    stale_capabilities = sorted(
-        name
-        for name, paths in cited_files(project, warnings).items()
-        if paths & changed or paths & set(deleted)
-    )
+    stale_capabilities, unrecorded = capability_signals(project, fileset, warnings)
     skipped = {s.id: s.changed for s in found if s.status == "skipped" and s.changed}
     return {
         "stale_units": {k: v for k, v in sorted(stale.items())},
         "changed_skipped_units": dict(sorted(skipped.items())),
         "new_files": sorted(code - planned),
-        "deleted_files": deleted,
+        "deleted_files": sorted(planned - code),
         "stale_capabilities": stale_capabilities,
+        "unrecorded_capabilities": unrecorded,
         "warnings": warnings,
     }
+
+
+def capability_signals(
+    project: Path, fileset: files_mod.FileSet, warnings: list[str] | None = None
+) -> tuple[list[str], list[str]]:
+    """(capacidades stale, capacidades con preámbulo sin registro de `synthesized`)."""
+    present = {spec.name for spec in capabilities.with_preamble(project, warnings)}
+    recorded = capabilities.records(project)
+    return capabilities.stale(recorded, fileset, present), sorted(present - set(recorded))

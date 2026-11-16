@@ -17,6 +17,7 @@ from exo import _meta
 from exo.commands._output import emit_json, error, usage_error
 from exo.core import fsutil
 from exo.discovery import (
+    capabilities,
     coverage,
     inventory,
     pipeline,
@@ -26,7 +27,14 @@ from exo.discovery import (
     units,
 )
 
-_ERRORS = (store.DiscoveryError, planner.PlanError, units.UnitError, sampler.AuditError, OSError)
+_ERRORS = (
+    store.DiscoveryError,
+    planner.PlanError,
+    units.UnitError,
+    sampler.AuditError,
+    capabilities.CapabilityError,
+    OSError,
+)
 
 
 def _common(parser: argparse.ArgumentParser) -> None:
@@ -73,6 +81,13 @@ def register_actions(actions: argparse._SubParsersAction) -> None:
     reopen.add_argument("--capability", help="the units whose files the capability's FRs cite")
     _common(reopen)
     reopen.set_defaults(handler=_reopen)
+    syn = actions.add_parser(
+        "synthesized",
+        help="R4: validate the capability specs just written and record the code they cite",
+    )
+    syn.add_argument("capabilities", nargs="+", help="capability names")
+    _common(syn)
+    syn.set_defaults(handler=_synthesized)
     sample = actions.add_parser("sample", help="R5: pick the requirements to audit")
     sample.add_argument("--n", type=int, default=sampler.DEFAULT_N, help="sample size")
     sample.add_argument("--seed", type=int, help="default: derived from the specs")
@@ -243,6 +258,22 @@ def _reopen(args: argparse.Namespace) -> int:
     return 0
 
 
+def _synthesized(args: argparse.Namespace) -> int:
+    try:
+        records = capabilities.synthesized(args.project, args.capabilities)
+    except _ERRORS as exc:
+        return _fail(exc)
+    if args.json:
+        emit_json({"capabilities": records})
+        return 0
+    for record in records:
+        print(
+            f"{record['capability']}: recorded (round {record['rounds']}, "
+            f"{len(record['files'])} cited files)"
+        )
+    return 0
+
+
 def _sample(args: argparse.Namespace) -> int:
     if args.n < 1:
         return usage_error("--n must be 1 or more")
@@ -318,7 +349,15 @@ def _update(args: argparse.Namespace) -> int:
             f"`{_meta.NAME} discover reopen {unit_id}` sends it back to extraction)"
         )
     for name in data["stale_capabilities"]:
-        print(f"stale capability {name}: extract its units again, then synthesize it")
+        print(
+            f"stale capability {name}: code it cites changed; extract its units again, "
+            f"synthesize it and run `{_meta.NAME} discover synthesized {name}`"
+        )
+    for name in data["unrecorded_capabilities"]:
+        print(
+            f"capability {name} has no synthesis record: run "
+            f"`{_meta.NAME} discover synthesized {name}` once its spec is written"
+        )
     for path in data["new_files"]:
         print(f"new file without a unit: {path} (run `{_meta.NAME} discover plan --replan`)")
     for path in data["deleted_files"]:
