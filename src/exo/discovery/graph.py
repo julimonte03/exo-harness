@@ -20,6 +20,7 @@ import ast
 import json
 import posixpath
 import re
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -106,16 +107,27 @@ def _py_module_file(base: str, dotted: str, index: Index) -> str | None:
     return None
 
 
-def _py_resolve_absolute(dotted: str, names: list[str], index: Index) -> str | None:
+def _py_from(base: str, module: str, names: list[str], index: Index) -> set[str]:
+    """`from <module> import <names>` desde `base`: cada nombre que es un submódulo, o el
+    módulo mismo si ninguno lo es (los nombres son funciones o clases del módulo)."""
+    found: set[str] = set()
+    for name in names:
+        if name != "*":
+            target = _py_module_file(base, f"{module}.{name}" if module else name, index)
+            if target:
+                found.add(target)
+    if found:
+        return found
+    target = _py_module_file(base, module, index)
+    return {target} if target else set()
+
+
+def _py_resolve_absolute(dotted: str, names: list[str], index: Index) -> set[str]:
     for root in index.python_roots:
-        for name in names:
-            found = _py_module_file(root, f"{dotted}.{name}", index) if name != "*" else None
-            if found:
-                return found
-        found = _py_module_file(root, dotted, index)
+        found = _py_from(root, dotted, names, index)
         if found:
             return found
-    return None
+    return set()
 
 
 def python_imports(path: str, source: bytes, index: Index) -> tuple[set[str], set[str]]:
@@ -124,7 +136,10 @@ def python_imports(path: str, source: bytes, index: Index) -> tuple[set[str], se
     external: set[str] = set()
     package = posixpath.dirname(path) or "."
     try:
-        tree = ast.parse(source)
+        # Un escape inválido en un string del proyecto da un SyntaxWarning: no es nuestro.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            tree = ast.parse(source)
         statements: list[tuple[int, str, list[str]]] = []
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
@@ -142,26 +157,18 @@ def python_imports(path: str, source: bytes, index: Index) -> tuple[set[str], se
             else:
                 module = match.group(1)
                 level = len(module) - len(module.lstrip("."))
-                names = [n.split(" as ")[0].strip(" ()") for n in match.group(2).split(",")]
+                names = [n.split(" as ")[0].strip(" \t()") for n in match.group(2).split(",")]
                 statements.append((level, module.lstrip("."), names))
     for level, module, names in statements:
         if level:
             base = package
             for _ in range(level - 1):
                 base = posixpath.dirname(base) or "."
-            found = None
-            for name in names:
-                if name != "*":
-                    found = _py_module_file(base, f"{module}.{name}" if module else name, index)
-                    if found:
-                        break
-            found = found or _py_module_file(base, module, index)
-            if found:
-                resolved.add(found)
+            resolved |= _py_from(base, module, names, index)
             continue
         found = _py_resolve_absolute(module, names, index)
         if found:
-            resolved.add(found)
+            resolved |= found
         elif module:
             external.add(module.split(".")[0])
     return resolved, external
