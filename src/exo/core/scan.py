@@ -15,15 +15,30 @@ salen redactados. Solo biblioteca estándar.
 
 from __future__ import annotations
 
+import fnmatch
 import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from pathlib import PurePosixPath
 
 CRITICAL = "critical"
 RESTRICTED = "restricted"
 DEFAULT_PII = ("card", "iban")
 OPTIONAL_PII = ("email", "phone", "ar-cuit", "ar-dni", "br-cpf", "es-nif", "us-ssn")
 KNOWN_PII = DEFAULT_PII + OPTIONAL_PII
+# Archivos de credenciales: no se commitean ni se leen (los ejemplos, sí).
+CREDENTIAL_FILES = (
+    ".env",
+    ".env.*",
+    "*.pem",
+    "*.p12",
+    "*.pfx",
+    "id_rsa",
+    "id_dsa",
+    "id_ecdsa",
+    "id_ed25519",
+)
+CREDENTIAL_EXAMPLES = (".env.example", ".env.sample", ".env.template")
 
 _PLACEHOLDER = re.compile(
     r"^(?:<.*>|\$\{.*\}|\$[A-Za-z_][A-Za-z0-9_]*|%[A-Za-z_]+%|x+|\*+|changeme|example.*|dummy.*"
@@ -304,3 +319,11 @@ def scan_text(
             continue
         found.extend(_scan_line(number, line, detectors))
     return found
+
+
+def is_credential_file(path: str) -> bool:
+    """Un archivo con nombre de credencial (`.env`, claves privadas), salvo los ejemplos."""
+    name = PurePosixPath(path.replace("\\", "/")).name
+    if name in CREDENTIAL_EXAMPLES:
+        return False
+    return any(fnmatch.fnmatchcase(name, pattern) for pattern in CREDENTIAL_FILES)
