@@ -222,6 +222,38 @@ def test_un_secreto_corto_no_sale_entero_en_el_extracto() -> None:
     assert finding.excerpt == "k9…"
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        ".env",
+        ".ENV",
+        "config/.Env.Production",
+        "certs/server.PEM",
+        "ID_RSA",
+        "keys/signing.key",
+        "android/release.jks",
+        "android/debug.keystore",
+        "putty/server.ppk",
+        ".npmrc",
+        "web/.npmrc",
+        ".pypirc",
+        ".netrc",
+        "credentials.json",
+        "gcp/Credentials.json",
+    ],
+)
+def test_archivos_de_credenciales(path: str) -> None:
+    """L4: sin distinguir mayúsculas, con las claves y los archivos de tokens de registros."""
+    assert scan.is_credential_file(path), path
+
+
+@pytest.mark.parametrize(
+    "path", [".env.example", ".ENV.Sample", "app.py", "keyboard.py", "credentials.py", "monkey.js"]
+)
+def test_no_son_archivos_de_credenciales(path: str) -> None:
+    assert not scan.is_credential_file(path), path
+
+
 def test_timestamps_e_ids_largos_no_son_tarjetas() -> None:
     """Un timestamp en milisegundos (13 dígitos que empiezan con 1) no es una tarjeta."""
     stamps = [str(1_700_000_000_000 + n * 7_919) for n in range(200)]
