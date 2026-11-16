@@ -1,0 +1,26 @@
+image: node:24-alpine
+
+stages: [test, build]
+
+test:
+  stage: test
+  script:
+    - npm ci
+    - npm test --workspace @shop/api --workspace @shop/web
+
+build:web:
+  stage: build
+  script:
+    - npm ci
+    - npm run build --workspace @shop/web
+  artifacts:
+    paths: [packages/web/dist/]
+
+build:api-image:
+  stage: build
+  image: docker:27
+  services: [docker:27-dind]
+  script:
+    - docker build -f packages/api/Dockerfile -t "$CI_REGISTRY_IMAGE/api:$CI_COMMIT_SHORT_SHA" .
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
