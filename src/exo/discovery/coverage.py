@@ -1,6 +1,7 @@
 """Cobertura y precisión de la ingeniería inversa (F6, ADR-0015).
 
-- **Módulos cubiertos:** los que tienen todas sus unidades cerradas y al día.
+- **Módulos cubiertos:** los que tienen todas sus unidades cerradas y al día (una
+  unidad `skipped` no cubre su módulo).
 - **FR con evidencia:** los requisitos de las specs con preámbulo que citan código o
   docs, no solo una inferencia.
 - **Precisión por capacidad:** correctos sobre correctos más incorrectos de la
@@ -105,12 +106,9 @@ def build(project: Path) -> dict[str, Any]:
         if total and counts["unverifiable"] / total > UNVERIFIABLE_FLAG:
             flags.append("too many unverifiable claims")
         precision.append({"capability": capability, **counts, "precision": value, "flags": flags})
+    statuses = list(unit_states.values())
     return {
-        "units": {
-            "total": len(plan["units"]),
-            "done": sum(1 for s in unit_states.values() if s == "done"),
-            "stale": sum(1 for s in unit_states.values() if s == "stale"),
-        },
+        "units": {"total": len(plan["units"])} | {s: statuses.count(s) for s in units.STATUSES},
         "modules": {"total": total_modules, "covered": len(covered)},
         "requirements": {"total": len(population), "with_evidence": evidenced},
         "precision": precision,
@@ -132,7 +130,8 @@ def render(data: dict[str, Any]) -> str:
         "| Measure | Value |",
         "|---|---|",
         f"| Units done | {data['units']['done']} of {data['units']['total']} "
-        f"({data['units']['stale']} stale) |",
+        f"({data['units']['skipped']} skipped, {data['units']['pending']} pending, "
+        f"{data['units']['stale']} stale) |",
         f"| Modules covered | {data['modules']['covered']} of {data['modules']['total']} "
         f"({_percent(data['modules']['covered'], data['modules']['total'])}) |",
         f"| Requirements with evidence | {data['requirements']['with_evidence']} of "

@@ -2,14 +2,18 @@
 
 - **Estado derivado:** una unidad está `done` si existe `units/<id>.json` y los hashes
   de sus archivos no cambiaron; `stale` si cambió alguno o si el plan le agregó o
-  le sacó archivos o tests (un `--replan`); `pending` si no hay `units/<id>.json`.
-  No hay un estado compartido ni "en curso" (D-34): una extracción cortada se rehace
-  entera, y dos personas no se pisan.
+  le sacó archivos o tests (un `--replan`); `pending` si no hay `units/<id>.json`;
+  `skipped` si el registro dice por qué no se puede cerrar. No hay un estado
+  compartido ni "en curso" (D-34): una extracción cortada se rehace entera, y dos
+  personas no se pisan.
 - **`next`:** entrega N unidades pendientes por prioridad. Marca las líneas de
   secretos (para no copiarlas; leerlas igual las manda al modelo) y las posibles
   instrucciones sospechosas.
 - **`done`:** valida `units/<id>.md` (secciones, una marca de evidencia por afirmación,
   rutas y líneas reales) y el escáner. Solo entonces escribe `units/<id>.json`.
+- **`skip`:** saca del ciclo una unidad que no se puede cerrar, con la razón y los
+  hashes de sus archivos. Sigue `skipped` aunque sus archivos cambien (la decisión fue
+  de una persona); `status` y `update` lo informan, y `reopen` la vuelve a pendiente.
 """
 
 from __future__ import annotations
@@ -52,11 +56,15 @@ class UnitError(ValueError):
     """La unidad no existe o su documento no pasa la validación."""
 
 
+STATUSES = ("pending", "done", "stale", "skipped")
+
+
 @dataclass
 class UnitState:
     id: str
-    status: str  # pending | done | stale
+    status: str  # pending | done | stale | skipped
     changed: list[str] = field(default_factory=list)
+    reason: str | None = None  # por qué está skipped
 
 
 def unit_doc(unit_id: str) -> str:
@@ -84,7 +92,11 @@ def states(project: Path, plan: dict[str, Any], fileset: files_mod.FileSet) -> l
         planned = set(item["files"]) | set(item["tests"])
         changed = {p for p, sha in recorded.items() if current.get(p) != sha}
         changed |= planned ^ set(recorded)  # los que el plan agregó o sacó
-        found.append(UnitState(item["id"], "stale" if changed else "done", sorted(changed)))
+        reason = record.get("skipped")
+        if isinstance(reason, str):
+            found.append(UnitState(item["id"], "skipped", sorted(changed), reason))
+        else:
+            found.append(UnitState(item["id"], "stale" if changed else "done", sorted(changed)))
     return found
 
 
@@ -114,7 +126,7 @@ def next_units(project: Path, count: int = 1) -> list[dict[str, Any]]:
     picked: list[dict[str, Any]] = []
     for item in plan["units"]:  # ya ordenadas por prioridad
         state = by_id[item["id"]]
-        if state.status == "done":
+        if state.status in ("done", "skipped"):
             continue
         flags = {p: f for p in item["files"] + item["tests"] if (f := _flags(project, p))}
         picked.append(
@@ -267,6 +279,32 @@ def done(project: Path, unit_id: str) -> dict[str, Any]:
     return record
 
 
+def skip(project: Path, unit_id: str, reason: str) -> dict[str, Any]:
+    """Saca del ciclo una unidad que no se puede cerrar: registra la razón y sus hashes."""
+    project = Path(project)
+    plan = planner.load(project)
+    item = planner.unit(plan, unit_id)
+    text = " ".join(reason.split())
+    if not text:
+        raise UnitError('give the reason it cannot be closed: --reason "<why>"')
+    pii = config.load(project).config["data_protection"]["pii"]
+    for finding in scan.scan_text(text, skip_code_blocks=False, pii=pii):
+        what = "a secret" if finding.level == scan.CRITICAL else "personal data"
+        raise UnitError(
+            f"the reason copies {what} ({finding.kind}, {finding.excerpt}); it is committed, "
+            "so describe it without the value"
+        )
+    current = _current_hashes(files_mod.list_files(project))
+    record = {
+        "id": unit_id,
+        "skipped": text,
+        "files": {p: current.get(p, "") for p in item["files"]},
+        "tests": {p: current.get(p, "") for p in item["tests"]},
+    }
+    store.write_json(project, unit_record(unit_id), record)
+    return record
+
+
 def file_unit(plan: dict[str, Any]) -> dict[str, str]:
     """Archivo -> unidad que lo contiene."""
     return {path: item["id"] for item in plan["units"] for path in item["files"]}
@@ -284,7 +322,8 @@ def orphans(project: Path, plan: dict[str, Any]) -> list[str]:
 def reopen(
     project: Path, ids: list[str] | None = None, *, capability: str | None = None
 ) -> list[str]:
-    """Vuelve a pendientes unidades cerradas, para extraerlas otra vez (R5 por debajo del umbral).
+    """Vuelve a pendientes unidades cerradas o salteadas, para extraerlas otra vez (R5 por
+    debajo del umbral, o una unidad `skipped` que ya se puede cerrar).
 
     Por ID, o las unidades que contienen los archivos que citan los FR de una capacidad.
     Borra solo `units/<id>.json`: el documento queda como referencia hasta la nueva extracción.

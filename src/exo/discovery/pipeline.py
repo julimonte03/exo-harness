@@ -134,16 +134,24 @@ def status(project: Path) -> dict[str, Any]:
     }
     if plan is None:
         payload["units"] = None
+        payload["skipped"] = []
         return payload
     fileset = files_mod.list_files(project)
     found = units.states(project, plan, fileset)
-    counts = {"pending": 0, "done": 0, "stale": 0}
+    counts = dict.fromkeys(units.STATUSES, 0)
     for state in found:
         counts[state.status] += 1
     by_id = {s.id: s.status for s in found}
     payload["depth"] = plan["depth"]
     payload["units"] = counts
-    payload["next"] = [u["id"] for u in plan["units"] if by_id[u["id"]] != "done"][:5]
+    payload["next"] = [u["id"] for u in plan["units"] if by_id[u["id"]] not in ("done", "skipped")][
+        :5
+    ]
+    payload["skipped"] = [
+        {"id": s.id, "reason": s.reason, "changed": s.changed}
+        for s in found
+        if s.status == "skipped"
+    ]
     payload["orphans"] = units.orphans(project, plan)
     return payload
 
@@ -175,8 +183,10 @@ def update(project: Path) -> dict[str, Any]:
         for name, paths in cited_files(project, warnings).items()
         if paths & changed or paths & set(deleted)
     )
+    skipped = {s.id: s.changed for s in found if s.status == "skipped" and s.changed}
     return {
         "stale_units": {k: v for k, v in sorted(stale.items())},
+        "changed_skipped_units": dict(sorted(skipped.items())),
         "new_files": sorted(code - planned),
         "deleted_files": deleted,
         "stale_capabilities": stale_capabilities,
