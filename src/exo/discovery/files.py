@@ -76,6 +76,8 @@ LANGUAGES = {
     ".cjs": "javascript",
     ".ts": "typescript",
     ".tsx": "typescript",
+    ".mts": "typescript",
+    ".cts": "typescript",
     ".java": "java",
     ".kt": "kotlin",
     ".kts": "kotlin",
@@ -256,7 +258,9 @@ def is_test(path: str) -> bool:
         )
     if language in ("javascript", "typescript"):
         stem_parts = name.split(".")
-        return "__tests__" in parts[:-1] or any(p in ("test", "spec") for p in stem_parts[1:-1])
+        return any(p in ("__tests__", "test", "tests") for p in parts[:-1]) or any(
+            p in ("test", "spec") for p in stem_parts[1:-1]
+        )
     if language in ("java", "kotlin", "scala"):
         return "src/test/" in f"/{path}"
     if language == "go":

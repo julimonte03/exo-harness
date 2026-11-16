@@ -162,6 +162,88 @@ def test_js_ts_alias_index_workspace_dinamico_y_require_con_variable(tmp_path: P
     assert modules["packages/web/src"]["external"] == ["react", "react-router"]
 
 
+def test_tsconfig_extends_relativo_en_varios_niveles_y_sin_ciclos(tmp_path: Path) -> None:
+    """M4: se siguen los `extends` relativos y se fusionan las `compilerOptions`."""
+    root = _repo(
+        tmp_path,
+        {
+            "tsconfig.paths.json": json.dumps(
+                {"compilerOptions": {"baseUrl": ".", "paths": {"@shared/*": ["libs/shared/*"]}}}
+            ),
+            "apps/web/tsconfig.base.json": json.dumps({"extends": "../../tsconfig.paths.json"}),
+            "apps/web/tsconfig.json": json.dumps(
+                {"extends": "./tsconfig.base.json", "compilerOptions": {"strict": True}}
+            ),
+            "apps/web/src/main.ts": "import { price } from '@shared/price';\n",
+            "libs/shared/price.ts": "export const price = 1;\n",
+            # Un ciclo (sin `.json` en el extends): no se cuelga, y los paths son del que los
+            # declara, sin baseUrl: relativos a su carpeta.
+            "apps/cyc/tsconfig.json": json.dumps({"extends": "./tsconfig.cycle"}),
+            "apps/cyc/tsconfig.cycle.json": json.dumps(
+                {"extends": "./tsconfig.json", "compilerOptions": {"paths": {"~/*": ["src/*"]}}}
+            ),
+            "apps/cyc/src/a.ts": "import { b } from '~/lib/b';\n",
+            "apps/cyc/src/lib/b.ts": "export const b = 1;\n",
+        },
+    )
+    assert _edges(root) == {
+        ("apps/web/src", "libs/shared"),
+        ("apps/cyc/src", "apps/cyc/src/lib"),
+    }
+
+
+def test_un_tsconfig_sin_paths_hereda_los_del_padre_mas_cercano(tmp_path: Path) -> None:
+    root = _repo(
+        tmp_path,
+        {
+            "tsconfig.json": json.dumps(
+                {"compilerOptions": {"baseUrl": ".", "paths": {"@/*": ["src/*"]}}}
+            ),
+            "src/feature/tsconfig.json": json.dumps({"compilerOptions": {"strict": True}}),
+            "src/feature/a.ts": "import { b } from '@/core/b';\n",
+            "src/core/b.ts": "export const b = 1;\n",
+        },
+    )
+    assert _edges(root) == {("src/feature", "src/core")}
+
+
+def test_un_import_js_que_no_existe_prueba_ts(tmp_path: Path) -> None:
+    """M4: `./x.js`, `.mjs` o `.cjs` que no existen prueban `.ts`, `.tsx`, `.mts` y `.cts`."""
+    files = ["src/a.ts", "src/lib/b.ts", "src/lib/c.mts", "src/lib/d.cts", "src/lib/e.tsx"]
+    index = graph.Index.build(tmp_path, files)
+    text = (
+        "import { b } from './lib/b.js';\nimport { c } from './lib/c.mjs';\n"
+        "const d = require('./lib/d.cjs');\nimport E from './lib/e.js';\n"
+    )
+    resolved, external = graph.js_imports("src/a.ts", text, index)
+    assert resolved == {"src/lib/b.ts", "src/lib/c.mts", "src/lib/d.cts", "src/lib/e.tsx"}
+    assert external == set()
+
+
+def test_workspace_cuyo_main_no_existe_cae_a_types_y_a_src_index(tmp_path: Path) -> None:
+    root = _repo(
+        tmp_path,
+        {
+            "package.json": json.dumps({"name": "acme", "workspaces": ["packages/*"]}),
+            "packages/shared/package.json": json.dumps(
+                {"name": "@acme/shared", "main": "dist/index.js", "types": "dist/index.d.ts"}
+            ),
+            "packages/shared/src/index.ts": "export const price = 1;\n",
+            "packages/types/package.json": json.dumps(
+                {"name": "@acme/types", "exports": "./dist/index.js", "typings": "lib/index.d.ts"}
+            ),
+            "packages/types/lib/index.d.ts": "export type Id = string;\n",
+            "packages/app/src/main.ts": (
+                "import { price } from '@acme/shared';\nimport type { Id } from '@acme/types';\n"
+            ),
+        },
+    )
+    assert _edges(root) == {
+        ("packages/app/src", "packages/shared/src"),
+        ("packages/app/src", "packages/types/lib"),
+    }
+
+
 def test_java_wildcard_static_mismo_paquete_y_calificado(tmp_path: Path) -> None:
     base = "src/main/java/com/example/library"
     root = _repo(

@@ -140,6 +140,14 @@ def test_el_tamano_y_el_corte_se_miden_con_lf(
     assert "huge.txt" not in by_path and found.excluded["large"] == 1
 
 
+def test_las_carpetas_test_y_tests_son_tests_en_js_y_ts() -> None:
+    """L7."""
+    for path in ("test/helpers.js", "web/tests/setup.ts", "src/__tests__/a.tsx", "a.test.mts"):
+        assert files.is_test(path), path
+    for path in ("src/testing/a.ts", "src/contest/a.js", "tests.js", "src/latest.ts"):
+        assert not files.is_test(path), path
+
+
 def test_el_hash_ignora_los_fines_de_linea() -> None:
     assert files.normalized_hash(b"a\r\nb\r\n") == files.normalized_hash(b"a\nb\n")
     assert files.normalized_hash(b"a\nb") != files.normalized_hash(b"a\nc")
