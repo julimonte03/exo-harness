@@ -45,7 +45,7 @@ def allowed(project: Path) -> tuple[list[str], list[str]]:
     adr_dir = str(data.get("adr_dir") or inventory.DEFAULT_ADR_DIR).strip("/")
     capabilities = posixpath.join(cfg["specs_dir"].strip("/"), specs.CAPABILITIES)
     prefixes = [store.rel(""), capabilities + "/"]
-    exact = [f"{_meta.PROJECT_DIR}/{CONTEXT_FILE}", f"{adr_dir}/*-recovered-*.md"]
+    exact = [f"{_meta.PROJECT_DIR}/{CONTEXT_FILE}", f"{adr_dir}/{files_mod.RECOVERED_ADR}"]
     return prefixes, exact
 
 
