@@ -76,7 +76,11 @@ Compare `artifacts` with the mandatory artifacts of the tier (`.exo/shared/sdd-p
 
 `exo change status <change> --json` returns `next_phase` and `next_reason`, computed with the rules of `.exo/shared/sdd-status-contract.md`, Next phase. Report them as they are; do not re-derive them. An archived change has `next_phase: none`.
 
-### 6. Inconsistencies
+### 6. The anchor
+
+If the change root has `context-anchor.md`, read its Now and Open questions (skill:context-anchoring) and add one line to the report: `Anchor: next step <step> (<who>); <n> open questions`. A next step that the engine contradicts (a phase already done, or another next phase) is an inconsistency. Never update the anchor here.
+
+### 7. Inconsistencies
 
 Report them; do not resolve them by guessing:
 
@@ -87,7 +91,7 @@ Report them; do not resolve them by guessing:
 
 For each: the file, what is wrong, and either a question for the person or the phase that owns the file and should fix it.
 
-### 7. Memory
+### 8. Memory
 
 With `sdd.persistence` `memory` or `hybrid` (`.exo/config.json`), also read the state artifact as `.exo/shared/memory-convention.md` says: `exo mem search "<change-name> state" --json`, pick the observation with topic key `sdd/<change-name>/state`, then `exo mem get <id> --json`. Never work from the preview.
 

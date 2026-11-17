@@ -33,8 +33,8 @@ The rules of the overlay are in `.exo/shared/spdd-common.md`. When this skill an
 
 ## When
 
-- **Only when the overlay applies** (`.exo/shared/spdd-common.md`, section A): Tier 3 or 4 with domain logic worth fixing before the code, or the person asks for it, at any tier.
-- **Not** for configuration, copy, styling, dependency bumps, or refactors with no behavior change. When in doubt in an interactive run, ask once: "This change has <the rule or calculation>. Do you want a canvas? It adds your approval of the contract before any code." In an unattended run, skip it and say so in the phase notes.
+- **Only when the overlay applies** (`.exo/shared/spdd-common.md`, section A): Tier 3 or 4 with domain logic worth fixing before the code; the person asks for it, at any tier; or the tier lists `prompt_spec_review` in `governance.gates`, which makes the canvas mandatory there.
+- **Not** for configuration, copy, styling, dependency bumps, or refactors with no behavior change, unless the tier requires the gate. When in doubt in an interactive run, ask once: "This change has <the rule or calculation>. Do you want a canvas? It adds your approval of the contract before any code." In an unattended run, skip it and say so in the phase notes.
 - **In the design phase** (skill:sdd-design), in this order:
   1. design.md passes speclint, and the threat model is in Risks & Mitigations (Tier 3 and 4);
   2. this skill writes canvas.md;

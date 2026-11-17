@@ -33,7 +33,7 @@ metadata:
 
 - **Design phase, Conditional** (`.exo/shared/phase-skill-map.md`, row design): the change spans several sessions or developers.
 - **Any phase, on request:** the person asks to keep a decision log, to hand the change over, or to pick it up from someone else.
-- **Every later phase, once the file exists:** its presence is the trigger. Read it first; update it before the phase ends.
+- **Every later phase, once the file exists:** its presence is the trigger (`.exo/shared/sdd-phase-common.md`, section A). Read it first; update it before the phase ends.
 - **Not** for a Tier 1 change done in one session: the proposal and the AI Usage Record already hold what matters. Say so if the person asks, and start it anyway if they still want it.
 
 ## Why a file, not only memory
@@ -47,7 +47,7 @@ The engine's memory is per user and per machine: one database that another devel
 | the inline phases (new, propose, spec, design, tasks, archive) and the orchestrator | the session itself |
 | a subagent (`sdd-explorer`, `sdd-implementer`, `sdd-verifier`, `sdd-judge`) | nobody inside the subagent: it lists its decisions, assumptions and questions in its envelope notes, and the orchestrator adds them |
 
-- The anchor is the one file of the change that belongs to no phase, and only this skill edits it.
+- The anchor is one of the two files of the change that belong to no phase (the other is `pr-part-<n>.md`, from `chained-pr`; `.exo/shared/sdd-phase-common.md`, section C), and only this skill edits it.
 - It never edits proposal.md, spec.md, design.md, canvas.md, tasks.md or the code. A decision that changes one of them goes to the phase that owns it; the anchor records the decision and where it landed.
 
 ## Start the anchor
