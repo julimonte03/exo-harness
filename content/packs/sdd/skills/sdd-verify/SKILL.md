@@ -66,7 +66,7 @@ Section A, with the verify row of `.exo/shared/phase-skill-map.md`, each `SKILL.
 4. **Tasks.** Every box of tasks.md is ticked, and the work of each ticked task is in the diff. In Tier 1 and 2, compare against the proposal's Scope.
 5. **Design.** The files match Modules / Files, and Error Handling and the mitigations of Risks & Mitigations are implemented. With `canvas.md`, skill:prompt-spec-review checks the diff against its Operations, Norms and Safeguards, one to one, and against Structure for scope creep.
 6. **Tests.** Run the exact test command, then the lint and the build when `.exo/context.md` has them. A failure is pre-existing only with evidence: the implementer's baseline in the delegation, or the same failure on the base branch in CI. Never switch branches to find out.
-7. **Drift.** Every changed file or hunk that no task (or, in Tier 1 and 2, the proposal's Scope) explains is drift: unrelated refactors or formatting, debug leftovers, dependencies the plan does not name.
+7. **Drift.** Every changed file or hunk that no task (or, in Tier 1 and 2, the proposal's Scope) explains is drift: unrelated refactors or formatting, debug leftovers, dependencies the plan does not name. A project document outside the change root (a diagram, a runbook, a decision record) is not drift when design.md, Modules / Files, or the proposal's Scope lists it (`.exo/shared/sdd-phase-common.md`, section C).
 8. **Criteria.** Apply `harness-review` and the Conditionals that loaded.
 
 Back every finding with `path:line`. What you could not check goes in Issues Found, with the reason.
