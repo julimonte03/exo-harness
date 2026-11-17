@@ -9,11 +9,13 @@ description: >-
   commands, bypassing hooks, changes to the agent's config or permissions),
   every bundled script, the references and data protection, and runs
   `exo validate --root` on content trees. Returns APPROVED or ESCALATED with a
-  findings table in the gate format, for the person or the PR.
+  findings table in the gate format, for the person or the PR. The quality
+  and clarity of a skill are skill-improver's job.
   Use it before installing a third-party skill, on a PR that adds or changes
   skills or subagents, and before publishing a pack. Triggers: "review this
-  skill", "is this skill safe", "audit this skill", "vet a third-party skill",
-  "check the pack before we publish it", "skill supply chain", "skill review".
+  skill", "is this skill safe", "security audit of this skill", "vet a
+  third-party skill", "check the pack before we publish it", "skill supply
+  chain", "skill review".
 metadata:
   exo-pack: core
   exo-execution: inline

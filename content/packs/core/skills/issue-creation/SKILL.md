@@ -99,17 +99,17 @@ A suspected cause goes under its own heading, `Hypothesis`, with `path:line` and
 
 ### 9. Deliver
 
-- The text in the answer, or a file the person names, outside any change folder. The person files it, in the tracker's web page or with its CLI; this skill never runs a tracker's CLI or API.
+- The text in the answer, or a file the person names, outside any change folder; committed during a change, that file is a project document, written with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C). The person files it, in the tracker's web page or with its CLI; this skill never runs a tracker's CLI or API.
 - **Duplicates:** this skill cannot search the tracker. Ask the person to check for an existing issue with the key words of the title before filing.
 - **The ID, once filed:** with a ticket pattern, check the ID the person brings back against it (the whole ID has to match). If it does not, say so with `tickets.example` and ask once more. Never invent one; without a pattern, there is no ID to check.
-- **Next:** if the project has the `sdd` pack and the person wants to fix it now, offer to start a change with `sdd-new`; the issue's ID is the change's ticket.
+- **Next:** if the project has the `sdd` pack and the person wants to fix it now, offer to start a change with `sdd-new`. It asks for the ticket once (`.exo/shared/sdd-phase-common.md`, section E), and the person answers with the issue's ID; never pass the ID on yourself.
 
 ## Return
 
 ```markdown
 **Title:** Checkout returns 500 when the coupon has expired
 
-**Kind:** bug · **Suggested priority:** high (every shopper with an expired coupon is blocked; no workaround but removing the coupon, which they do not know)
+**Kind:** bug · **Suggested priority:** high (see Impact)
 
 ## Summary
 Submitting the checkout form with an expired coupon returns a 500 page instead of the "coupon expired" message.
@@ -123,7 +123,7 @@ Submitting the checkout form with an expired coupon returns a 500 page instead o
 The form shows "This coupon has expired" and keeps the cart (CAP-coupons-FR-2, scenario S-3).
 
 ## Actual
-A 500 error page. The server log shows `KeyError: 'discount'` at `src/api/checkout.py:88`.
+A 500 error page instead of the message; the order is not placed.
 
 ## Environment
 Commit `<short-sha>`, Python 3.12, Chrome 131 on Windows 11; default configuration.
@@ -131,8 +131,20 @@ Commit `<short-sha>`, Python 3.12, Chrome 131 on Windows 11; default configurati
 ## Frequency
 Always, with any expired coupon.
 
+## Impact
+Every shopper who enters an expired coupon is blocked at checkout, and nothing tells them that removing the coupon lets them continue. No data or money at risk. Suggested priority: high (it blocks a core journey with no workaround users can find).
+
+## Evidence
+Server log at step 3: `KeyError: 'discount'`, raised at `src/api/checkout.py:88` and called from `src/api/routes.py:31`. The excerpt holds no personal data.
+
+## Workaround
+Remove the coupon before submitting; support can tell shoppers to do so.
+
 ## Hypothesis
 `apply_coupon` returns `None` for expired coupons since `<short-sha>` (`src/coupons/rules.py:40`), and checkout reads `result["discount"]` without checking.
+
+## Related
+Possibly introduced by commit `<short-sha>` (see Hypothesis). No known duplicate: search the tracker for "expired coupon" before filing.
 ```
 
 Then: "File it in your tracker; send me the ID if you want me to check it, or to start a change to fix it."
@@ -147,7 +159,7 @@ Then: "File it in your tracker; send me the ID if you want me to check it, or to
 
 ## Record
 
-Inside an SDD change (for example, a bug found during apply that is outside the plan), record the decision before the phase's envelope (`.exo/shared/capability-attribution.md`):
+Inside an SDD change (for example, a bug found during apply that is outside the plan), a phase that runs inline records the decision before its envelope (`.exo/shared/capability-attribution.md`); in a subagent, list it in the envelope notes and the orchestrator records it:
 
 ```bash
 exo change record <change> --add capabilities_used '{"name": "issue-creation", "type": "skill", "activation": "requested", "resolution": "fallback-registry"}'

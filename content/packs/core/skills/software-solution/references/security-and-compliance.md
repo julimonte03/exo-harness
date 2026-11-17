@@ -15,7 +15,7 @@ Steps 2 and 9 of `software-solution`: the security baseline every solution gets,
 | Audit logging | Security events (sign-in, permission changes, access to Restricted data, admin actions) logged with who, what and when, and no secrets or personal data in the log text |
 | Network | Which components are reachable from where; public entry points behind the organization's edge protection |
 | Supply chain | Dependencies from expected sources, pinned, scanned; images and artifacts built in the pipeline |
-| Data protection | Each flow checked against `.exo/shared/data-protection.md`: Critical goes nowhere, Restricted only where a waiver or agreement covers it |
+| Data protection | Each data flow labeled with its level on the scale of `.exo/shared/data-protection.md`, section A (Public, Internal, Restricted, Critical). Secrets travel only from the secret store to the component that uses them; every Restricted flow that crosses a trust boundary is flagged for the threat model and the person's decision. That contract's matrix and waivers govern what the agent may copy, not the system's runtime flows |
 
 ## Threats
 

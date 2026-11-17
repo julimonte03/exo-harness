@@ -1,21 +1,21 @@
 ---
 name: skill-improver
 description: >-
-  Audits an existing agent skill and proposes concrete improvements; by
-  default it only audits and edits nothing until the person approves. It
-  checks the description and its triggers (what, when, overlap with
-  neighbors), the frontmatter and metadata (standard fields, exo- values,
-  permissions that match what the body does), the structure (Result, When,
-  Steps, Return, Record, a checklist, at most 500 lines with details in
-  references/), ambiguous or missing steps, examples, limits and safety, and
-  coherence with the engine's contracts (artifact ownership, the phase map,
-  degradation, records, data protection, ticket patterns). It returns
-  findings with a before and after for each, applies only the approved ones,
-  then checks again. Use it when a skill misfires or never triggers, gives
-  inconsistent results, grew too long, or before publishing a pack.
-  Triggers: "improve this skill", "audit our skills", "why doesn't this
-  skill trigger", "this skill is too long", "refactor the SKILL.md", "skill
-  quality check".
+  Audits the quality and clarity of an existing agent skill and proposes
+  exact improvements; by default it only audits and edits nothing until the
+  person approves. It checks the description and its triggers (what,
+  when, overlap with neighbors), the frontmatter and metadata (standard
+  fields, exo- values, permissions that match the body), the structure (the
+  sections, at most 500 lines with details in references/), ambiguous or
+  missing steps, examples and limits, and coherence with the engine's
+  contracts (artifact ownership, the phase map, degradation, records, data
+  protection, ticket patterns). It returns findings, each with a before and
+  after, applies only the approved ones, then checks again. It is not
+  the security and supply-chain gate (skill-reviewer). Use it when a skill
+  misfires or never triggers, gives inconsistent results, grew too long, or
+  before publishing a pack. Triggers: "improve this skill", "why doesn't
+  this skill trigger", "this skill is too long", "refactor the SKILL.md",
+  "skill quality check".
 metadata:
   exo-pack: core
   exo-execution: inline
@@ -64,7 +64,7 @@ Read every file of the folder, frontmatter and comments included. Count the line
 
 ### 2. Run the mechanical checks
 
-- **In a content tree:** `exo validate` (or `exo validate --root <tree>`) and keep the errors and warnings of this skill.
+- **In a content tree:** `exo validate --root <tree>` (`--root content` in the engine's repository; without `--root` it validates the content packaged with the installed exo) and keep the errors and warnings of this skill.
 - **A project skill:** the manual checks of skill:skill-creator (frontmatter, name, description length, size, cited references, invisible characters).
 
 Each error or warning becomes a finding.
@@ -141,7 +141,7 @@ Apply all, some (list the IDs), or none?
 
 ## Record
 
-Inside an SDD change whose diff changes a skill, record it before the phase envelope (`.exo/shared/capability-attribution.md`); in verify, the phase map loads skill:skill-reviewer for that diff:
+Inside an SDD change whose diff changes a skill, a phase that runs inline records it before its envelope (`.exo/shared/capability-attribution.md`); in a subagent, list it in the envelope notes and the orchestrator records it. In verify, the phase map loads skill:skill-reviewer for that diff:
 
 ```bash
 exo change record <change> --add capabilities_used '{"name": "skill-improver", "type": "skill", "activation": "requested", "resolution": "fallback-registry"}'

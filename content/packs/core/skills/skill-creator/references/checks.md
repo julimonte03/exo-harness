@@ -4,7 +4,7 @@ What step 10 of `skill-creator` checks: the rules `exo validate` enforces on a c
 
 ## exo validate
 
-Run it from the engine's repository (`exo validate`), or on any content tree with `packs/` and `rules/` (`exo validate --root <tree>`). Add `--json` to process the result. The exit code counts only errors; read the warnings too: a new skill should add none.
+Run it from the engine's repository as `exo validate --root content` (without `--root` it validates the content packaged with the installed exo, not your working tree), or on any content tree with `packs/` and `rules/` (`exo validate --root <tree>`). Add `--json` to process the result. The exit code counts only errors; read the warnings too: a new skill should add none.
 
 | Rule | Message (abridged) | Fix |
 |---|---|---|

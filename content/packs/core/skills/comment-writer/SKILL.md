@@ -5,12 +5,13 @@ description: >-
   comments that explain why, pull request review comments with their
   severity (blocking or not) and a concrete suggestion, replies to review
   feedback and to issues, and messages for the team's chat (questions,
-  status updates, hand-offs, announcements). It keeps the tone warm and
-  direct, talks about the code and never about the person, and keeps
-  secrets, personal data and production data out of every text. It drafts;
-  the person posts. Use it when writing or answering review comments, adding
-  or cleaning up comments in code, replying on an issue, or writing an async
-  message for the team. Triggers: "write a review comment", "how do I say
+  status updates, hand-offs of work, announcements). It keeps the tone warm
+  and direct, talks about the code and never about the person, and keeps
+  secrets, personal data and production data out of every text. It drafts
+  and edits no file: the person posts, and code comments come back for the
+  person, or the phase that owns the code, to apply. Use it when writing or
+  answering review comments, adding or cleaning up comments in code,
+  replying on an issue, or writing an async message for the team. Triggers: "write a review comment", "how do I say
   this in the PR", "reply to this review", "comment this code", "this
   comment sounds harsh, rewrite it", "write a message to the team", "status
   update for the channel".
@@ -24,7 +25,7 @@ metadata:
 
 ## Result
 
-A draft ready to post, in the shape of where it goes: a code comment, a review comment, a reply, an issue reply or a team message. Every draft has one purpose, the context its reader needs, the ask or the information, the severity or urgency when it matters, and a tone that fits. The person posts it: this skill never posts, sends or edits anything outside the conversation.
+A draft ready to post, in the shape of where it goes: a code comment, a review comment, a reply, an issue reply or a team message. Every draft has one purpose, the context its reader needs, the ask or the information, the severity or urgency when it matters, and a tone that fits. The person posts it: this skill never posts, sends or edits anything outside the conversation. Code comments come back as a draft with their `path:line`; the person, or the SDD phase that owns the code (apply), puts them in the file.
 
 ## When
 
@@ -33,7 +34,7 @@ A draft ready to post, in the shape of where it goes: a code comment, a review c
 - **Replying** on an issue or a discussion thread.
 - **Writing to the team:** a question, a status update, a hand-off, an announcement.
 - **Rewriting a draft** that sounds harsh, vague or too long.
-- **Not for:** judge findings and gates, which have their own formats (`.exo/shared/judge-common.md` and the gate template); PR descriptions (skill:branch-pr); commit messages (skill:work-unit-commits); bug reports and feature requests (skill:issue-creation); documentation (skill:cognitive-doc-design).
+- **Not for:** an on-call shift handoff (`on-call-handoff`, pack `ops`); incident status updates (`incident-response`, pack `ops`); judge findings and gates, which have their own formats (`.exo/shared/judge-common.md` and the gate template); PR descriptions (skill:branch-pr); commit messages (skill:work-unit-commits); bug reports and feature requests (skill:issue-creation); documentation (skill:cognitive-doc-design).
 
 ## Inputs
 
@@ -56,6 +57,7 @@ Before-and-after examples for every kind of text are in `references/examples.md`
 
 ## Code comments
 
+- **Drafts, not edits.** Return each comment with the `path:line` where it goes; this skill does not write it into the file.
 - **Why, not what.** The code says what it does; the comment says why: the intent, a constraint, a non-obvious decision, a workaround and its reason, with a link to the spec, the decision record or the ticket.
 - **Delete** comments that repeat the code, are out of date, or are commented-out code: version control keeps the history.
 - **TODO and FIXME** say what, why and when it can go. With a ticket pattern (`tickets.pattern` in `.exo/config.json`), use an ID the person confirmed: `TODO(PROJ-123): drop the fallback once all clients send the version header`. Never invent an ID; without a pattern, write the condition instead.
@@ -116,7 +118,7 @@ Note: kept it blocking because it can upload an empty export; a softer option is
 
 ## Record
 
-Usually there is nothing to record: the drafts live in the conversation. When a phase of an SDD change loaded this skill (for example to answer review comments before archive), add it before that phase's envelope (`.exo/shared/capability-attribution.md`):
+Usually there is nothing to record: the drafts live in the conversation. When a phase of an SDD change loaded this skill (for example to answer review comments before archive), a phase that runs inline adds it before its envelope (`.exo/shared/capability-attribution.md`); in a subagent, list it in the envelope notes and the orchestrator records it:
 
 ```bash
 exo change record <change> --add capabilities_used '{"name": "comment-writer", "type": "skill", "activation": "requested", "resolution": "fallback-registry"}'

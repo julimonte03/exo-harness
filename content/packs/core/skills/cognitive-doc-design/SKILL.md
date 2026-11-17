@@ -31,7 +31,7 @@ metadata:
 
 - **Writing** a README, a how-to guide, a reference page, a design note or RFC, an onboarding guide, a troubleshooting page, or a long PR description.
 - **Fixing** a document that feels long, dense or confusing, or that makes reviewers and newcomers ask the same questions again.
-- **Inside an SDD change,** when a phase asks for clearer text: apply these criteria to the text inside the sections of its artifact, never to the sections themselves, which the templates fix (`.exo/shared/sdd-phase-common.md`, section C).
+- **Inside an SDD change,** when a phase asks for clearer text: apply these criteria to the text inside the sections of its artifact, never to the sections themselves, which the templates fix (`.exo/shared/sdd-phase-common.md`, section C). A project document written during a change (a README, a guide) is never a file of the change root: it is written with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C).
 - **Not for:** the sections of `pr.md`, which skill:branch-pr owns (this skill can tighten the text inside them); architecture decision records (`architecture-decision-record`, pack `design`); code comments, review comments and team messages (skill:comment-writer); bug reports and feature requests (skill:issue-creation); reference docs generated from code.
 
 ## Inputs
@@ -133,7 +133,7 @@ For a review, a short verdict and the findings, the most helpful first:
 
 ## Record
 
-Inside an SDD change, when a phase loaded this skill, add it before that phase's envelope (`.exo/shared/capability-attribution.md`):
+Inside an SDD change, when a phase loaded this skill, a phase that runs inline adds it before its envelope (`.exo/shared/capability-attribution.md`); in a subagent, list it in the envelope notes and the orchestrator records it:
 
 ```bash
 exo change record <change> --add capabilities_used '{"name": "cognitive-doc-design", "type": "skill", "activation": "auto", "resolution": "fallback-registry"}'

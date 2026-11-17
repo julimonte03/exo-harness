@@ -1,8 +1,8 @@
 ---
 name: skill-creator
 description: >-
-  Creates a new agent skill in this engine's canonical format, as engine
-  content (content/packs/<pack>/skills/<name>/) or as a project skill in the
+  In the exo canonical format, creates a new agent skill, as engine content
+  (content/packs/<pack>/skills/<name>/) or as a project skill in the
   agent's skills folder. It first checks that a skill is the right tool,
   then defines the job, the triggers and the non-triggers, and writes the
   strict frontmatter (name; a description with what the skill does, when to
@@ -12,9 +12,10 @@ description: >-
   Then it checks the result with exo validate and the skill-reviewer gate.
   Use it when someone wants to add a skill, turn a repeated workflow or a
   set of instructions into a skill, or write the next skill of a pack.
-  Triggers: "create a skill", "add a skill", "write a new skill for", "turn
-  this workflow into a skill", "scaffold a SKILL.md", "make a skill out of
-  these instructions".
+  Triggers: "create an exo skill", "add a skill to this exo pack", "write a
+  new skill in the exo canonical format", "turn this workflow into an exo
+  skill", "scaffold an exo SKILL.md", "make an exo skill out of these
+  instructions".
 metadata:
   exo-pack: core
   exo-execution: inline
@@ -68,7 +69,7 @@ If an existing skill already covers most of the job, propose extending it instea
 - **Inputs** and what to do when one is missing (ask once with a default, stop, or degrade).
 - **Where it runs:** `inline` by default; `subagent` only when one of the existing subagents has the right tools (for example `sdd-judge` for a read-only review).
 - **Permissions:** one value of the vocabulary (step 4).
-- **Inside an SDD change:** a skill that is not a phase never edits a phase's artifact; it returns text for the phase that owns it, or writes its own files outside the change folder (`.exo/shared/sdd-phase-common.md`, section C).
+- **Inside an SDD change:** a skill that is not a phase never edits a phase's artifact; it returns text for the phase that owns it. Its own files are project documents, never files of the change root, written with the person's approval once the plan lists them (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count them as drift (`.exo/shared/sdd-phase-common.md`, section C).
 
 ### 3. Name it
 
@@ -84,6 +85,7 @@ Only the Agent Skills fields: `name`, `description` and `metadata` (the standard
 |---|---|
 | `exo-pack` | The pack that ships it. Leave it out in a project skill, which belongs to no pack |
 | `exo-execution` | `inline`, or `subagent` together with `exo-subagent: <subagent name>` |
+| `exo-phase` | Only for a skill of the SDD cycle or one of its gates: the phase it serves (`init`, `risk`, `new`, `explore`, `propose`, `spec`, `design`, `tasks`, `apply`, `verify`, `archive`, `judgment`, `status` or `orchestrate`). Leave it out in any other skill |
 | `exo-permissions` | The most the skill may do (below) |
 
 | `exo-permissions` | The skill may |
@@ -92,8 +94,11 @@ Only the Agent Skills fields: `name`, `description` and `metadata` (the standard
 | `read-only+tests` | Read, and run tests, linters or builds without changing anything |
 | `read-only+record` | Read, and add entries to a change's AI Usage Record |
 | `read-only+gate` | Read, and write only its gate file |
+| `read-only+classify` | Read, and write the change's tier through `exo fitness classify` |
+| `read-only+exo-init` | Read, and set up the project with `exo init` |
 | `write-code` | Write code and tests |
 | `write-specs` | Write project artifacts and documents (specs, docs, plans) |
+| `write-specs+tests` | Write documents, and run tests, linters or builds |
 | `write-specs+git` | Write documents and run git operations (branches, commits) |
 
 Prefer a value already in use; a new combination is a decision for the pack's owner.
@@ -140,7 +145,7 @@ A repository with its own eval format (the engine's has one for its packs) uses 
 
 ### 10. Check it
 
-1. **Engine content:** `exo validate` in the engine's repository, or `exo validate --root <tree>` for another content tree. No errors and no warnings; then the repository's own tests.
+1. **Engine content:** `exo validate --root content` in the engine's repository (without `--root`, it validates the content packaged with the installed exo, not your working tree), or `exo validate --root <tree>` for another content tree. No errors and no warnings; then the repository's own tests.
 2. **A project skill:** `exo validate` does not apply to a loose skills folder. Run the manual checks of `references/checks.md`.
 3. **skill:skill-reviewer** on the new folder, always, before it is merged. An `ESCALATED` verdict needs the `tech_lead` role.
 
@@ -176,7 +181,7 @@ Test prompts:
 
 ## Record
 
-Inside an SDD change whose diff adds a skill, record it before the phase envelope (`.exo/shared/capability-attribution.md`); in verify, the phase map also loads skill:skill-reviewer for that diff:
+Inside an SDD change whose diff adds a skill, a phase that runs inline records it before its envelope (`.exo/shared/capability-attribution.md`); in a subagent, list it in the envelope notes and the orchestrator records it. In verify, the phase map also loads skill:skill-reviewer for that diff:
 
 ```bash
 exo change record <change> --add capabilities_used '{"name": "skill-creator", "type": "skill", "activation": "requested", "resolution": "fallback-registry"}'

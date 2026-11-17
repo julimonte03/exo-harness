@@ -46,7 +46,7 @@ metadata:
 | Outside a change | The solution document | You, in the file the person names (default `docs/architecture/<slug>.md`) |
 | A decision that is hard to reverse | A draft decision record | `architecture-decision-record` (pack `design`), after the person approves its text |
 
-- Never write design.md or any other artifact of a phase (`.exo/shared/sdd-phase-common.md`, section C). If the person also wants the full solution document during a change, write it outside the change folder; `sdd-design` links it from the Architecture Overview.
+- Never write design.md or any other artifact of a phase (`.exo/shared/sdd-phase-common.md`, section C). If the person also wants the full solution document during a change, it is a project document, never a file of the change root: write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C), and `sdd-design` links it from the Architecture Overview.
 - Without `architecture-decision-record`, say `design/architecture-decision-record not installed — applying inline criteria` and apply its row of the map: propose a short record (status, context, decision, alternatives, consequences) for the project's ADR folder, written once the person approves its text.
 
 ## Inputs
@@ -139,10 +139,10 @@ Each risk with its likelihood, impact, mitigation and owner role. The top ones g
 
 ## Return
 
-Inside a change, the Architecture Overview text for `sdd-design` starts like this:
+Inside a change, the block for `sdd-design` is labeled with its section, as `references/solution-document.md` says (design.md already has the heading), and starts like this:
 
 ```markdown
-## Architecture Overview
+For design.md, Architecture Overview:
 
 **Option chosen:** B, a returns service with its own store, fed by order events (see the comparison below; decided by the person).
 
@@ -168,7 +168,7 @@ Why B over A (extend the order service): it keeps the order service's release cy
 
 ## Record
 
-Inside a change, before the design envelope (`.exo/shared/capability-attribution.md`); `activation` is `auto` when the phase map loaded it:
+Inside a change, the design phase records it before its envelope (`.exo/shared/capability-attribution.md`); in a subagent, list it in the envelope notes and the orchestrator records it. `activation` is `auto` when the phase map loaded it:
 
 ```bash
 exo change record <change> --add capabilities_used '{"name": "software-solution", "type": "skill", "activation": "auto", "resolution": "fallback-registry"}'
