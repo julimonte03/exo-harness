@@ -4,13 +4,15 @@
   "packs": [
     "core",
     "sdd",
-    "java"
+    "java",
+    "quality",
+    "security"
   ],
   "cases": [
     {
       "id": "trigger",
       "expect": "trigger",
-      "prompt": "I staged a small reporting feature for the catalog. Can you look over my changes before I push them?",
+      "prompt": "I staged a reporting feature for the catalog. Review the Java code for bugs, transaction problems and security holes, and tell me what you would change.",
       "setup": {
         "files": {
           "src/main/java/com/example/library/books/BookReportService.java": "package com.example.library.books;\n\nimport com.example.library.loans.Loan;\nimport com.example.library.loans.LoanRepository;\nimport jakarta.persistence.EntityManager;\nimport java.time.LocalDate;\nimport java.util.ArrayList;\nimport java.util.List;\nimport org.springframework.beans.factory.annotation.Autowired;\nimport org.springframework.stereotype.Service;\n\n/** Catalog reports for the branch librarians. */\n@Service\npublic class BookReportService {\n\n    @Autowired\n    private EntityManager em;\n\n    @Autowired\n    private LoanRepository loans;\n\n    public List<Book> byAuthor(String author) {\n        return em.createQuery(\n                \"select b from Book b where b.author = '\" + author + \"'\", Book.class)\n                .getResultList();\n    }\n\n    public List<Book> onLoan() {\n        List<Book> result = new ArrayList<>();\n        for (Loan loan : loans.findAll()) {\n            if (loan.isActive()) {\n                result.add(em.find(Book.class, loan.getBookId()));\n            }\n        }\n        return result;\n    }\n\n    public void restock(long id, int count) {\n        Book book = em.find(Book.class, id);\n        book.addCopies(count);\n    }\n\n    public long overdueCount() {\n        try {\n            return loans.findAll().stream()\n                    .filter(loan -> loan.isOverdue(LocalDate.now()))\n                    .count();\n        } catch (Exception e) {\n            return 0;\n        }\n    }\n}\n",
@@ -22,12 +24,19 @@
     {
       "id": "no-trigger",
       "expect": "no-trigger",
-      "prompt": "Draw a Mermaid diagram of the packages under src/main/java and the imports between them."
+      "prompt": "I am about to commit what I staged as 'feat(books): add catalog reports'. Is the commit ready: nothing unrelated, no leftovers or secrets, and a good message?",
+      "setup": {
+        "files": {
+          "src/main/java/com/example/library/books/BookReportService.java": "package com.example.library.books;\n\nimport com.example.library.loans.Loan;\nimport com.example.library.loans.LoanRepository;\nimport jakarta.persistence.EntityManager;\nimport java.time.LocalDate;\nimport java.util.ArrayList;\nimport java.util.List;\nimport org.springframework.beans.factory.annotation.Autowired;\nimport org.springframework.stereotype.Service;\n\n/** Catalog reports for the branch librarians. */\n@Service\npublic class BookReportService {\n\n    @Autowired\n    private EntityManager em;\n\n    @Autowired\n    private LoanRepository loans;\n\n    public List<Book> byAuthor(String author) {\n        return em.createQuery(\n                \"select b from Book b where b.author = '\" + author + \"'\", Book.class)\n                .getResultList();\n    }\n\n    public List<Book> onLoan() {\n        List<Book> result = new ArrayList<>();\n        for (Loan loan : loans.findAll()) {\n            if (loan.isActive()) {\n                result.add(em.find(Book.class, loan.getBookId()));\n            }\n        }\n        return result;\n    }\n\n    public void restock(long id, int count) {\n        Book book = em.find(Book.class, id);\n        book.addCopies(count);\n    }\n\n    public long overdueCount() {\n        try {\n            return loans.findAll().stream()\n                    .filter(loan -> loan.isOverdue(LocalDate.now()))\n                    .count();\n        } catch (Exception e) {\n            return 0;\n        }\n    }\n}\n",
+          "src/main/java/com/example/library/books/BookReportController.java": "package com.example.library.books;\n\nimport java.util.List;\nimport lombok.RequiredArgsConstructor;\nimport org.springframework.web.bind.annotation.GetMapping;\nimport org.springframework.web.bind.annotation.PathVariable;\nimport org.springframework.web.bind.annotation.PostMapping;\nimport org.springframework.web.bind.annotation.RequestMapping;\nimport org.springframework.web.bind.annotation.RequestParam;\nimport org.springframework.web.bind.annotation.RestController;\n\n@RestController\n@RequestMapping(\"/api/reports/books\")\n@RequiredArgsConstructor\npublic class BookReportController {\n\n    private final BookReportService reports;\n\n    @GetMapping\n    public List<Book> byAuthor(@RequestParam String author) {\n        return reports.byAuthor(author);\n    }\n\n    @GetMapping(\"/on-loan\")\n    public List<Book> onLoan() {\n        return reports.onLoan();\n    }\n\n    @PostMapping(\"/{id}/restock\")\n    public void restock(@PathVariable long id, @RequestParam int count) {\n        reports.restock(id, count);\n    }\n}\n"
+        },
+        "stage": true
+      }
     },
     {
       "id": "output",
       "expect": "trigger",
-      "prompt": "Review what I staged as you would before a merge, and tell me whether it can go in.",
+      "prompt": "Review the Java code I staged as you would before a merge, and tell me whether it can go in.",
       "setup": {
         "files": {
           "src/main/java/com/example/library/books/BookReportService.java": "package com.example.library.books;\n\nimport com.example.library.loans.Loan;\nimport com.example.library.loans.LoanRepository;\nimport jakarta.persistence.EntityManager;\nimport java.time.LocalDate;\nimport java.util.ArrayList;\nimport java.util.List;\nimport org.springframework.beans.factory.annotation.Autowired;\nimport org.springframework.stereotype.Service;\n\n/** Catalog reports for the branch librarians. */\n@Service\npublic class BookReportService {\n\n    @Autowired\n    private EntityManager em;\n\n    @Autowired\n    private LoanRepository loans;\n\n    public List<Book> byAuthor(String author) {\n        return em.createQuery(\n                \"select b from Book b where b.author = '\" + author + \"'\", Book.class)\n                .getResultList();\n    }\n\n    public List<Book> onLoan() {\n        List<Book> result = new ArrayList<>();\n        for (Loan loan : loans.findAll()) {\n            if (loan.isActive()) {\n                result.add(em.find(Book.class, loan.getBookId()));\n            }\n        }\n        return result;\n    }\n\n    public void restock(long id, int count) {\n        Book book = em.find(Book.class, id);\n        book.addCopies(count);\n    }\n\n    public long overdueCount() {\n        try {\n            return loans.findAll().stream()\n                    .filter(loan -> loan.isOverdue(LocalDate.now()))\n                    .count();\n        } catch (Exception e) {\n            return 0;\n        }\n    }\n}\n",

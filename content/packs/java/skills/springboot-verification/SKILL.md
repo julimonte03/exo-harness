@@ -1,19 +1,21 @@
 ---
 name: springboot-verification
 description: >-
-  The verification loop for a Spring Boot or Java change before a commit, a
-  pull request or a release, read-only: compile, unit and integration tests,
+  The verification loop for a Spring Boot or Java change before a pull
+  request or a release, read-only: compile, unit and integration tests,
   coverage with JaCoCo, the static analysis the build already declares
   (Checkstyle, PMD, SpotBugs, Error Prone, Spotless check), the dependency
-  scan when a dependency changed, and a review of the diff, each with the
-  project's own commands and wrappers; SonarQube only when the project
-  already uses it. Reports every step as passed, failed or not run with the
-  exact command, and ends with a Verification line. Never fixes anything.
-  Use it when asked whether a Java change is ready, to run the checks before
-  a PR, or to verify a branch or a release candidate. Triggers: "verify my
-  changes", "is this ready for a PR", "run all the checks", "pre-release
-  check", "run the build and tests", "check coverage", "mvn verify",
-  "is my branch done".
+  scan when a dependency changed, and a review of the diff, with the
+  project's own commands; SonarQube only when the project
+  already uses it. Reports each step as passed, failed or not run with its
+  exact command and ends with a Verification line; never fixes anything.
+  Use it when asked whether a Java or Spring Boot change is ready, to run
+  the Maven or Gradle checks before a pull request, or to verify a release
+  candidate. Not for the pre-commit check
+  (pre-commit-review) or the SDD verify (sdd-verify). Triggers: "run the
+  Maven checks", "run the Gradle checks", "mvn verify", "is this Spring
+  Boot change ready for a PR", "check coverage with JaCoCo", "pre-release
+  check of the Java service", "run the Java build and tests".
 metadata:
   exo-pack: java
   exo-execution: inline
@@ -33,9 +35,9 @@ metadata:
 
 ## When
 
-- Before a commit, a pull request or a release of a Spring Boot (or plain Maven or Gradle Java) project, or when someone asks whether a change is ready.
-- **In SDD:** the verify phase runs `harness-review` (pack `quality`) through `sdd-verify`, which owns the record and the gates. This skill gives the Java commands and steps that the verifier runs; its findings go to Issues Found and Tests of `verify-record.md`. skill:backend-engineering routes here outside the phases.
-- **Not for:** fixing what fails. A failing build goes to skill:java-build-resolver; a failing test or a finding goes back to the work (the apply phase in SDD).
+- Before a pull request or a release of a Spring Boot (or plain Maven or Gradle Java) project, or when someone asks whether a Java change is ready.
+- **In SDD verify, on request:** the verify phase runs `harness-review` (pack `quality`) through `sdd-verify`, which owns the record and the gates. When the person or the verify asks for the Java checks, this skill gives the commands and steps that the verifier runs; its findings go to Issues Found and Tests of `verify-record.md`. Outside the phases, skill:backend-engineering routes here.
+- **Not for:** the quick check before each commit (`pre-commit-review`, pack `quality`); the verify of an SDD change itself (`sdd-verify`, pack `sdd`); fixing what fails. A failing build goes to skill:java-build-resolver; a failing test or a finding goes back to the work (the apply phase in SDD).
 
 ## Permissions
 
