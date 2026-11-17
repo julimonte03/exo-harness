@@ -1,18 +1,18 @@
 ---
 name: springboot-security
 description: >-
-  Spring Security 6 for Spring Boot 3 services: the SecurityFilterChain and
-  its rules (deny by default), authentication with sessions, JWT resource
-  servers or OAuth2/OIDC login, roles and method security with @PreAuthorize,
-  object-level authorization, CSRF and when it can be off, CORS, security
-  headers, password storage and sign-in limits, Actuator exposure, and
-  secrets kept out of code and config, with tests for allowed and denied
-  paths. Use it when adding authentication or authorization to a Spring
-  service, securing endpoints or roles, configuring JWT or OAuth2, fixing a
-  401, 403 or CORS error, or reviewing a security configuration. Triggers:
-  "Spring Security", "secure this endpoint", "add authentication", "only
-  admins can", "JWT", "OAuth2 login", "@PreAuthorize", "CSRF", "CORS error",
-  "SecurityFilterChain", "403 forbidden".
+  Spring Security 6 and 7 for Spring Boot 3 and 4 services: the
+  SecurityFilterChain and its rules (deny by default), authentication with
+  sessions, JWT resource servers or OAuth2/OIDC login, roles and method
+  security with @PreAuthorize, object-level authorization, CSRF and when it
+  can be off, CORS, security headers, password storage and sign-in limits,
+  Actuator exposure, and secrets kept out of code and config, with tests for
+  allowed and denied paths. Use it when adding authentication or authorization
+  to a Spring service, securing endpoints or roles, configuring JWT or OAuth2,
+  fixing a 401, 403 or CORS error, or reviewing a security configuration.
+  Triggers: "Spring Security", "secure this endpoint", "add authentication",
+  "only admins can", "JWT", "OAuth2 login", "@PreAuthorize", "CSRF", "CORS
+  error", "SecurityFilterChain", "403 forbidden".
 metadata:
   exo-pack: java
   exo-execution: inline
@@ -35,7 +35,7 @@ metadata:
 
 ## Read first
 
-1. The build: `spring-boot-starter-security`, `spring-boot-starter-oauth2-resource-server`, `spring-boot-starter-oauth2-client`, `spring-security-test`. Without the security starter, every endpoint is open today: say so.
+1. The build and the Boot version: `spring-boot-starter-security`, `spring-boot-starter-oauth2-resource-server`, `spring-boot-starter-oauth2-client`, `spring-security-test` on Boot 3; on Boot 4 (Spring Security 7) the OAuth2 starters are `spring-boot-starter-security-oauth2-resource-server` and `spring-boot-starter-security-oauth2-client`, and tests use `spring-boot-starter-security-test`. Without the security starter, every endpoint is open today: say so.
 2. Existing `SecurityFilterChain` beans, method security, custom filters. A class extending `WebSecurityConfigurerAdapter` is Spring Security 5 and must move to a `SecurityFilterChain` bean.
 3. **Who calls the service:** a browser with cookies (sessions, CSRF matters), other services or a single-page app with bearer tokens (stateless), or both. `.exo/context.md` names the identity provider when there is one.
 4. The roles and ownership rules: the spec, the design, or the person. Never invent who may do what: ask.
@@ -45,7 +45,7 @@ metadata:
 - One `SecurityFilterChain` bean per kind of client (API, Actuator, browser), each with a `securityMatcher` and an `@Order`.
 - `authorizeHttpRequests` lists the public endpoints explicitly, then the role rules, and ends with `anyRequest().authenticated()` (or `denyAll()`). Never `permitAll()` on `/**`.
 - Match exact paths and methods (`requestMatchers(HttpMethod.GET, "/api/products/**")`): a rule on a path without a method also opens the other methods.
-- Use the lambda DSL of Spring Security 6; the old `and()` chaining and `antMatchers` are gone.
+- Use the lambda DSL. `antMatchers` and `WebSecurityConfigurerAdapter` are gone since Spring Security 6, and Spring Security 7 (Boot 4) also removed the `and()` chaining, so only the lambda DSL compiles there; write it that way on 6 too.
 
 ## 2. Authentication
 
@@ -68,7 +68,8 @@ Stateless APIs set `sessionManagement(s -> s.sessionCreationPolicy(SessionCreati
 
 ## 4. CSRF
 
-- On by default, and it must stay on when browsers authenticate with cookies (sessions, OAuth2 login). For a single-page app on cookies, use a cookie token repository and send the token in a header (see `references/examples.md`).
+- On by default, and it must stay on when browsers authenticate with cookies (sessions, OAuth2 login).
+- **A single-page app on cookies** reads the token from a cookie and sends it back in a header. On Spring Security 7, `csrf(csrf -> csrf.spa())` sets that up. On Spring Security 6, a `CookieCsrfTokenRepository.withHttpOnlyFalse()` alone is not enough: the token is deferred, so the cookie never arrives, and the header carries the raw token while the default handler expects the masked one. Add the request handler of `references/examples.md`, which loads the token on every request and accepts the raw value from the header.
 - Off only for stateless APIs that authenticate with a bearer token and set no auth cookies. Write a comment next to `csrf(c -> c.disable())` that says why.
 
 ## 5. CORS
@@ -89,7 +90,7 @@ Stateless APIs set `sessionManagement(s -> s.sessionCreationPolicy(SessionCreati
 
 ## 8. Actuator
 
-- Public: `health` (and `info` if it holds nothing sensitive). Everything else behind a role, on its own chain or a management port.
+- Public: `health` (and `info` if it holds nothing sensitive). Everything else behind a role, on its own chain or a management port. That chain needs an authentication mechanism of its own (the resource server, or HTTP Basic for an operations account): a role rule alone lets nobody in, because nobody can sign in there.
 - `management.endpoint.health.show-details=when-authorized`. Never expose `env`, `configprops`, `heapdump`, `threaddump` or `loggers` publicly (`A02:2025 Security Misconfiguration`).
 
 ## 9. Errors and events
@@ -101,7 +102,7 @@ Stateless APIs set `sessionManagement(s -> s.sessionCreationPolicy(SessionCreati
 
 With `spring-security-test` (scope test):
 
-- `@WebMvcTest` applies the security configuration (import it with `@Import(SecurityConfig.class)` if it is not picked up).
+- `@WebMvcTest` applies the security configuration (import it with `@Import(SecurityConfig.class)` if it is not picked up). On Boot 4 it comes from `spring-boot-starter-webmvc-test`, and mocks are `@MockitoBean` (`@MockBean` was removed).
 - For each protected endpoint, a test per case: anonymous gets 401, the wrong role gets 403, the right role succeeds, another owner's object gets 404 or 403.
 - JWT: `.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_MANAGER")))`; sessions: `@WithMockUser(roles = "MANAGER")`; state-changing requests with sessions add `.with(csrf())`.
 - A CORS preflight test (`OPTIONS` with `Origin` and `Access-Control-Request-Method`) when CORS changes.

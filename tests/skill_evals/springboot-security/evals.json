@@ -20,21 +20,19 @@
     {
       "id": "output",
       "expect": "trigger",
-      "prompt": "Protect this API with bearer tokens from our identity provider, whose issuer URL comes from an environment variable: searching and reading books stays public, registering titles, adding copies and retiring titles need the LIBRARIAN role, and every other endpoint needs a signed-in user. Implement it.",
+      "prompt": "Show me how to protect this API with bearer tokens from our identity provider, whose issuer URL comes from an environment variable: searching and reading books stays public, registering titles, adding copies and retiring titles need the LIBRARIAN role, and every other endpoint needs a signed-in user. Give me the dependencies, the configuration, the security class and its tests in your answer; do not change any files.",
       "checks": {
         "answer_matches": [
           "(?i)oauth2.?resource.?server",
+          "(?i)issuer-uri",
+          "SecurityFilterChain",
+          "LIBRARIAN",
           "(?i)csrf",
-          "(?i)\\b401\\b|\\b403\\b"
-        ],
-        "files_written": [
-          "pom.xml",
-          "src/main/resources/application.yml",
-          "src/main/java/*Security*.java",
-          "src/test/java/*Test.java"
+          "(?i)\\b401\\b|isUnauthorized",
+          "(?i)\\b403\\b|isForbidden"
         ]
       },
-      "review": "The change adds spring-boot-starter-security and spring-boot-starter-oauth2-resource-server (and spring-security-test for tests) without versions, sets spring.security.oauth2.resourceserver.jwt.issuer-uri from an environment variable placeholder with no secret in the file, and adds a stateless SecurityFilterChain: GET /api/books and /api/books/{id} public; POST /api/books, POST /api/books/{id}/copies and DELETE /api/books/{id} need ROLE_LIBRARIAN; anything else authenticated. CSRF is disabled with a comment explaining that no cookie authenticates a request. It says which token claim carries the roles (or asks), tests anonymous 401, wrong role 403 and librarian success, notes that members seeing only their own loans needs an object-level check that is out of this request, and gives the test command as not run."
+      "review": "The answer shows spring-boot-starter-security and spring-boot-starter-oauth2-resource-server (and spring-security-test for tests) without versions, as Boot 3.3 names them; spring.security.oauth2.resourceserver.jwt.issuer-uri from an environment variable placeholder with no secret in the file; and a stateless SecurityFilterChain in the lambda DSL: GET /api/books and /api/books/{id} public; POST /api/books, POST /api/books/{id}/copies and DELETE /api/books/{id} need ROLE_LIBRARIAN; anything else authenticated. CSRF is disabled with a comment explaining that no cookie authenticates a request. It says which token claim carries the roles (or asks), tests anonymous 401, wrong role 403 and librarian success, notes that members seeing only their own loans needs an object-level check outside this request, gives the test command as not run, opens no SDD change and changes no file."
     }
   ]
 }

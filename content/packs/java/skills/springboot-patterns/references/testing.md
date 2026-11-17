@@ -2,6 +2,8 @@
 
 Pick the smallest context that proves the behavior. Each step up the table starts more of the application and runs slower.
 
+**On Boot 4,** each slice comes from the test starter of its technology (`spring-boot-starter-webmvc-test` for `@WebMvcTest`, `spring-boot-starter-data-jpa-test` for `@DataJpaTest`), in new packages; `@MockBean` is gone (use `@MockitoBean`); and a `@SpringBootTest` that uses `MockMvc` needs `@AutoConfigureMockMvc`.
+
 | Level | Annotation | Starts | Use for |
 |---|---|---|---|
 | Unit | none (`@ExtendWith(MockitoExtension.class)`) | nothing | domain rules, services with mocked collaborators |
@@ -18,7 +20,7 @@ Pick the smallest context that proves the behavior. Each step up the table start
 class OrderControllerTest {
 
     @Autowired MockMvc mvc;
-    @MockitoBean OrderService orders;   // @MockBean before Boot 3.4
+    @MockitoBean OrderService orders;   // @MockBean before Boot 3.4; removed in Boot 4
 
     @Test
     void rejectsAnOrderWithoutLines() throws Exception {
