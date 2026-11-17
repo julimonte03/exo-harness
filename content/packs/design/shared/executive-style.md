@@ -120,7 +120,7 @@ Recompute any pair you change (section G).
 - **Labels on elements:** the name, then the type and technology in brackets on a second line, then at most one line of responsibility: `Orders API` / `[Container: Python]` / `Takes and tracks orders`. About 30 characters per line, three lines at most.
 - **Labels on connectors:** a verb phrase in the direction of the arrow, with the protocol when it helps: `Publishes order events to [AMQP]`.
 - **Status color** never alone: the element also says the status in words.
-- **One meaning per line style:** a dashed edge is a boundary, a dashed connector is asynchronous, and a dotted edge is not confirmed. A relation that is not confirmed says so in its label.
+- **One meaning per line style:** a dashed edge is a boundary, a dashed connector is asynchronous (in the functional flows of the `product` pack, an exception path, as their legend says), and a dotted edge is not confirmed. A relation that is not confirmed says so in its label.
 
 ## E. What an executive diagram looks like
 
