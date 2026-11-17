@@ -173,6 +173,7 @@ Host-agnostic steps for the project's CI:
 ## 11. Run them
 
 - Locally: `npx playwright test` (from the folder with the config), `--ui` to explore, `--debug` to step through, `npx playwright show-report` for the last report.
+- The `npx playwright` commands of this skill assume `@playwright/test` is installed in the package (after `npm ci`, or the install the person ran). When you run one yourself, prefer the package's script, or write `npx --no playwright ...`: without the package, plain `npx` downloads it instead of failing.
 - When you cannot run commands in this session, say so, give the exact commands, and review by reading: every locator against the component's real role and accessible name, every step against the route it lands on, and the data each test needs.
 
 ## Return

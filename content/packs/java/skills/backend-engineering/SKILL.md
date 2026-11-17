@@ -56,11 +56,11 @@ Load only what the task needs: usually one skill, at most three. Read each `SKIL
 | Writing Java: naming, records, Optional, exceptions, logging, tests | skill:java-coding-standards |
 | Reviewing a Java diff or pull request | skill:java-reviewer |
 | A build that fails: compile errors, dependencies, plugins, tests in the build | skill:java-build-resolver |
-| Checking a change before a commit, a PR or a release | skill:springboot-verification |
+| Checking a change before a PR or a release | skill:springboot-verification |
 | A changed dependency or lockfile, or a request for a vulnerability scan | skill:security-scan-jkp |
 
-- **In the SDD phases,** the phase map limits a delegation to 5 of its own skills. The skills you load from here are not in the map, but keep the context small: load the ones the task needs and name them.
-- **A skill of an optional pack that is not installed** (`secure-coding-baseline` in pack `security`) degrades as `.exo/shared/skill-resolver.md` says: say the sentence, apply the inline criteria of `.exo/shared/phase-skill-map.md`, and record it.
+- **They count toward the limit.** Inside an SDD phase, the skills this router loads count toward the limit of 5 skills per delegation of `.exo/shared/phase-skill-map.md`, after the Required and Conditional skills of the phase. When the limit is reached, keep the ones the task needs most and say which ones you left out.
+- **A skill that is not installed** degrades as `.exo/shared/skill-resolver.md` says: say `<pack>/<skill> not installed — applying inline criteria` (for example `security/secure-coding-baseline`), apply its inline criteria from the last table of `.exo/shared/phase-skill-map.md`, and record it. A skill of this pack missing while this router is installed means an incomplete install: say so, and suggest `exo doctor` and `exo sync`.
 
 ## 3. Decide where the code goes
 

@@ -79,8 +79,10 @@ export function useInvoice(id: string | null): Lookup<Invoice> {
     setState({ status: 'loading' });
     getInvoice(id, controller.signal).then(
       (data) => setState({ status: 'success', data }),
-      (error: Error) => {
-        if (!controller.signal.aborted) setState({ status: 'error', message: error.message });
+      (error: unknown) => {
+        if (controller.signal.aborted) return;
+        const message = error instanceof Error ? error.message : 'Could not load the invoice';
+        setState({ status: 'error', message });
       },
     );
     return () => controller.abort();
@@ -175,7 +177,7 @@ export function useInvoice(id: string | null): Lookup<Invoice> {
 2. Pick the pattern for the job: composition, a hook, a state home, the data states.
 3. Write the smallest change that does it. Keep the public props of existing components stable, or update every caller in the same change.
 4. Write or update the tests (skill:react-testing).
-5. Check with the project's typecheck, lint and test commands (`.exo/context.md` or the package scripts). When you cannot run them here, give the exact commands and review by reading.
+5. Check with the project's typecheck, lint and test commands (`.exo/context.md` or the package scripts). A tool with no script runs from the installed packages only (`npm exec --no -- tsc --noEmit`), never through `npx`, which downloads what is not installed. When you cannot run them here, give the exact commands and review by reading.
 
 ## Return
 
@@ -183,7 +185,7 @@ export function useInvoice(id: string | null): Lookup<Invoice> {
 Pattern: compound Tabs (Tabs, Tabs.List, Tabs.Tab, Tabs.Panel) sharing the selected tab through a small context; it replaces three boolean props of SettingsPanel.
 Files: src/components/Tabs.tsx (new), src/pages/Settings.tsx (uses it), src/components/Tabs.test.tsx (new).
 Why: the flags combined badly (compact with icons broke the layout); the parts now render only what they receive.
-Checks: npx tsc --noEmit -p packages/storefront; npm test --workspace @acme/storefront (not run in this session).
+Checks: npm run typecheck --workspace @acme/storefront; npm test --workspace @acme/storefront (not run in this session).
 Follow-ups: the selected tab could live in the URL so it survives a reload (outside this task).
 ```
 

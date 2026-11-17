@@ -60,8 +60,16 @@ The reducer is a pure function: test it without rendering. Because it declares i
 Anything a person would bookmark, share or expect to survive a reload (filters, sort, page, a search query, the selected item) lives in the URL. With React Router:
 
 ```tsx
+const SORT_KEYS = ['name', 'price', 'newest'] as const;
+type SortKey = (typeof SORT_KEYS)[number];
+
+function isSortKey(value: string | null): value is SortKey {
+  return value !== null && (SORT_KEYS as readonly string[]).includes(value);
+}
+
 const [params, setParams] = useSearchParams();
-const sort = (params.get('sort') ?? 'name') as SortKey;
+const requested = params.get('sort');
+const sort: SortKey = isSortKey(requested) ? requested : 'name';   // anything else falls back
 
 function changeSort(next: SortKey) {
   setParams((current) => {
@@ -71,7 +79,7 @@ function changeSort(next: SortKey) {
 }
 ```
 
-- Parse and validate what comes from the URL: a person can type anything there.
+- Parse and validate what comes from the URL, as `isSortKey` does: a person can type anything there, and a cast (`as SortKey`) would only hide it. With zod in the project, `z.enum(SORT_KEYS).catch('name').parse(requested)` does the same.
 - `replace: true` for changes that should not fill the back button history (typing in a filter); push for real navigation (opening an item).
 - Debounce or defer the expensive work that a fast-changing query triggers, not the URL update itself.
 

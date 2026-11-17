@@ -87,16 +87,16 @@ An Action is an async function run in a transition. With a form:
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 
-type SubscribeState = { error: string | null; done: boolean };
+type SubscribeState = { error: string | null; done: boolean; email: string };
 
 async function subscribe(previous: SubscribeState, formData: FormData): Promise<SubscribeState> {
   const email = String(formData.get('email') ?? '').trim();
-  if (!email.includes('@')) return { error: 'Enter a valid email address', done: false };
+  if (!email.includes('@')) return { error: 'Enter a valid email address', done: false, email };
   try {
     await saveSubscription(email);
-    return { error: null, done: true };
+    return { error: null, done: true, email: '' };
   } catch {
-    return { error: 'Could not subscribe. Try again.', done: false };
+    return { error: 'Could not subscribe. Try again.', done: false, email };   // keep what they typed
   }
 }
 
@@ -106,12 +106,18 @@ function SubmitButton() {
 }
 
 export function NewsletterForm() {
-  const [state, formAction] = useActionState(subscribe, { error: null, done: false });
+  const [state, formAction] = useActionState(subscribe, { error: null, done: false, email: '' });
   if (state.done) return <p role="status">Thanks! Check your inbox.</p>;
   return (
     <form action={formAction}>
       <label htmlFor="newsletter-email">Email</label>
-      <input id="newsletter-email" name="email" type="email" aria-describedby="newsletter-error" />
+      <input
+        id="newsletter-email"
+        name="email"
+        type="email"
+        defaultValue={state.email}
+        aria-describedby="newsletter-error"
+      />
       {state.error && <p id="newsletter-error" role="alert">{state.error}</p>}
       <SubmitButton />
     </form>
@@ -120,7 +126,7 @@ export function NewsletterForm() {
 ```
 
 - `useActionState` returns `[state, formAction, isPending]`; the action receives the previous state first, then the form data.
-- After a successful Action, React resets the uncontrolled fields of a `<form action>`. Keep what the person typed when the Action fails, by returning it in the state, or with controlled fields.
+- After the Action, React resets the uncontrolled fields of a `<form action>`, also when your function returned an error state. Keep what the person typed by returning it in the state and using it as the field's `defaultValue`, as `email` does above, or with controlled fields.
 - `useFormStatus` reads only the status of the form that contains the component.
 - **React 18 equivalent:** an `onSubmit` handler with `event.preventDefault()`, a `submitting` state that disables the button, and the error in state.
 
