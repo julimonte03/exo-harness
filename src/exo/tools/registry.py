@@ -165,6 +165,16 @@ def _get_followups(context: Context, args: dict[str, Any]) -> dict[str, Any]:
     return {"change_name": name, "status": status, "followups": items}
 
 
+def _discovery_status(context: Context, args: dict[str, Any]) -> dict[str, Any]:
+    from exo.discovery import pipeline, store
+
+    project = _project(context, args)
+    try:
+        return pipeline.status(project)
+    except store.DiscoveryError as exc:
+        raise InputError(str(exc)) from exc
+
+
 def _get_ai_usage_record(context: Context, args: dict[str, Any]) -> dict[str, Any]:
     name = validate_change_name(args["change_name"])
     project = _project(context, args)
@@ -240,6 +250,16 @@ TOOLS: tuple[Tool, ...] = (
         _schema({**_CWD, **_CHANGE}, ["change_name"]),
         _get_ai_usage_record,
         ("change", "ai-usage"),
+    ),
+    Tool(
+        "discovery_status",
+        "Reverse-engineering state of the project: which steps ran, units pending, done, "
+        "stale or skipped, the next units, done units no capability lists, capabilities by "
+        "status (stale, unrecorded, synthesis rounds), the pending audit and flagged "
+        "capabilities, and changes outside the paths discovery may write (read-only).",
+        _schema({**_CWD}),
+        _discovery_status,
+        ("discover", "status"),
     ),
     *memory.TOOLS,
 )

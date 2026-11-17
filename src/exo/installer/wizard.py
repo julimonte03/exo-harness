@@ -65,6 +65,12 @@ def choose(
         out("Stack: " + ", ".join(sorted(stack.signals)))
     if pending:
         out(f"Suggested packs that do not exist yet (coming later): {', '.join(pending)}")
+    offered = [p for p in stack.offered if p in available_packs and p not in default_packs]
+    if offered:
+        out(
+            f"Also available for this existing codebase: {', '.join(offered)} (adopt it with "
+            "reverse engineering); add it to the list, or later with --packs"
+        )
     packs = _list(ask(f"Packs [{', '.join(default_packs)}]: "), default_packs)
 
     out("Ticket IDs: a regular expression for this project's ticket IDs; empty for no tickets.")

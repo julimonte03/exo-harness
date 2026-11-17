@@ -46,11 +46,11 @@ class Run:
     err: str
 
 
-def run(project: Path, *args: str, stdin: bytes | None = None) -> Run:
+def run(project: Path, *args: str, stdin: bytes | None = None, timeout: float | None = None) -> Run:
     command = ["git", "-c", "core.quotepath=false", "-C", str(project), *args]
     try:
         done = subprocess.run(
-            command, input=stdin, capture_output=True, timeout=_TIMEOUT, check=False
+            command, input=stdin, capture_output=True, timeout=timeout or _TIMEOUT, check=False
         )
     except (OSError, subprocess.SubprocessError) as exc:
         return Run(False, "", str(exc))

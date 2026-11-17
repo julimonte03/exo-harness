@@ -62,13 +62,13 @@ Then run `exo speclint <specs_dir>/capabilities/<capability>/spec.md` for every 
 
 ## 4. Decisions worth keeping
 
-When the change made a decision worth keeping, apply `architecture-decision-record`. When it is not installed, say `design/architecture-decision-record not installed — applying inline criteria` and add a short record (context, decision, alternatives, consequences) to the project's docs, pointing to the change's archived design.md. The archived artifacts are not edited.
+When the change made a decision worth keeping, apply `architecture-decision-record`. When it is not installed, say `design/architecture-decision-record not installed — applying inline criteria` and add a short record (context, decision, alternatives, consequences) to the project's ADR folder (`docs/adr/` when it has none), pointing to the change's archived design.md. The archived artifacts are not edited.
 
 ## 5. Wiki checkpoint before the PR
 
 Run the "Before the PR" checkpoint of `.exo/shared/project-wiki-guard.md`:
 
-1. **Wiki update.** If the change altered something `.exo/context.md` describes (a command, a dependency, a convention, an area), propose the update and apply it in this change when the person agrees, or ask them to.
+1. **Wiki update.** If the change altered something `.exo/context.md` describes (a command, a dependency, a convention, an area), propose the update and apply it in this change when the person agrees, or ask them to. With `.exo/discovery/` in the project, also run `exo discover update --json` and propose the update of the stale units and capabilities, as the guard says.
 2. **Branch clean.** Checked right after the commit (step 8).
 3. **Fresh review done.** Checked in step 1.3.
 4. **Checks pass.** Checked in step 1.6, before the move.

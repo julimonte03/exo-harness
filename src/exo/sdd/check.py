@@ -154,11 +154,17 @@ def _lint(project: Path, target: Path, kind: str | None = None) -> list[Finding]
         report = speclint.lint_path(target, kind)
     except (speclint.SpeclintError, OSError, UnicodeDecodeError) as exc:
         return [Finding("error", _rel(project, target), 0, str(exc))]
-    return [
+    found = [
         Finding("error", _rel(project, item.path), issue.line, issue.message)
         for item in report.files
         for issue in item.errors
     ]
+    found += [
+        Finding("warning", _rel(project, item.path), issue.line, issue.message)
+        for item in report.files
+        for issue in item.warnings
+    ]
+    return found
 
 
 def _check_record(project: Path, change: observability.Change) -> list[Finding]:

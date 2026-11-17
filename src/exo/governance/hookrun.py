@@ -46,19 +46,9 @@ _AUTO = re.compile(
 _REFS = re.compile(r"^Refs:\s*(.*?)\s*$", re.IGNORECASE)
 _TICKET_FIRST = re.compile(r"^\S+\s+(?:" + "|".join(TYPES) + r")\b")
 _SCISSORS = "# ------------------------ >8 ------------------------"
-# Archivos que no se commitean nunca (el ejemplo, sí).
-BLOCKED_FILES = (
-    ".env",
-    ".env.*",
-    "*.pem",
-    "*.p12",
-    "*.pfx",
-    "id_rsa",
-    "id_dsa",
-    "id_ecdsa",
-    "id_ed25519",
-)
-ALLOWED_FILES = (".env.example", ".env.sample", ".env.template")
+# Archivos que no se commitean nunca (el ejemplo, sí): la lista vive en core.
+BLOCKED_FILES = scan.CREDENTIAL_FILES
+ALLOWED_FILES = scan.CREDENTIAL_EXAMPLES
 
 
 @dataclass
@@ -127,10 +117,7 @@ def commit_msg(project: Path, message_file: Path) -> HookResult:
 
 
 def _blocked(rel: str) -> bool:
-    name = PurePosixPath(rel).name
-    if name in ALLOWED_FILES:
-        return False
-    return any(fnmatch.fnmatchcase(name, pattern) for pattern in BLOCKED_FILES)
+    return scan.is_credential_file(rel)
 
 
 def _is_sdd(project: Path, rel: str, specs_dir: str) -> bool:

@@ -50,8 +50,9 @@ def _common(parser: argparse.ArgumentParser) -> None:
 
 
 def _list(args: argparse.Namespace) -> int:
+    warnings: list[str] = []
     try:
-        found = specs.list_capabilities(args.project)
+        found = specs.list_capabilities(args.project, warnings)
     except (ValueError, OSError) as exc:
         return error(str(exc))
     if args.json:
@@ -65,17 +66,23 @@ def _list(args: argparse.Namespace) -> int:
                         "non_functional": c.non_functional,
                         "removed": c.removed,
                         "problems": c.problems,
+                        "status": c.status,
                     }
                     for c in found
-                ]
+                ],
+                "warnings": warnings,
             }
         )
         return 0
+    for warning in warnings:
+        print(f"warning: {warning}", file=sys.stderr)
     if not found:
         print("no capabilities yet (they appear when a change's delta is merged)")
         return 0
     for c in found:
         extra = f", {c.problems} problems (run exo speclint {c.path})" if c.problems else ""
+        if c.status:
+            extra = f", {c.status}{extra}"
         print(
             f"{c.name}\t{c.functional} FR, {c.non_functional} NFR, {c.removed} removed"
             f"\t{c.path}{extra}"

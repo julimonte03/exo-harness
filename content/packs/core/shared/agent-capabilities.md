@@ -6,7 +6,7 @@ The SDD cycle runs in agents with and without subagents. This contract says what
 
 | Agent | Subagents | Hooks | Notes |
 |---|---|---|---|
-| Claude Code | yes: `sdd-explorer`, `sdd-implementer`, `sdd-verifier`, `sdd-judge` in `.claude/agents/` | not used | delegate with the agent's subagent tool |
+| Claude Code | yes: `sdd-explorer`, `sdd-implementer`, `sdd-verifier`, `sdd-judge` in `.claude/agents/`; with the discovery pack, also `re-extractor` and `re-auditor` | not used | delegate with the agent's subagent tool |
 | GitHub Copilot (agent mode) | when the session lets you call a custom agent by name | not used | if you cannot call it, take the path without subagents |
 | Other agents that read `AGENTS.md` | assume no | not used | path without subagents |
 
