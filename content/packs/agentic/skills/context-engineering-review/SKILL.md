@@ -12,11 +12,10 @@ description: >-
   concrete fix, changing nothing. Use it when a model ignores
   instructions, answers from the wrong source, runs out of context,
   behaves differently after a change, or before an AI feature ships.
-  Triggers: "review our prompts",
-  "context engineering", "what does the model see", "the model ignores the
-  instructions", "prompt injection risk", "our context is too big",
-  "review the tool descriptions", "how should we compact the history",
-  "context window".
+  Triggers: "review our prompts", "context engineering", "what does the
+  model see", "the model ignores the instructions", "prompt injection risk
+  in our prompts", "our context is too big", "review the tool
+  descriptions", "how should we compact the history", "context window".
 metadata:
   exo-pack: agentic
   exo-execution: inline
@@ -133,11 +132,12 @@ With a design document and no code, write the target context map of each stage f
 
 | # | Part | Source | Trust | Size | Needed for |
 |---|---|---|---|---|---|
-| 1 | Instructions | services/assistant/prompts/system.md:1 | trusted | ~1.5k tokens | rules, tone |
-| 2 | Tools (9) | services/assistant/tools/registry.py:12 | trusted | ~2.5k | actions |
-| 3 | History, every turn | services/assistant/history.py:30 | mixed | unbounded | continuity |
-| 4 | Knowledge base passages (k=10), inside the instructions | services/assistant/prompts/system.md:40 ({context}) | untrusted | up to ~8k | grounding |
-| 5 | User message | services/assistant/api.py:18 | untrusted | up to ~4k | the task |
+| 1 | Instructions, first part | services/assistant/prompts/system.md:1 | trusted | ~1.3k tokens | rules, tone |
+| 2 | Knowledge base passages (k=10), interpolated into the instructions | services/assistant/prompts/system.md:40 ({context}) | untrusted | up to ~8k | grounding |
+| 3 | Instructions, the rest | services/assistant/prompts/system.md:41 | trusted | ~0.2k | answer format |
+| 4 | Tools (9) | services/assistant/tools/registry.py:12 | trusted | ~2.5k | actions |
+| 5 | History, every turn | services/assistant/history.py:30 | mixed | unbounded | continuity |
+| 6 | User message | services/assistant/api.py:18 | untrusted | up to ~4k | the task |
 
 ## Findings
 
@@ -155,7 +155,11 @@ The model's context limit (not in the configuration). The prompts of the escalat
 
 ## Inside an SDD change
 
-This skill writes no artifact and no gate. Its findings go as text to the phase that asked: in design, for design.md (`sdd-design` writes them); in verify, for Issues Found of verify-record.md (the verifier or the orchestrator writes them). A finding the person decides not to fix goes to `dismissed_followups` with its reason (`.exo/shared/capability-attribution.md`).
+This skill writes no artifact and no gate. Its findings go as text to the phase that asked: in design, for design.md (`sdd-design` writes them); in verify, for Issues Found of verify-record.md (the verifier or the orchestrator writes them). A finding the person decides not to fix goes to `dismissed_followups` with this skill as `judge`, the finding's rule and the person's reason (`.exo/shared/capability-attribution.md`); an inline phase records it, and a subagent lists it in its envelope notes for the orchestrator:
+
+```bash
+exo change record <change> --add dismissed_followups '{"id": "CTX-3", "judge": "context-engineering-review", "rule": "CE-TOOLS-2", "reason": "<reason the person gave>"}'
+```
 
 ## Record
 

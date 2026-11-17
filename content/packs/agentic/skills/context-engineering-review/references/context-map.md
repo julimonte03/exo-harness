@@ -37,12 +37,13 @@ Support assistant, answer stage. Names and paths are invented.
 
 | # | Part | Source | Trust | Size | Needed for | Changes per call |
 |---|---|---|---|---|---|---|
-| 1 | Instructions | services/assistant/prompts/system.md:1-38 | trusted | ~1.5k | rules, tone, format | no |
-| 2 | Tool definitions (9) | services/assistant/tools/registry.py:12-140 | trusted | ~2.5k | actions | no |
-| 3 | Memory: customer preferences | services/assistant/memory.py:44 | mixed | up to ~300 | personalization | yes |
-| 4 | History, every turn and tool result | services/assistant/history.py:30 | mixed | unbounded | continuity | yes |
-| 5 | Knowledge base passages (k=10), placed inside the instructions | services/assistant/prompts/system.md:40, services/assistant/rag.py:22 | untrusted | up to ~8k | grounding | yes |
-| 6 | User message | services/assistant/api.py:18 | untrusted | up to ~4k | the task | yes |
+| 1 | Instructions, first part | services/assistant/prompts/system.md:1-38 | trusted | ~1.3k | rules, tone | no |
+| 2 | Knowledge base passages (k=10), interpolated into the instructions at `{context}` | services/assistant/prompts/system.md:40, services/assistant/rag.py:22 | untrusted | up to ~8k | grounding | yes |
+| 3 | Instructions, the rest | services/assistant/prompts/system.md:41-52 | trusted | ~0.2k | answer format | no |
+| 4 | Tool definitions (9) | services/assistant/tools/registry.py:12-140 | trusted | ~2.5k | actions | no |
+| 5 | Memory: customer preferences | services/assistant/memory.py:44 | mixed | up to ~300 | personalization | yes |
+| 6 | History, every turn and tool result | services/assistant/history.py:30 | mixed | unbounded | continuity | yes |
+| 7 | User message | services/assistant/api.py:18 | untrusted | up to ~4k | the task | yes |
 
 **Total:** about 4k stable plus up to ~12.3k variable, plus an unbounded history; the configured limit is not in the repository.
 
@@ -51,7 +52,7 @@ Support assistant, answer stage. Names and paths are invented.
 - passages → answer stage (tools: create_ticket, issue_refund): no check before issue_refund.
 - user message → history → every later call: delimited as user turns, but tool results in history are not labeled.
 
-**What the map already shows:** part 5 is untrusted text inside the instructions (CE-TRUST-1); part 4 has no bound (CE-SIZE-1); the stage that reads passages holds a financial tool (CE-TRUST-3, and AR-HITL-1 in the reliability review).
+**What the map already shows:** part 2 is untrusted text inside the instructions (CE-TRUST-1), and it splits the stable instructions in two, so the stable prefix ends at part 1 (CE-ORDER-1); part 6 has no bound (CE-SIZE-1); the stage that reads passages holds a financial tool (CE-TRUST-3, and AR-HITL-1 in the reliability review).
 
 ## The target map
 
