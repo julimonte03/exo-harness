@@ -82,14 +82,14 @@ Each criterion, with how to check it and the severity of typical failures, is in
 
 | Severity | In a visual piece |
 |---|---|
-| Critical | Sensitive information exposed for the destination (a secret; personal data; internal hosts, addresses or account IDs in a piece that leaves the team), or a claim that contradicts its source |
+| Critical | Sensitive information exposed for the destination (a secret; personal data; internal hosts, addresses or account IDs in a piece that goes outside the organization), or a claim that contradicts its source |
 | High | No single message, or a title that contradicts the content; text below the minimum size or failing AA contrast; meaning carried by color alone; a published figure without a text alternative; more than 12 primary elements |
-| Medium | Off-style colors, fonts or shapes; a missing or stale style marker; 10 to 12 primary elements; a missing or incomplete legend; unlabeled connectors; no source or date |
+| Medium | Off-style colors, fonts or shapes; a missing, stale or pending style marker; 10 to 12 primary elements; a missing or incomplete legend; unlabeled connectors; no source or date |
 | Low | Alignment, spacing, wording, consistency of capitalization |
 
 - `READY`: no Critical or High finding. Medium and Low findings are listed as polish.
 - `NOT READY`: a Critical or High finding is open, or something needed could not be reviewed (say what).
-- **Sensitive content** found: recommend skill:secure-diagram-sanitizer (pack `security`) before the piece leaves the team. When it is not installed, say `security/secure-diagram-sanitizer not installed — applying inline criteria`, and list each item to replace with a generic label; the list goes only in your answer.
+- **Sensitive content** found: recommend skill:secure-diagram-sanitizer (pack `security`) before the piece is shared. When it is not installed, say `security/secure-diagram-sanitizer not installed — applying inline criteria`, and list each item to replace with a generic label; the list goes only in your answer.
 - **Never copy** a secret or personal data into a finding: point at its location and name the kind of data.
 
 ## Return

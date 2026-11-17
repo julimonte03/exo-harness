@@ -52,7 +52,7 @@ A diagram is read in seconds or not at all. These rules come before any styling.
 - [ ] Legend complete and minimal; notation named when needed.
 - [ ] Contrast of every pair checked (`.exo/shared/executive-style.md`, section G); color is never the only carrier of meaning.
 - [ ] Text alternative present.
-- [ ] Unconfirmed elements dashed and listed as questions.
+- [ ] Unconfirmed elements dotted and listed as questions.
 - [ ] Source, date and owner in the footer; style marker in the source.
 - [ ] No secrets, personal data, internal addresses or account names; sanitized if it leaves the team.
 

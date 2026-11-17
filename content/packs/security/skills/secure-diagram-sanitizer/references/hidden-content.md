@@ -35,6 +35,6 @@ These binary formats usually cannot be edited safely as text here. Give the pers
 
 ## Around the file
 
-- **The file name and the folder path** of the shared copy: `prd-cluster-a-network.drawio` says too much. Name the copy for its content (`network-overview.shared.drawio`).
+- **The file name and the folder path** of the shared copy: `prd-cluster-a-network.drawio` says too much, and so does a copy that keeps the original's name. Name the copy for its content (`network-overview.shared.drawio`), and ask the person where it goes.
 - **The commit or the message** that shares it: the copy may go to the repository only if the person wants it there; its commit message and PR text follow the same rules.
 - **Version history:** sharing a file from a repository or a wiki can expose its earlier versions. Share the copy as a new file, not as a new version of the original.

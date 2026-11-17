@@ -28,12 +28,12 @@ flowchart LR
 
     customer(["Customer<br/>[Person]"])
     subgraph platform["Order platform"]
-        web["Shop front end<br/>[Container: TypeScript, React]"]
-        api["Orders API<br/>[Container: Python]"]
+        web("Shop front end<br/>[Container: TypeScript, React]")
+        api("Orders API<br/>[Container: Python]")
         db[("Orders database<br/>[Container: PostgreSQL]")]
         queue[["Order events (new)<br/>[Queue]"]]
     end
-    warehouse["Warehouse system<br/>[Software system]"]
+    warehouse("Warehouse system<br/>[Software system]")
 
     customer -->|"Places orders using"| web
     web -->|"Sends orders to [HTTPS/JSON]"| api
@@ -46,7 +46,7 @@ flowchart LR
     classDef person fill:#2f3b4c,stroke:#2f3b4c,color:#ffffff
     classDef external fill:#e9edf1,stroke:#7d8794,color:#1d2125
     classDef highlight stroke:#a34f00,stroke-width:3px
-    classDef unconfirmed stroke-dasharray:5 5
+    classDef unconfirmed stroke-dasharray:1 3
     class customer person
     class web,api,db,queue inner
     class warehouse external
@@ -55,8 +55,8 @@ flowchart LR
     linkStyle default stroke:#7d8794,stroke-width:1.5px
 ```
 
-- **Shapes:** `id["…"]` rectangle, `id(["…"])` stadium (people, BPMN events), `id[("…")]` cylinder (data stores), `id[["…"]]` subroutine (queues), `id{"…"}` diamond (decisions).
-- **Lines:** `-->` synchronous, `-.->` asynchronous, `==>` only for the one path the title is about.
+- **Shapes:** `id("…")` rounded rectangle (elements and steps, the shape of the contract), `id["…"]` rectangle, `id(["…"])` stadium (people, BPMN events), `id[("…")]` cylinder (data stores), `id[["…"]]` subroutine (queues), `id{"…"}` diamond (decisions).
+- **Lines:** `-->` synchronous, `-.->` asynchronous, `==>` only for the one path the title is about. Edges: `stroke-dasharray:5 5` (dashed) only for boundaries, `stroke-dasharray:1 3` (dotted) only for what is not confirmed.
 - **A second class** on the same node (`highlight`, `unconfirmed`) goes in its own `class` line.
 - **Line breaks** in labels: `<br/>`. Quote every label that has brackets or punctuation.
 
@@ -154,7 +154,7 @@ Style strings for each role. Paste them in Edit Style, or write them in the `sty
 | Connector, synchronous | `endArrow=block;endFill=1;strokeColor=#7d8794;strokeWidth=1.5;fontColor=#5b6470;fontSize=12;labelBackgroundColor=#ffffff;` |
 | Connector, asynchronous | the synchronous style with `dashed=1;endArrow=open;endFill=0;` |
 | Highlight | add `strokeColor=#a34f00;strokeWidth=3;` to the element's style |
-| Unconfirmed | add `dashed=1;` to the element's style |
+| Unconfirmed | add `dashed=1;dashPattern=1 3;` (dotted) to the element's style; the plain dashed line is for boundaries |
 
 ## Structurizr DSL
 

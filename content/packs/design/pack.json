@@ -3,5 +3,5 @@
   "version": "0.1.0",
   "description": "Architecture and design records and the diagrams that explain them: architecture decision records in the project's own ADR folder, written with the person's approval, recovered from code during an adoption, and audited for gaps and contradictions; the diagram system (type, notation and tool for each question, Mermaid by default), C4 architecture diagrams grounded in the code and readable UML; and the executive style contract, neutral by default with an optional .exo/brand.json, with a visual quality review before a piece reaches an executive audience.",
   "requires": ["core"],
-  "optional": ["security"]
+  "optional": ["security", "sdd"]
 }

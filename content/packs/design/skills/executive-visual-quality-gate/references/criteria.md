@@ -55,12 +55,12 @@ Check:
 - **Palette:** every color is a token of the contract or of `.exo/brand.json`. Off-palette colors are a finding; list the value and the token it should be.
 - **Roles:** the same role looks the same everywhere (contract, section D): focus, inside, people, external, data stores, boundaries, connectors.
 - **Fonts:** the stack of the contract or of the brand; two weights at most; no italics for emphasis in diagrams.
-- **The style marker** (contract, section I) is in the source and matches the current style source: `neutral` without `.exo/brand.json`, or `brand <hash>` with the current `git hash-object .exo/brand.json`. A stale hash means the piece predates a brand change.
+- **The style marker** (contract, section I) is in the source and matches the current style source: `neutral` without `.exo/brand.json`, or `brand <hash>` with the current `git hash-object .exo/brand.json`. A stale hash means the piece predates a brand change. A pending marker (`exo-style: neutral (pending)`) on a piece presented as final means its style was never approved.
 - **The set:** pieces meant to be shown together share titles, legend placement, footers and names.
 - **The logo,** when used: from `logo.path` of the brand, not stretched, recolored or cropped, with clear space, never inside a diagram.
 - **Voice:** titles and captions follow `voice.tone` and avoid `voice.avoid` when the brand sets them.
 
-Severity: off-palette colors or a mixed set, Medium; a missing or stale marker, Medium; a distorted logo, Medium; voice, Low.
+Severity: off-palette colors or a mixed set, Medium; a missing, stale or pending marker, Medium; a distorted logo, Medium; voice, Low.
 
 ## EVQ-A11Y: accessibility
 
@@ -90,7 +90,7 @@ Check:
 
 - Elements and relations against the code or the design they come from: names, directions, technologies. Sample at least three, and every one the message relies on.
 - Numbers against their source and date; totals add up; units shown.
-- Unconfirmed elements are marked as such (dashed, "(inferred)") and none is presented as fact.
+- Unconfirmed elements are marked as such (dotted, "(inferred)") and none is presented as fact.
 - The "as of" date is recent enough for the claim.
 
 Severity: a claim that contradicts its source, Critical; an unconfirmed element presented as fact, High; a missing date on a figure with numbers, Medium.
@@ -105,7 +105,7 @@ Check everything a viewer can reach, not only the visible text: source comments,
 | Any | Personal data of real people (Restricted): names of customers, emails, phone numbers, documents, account numbers |
 | Outside the organization | Internal URLs, hostnames, IP addresses, ports, cloud account and subscription IDs, repository names, environment and cluster names, internal ticket IDs |
 
-Severity: any of the above for its destination, Critical. Point at the location and name the kind of data; never copy it into the finding. Recommend the sanitizer before the piece leaves the team.
+Severity: any of the above for its destination, Critical. Point at the location and name the kind of data; never copy it into the finding. Recommend the sanitizer before the piece is shared.
 
 ## Slides and documents: quick checks
 
