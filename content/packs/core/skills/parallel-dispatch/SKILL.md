@@ -3,11 +3,12 @@ name: parallel-dispatch
 description: >-
   Coordinates the implementation of an approved plan whose tasks.md groups
   the work into two or more units (### Unit A: ...). It always starts by
-  asking the person how to run them: sequentially inline, in parallel with
-  one sdd-implementer subagent per unit in waves built from a dependency
-  graph (declared dependencies and files the units share), or split among
-  people as work items. Then it integrates the finished units in order on the
-  change's branch, runs the tests after each integration, and stops at the
+  asking the person how to run them: sequentially, one sdd-implementer
+  subagent per unit after the other; in parallel, one per unit in waves
+  built from a dependency graph (declared dependencies and files the units
+  share); or split among people as work items. Then it integrates the
+  finished units in order on the change's branch, runs the tests after each
+  integration, and stops at the
   first conflict or failure. In the tasks phase it checks that the units are
   really independent. Use it when a frozen plan has several units and the
   person wants them implemented at the same time, by subagents or by several
@@ -26,7 +27,7 @@ metadata:
 ## Result
 
 - The person chose how to run the units, and the choice is recorded.
-- **Sequential or parallel:** every unit implemented as `sdd-apply` says and integrated on the change's branch in the order of the dependency graph, with the test command green after each integration and every box of tasks.md ticked. Or a stop at the first conflict or failure, with `status: needs-input` and exactly what happened.
+- **Sequential or parallel:** every unit implemented as `sdd-apply` says, in its own `sdd-implementer` (inline only without subagents), and on the change's branch in the order of the dependency graph, with the test command green after each unit and every box of tasks.md ticked. Or a stop at the first conflict or failure, with `status: needs-input` and exactly what happened.
 - **Split among people:** one work item per unit, ready to create in the tracker, with its dependencies; later, the developers' branches integrated in the same order and with the same checks.
 - A summary table of the units, and the apply envelope of `.exo/shared/sdd-phase-common.md`, section D.
 
@@ -78,8 +79,8 @@ Depends on: Unit A, Unit B
 
 ## Read the plan
 
-1. `exo change status <change> --json`: the tier, the phase and the task count. The tasks phase must be done: tasks.md is the frozen plan.
-2. Read tasks.md, design.md (Modules / Files, Sequence Of Operations) and test-spec.md. Change nothing yet.
+1. `exo change status <change> --json`: the tier, `next_phase` and `next_reason`. The tasks phase must be done: `next_phase` is `apply` (`next_reason` "tasks.md has unchecked tasks"), and tasks.md is the frozen plan.
+2. Read tasks.md, design.md (Modules / Files, Sequence Of Operations) and test-spec.md. Change nothing yet. The status gives no task count: count the boxes of tasks.md yourself, `- [ ]` open and `- [x]` done, per unit.
 
 ## Build the graph
 
@@ -112,14 +113,14 @@ Integration order: A, B, C.
 Always ask before changing anything, in one message, with the graph above:
 
 > How do you want to run the 3 units of `PROJ-123-add-coupons`?
-> 1. **Sequential, inline:** one unit after the other in this session, in the order A, B, C.
+> 1. **Sequential:** one unit after the other, in the order A, B, C, each implemented by its own `sdd-implementer` on the change's branch, with the tests after each one.
 > 2. **Parallel, with subagents:** one `sdd-implementer` per unit, each in its own worktree, in waves (A and B together, then C), integrated in order with the tests after each one.
 > 3. **Split among people:** one work item per unit for your tracker; each developer works on a branch of their own and the branches are integrated in the same order.
 
 - If the person already chose in this conversation ("run them in parallel"), show the graph and confirm instead of asking again.
-- Parallel needs subagents (`.exo/shared/agent-capabilities.md`). Without them, offer options 1 and 3 and say why.
-- In an unattended run (`sdd.mode: auto`) with nobody to answer, take option 1 and say so in the envelope notes.
-- Record the choice as a decision with `"by": "human"` (Record).
+- Parallel needs subagents (`.exo/shared/agent-capabilities.md`). Without them, offer options 1 and 3, say why, and say that option 1 then runs inline in this session, with no isolation.
+- **Unattended run:** `sdd.mode` is `auto` in `.exo/config.json`, or the person said in this conversation not to wait for answers (a pipeline, a scheduled job). Then take option 1, with subagents when the agent has them, and say so in the envelope notes. A person who is simply slow to answer does not make a run unattended: ask and wait.
+- Record the choice as a decision, with `"by": "human"`, or `"by": "agent"` when an unattended run took option 1 (Record).
 
 ## Before running (modes 1 and 2)
 
@@ -128,9 +129,14 @@ Always ask before changing anything, in one message, with the graph above:
 3. The exact test command, from `.exo/context.md` or the Command column of test-spec.md. Without one, `needs-input`: never guess it.
 4. A baseline run of the test command, so later failures can be told apart from pre-existing ones.
 
-## Mode 1: sequential, inline
+## Mode 1: sequential
 
-Run `sdd-apply` inline for each unit in integration order, with its tests first and one commit per task (skill:work-unit-commits). After each unit, run the full test command and show one line: "Unit A done: 1 task, 1 commit, 42 tests passed." In interactive mode, ask "Continue with Unit B?" before the next one.
+Apply runs in `sdd-implementer` (`.exo/shared/sdd-phase-common.md`, section G), one unit at a time:
+
+1. **With subagents:** in integration order, delegate each unit to its own `sdd-implementer`, with the prompt of `references/parallel-mode.md` minus the worktree: the implementer works in the main working folder, on the change's branch, on that unit's tasks only, with its tests first and one commit per task (skill:work-unit-commits). Delegate the next unit only after the previous one returned.
+2. **Without subagents:** run `sdd-apply` inline for each unit, with the same steps, and write `Isolation: no isolation (inline)` in the envelope notes (`.exo/shared/agent-capabilities.md`).
+3. After each unit, the full test command is green (the implementer reports it; inline, run it yourself) and you show one line: "Unit A done: 1 task, 1 commit, 42 tests passed." In interactive mode, ask "Continue with Unit B?" before the next one.
+4. The commits land on the change's branch directly, so there is nothing to cherry-pick. A unit that returns `needs-input` or `blocked`, or leaves a failure the baseline did not have, stops the run before the next unit, as Integrate in order says for a failure.
 
 ## Mode 2: parallel, with subagents
 
@@ -143,7 +149,9 @@ The commands, the delegation prompt and the recovery steps are in `references/pa
 
 ## Mode 3: split among people
 
-Work items come from `work-item-creator` (pack `product`). While it is not installed, say `product/work-item-creator not installed — applying inline criteria` and write one item per unit, in the answer or in the file the person names:
+Work items come from skill:work-item-creator (pack `product`), which has a step for this mode: one item per unit, with its branch and its "done when". Give it the graph, the integration order and the branch names.
+
+When it is not installed, it degrades as `.exo/shared/skill-resolver.md` says: say `product/work-item-creator not installed — applying inline criteria`, record it with `"resolution": "none"`, and write one item per unit yourself, in the answer or in the file the person names, with these fields:
 
 ```markdown
 ### Unit B: Coupon storage
@@ -164,7 +172,7 @@ Work items come from `work-item-creator` (pack `product`). While it is not insta
 
 ## Integrate in order
 
-For each finished unit, in integration order, on the change's branch:
+Modes 2 and 3: the units come back on branches of their own. For each finished unit, in integration order, on the change's branch:
 
 1. `git switch <change-branch>` in the main working folder.
 2. `git cherry-pick <start>..<unit-branch>`, where `<start>` is the commit the unit branched from: each task keeps its own commit, and the change branch only gains commits.
@@ -173,7 +181,7 @@ For each finished unit, in integration order, on the change's branch:
 5. **A failure the baseline did not have:** stop, name the unit whose integration broke it, and show the output. Do not fix it here: the fix is a decision for the person (a new task through `sdd-tasks`, or undoing that integration, which needs their confirmation).
 6. **Green:** go to the next unit.
 
-After the last unit: `exo change status <change> --json` shows every box ticked, and the tests are green. Remove the worktrees (`git worktree remove <folder>`). Keep the unit branches until the verify passes; deleting them takes `git branch -D`, because git does not see cherry-picked commits as merged, so ask the person first.
+After the last unit, in every mode: every box of tasks.md is ticked (no `- [ ]` left, so `exo change status <change> --json` no longer gives `next_phase` `apply` with "tasks.md has unchecked tasks"), and the tests are green. Remove the worktrees (`git worktree remove <folder>`). Keep the unit branches until the verify passes; deleting them takes `git branch -D`, because git does not see cherry-picked commits as merged, so ask the person first.
 
 ## Return
 
@@ -229,7 +237,8 @@ Log the phase with `exo change record <change> --phase-done apply` only when eve
 
 ## Before you finish
 
-- [ ] The graph, the waves and the shared files were shown, and the person chose the mode.
+- [ ] The graph, the waves and the shared files were shown, and the person chose the mode (or an unattended run took the sequential one, said in the notes).
+- [ ] Apply ran in `sdd-implementer`, one per unit; inline only without subagents, declared as no isolation.
 - [ ] Each unit ran with only its own tasks and files.
 - [ ] Units were integrated in graph order, with the test command after each integration.
 - [ ] Any conflict or new failure stopped the run, with the unit, the files and the last good commit.

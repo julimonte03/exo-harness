@@ -1,6 +1,6 @@
 # Parallel mode: worktrees, delegation and recovery
 
-The mechanics of mode 2 of `parallel-dispatch`. Every command runs from the project's main working folder unless it says otherwise. The examples use the change `PROJ-123-add-coupons` on the branch `feat/PROJ-123-add-coupons`, in a project folder named `shop`.
+The mechanics of mode 2 of `parallel-dispatch`, and the delegation prompt that mode 1 reuses. Every command runs from the project's main working folder unless it says otherwise. The examples use the change `PROJ-123-add-coupons` on the branch `feat/PROJ-123-add-coupons`, in a project folder named `shop`.
 
 ## Why worktrees
 
@@ -24,6 +24,8 @@ git worktree list
 ## The delegation prompt
 
 One per unit, all the units of a wave in the same message so they run at the same time. Take the skill paths from `.exo/skill-registry.md`: `sdd-apply` and the Required and Conditional skills of the apply row of `.exo/shared/phase-skill-map.md`.
+
+Mode 1 (sequential) uses the same prompt, one unit at a time, without the worktree: replace the "Work only in the folder" paragraph with "Work in the main working folder, on the branch feat/PROJ-123-add-coupons", and drop the warning that another unit works at the same time.
 
 ```markdown
 ## Skills to load before work
