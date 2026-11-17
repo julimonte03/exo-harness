@@ -347,6 +347,32 @@ def test_uninstall_conserva_lo_de_la_ingenieria_inversa(tmp_path: Path, capsys: 
     assert f"{_meta.PROJECT_DIR}/context.md" not in out.split("kept")[0]
 
 
+def test_uninstall_conserva_la_marca_del_humano(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """F7R3-20: `brand.json` (ADR-0016, D-12) lo escribe la persona, no el motor."""
+    _init(tmp_path)
+    motor = tmp_path / _meta.PROJECT_DIR
+    brand = b'{"colors": {"primary": "#123456"}}\n'
+    (motor / "brand.json").write_bytes(brand)
+    capsys.readouterr()
+    assert main(["uninstall", "--project", str(tmp_path), "--yes", "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["kept"] == [f"{_meta.PROJECT_DIR}/brand.json"]
+    assert f"{_meta.PROJECT_DIR}/brand.json" not in payload.get("also_removed", [])
+    assert (motor / "brand.json").read_bytes() == brand
+    assert [p.name for p in motor.iterdir()] == ["brand.json"]
+
+
+def test_uninstall_avisa_que_conserva_la_marca(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _init(tmp_path)
+    (tmp_path / _meta.PROJECT_DIR / "brand.json").write_bytes(b"{}\n")
+    capsys.readouterr()
+    assert main(["uninstall", "--project", str(tmp_path), "--yes"]) == 0
+    line = next(x for x in capsys.readouterr().out.splitlines() if x.startswith("kept"))
+    label, _, value = line.partition("): ")
+    assert value == f"{_meta.PROJECT_DIR}/brand.json"
+    assert "brand" in label, label  # la etiqueta no dice solo "discovery"
+
+
 def test_uninstall_dos_veces(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     _init(tmp_path)
     assert main(["uninstall", "--project", str(tmp_path), "--yes"]) == 0
