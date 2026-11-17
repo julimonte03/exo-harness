@@ -228,7 +228,8 @@ Optional, owned by the person. Write or change it only when the person asks, wit
 | `name` | text | Footers, alt text of the logo | Leave it out |
 | `colors.primary`, `colors.secondary`, `colors.accent` | `#rrggbb` or `#rgb` | The roles of section D | The neutral value |
 | `colors.on_primary`, `colors.on_secondary`, `colors.on_accent` | color | Text on those fills | `#ffffff` or `ink`, whichever has the higher contrast |
-| `colors.neutrals.*` (`ink`, `ink_muted`, `canvas`, `surface`, `line`, `line_subtle`, `primary_tint`, `neutral_fill`) | color | Text, background, edges, inner and outer fills | The neutral value |
+| `colors.primary_tint` | color | Elements inside the focus | With a brand `primary`, a tint of it: each channel 10% of `primary` and 90% of `canvas`. Otherwise the neutral value |
+| `colors.neutrals.*` (`ink`, `ink_muted`, `canvas`, `surface`, `line`, `line_subtle`, `neutral_fill`) | color | Text, background, edges, outer fills | The neutral value |
 | `colors.status.*` (`success`, `warning`, `danger`, `info`) | color | Status, always with text | The neutral value |
 | `typography.heading`, `typography.body`, `typography.mono` | a font stack | Titles; labels and body; code | The neutral stack. A stack that does not end in a generic family gets `sans-serif` (or `monospace`) added |
 | `logo.path`, `logo.path_on_dark` | a path relative to the repository root, SVG or PNG | Slide masters and document covers; never inside a diagram | No logo |
@@ -264,7 +265,7 @@ Before a skill produces diagrams or documents in series in a project, the person
    ```
 
 5. **On changes,** adjust the sample and ask again. A change to the brand itself is a change to `.exo/brand.json`: show the JSON and let the person write it, or write it when they ask.
-6. **Unattended runs** (no person to answer): produce only the first piece, say "style pending approval" at its top, and stop the series.
+6. **Unattended runs** (no person to answer): produce only the first piece, say "style pending approval" in the answer, and stop the series.
 
 When `.exo/brand.json` appears, disappears or changes, the style source changes and the approval is asked again.
 
