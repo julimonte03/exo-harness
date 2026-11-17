@@ -123,22 +123,29 @@ def test_skill_eval(
         "--max-turns",
         str(MAX_TURNS),
     ]
-    done = subprocess.run(
-        command,
-        cwd=project,
-        env=env,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=TIMEOUT,
-        check=False,
-    )
-    (tmp_path / "stream.jsonl").write_text(done.stdout, encoding="utf-8")
-    run = evals.parse_stream(done.stdout.splitlines())
+    failed: list[str] = []
+    try:
+        done = subprocess.run(
+            command,
+            cwd=project,
+            env=env,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=TIMEOUT,
+            check=False,
+        )
+        stdout, code = done.stdout, done.returncode
+    except subprocess.TimeoutExpired as exc:
+        raw = exc.stdout or ""
+        stdout = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else raw
+        code = None
+        failed.append(f"timed out after {TIMEOUT} s (EXO_EVALS_TIMEOUT)")
+    (tmp_path / "stream.jsonl").write_text(stdout, encoding="utf-8")
+    run = evals.parse_stream(stdout.splitlines())
     written = evals.changed(before, evals.snapshot(project))
     used = case.skill in run.used
-    failed: list[str] = []
     if case.expect == "trigger" and not used:
         failed.append(f"{case.skill} was not loaded (loaded: {run.used or 'none'})")
     if case.expect == "no-trigger" and used:
@@ -155,7 +162,7 @@ def test_skill_eval(
             "used": run.used,
             "turns": run.turns,
             "error": run.error,
-            "exit": done.returncode,
+            "exit": code,
             "written": written,
             "answer": run.answer,
             "review": case.review,
