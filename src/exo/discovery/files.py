@@ -512,17 +512,26 @@ def project_names(project: Path) -> list[str]:
     """Los archivos del proyecto, solo por nombre: no lee ni hashea nada.
 
     Con git, lo versionado y lo nuevo que git no ignora (un proyecto recién creado todavía
-    no commiteó nada); sin git, el recorrido con las exclusiones. Nunca la carpeta del motor
-    ni lo de terceros o de build. Lo usa la detección de stack del instalador.
+    no commiteó nada); sin git, o si git no lista nada (un proyecto sin `.git` propio dentro
+    de un repo padre que lo ignora), el recorrido con las exclusiones, como `has_code`.
+    Nunca la carpeta del motor, lo de terceros o de build, lo versionado que se borró de la
+    copia ni lo que es un link o pasa por uno. Lo usa la detección de stack del instalador.
     """
     project = Path(project)
     listed = git.run(project, "ls-files", "--cached", "--others", "--exclude-standard", "-z")
-    names = sorted({n for n in listed.out.split("\0") if n}) if listed.ok else _walked(project)
+    if listed.ok and listed.out:
+        names = sorted({n for n in listed.out.split("\0") if n})
+    else:
+        names = _walked(project)
     manifests = manifest_dirs(names)
+    links: dict[str, bool] = {}
     return [
         rel
         for rel in names
-        if PurePosixPath(rel).parts[0] != _meta.PROJECT_DIR and not is_vendored(rel, manifests)
+        if PurePosixPath(rel).parts[0] != _meta.PROJECT_DIR
+        and not is_vendored(rel, manifests)
+        and not _through_link(project, rel, links)
+        and (project / rel).is_file()
     ]
 
 

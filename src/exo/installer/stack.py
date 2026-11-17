@@ -8,7 +8,9 @@ Python 3.10.
 Los manifiestos se buscan también en subcarpetas, hasta `MAX_DEPTH` carpetas por
 debajo de la raíz (F7): en un monorepo, react vive en `packages/web/package.json`.
 La lista sale de `discovery.files.project_names`, sin la carpeta del motor ni lo de
-terceros o de build, y nunca se sigue un link.
+terceros o de build, y nunca se sigue un link. Lo que está dentro de una carpeta de
+muestra (`SAMPLE_DIRS`: ejemplos, fixtures, tests, docs) no cuenta: un ejemplo en
+React no hace un proyecto de frontend.
 """
 
 from __future__ import annotations
@@ -23,6 +25,8 @@ from exo.discovery import files
 
 ALWAYS = ("core", "sdd")
 MAX_DEPTH = 3
+# Carpetas de muestra: sus manifiestos no son el stack del proyecto (sin distinguir mayúsculas).
+SAMPLE_DIRS = frozenset({"examples", "example", "samples", "fixtures", "test", "tests", "docs"})
 _DOCKER = ("Dockerfile", "docker-compose.yml", "docker-compose.yaml", "compose.yaml")
 _PY_MANIFESTS = ("pyproject.toml", "requirements.txt", "setup.py", "setup.cfg", "Pipfile")
 _JVM_MANIFESTS = ("pom.xml", "build.gradle", "build.gradle.kts")
@@ -46,7 +50,8 @@ def _read(path: Path) -> str:
     if fsutil.is_link(path):
         return ""
     try:
-        return path.read_text(encoding="utf-8", errors="replace")
+        # `utf-8-sig`: un manifiesto guardado con BOM (editores de Windows) también es JSON.
+        return path.read_text(encoding="utf-8-sig", errors="replace")
     except OSError:
         return ""
 
@@ -67,10 +72,12 @@ def _package_deps(path: Path) -> set[str]:
 
 
 def _by_name(project: Path) -> dict[str, list[str]]:
-    """Nombre de archivo -> rutas (relativas, con /) hasta `MAX_DEPTH` carpetas de hondo."""
+    """Nombre de archivo -> rutas (relativas, con /) hasta `MAX_DEPTH` carpetas de hondo,
+    fuera de las carpetas de muestra."""
     found: dict[str, list[str]] = {}
     for rel in files.project_names(project):
-        if rel.count("/") <= MAX_DEPTH:
+        folders = PurePosixPath(rel).parts[:-1]
+        if len(folders) <= MAX_DEPTH and not any(f.lower() in SAMPLE_DIRS for f in folders):
             found.setdefault(PurePosixPath(rel).name, []).append(rel)
     return found
 
