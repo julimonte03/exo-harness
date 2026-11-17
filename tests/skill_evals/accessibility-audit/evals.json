@@ -1,7 +1,13 @@
 {
   "skill": "accessibility-audit",
   "fixture": "node-shop",
-  "packs": ["core", "sdd", "frontend"],
+  "packs": [
+    "core",
+    "sdd",
+    "frontend",
+    "quality",
+    "security"
+  ],
   "cases": [
     {
       "id": "trigger",
@@ -11,7 +17,13 @@
     {
       "id": "no-trigger",
       "expect": "no-trigger",
-      "prompt": "Is there a bug in how CheckoutForm.tsx in packages/web handles a failed submit? Look only at the submit logic and tell me."
+      "prompt": "I am about to commit the free-shipping banner I staged in packages/web as 'feat(web): add free shipping banner'. Check that the commit is ready: nothing unrelated, no debug leftovers or secrets, and the message.",
+      "setup": {
+        "files": {
+          "packages/web/src/components/FreeShippingBanner.tsx": "import { FREE_SHIPPING_THRESHOLD_CENTS } from '@shop/shared';\nimport { Price } from './Price';\n\ninterface FreeShippingBannerProps {\n  cartTotalCents: number;\n}\n\nexport function FreeShippingBanner({ cartTotalCents }: FreeShippingBannerProps) {\n  const missing = FREE_SHIPPING_THRESHOLD_CENTS - cartTotalCents;\n  console.log('banner', { cartTotalCents, missing });\n  if (missing <= 0) {\n    return <p className=\"banner banner--success\">Your order ships free.</p>;\n  }\n  return (\n    <p className=\"banner\">\n      Add <Price cents={missing} /> more for free shipping.\n    </p>\n  );\n}\n"
+        },
+        "stage": true
+      }
     },
     {
       "id": "output",
@@ -25,8 +37,13 @@
         "stage": true
       },
       "checks": {
-        "answer_contains": ["QuantityStepper"],
-        "answer_matches": ["2\\.1\\.1", "4\\.1\\.2"]
+        "answer_contains": [
+          "QuantityStepper"
+        ],
+        "answer_matches": [
+          "2\\.1\\.1",
+          "4\\.1\\.2"
+        ]
       },
       "review": "The answer reviews the staged QuantityStepper.tsx and QuantityStepper.css and reports, each with severity, path:line, the WCAG 2.2 criterion by number and name, who is blocked and a fix: the div controls with click handlers only (2.1.1 Keyboard, 4.1.2 Name, Role, Value; Critical, since keyboard users cannot change the quantity), the icons without text alternatives (1.1.1), the 16-pixel targets (2.5.8), the value text at about 2.2:1 on white (1.4.3) and the removed outline (2.4.7). It lists what it could not check without running the UI, installs no tool, and changes no file."
     }
