@@ -5,16 +5,16 @@ description: >-
   and the job they are trying to get done, the hypotheses behind the idea and
   the riskiest one, success metrics with baseline, target and source, the main
   user flows, acceptance criteria in Given/When/Then, and the smallest MVP
-  worth shipping. Inside an SDD change it feeds the phase that loads it (the
-  Intent of proposal.md, scenarios for the spec, or open questions for the
-  person) and never edits another phase's artifact. Use it when a product
-  problem is new or fuzzy, when a new feature, an MVP or its value is unclear,
-  when a change adds a new user flow, or when someone wants to know what to
-  build first and how to tell whether it works. Triggers: "product
-  discovery", "jobs to be done", "who is this for", "is this worth building",
-  "define the MVP", "success metrics", "user flow", "what should we build
-  first", "how will we know it works", "acceptance criteria for a new
-  feature".
+  worth shipping. Inside an SDD change it feeds the phase that loads it and
+  never edits another phase's artifact. Use it when a product problem is
+  new or fuzzy, when a new feature, an MVP or its value is unclear, when a
+  change adds a new user flow, or when someone wants to know what to build
+  first and how to tell whether it works. Not for mapping a process
+  end to end (functional-flow-designer) or refining one backlog item
+  (refinement-assistant). Triggers: "product discovery", "jobs to be done",
+  "who is this for", "is this worth building", "define the MVP", "success
+  metrics", "what should we build first", "how will we know it works",
+  "acceptance criteria for the MVP".
 metadata:
   exo-pack: product
   exo-execution: inline
@@ -40,7 +40,7 @@ Where they land depends on who loaded the skill (next section). What nobody can 
 
 - **SDD conditional** (`.exo/shared/phase-skill-map.md`): explore, when the product problem is new or fuzzy; propose, for a new feature, an MVP or an unclear value; spec, when the change adds a new user flow.
 - **On request,** outside a change: "is this worth building", "what is the MVP", "who would use this".
-- **Not for:** a change whose user, problem and value are already clear and written (a bug fix, a refactor, a dependency bump); writing the spec delta itself, which is `sdd-spec`; a roadmap across many features; UI design.
+- **Not for:** a change whose user, problem and value are already clear and written (a bug fix, a refactor, a dependency bump); writing the spec delta itself, which is `sdd-spec`; a process or journey mapped end to end with its actors, decisions, exceptions and data (skill:functional-flow-designer); refining a single backlog item until it is ready, with its acceptance criteria and estimate (skill:refinement-assistant); a roadmap across many features (skill:roadmap-generator); UI design.
 
 ## Where the output goes
 
@@ -49,7 +49,7 @@ Write only into the artifact the current phase owns (`.exo/shared/sdd-phase-comm
 | Loaded by | Runs in | What this skill produces | Who writes it |
 |---|---|---|---|
 | `sdd-explore` | `sdd-explorer` (read-only) | What the evidence says about the user, the problem, the value and the measure, for the Goal of exploration.md; every unknown as an Open Question | the explorer returns text; the orchestrator writes the file |
-| `sdd-new`, `sdd-propose` | inline | The Intent of proposal.md (User, Problem, Value, Success measure), the MVP cut in Scope and Out of Scope, and the main flow as a Scope bullet | the phase, in proposal.md |
+| `sdd-propose` | inline | The Intent of proposal.md (User, Problem, Value, Success measure), the MVP cut in Scope and Out of Scope, and the main flow as a Scope bullet | the phase, in proposal.md |
 | `sdd-spec` | inline | Requirements and Given/When/Then scenarios for each new flow, ready for the delta | `sdd-spec`, in spec.md, numbering IDs and scenarios its way |
 | The person, outside a change | inline | The full discovery brief (`references/discovery-brief.md`) | you, in the answer or in the file the person names |
 
@@ -109,7 +109,7 @@ In one message, at most five questions, each with why it matters and the default
 
 ## Write it into proposal.md
 
-In propose (and new), the Intent keeps the four parts `sdd-propose` uses:
+In propose, the Intent keeps the four parts `sdd-propose` uses:
 
 ```markdown
 ## Intent
