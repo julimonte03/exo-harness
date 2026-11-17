@@ -1,0 +1,40 @@
+{
+  "skill": "springboot-security",
+  "fixture": "java-library",
+  "packs": [
+    "core",
+    "sdd",
+    "java"
+  ],
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "Right now anyone can call every endpoint of this service. Only librarians should register or retire titles, and members should only see their own loans. How do we set that up?"
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "Make the maximum page size of the book search configurable in application.yml instead of a constant in the code."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "Protect this API with bearer tokens from our identity provider, whose issuer URL comes from an environment variable: searching and reading books stays public, registering titles, adding copies and retiring titles need the LIBRARIAN role, and every other endpoint needs a signed-in user. Implement it.",
+      "checks": {
+        "answer_matches": [
+          "(?i)oauth2.?resource.?server",
+          "(?i)csrf",
+          "(?i)\\b401\\b|\\b403\\b"
+        ],
+        "files_written": [
+          "pom.xml",
+          "src/main/resources/application.yml",
+          "src/main/java/*Security*.java",
+          "src/test/java/*Test.java"
+        ]
+      },
+      "review": "The change adds spring-boot-starter-security and spring-boot-starter-oauth2-resource-server (and spring-security-test for tests) without versions, sets spring.security.oauth2.resourceserver.jwt.issuer-uri from an environment variable placeholder with no secret in the file, and adds a stateless SecurityFilterChain: GET /api/books and /api/books/{id} public; POST /api/books, POST /api/books/{id}/copies and DELETE /api/books/{id} need ROLE_LIBRARIAN; anything else authenticated. CSRF is disabled with a comment explaining that no cookie authenticates a request. It says which token claim carries the roles (or asks), tests anonymous 401, wrong role 403 and librarian success, notes that members seeing only their own loans needs an object-level check that is out of this request, and gives the test command as not run."
+    }
+  ]
+}

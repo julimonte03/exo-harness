@@ -1,0 +1,35 @@
+{
+  "skill": "backend-engineering",
+  "fixture": "java-library",
+  "packs": [
+    "core",
+    "sdd",
+    "java"
+  ],
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "I am about to add an operation for librarians to extend every active loan of a member by one week. Where should that logic live in this codebase, and what should I watch out for?"
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "Explain what the Dockerfile of this project does, stage by stage."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "Members want to reserve a title when no copy is on the shelf, and have the next returned copy held for them. Before anyone writes code, plan how this fits the codebase: which package and classes, where the transaction boundary goes, how to stop two members getting the same returned copy, and which errors the API returns. No code yet.",
+      "checks": {
+        "answer_matches": [
+          "(?i)jpa-patterns|springboot-patterns|backend-and-api",
+          "(?i)transaction",
+          "(?i)@Version|optimistic|pessimistic|unique (constraint|index)|\\block",
+          "(?i)\\b(409|422)\\b"
+        ]
+      },
+      "review": "The answer starts with the routing block: Spring Boot 3.3 with Maven and Java 21, JPA with Flyway, package by feature, no Spring Security, and the java skills it loaded (jpa-patterns for the locking and the migration, backend-and-api for the endpoints). It places the feature in a new reservations package (entity, repository, service, controller) referencing books and members by ID like Loan does, puts the transaction boundary in the service methods and hooks LoanService.returnLoan so the returned copy goes to the oldest active reservation in the same transaction, without closing a new package cycle. It prevents double assignment with an optimistic lock or a unique constraint and a new migration, and lists BusinessRuleException codes mapped to 422 as ApiErrorHandler does today. It writes no code and changes no file."
+    }
+  ]
+}
