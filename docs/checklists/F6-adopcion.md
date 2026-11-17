@@ -48,6 +48,28 @@ Verifica con un agente real que exo adopta un proyecto que ya tiene código, sin
 - **El chequeo final de `exo-adopt`** usaba `exo speclint` sobre la carpeta `capabilities`, que speclint no acepta. Ahora usa `exo check`.
 - **Una unidad que no se puede cerrar** dejaba a R4 sin salida. Ahora `exo discover skip` la saca del ciclo y la cuenta como no cubierta.
 
+## Segunda corrida: `py-invoices` con el contenido final (Claude Code 2.1.325, 2026-11-16)
+
+La misma preparación y el mismo pedido, con el motor 0.2.0 y el contenido corregido por la revisión.
+
+| Verificación | Esperado | Resultado |
+|---|---|---|
+| R0 a R2 | Inventario, grafo y plan | OK: 10 unidades en `standard` |
+| R3 | Extracción en `re-extractor` y cierre con `exo discover done` | 9 de 10 cerradas, tres en paralelo. La de `auth` se salteó con `exo discover skip` y su razón: una regla de denegación de lectura que no está en el repo ni en la config del usuario bloqueó `src/invoices/auth/tokens.py`. El extractor no devolvió una extracción parcial, y la unidad quedó como OQ-1 y como ítem del backlog (ADOPT-5). `done` rechazó dos veces `src-invoices` por un `[Doc] path;` (bug del motor, corregido en el cierre) |
+| R4 | Specs as-is registradas, la wiki y los ADRs | OK: 4 capacidades (invoicing, payments, customers, access-control) con 51 FR y 2 NFR, todos con evidencia, cada una registrada con `exo discover synthesized`. `exo check`: 0 errores (solo los warnings de FR sin escenario). `.exo/context.md` con sus cuatro secciones y 9 ADRs `docs/adr/000N-recovered-*.md` |
+| Criterio 3 | Una spec por capacidad del ground truth, por archivos clave | OK: invoice-totals e invoice-lifecycle → invoicing; card-payments → payments; access-control → access-control; customer-directory → customers |
+| R5 y criterio 4 | La muestra entera en `re-auditor`, ≥ 90 % por capacidad | OK: 30 de 51 FR (semilla 1410649451), una sola corrida del auditor con la ruta de la skill y los 30 ítems. Las 4 capacidades al 100 %, sin marcas, así que no hubo ronda de reapertura |
+| Criterio 5 | Solo las rutas permitidas | OK: `outside_changes: []`; `git status` muestra solo `.exo/context.md`, `.exo/discovery/`, `docs/` (los 9 ADRs recuperados) y `specs/` |
+| R6 | Brechas y backlog, sin validar ni crear changes | OK: 16 ítems, entre ellos los tests de caracterización por capacidad, la línea base de tests (sin correrla), fallar cerrado en sandbox y decidir cómo se cobran las tarjetas (Tier 4). Ninguna capacidad validada, ningún change creado, nada commiteado |
+| D-19 y D-37 | Sin build ni tests, y sin escritura de memoria | OK |
+| `exo discover status` al final | Lo que falta, legible para retomar | `skipped` con la razón, `rounds` en 1, `coverage: true`, sin `audit_missing` ni `flagged`. `unsynthesized_units: ["alembic"]`: las migraciones no alimentan ninguna capacidad a propósito |
+
+**Lo que encontró en el proyecto:** los pagos con tarjeta nunca se cobran (cada tarjeta aceptada queda liquidada en el acto) y el modo sandbox falla abierto. Lo registró como deuda y como ítems del backlog (ADOPT-14, Tier 4, y ADOPT-15, Tier 3), con su evidencia `path:line`.
+
+**Lo que mostró del motor y del contenido** (corregido en el cierre):
+- **`[Doc] path;`:** `done` tomaba la puntuación que sigue a la ruta como parte de ella.
+- **Una unidad de infraestructura sin capacidad** queda en `unsynthesized_units`, y la tabla de Resume la mandaba a R4 sin fin. Ahora `re-synthesize` lo anota en la fila de Modules de la wiki, y Resume solo manda a R4 lo que la wiki no explica.
+
 ## Copilot (opcional)
 
 No se corrió. Para hacerlo: la misma preparación con `--agents copilot` y el mismo pedido en Copilot en modo agente.
