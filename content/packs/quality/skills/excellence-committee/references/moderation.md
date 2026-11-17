@@ -79,7 +79,8 @@ Only the person, with the `tech_lead` role when the verdict is not `APPROVED`, a
 
 - `APPROVED`: after moderation, no consolidated finding is Critical or High, and no judge left unreviewed something it needed.
 - `ESCALATED`: otherwise. Write the reason in one line: the IDs that stay Critical or High, or what was not reviewed.
-- When a judge escalated only because its input was missing outside a change (no purpose, no plan), say so: "ESCALATED: judge-business could not review the value; give the purpose and run the committee again."
+- A judge not convened for lack of input outside a change (no purpose, no plan) does not change the verdict: the panel and Not reviewed name it and what it needs.
+- When a convened judge escalated only because its input was too thin, say so: "ESCALATED: judge-business could not review the value; give the purpose and run the committee again."
 
 ## 7. Order of the report
 

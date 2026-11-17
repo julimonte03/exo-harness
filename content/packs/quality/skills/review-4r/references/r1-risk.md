@@ -6,17 +6,17 @@ Only risk. Readability, correctness and failure handling belong to the other len
 
 ## Security
 
-The OWASP Top 10 (2021) items that apply to what changed. Cite the item (`OWASP A03:2021`) and the CWE when it helps.
+The OWASP Top 10:2021 items that apply to what changed, the edition the `security` pack uses. Cite the item with its edition (`OWASP A03:2021`), never the bare number, and the CWE when it helps.
 
 | Look for | Item |
 |---|---|
-| A new entry point without authentication, or without a check of what the caller may touch | A01, A07 |
-| Untrusted input reaching a query, a shell command, a template, HTML or a file path without parameters or encoding | A03, A01 (CWE-22) |
+| A new entry point without authentication, or without a check of what the caller may touch | A01:2021, A07:2021 |
+| Untrusted input reaching a query, a shell command, a template, HTML or a file path without parameters or encoding | A03:2021, A01:2021 (CWE-22) |
 | Secrets in code, configuration, tests or fixtures; keys or passwords compared with `==` | CWE-798, CWE-208 |
-| Weak or home-made cryptography for sensitive data; plain HTTP for credentials or personal data | A02 |
-| Deserialization of untrusted data into objects | A08 |
-| A URL from a user fetched by the server without an allow list | A10 |
-| Debug modes, verbose errors or permissive settings in what ships | A05 |
+| Weak or home-made cryptography for sensitive data; plain HTTP for credentials or personal data | A02:2021 |
+| Deserialization of untrusted data into objects | A08:2021 |
+| A URL from a user fetched by the server without an allow list | A10:2021 |
+| Debug modes, verbose errors or permissive settings in what ships | A05:2021 |
 
 ## Data
 

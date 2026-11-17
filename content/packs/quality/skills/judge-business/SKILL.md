@@ -10,8 +10,8 @@ description: >-
   ESCALATED verdict; it never edits anything and never invents figures. Runs
   in the sdd-judge subagent in propose from Tier 3. Use it also when someone
   wants an independent business opinion on a proposal or an initiative.
-  Triggers: "business judge", "is this worth building", "judge the business
-  case", "value, cost and risk of this proposal", "what are the
+  Triggers: "business judge", "independent business review", "judge the
+  business case", "value, cost and risk of this proposal", "what are the
   alternatives", "is this worth the investment".
 metadata:
   exo-pack: quality
