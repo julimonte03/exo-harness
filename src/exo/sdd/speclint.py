@@ -1,11 +1,11 @@
 """Lint de artefactos SDD contra sus plantillas (`exo/sdd/templates/`).
 
-Tipos (§4.1 del reporte, más los de ADR-0013): `functional` (proposal.md),
+Tipos (§4.1 del reporte, más los de ADR-0013 y ADR-0016): `functional` (proposal.md),
 `delta` (el spec.md de un change), `capability` (la spec viva de una capacidad,
-`capabilities/<cap>/spec.md`), `technical` (design.md), `test-spec`,
-`verify-record` y `pr`. Las secciones `##` de cada plantilla son obligatorias y
-no pueden quedar vacías (los comentarios HTML no cuentan como contenido), salvo
-en el delta, donde cada sección es opcional. Además:
+`capabilities/<cap>/spec.md`), `technical` (design.md), `canvas` (el Canvas REASONS
+del overlay SPDD), `test-spec`, `verify-record` y `pr`. Las secciones `##` de cada
+plantilla son obligatorias y no pueden quedar vacías (los comentarios HTML no cuentan
+como contenido), salvo en el delta, donde cada sección es opcional. Además:
 
 - delta y capacidad: el formato de `sdd/specs.py` (IDs `CAP-<cap>-FR-n`,
   escenarios con Given, When y Then, `S-n` solo en el delta).
@@ -33,6 +33,7 @@ ARTIFACTS = {
     "proposal.md": "proposal",
     "spec.md": "spec",
     "design.md": "design",
+    "canvas.md": "canvas",
     "test-spec.md": "test-spec",
     "verify-record.md": "verify-record",
     "pr.md": "pr",
@@ -42,6 +43,7 @@ KIND_OF = {
     "spec": "delta",
     "capability-spec": "capability",
     "design": "technical",
+    "canvas": "canvas",
     "test-spec": "test-spec",
     "verify-record": "verify-record",
     "pr": "pr",
@@ -52,6 +54,7 @@ KINDS = (
     "delta",
     "capability",
     "technical",
+    "canvas",
     "test-spec",
     "verify-record",
     "pr",
@@ -60,6 +63,9 @@ KINDS = (
 GATES_DIR = "gates"
 GATE_VERDICTS = ("APPROVED", "ESCALATED")
 CONTRACT_GATE = "contract_check"
+# El Canvas REASONS del overlay SPDD (ADR-0016) y el gate humano que lo aprueba.
+CANVAS = "canvas.md"
+CANVAS_GATE = "prompt_spec_review"
 VERDICTS = ("ready", "needs-rework", "blocked")
 GATE_MARKER = re.compile(rf"<!--\s*{re.escape(_meta.BLOCK_PREFIX)}-gate:[a-z][a-z0-9_]*\s*-->")
 
@@ -354,7 +360,7 @@ def _cross_check(
         return
     defined = reports["spec.md"][2]
     living: set[str] | None = None
-    for name in ("design.md", "test-spec.md", "verify-record.md"):
+    for name in ("design.md", CANVAS, "test-spec.md", "verify-record.md"):
         if name not in reports:
             continue
         report = reports[name][0]
