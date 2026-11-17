@@ -1,0 +1,41 @@
+{
+  "skill": "judge-product",
+  "fixture": "toy-python",
+  "packs": [
+    "core",
+    "sdd",
+    "quality"
+  ],
+  "setup": {
+    "files": {
+      "specs/add-due-dates/proposal.md": "# Proposal: add-due-dates\n\n## Intent\n\nUsers want due dates. Adding them will make the tool better and more modern.\n\n## Scope\n\n- Add an optional due date to each task: `python -m toy_todo add \"call back\" --due 2026-12-01`.\n- Show the due date next to each task in `list`, and list overdue tasks first.\n- Export every task to a CSV file with `python -m toy_todo export`.\n- Change the colors of the `list` output.\n\n## Approach\n\nStore the due date as an ISO date string in `tasks.json`, next to the title (src/toy_todo/store.py:11). Parse it with `datetime.date.fromisoformat` in the command line (src/toy_todo/cli.py:12).\n\nAlternative considered: a separate file for due dates, rejected because it splits the data of one task in two places.\n\n## Out of Scope\n\n- Reminders and notifications.\n",
+      "specs/add-due-dates/spec.md": "# Spec: add-due-dates\n\n## ADDED Requirements\n\n### CAP-todo-list-FR-1: Optional due date on a task\nThe system SHALL let the user give an optional due date, as YYYY-MM-DD, when adding a task, and SHALL store it with the task.\n\n#### Scenario S-1: Add a task with a due date\n- Given an empty task list\n- When the user runs `add \"call back\" --due 2026-12-01`\n- Then the task is stored with the due date 2026-12-01\n- And the output is `added 1: call back (due 2026-12-01)`\n\n### CAP-todo-list-FR-2: Export to CSV\nThe system SHALL write every task to `tasks.csv` when the user runs `export`.\n\n#### Scenario S-2: Export two tasks\n- Given a list with two tasks\n- When the user runs `export`\n- Then `tasks.csv` has a header row and two task rows\n"
+    }
+  },
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "Does the proposal in specs/add-due-dates/proposal.md really solve a problem for the people who use this to-do list, and only that? I want an independent opinion from the user's side before we write the design."
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "Add a bullet to the Out of Scope section of specs/add-due-dates/proposal.md saying that recurring tasks are left for later."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "Before we design add-due-dates, review its proposal and its spec from the user's point of view, as an independent product reviewer, and give me your findings and verdict.",
+      "checks": {
+        "answer_contains": [
+          "JPRD-1"
+        ],
+        "answer_matches": [
+          "\\bESCALATED\\b"
+        ]
+      },
+      "review": "The answer is a findings report with JPRD-n IDs, severities and specs/add-due-dates/...:line locations: the proposal names no concrete user, problem or success measure (High); the CSV export and the colors are scope creep; the spec has no requirement for showing due dates and overdue tasks in list, and no scenario for an invalid date. The verdict is ESCALATED, nothing is edited, and the findings stay on product and UX (no code, security or business review)."
+    }
+  ]
+}
