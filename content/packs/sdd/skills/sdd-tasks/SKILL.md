@@ -93,7 +93,7 @@ Follow `test-strategy` and the template's three sections:
 
 ## Judge (Tier 4)
 
-Run `judge-team` as its own read-only delegation to `sdd-judge`, with `## Skills to load before work` and its `SKILL.md` path, the change root, tasks.md and test-spec.md, the stage before it (spec.md and design.md), and the first free `JTEAM` ID (from `exo change followups <change> --status all`). When it is not installed, say `quality/judge-team not installed — applying inline criteria` and pass its criteria: tasks.md can be split among people without overlapping files, and each unit has its own tests. Without subagents, run it inline after writing the plan and say "no isolation".
+Run `judge-team` as its own read-only delegation to `sdd-judge`, with `## Skills to load before work` and its `SKILL.md` path, the change root, tasks.md and test-spec.md, the stage before it (spec.md and design.md), and the first free `JTEAM` ID (from `exo change followups <change> --status all`). When it is not installed, say `quality/judge-team not installed — applying inline criteria` and pass its inline criteria from `.exo/shared/phase-skill-map.md` (Inline criteria for skills not installed), copied as they are. Without subagents, run it inline after writing the plan and say "no isolation".
 
 Record each finding with `exo change record <change> --followup '<json>'` (`.exo/shared/judge-common.md`, section F) and show them to the person; fix the accepted ones in tasks.md and mark them with `--fixed <id>`; the dismissed ones go to `dismissed_followups` with their `id`.
 

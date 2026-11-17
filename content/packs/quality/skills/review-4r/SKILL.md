@@ -116,11 +116,11 @@ ESCALATED: R1-1 (High) and R4-1 (High) survived the Refuter.
 
 ## Findings by severity
 
-| Severity | IDs | Lens | path:line | Finding | Suggested fix | Refuter |
-|---|---|---|---|---|---|---|
-| High | R1-1 | Risk | src/sync/client.py:22 | The access token is printed to the console | Remove the print; never log the token | upheld |
-| High | R4-1, R3-2 | Resilience, Reliability | src/sync/client.py:31 | No timeout on the remote call, and any error becomes a silent 0 | Add a timeout; report the error and exit non-zero | upheld; duplicate merged |
-| Low | R2-1 | Readability | src/sync/client.py:12 | The payload is built from internal attributes | Build it from the documented fields | downgraded from Medium: one call site |
+| Severity | IDs | J4R | Lens | path:line | Finding | Suggested fix | Refuter |
+|---|---|---|---|---|---|---|---|
+| High | R1-1 | J4R-1 | Risk | src/sync/client.py:22 | The access token is printed to the console | Remove the print; never log the token | upheld |
+| High | R4-1, R3-2 | J4R-2 | Resilience, Reliability | src/sync/client.py:31 | No timeout on the remote call, and any error becomes a silent 0 | Add a timeout; report the error and exit non-zero | upheld; duplicate merged |
+| Low | R2-1 | J4R-3 | Readability | src/sync/client.py:12 | The payload is built from internal attributes | Build it from the documented fields | downgraded from Medium: one call site |
 
 ## Refuted
 
@@ -133,7 +133,7 @@ None. Isolation: lenses in sdd-judge subagents.
 
 ## Record
 
-Inside an SDD change only, as `.exo/shared/judge-common.md`, section F, and `.exo/shared/capability-attribution.md` say. Outside a change, record nothing. In Windows PowerShell 5.1, pass each JSON as `@<file>` (`.exo/shared/sdd-phase-common.md`, section I).
+Inside an SDD change only, as `.exo/shared/judge-common.md`, section F, and `.exo/shared/capability-attribution.md` say. Outside a change, record nothing. In Windows PowerShell 5.1, pass each JSON as `'@<file>'` (`.exo/shared/sdd-phase-common.md`, section I).
 
 ```bash
 exo change record <change> --followup '{"id": "J4R-1", "judge": "review-4r", "rule": "R1 Risk: secrets in logs", "severity": "high", "summary": "The access token is printed to the console; remove the print", "location": "src/sync/client.py:22"}'
@@ -143,7 +143,7 @@ exo change record <change> --add capabilities_used '{"name": "sdd-judge", "type"
 exo change record <change> --add skills_used '"review-4r"'
 ```
 
-- Each surviving finding gets the next free `J4R-n`, in the synthesis order; the `rule` names the lens and the criterion. A merged item is one followup. Show the `J4R` numbers next to the lens IDs in the synthesis.
+- Each surviving finding gets the next free `J4R-n`, in the synthesis order; the `rule` names the lens and the criterion. A merged item is one followup. Show the `J4R` numbers next to the lens IDs in the synthesis, in the J4R column; outside a change, write `-` there.
 - Refuted findings are not recorded, unless the person keeps one.
 - Never dismiss a finding yourself; fixed ones are marked later with `--fixed <id>`. The review is not a phase: no `--phase-done`.
 

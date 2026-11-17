@@ -44,13 +44,13 @@ Only then. The change touches UI when the diff or `design.md` (Modules / Files) 
 
 | Phase | What you review | Against (the stage before) |
 |---|---|---|
-| design (Tier 3 and 4, UI) | the UI of `design.md` (and `canvas.md` when there is one): components, states, data flows | `spec.md` and `proposal.md` |
+| design (Tier 3 and 4, UI) | the UI of `design.md` (and `canvas.md` when there is one): components, states, data flows | `spec.md` and `proposal.md`; for `canvas.md`, `design.md` too |
 | verify (Tier 3 and 4, UI) | the UI files of the diff, in full | `spec.md`, `design.md` and `tasks.md` |
 | outside SDD | the UI files or the design the person gives | the ticket or the description the person gives |
 
 ## Criteria
 
-Only the frontend; other judges cover correctness, server-side security, product and the plan. Reuse what exists: the UX/UI and accessibility dimensions of skill:harness-review (its checklists are in `harness-review/references/dimensions.md` in the skills folder), and the skills below when installed. Do not invent criteria of your own.
+Only the frontend; other judges cover correctness, server-side security, product and the plan. Reuse what exists: the UX/UI and accessibility dimensions of skill:harness-review (its checklists are in `harness-review/references/dimensions.md` in the skills folder), and the skills below when installed. Do not add criteria beyond the five below.
 
 Before judging, find what the project already has: the components folder, the design system or token package (a `tokens`, `theme` or `design-tokens` import), the data-fetching and state patterns, and the conventions in `.exo/context.md`. When the project's frontend stack router skill is installed, follow its conventions too.
 
@@ -78,9 +78,9 @@ Before judging, find what the project already has: the components folder, the de
 
 ### 4. Client-side security
 
-Only what runs in the browser; the server side belongs to skill:judge-security.
+Only what runs in the browser and no other judge covers; the server side belongs to skill:judge-security.
 
-- No raw HTML from untrusted data (`dangerouslySetInnerHTML`, `innerHTML`, `v-html`) without sanitizing it; URLs that come from users or data are checked before they go into `href` or `src` (no `javascript:`).
+- **Injection into the page (XSS)** is skill:judge-security's, not yours: untrusted data rendered as raw HTML (`dangerouslySetInnerHTML`, `innerHTML`, `v-html`) or put into `href` or `src` unchecked. When you see one, do not rate it: point at its `path:line` in Not reviewed, for `judge-security`.
 - No secrets, privileged keys or admin tokens in client code, in build-time variables exposed to the bundle, or in browser storage.
 - No tokens or personal data in URLs, client logs or analytics events.
 - Hiding a button is not access control: the server checks it too (point at the gap; the server review is not yours).
@@ -96,11 +96,11 @@ Only what runs in the browser; the server side belongs to skill:judge-security.
 
 - **ID:** `JFE-1`, `JFE-2`, and so on, unique in the change and never reused. Start at the next free number the delegation gives; the orchestrator takes it from `exo change followups <change> --status all`.
 - **Severity** (contract, section D):
-  - Critical: the main flow of the screen cannot be completed (at all, or with the keyboard alone); untrusted data rendered as HTML; a secret in the client bundle.
+  - Critical: the main flow of the screen cannot be completed (at all, or with the keyboard alone); a secret in the client bundle.
   - High: a WCAG 2.2 A or AA failure that blocks a task (a control with no accessible name, a keyboard trap, an error announced only by color); a state the spec names left unhandled, so the user gets stuck; access control only in the UI; a token or personal data in storage, URLs or analytics.
   - Medium: a hard-coded value where a token exists; a near-duplicate component; a missing loading or empty state; a request that is not cancelled; a WCAG failure that does not block the task; a heavy dependency without need.
   - Low: naming, small inconsistencies with the neighbors.
-- **Criterion:** the WCAG success criterion, or the criterion by name (`consistency: tokens`, `states: error`, `client performance`, `client security: XSS`), or the scenario ID. A defect that comes from the design while you judge the diff is a finding against `design.md` (`no cascade: design.md`).
+- **Criterion:** the WCAG success criterion, or the criterion by name (`consistency: tokens`, `states: error`, `client performance`, `client security: storage`), or the scenario ID. A defect that comes from the design while you judge the diff is a finding against `design.md` (`no cascade: design.md`).
 - **Suggested fix:** as text, naming the existing component or token to use when there is one. Never apply it. Never copy secrets or personal data into a finding: point at the `path:line`.
 
 ## Verdict

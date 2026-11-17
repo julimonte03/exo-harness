@@ -21,7 +21,8 @@ Validate against the stage before, in the change root under `specs/`:
 |---|---|
 | proposal.md | The request, the exploration when there is one, and `.exo/context.md` |
 | spec.md | The proposal |
-| design.md (and canvas.md) | The proposal and the spec |
+| design.md | The proposal and the spec |
+| canvas.md | The proposal, the spec and design.md |
 | tasks.md | The spec and the design |
 | The diff | The spec, the design and the tasks |
 
@@ -36,7 +37,7 @@ Each finding has:
 | `id` | `J<judge code>-<n>`, unique in the change. Never reuse a number. The codes are in the table below. |
 | `severity` | Critical (data loss, a security hole, the main flow broken), High (a requirement or scenario not met, a mitigation missing), Medium (an edge case or error path), Low (readability, naming). For an artifact before code (a proposal, a spec, a plan), High means it misses something the next stage needs, and Critical means it would build the wrong thing. |
 | `location` | `path:line` when it points at code |
-| `rule` | The rule, OWASP or WCAG item, requirement ID or scenario ID it breaks |
+| `rule` | The rule, OWASP or WCAG item, requirement ID or scenario ID it breaks. An OWASP item always carries its edition, because the numbers moved between editions (`OWASP A03:2021` and `OWASP A05:2025` are both Injection): the `security` pack and the judges that reuse it cite the Top 10:2021; the scanners and reviewers of the stack packs, the Top 10:2025. |
 | `summary` | What is wrong, and a suggested fix as text |
 
 | Code | Judge |

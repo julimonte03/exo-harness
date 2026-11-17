@@ -73,10 +73,7 @@ Ask the person, in one message, what you cannot settle from the artifacts or the
 
 Each judge is a **separate read-only delegation to `sdd-judge`**, never inside your own context (`.exo/shared/phase-skill-map.md`). Each prompt gives the change name and root, the paths of `proposal.md` and `exploration.md`, the person's request and `.exo/context.md` (the stage before a proposal, `.exo/shared/judge-common.md`, section C), the first free ID of the judge's prefix (`JPRD`, `JBIZ`) from `exo change followups <change> --status all`, and a `## Skills to load before work` block with the judge's `SKILL.md` path and, when installed, the skills it reuses (`product-discovery` for `judge-product`).
 
-The judges ship in the quality pack. While it is not installed, say `quality/judge-product not installed — applying inline criteria` (and the same for `judge-business`), and put the criteria in the prompt instead of a path:
-
-- `judge-product`: in a separate read-only pass, check that the change solves the problem in the proposal for its user, and nothing else. Report gaps as findings.
-- `judge-business`: in a separate read-only pass, check the value, cost and risk stated in the proposal. Report what is missing or contradictory.
+The judges ship in the quality pack. While it is not installed, say `quality/judge-product not installed — applying inline criteria` (and the same for `judge-business`), and put in the prompt, instead of a path, the judge's inline criteria from `.exo/shared/phase-skill-map.md` (Inline criteria for skills not installed), copied as they are.
 
 Without subagents, run each judge inline after the proposal is done, as its own pass with its criteria, and say "no isolation" (`.exo/shared/agent-capabilities.md`).
 

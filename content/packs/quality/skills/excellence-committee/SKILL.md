@@ -1,10 +1,11 @@
 ---
 name: excellence-committee
 description: >-
-  Convenes the full panel of advisory judges on a change, a diff or a set of
-  artifacts, on request: judge-code-reviewer, judge-security, judge-product,
-  judge-business, judge-team, and judge-frontend when there is UI, each as an
-  independent read-only review in its own sdd-judge subagent. Then a
+  Convenes the panel of advisory judges on a change, a diff or a set of
+  artifacts, on request: judge-code-reviewer and judge-security always;
+  judge-product and judge-business when there is a proposal or a stated
+  purpose; judge-team when there is a plan; judge-frontend when there is UI;
+  each as an independent read-only review in its own sdd-judge subagent. Then a
   moderator consolidates their findings: removes duplicates, settles
   contradictions, calibrates severities with stated reasons and gives one
   verdict. Findings keep the code of the judge that raised them. Inside an
@@ -32,7 +33,7 @@ metadata:
 - **On request only:** someone wants every angle on a change, a diff, a branch or a set of artifacts before a big decision (a release, a launch, a hard-to-reverse design, a risky merge).
 - It is not in the phase map, owns no gate, and replaces neither the judges of each phase nor skill:judgment-day in Tier 4.
 - **Not for:** a check before committing (skill:pre-commit-review), the review of verify (skill:harness-review), the final Tier 4 review (skill:judgment-day), or a single angle (call that judge directly).
-- It costs five or six reviews plus a moderation. When the target is small, say so and offer the one judge that fits.
+- It costs up to six reviews plus a moderation. When the target is small, say so and offer the one judge that fits.
 
 ## Contract
 
@@ -65,12 +66,14 @@ Read-only: read files, `git status`, `git diff`, `git log`, `exo change status` 
    |---|---|---|---|
    | `judge-code-reviewer` | `design.md`, or the diff | the stage before | always |
    | `judge-security` | `design.md`, or the diff | the stage before | always |
-   | `judge-product` | `proposal.md` and `spec.md`, or what the diff changes for its users | the request, or the purpose the person gives | always |
-   | `judge-business` | `proposal.md`, or the purpose of the diff | the goals in `.exo/context.md` and the request | always |
-   | `judge-team` | `tasks.md`, or the diff as one unit of work (size, tests with the code, shared files, concentrated knowledge) | `spec.md` and `design.md`, or the purpose | always |
+   | `judge-product` | `proposal.md` and `spec.md`, or the purpose the person gives (who it is for, which problem) | the request | only with a proposal, a spec or a stated purpose |
+   | `judge-business` | `proposal.md`, or the purpose the person gives | the goals in `.exo/context.md` and the request | only with a proposal or a stated purpose |
+   | `judge-team` | `tasks.md`, or the plan or breakdown the person gives | `spec.md` and `design.md`, or the purpose | only with a plan |
    | `judge-frontend` | the UI of `design.md`, or the UI files of the diff | the stage before | only when the change touches UI, as that judge defines it |
 
-3. **What the panel needs:** inside a change, the artifacts are there. Outside, ask the person once, in one message, for what is missing: the purpose (who it is for, which problem, why now) and the plan, if there is one. When they have none, say which judges will review with less, and go on.
+   A diff alone gives `judge-product`, `judge-business` and `judge-team` nothing to judge: their criteria are for a proposal, a spec or a purpose, and for a plan. A judge without its input is not convened: the panel table lists it as `not convened: no plan` (or `no purpose`), and Not reviewed says what it would need.
+
+3. **What the panel needs:** inside a change, the artifacts are there. Outside, ask the person once, in one message, for what is missing: the purpose (who it is for, which problem, why now) and the plan, if there is one. When they have none, the judges that need them are not convened (step 2), and you go on with the rest.
 4. **IDs:** inside a change, the next free number of each prefix from `exo change followups <change> --status all`; outside, every prefix starts at 1.
 5. **The diff text:** `sdd-judge` cannot run git. Get the diff yourself and pass its text, or the list of changed files when it is too long.
 
@@ -140,7 +143,7 @@ Every finding of every judge appears in Consolidated findings, alone or merged; 
 
 ## Record
 
-Inside an SDD change only, as `.exo/shared/judge-common.md`, section F, and `.exo/shared/capability-attribution.md` say. Outside a change, record nothing. In Windows PowerShell 5.1, pass each JSON as `@<file>` (`.exo/shared/sdd-phase-common.md`, section I).
+Inside an SDD change only, as `.exo/shared/judge-common.md`, section F, and `.exo/shared/capability-attribution.md` say. Outside a change, record nothing. In Windows PowerShell 5.1, pass each JSON as `'@<file>'` (`.exo/shared/sdd-phase-common.md`, section I).
 
 ```bash
 exo change record <change> --followup '{"id": "JSEC-1", "judge": "judge-security", "rule": "CWE-208", "severity": "high", "summary": "The reset token is compared with ==, which leaks timing; use a constant-time comparison", "location": "src/auth/reset.py:42"}'
