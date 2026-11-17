@@ -254,7 +254,7 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 ### D-43 — Gates de accesibilidad y de SPDD
 - **Contexto:** el plan pide un gate de accesibilidad en verify (§6.7) y un gate humano del Canvas SPDD (§6.8). Ninguno de los dos aplica a todo change de un tier: dependen de que haya UI o canvas.
 - **Estado:** Decidida (ADR-0016), 2026-11-17: son **gates condicionales**, fuera de `governance.gates`.
-  - `accessibility_review` lo escribe `accessibility-audit` en verify cuando el change toca UI. Un hallazgo Blocker o High bloquea `ready`, salvo que se descarte con su motivo.
+  - `accessibility_review` lo escribe `accessibility-audit` en verify cuando el change toca UI. Un hallazgo Critical (impide completar la tarea) o High bloquea `ready`, salvo que se descarte con su motivo.
   - `prompt_spec_review` lo escribe `prompt-spec-review` cuando el change tiene `canvas.md`, y `exo check` lo exige en ese caso.
   - `exo check` revisa todo gate presente, aunque el tier no lo pida.
 

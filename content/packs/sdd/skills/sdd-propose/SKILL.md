@@ -71,7 +71,7 @@ Ask the person, in one message, what you cannot settle from the artifacts or the
 
 ### 4. Judges (Tier 3 and 4)
 
-Each judge is a **separate read-only delegation to `sdd-judge`**, never inside your own context (`.exo/shared/phase-skill-map.md`). Each prompt gives the change name and root, the paths of `proposal.md` and `exploration.md`, and a `## Skills to load before work` block with the judge's `SKILL.md` path.
+Each judge is a **separate read-only delegation to `sdd-judge`**, never inside your own context (`.exo/shared/phase-skill-map.md`). Each prompt gives the change name and root, the paths of `proposal.md` and `exploration.md`, the person's request and `.exo/context.md` (the stage before a proposal, `.exo/shared/judge-common.md`, section C), the first free ID of the judge's prefix (`JPRD`, `JBIZ`) from `exo change followups <change> --status all`, and a `## Skills to load before work` block with the judge's `SKILL.md` path and, when installed, the skills it reuses (`product-discovery` for `judge-product`).
 
 The judges ship in the quality pack. While it is not installed, say `quality/judge-product not installed — applying inline criteria` (and the same for `judge-business`), and put the criteria in the prompt instead of a path:
 
@@ -80,7 +80,7 @@ The judges ship in the quality pack. While it is not installed, say `quality/jud
 
 Without subagents, run each judge inline after the proposal is done, as its own pass with its criteria, and say "no isolation" (`.exo/shared/agent-capabilities.md`).
 
-Judges are advisory. Show each finding; the person decides to fix it (you edit `proposal.md` and run speclint again) or to dismiss it (recorded with its reason).
+Judges are advisory. Record each finding with `exo change record <change> --followup '<json>'` (`.exo/shared/judge-common.md`, section F) and show it; the person decides to fix it (you edit `proposal.md`, run speclint again and mark it with `--fixed <id>`) or to dismiss it (`dismissed_followups`, with its `id` and the reason).
 
 ### 5. Approval gate
 

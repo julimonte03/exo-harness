@@ -34,12 +34,12 @@ The mandatory artifacts of each tier are in `.exo/shared/sdd-phase-common.md`, s
 | explore | `context-retrieval` | new or fuzzy product problem → `product-discovery` | — |
 | propose | `context-retrieval` | new feature, MVP or unclear value → `product-discovery` | `judge-product`, `judge-business` |
 | spec | — | Tier 2 → `test-strategy` · UI → `accessibility-audit` · new user flow → `product-discovery` · personal data, credentials or data leaving the system → `data-classification` | `judge-product` |
-| design | stack router; from Tier 3, `threat-modeling` (gate `threat_model`) | hard to reverse → `architecture-decision-record` · personal data or credentials → `data-classification` · large architecture → `software-solution` · several sessions or developers → `context-anchoring` | `judge-security`, `judge-code-reviewer`, `judge-frontend` (UI) |
-| tasks | `test-strategy` | two or more independent units → `parallel-dispatch` | `judge-team` (Tier 4) |
-| apply | `code-generation`, `secure-coding-baseline` (in Tier 4 also gate `secure_coding_check`), `work-unit-commits`, stack router | before each commit → `pre-commit-review` · logs, tickets or production data going to the model → `prompt-hygiene` · UI → `frontend-design` | — |
-| verify | `harness-review` (gate `code_review` from Tier 2); from Tier 3, `security-code-review` (gate `security_review`) | UI in the diff → `accessibility-audit` · dependency or lockfile change → `security-scan-node` or `security-scan-jkp` · the diff adds or changes a skill → `skill-reviewer` | `judge-code-reviewer`, `judge-security`, `judge-frontend` (UI) |
+| design | stack router; from Tier 3, `threat-modeling` (gate `threat_model`) | hard to reverse → `architecture-decision-record` · personal data or credentials → `data-classification` · large architecture → `software-solution` · several sessions or developers → `context-anchoring` · SPDD applies → `reasons-canvas-author`, then `prompt-spec-review` (gate `prompt_spec_review`) | `judge-security`, `judge-code-reviewer`, `judge-frontend` (UI) |
+| tasks | `test-strategy` | two or more independent units → `parallel-dispatch` · more than about 400 changed lines → `chained-pr` | `judge-team` (Tier 4) |
+| apply | `code-generation`, `secure-coding-baseline` (in Tier 4 also gate `secure_coding_check`), `work-unit-commits`, stack router | before each commit → `pre-commit-review` · logs, tickets or production data going to the model → `prompt-hygiene` · UI → `frontend-design` · `canvas.md` exists → `prompt-code-sync` · two or more units → `parallel-dispatch` | — |
+| verify | `harness-review` (gate `code_review` from Tier 2); from Tier 3, `security-code-review` (gate `security_review`) | UI in the diff → `accessibility-audit` (gate `accessibility_review`) · `canvas.md` exists → `prompt-spec-review` (gate `prompt_spec_review`) · dependency or lockfile change → `security-scan-node` or `security-scan-jkp` · the diff adds or changes a skill → `skill-reviewer` | `judge-code-reviewer`, `judge-security`, `judge-frontend` (UI) |
 | judgment | `judgment-day` (Tier 4) | — | — |
-| archive | `branch-pr` | decisions worth keeping → `architecture-decision-record` | — |
+| archive | `branch-pr` | decisions worth keeping → `architecture-decision-record` · the PR is over about 400 changed lines → `chained-pr` | — |
 
 Every phase also follows `memory-protocol` and records its work with `ai-usage-record`.
 
@@ -57,6 +57,13 @@ Threats found in design go to `design.md`, section Risks & Mitigations. Advisory
 | `security_review` | Tier 3 | verify | `security-code-review` |
 | `secure_coding_check` | Tier 4 | apply, after the last task | `secure-coding-baseline` |
 
+**Conditional gates** do not depend on the tier: the skill writes them when its trigger holds, at any tier. `exo check` reviews every gate in `gates/`, required or not, and requires `prompt_spec_review` whenever `canvas.md` exists. A project can still list either of them in `governance.gates` to require it in a tier.
+
+| Gate | Trigger | Phase | Skill |
+|---|---|---|---|
+| `accessibility_review` | The diff touches UI (html, tsx, jsx, vue, svelte, css, scss) | verify | `accessibility-audit` |
+| `prompt_spec_review` | The change has `canvas.md` (SPDD) | design (approval), verify (conformance) | `prompt-spec-review` |
+
 A gate that is not APPROVED, or whose Approval says yes, needs the `tech_lead` role; in an unattended run, the cycle does not stop, but the gate stays as it is and the closing summary says so.
 
 ## Inline criteria for skills not installed
@@ -66,14 +73,12 @@ These skills ship in packs a project may not have: optional packs, or packs not 
 | Skill | Pack | Inline criteria when missing |
 |---|---|---|
 | `product-discovery` | product | Write who the user is, the problem, the value and how success is measured: in proposal.md, section Intent, when the phase owns proposal.md (new, propose); otherwise as open questions for the person. Ask the person when any of them is unclear. |
-| `accessibility-audit` | frontend | Check keyboard access, visible focus, labels and accessible names, contrast and text alternatives in the UI that changed (WCAG 2.2 AA). List each failure with its criterion. |
+| `accessibility-audit` | frontend | Check keyboard access, visible focus, labels and accessible names, contrast and text alternatives in the UI that changed (WCAG 2.2 AA). List each failure with its criterion, as an issue of the phase: without the skill, the conditional gate `accessibility_review` is not written. |
 | `architecture-decision-record` | design | When a decision is hard to reverse, propose a short record (status, context, decision, alternatives, consequences) as `NNNN-<slug>.md` in the ADR folder the project already uses (such as `docs/adr/`, `doc/adr/` or `docs/decisions/`; `docs/adr/` when it has none), and write it there once the person approves its text. Cite it from design.md in the design phase, or from the AI Usage Record decisions later. |
 | `software-solution` | core | Describe the components, their responsibilities and the integration points in design.md, Architecture Overview, before the details. |
-| `context-anchoring` | sdd | Keep the decisions so far in the change's state memory (`.exo/shared/memory-convention.md`) so another session or person can continue. |
-| `parallel-dispatch` | core | Group the tasks into units that do not touch the same files. Run them one after the other, unless the agent can delegate each unit to its own subagent. |
 | `frontend-design` | frontend | Reuse the project's existing UI components and design tokens. Do not add new visual styles without the person's approval. |
 | `security-scan-node` | frontend | Run the dependency audit of the Node project (for example `npm audit --omit=dev`) and report the high and critical findings. |
-| `security-scan-jkp` | java | Run the dependency check of the Java project (for example the OWASP dependency-check plugin) and report the high and critical findings. |
+| `security-scan-jkp` | java | Run the dependency check of the project and report the high and critical findings: for Java or Kotlin, the OWASP dependency-check plugin of the build; for Python, `pip-audit` or OSV-Scanner on the lockfile or requirements. |
 | `threat-modeling` | security | List the assets, entry points and trust boundaries the change touches; for each, the threats that apply (STRIDE) and their mitigation. Write them in design.md, Risks & Mitigations, and the `threat_model` gate when the tier has it. |
 | `secure-coding-baseline` | security | Validate and encode untrusted input at the boundary, use parameterized queries, keep secrets out of code and logs, check authorization on every entry point and fail closed. In Tier 4, check the diff against these rules and write the `secure_coding_check` gate. |
 | `security-code-review` | security | Review the diff for injection, broken authentication or authorization, exposed secrets, unsafe deserialization, SSRF, path traversal, XSS and risky dependencies. Report each finding with severity, path:line and its OWASP or CWE item, and write the `security_review` gate when the tier has it. |
@@ -83,8 +88,8 @@ These skills ship in packs a project may not have: optional packs, or packs not 
 | `pre-commit-review` | quality | Before each commit, re-read the staged diff: only this change, no debug leftovers, no secrets or personal data, one reviewable unit, and a Conventional Commits message with its `Refs:` footer when there is a ticket. |
 | `judge-security` | quality | In a separate read-only pass, review the diff for injection, broken authentication or authorization, exposed secrets, unsafe deserialization and risky dependencies. Report each finding with severity and path:line, as `.exo/shared/judge-common.md` says. |
 | `judge-code-reviewer` | quality | In a separate read-only pass, review correctness, readability, error handling and whether the tests prove the scenarios. Report each finding with severity and path:line, as `.exo/shared/judge-common.md` says. |
-| `judge-product` | quality | In a separate read-only pass, check that the change solves the problem in the proposal for its user, and nothing else. Report gaps as findings. |
+| `judge-product` | quality | In a separate read-only pass: in propose, check the user, the problem with its evidence, the value and a success measure, and a scope that solves that problem and nothing more; in spec, that every Scope bullet has a requirement and every promised user flow has scenarios for its main path, alternatives and states. Report gaps as findings. |
 | `judge-business` | quality | In a separate read-only pass, check the value, cost and risk stated in the proposal. Report what is missing or contradictory. |
 | `judge-frontend` | quality | In a separate read-only pass, review the UI changes for consistency with the existing components, states (loading, empty, error) and accessibility. |
-| `judge-team` | quality | In a separate read-only pass, check that tasks.md can be split among people without overlapping files, and that each unit has its own tests. |
+| `judge-team` | quality | In a separate read-only pass, check that tasks.md can be split among people without overlapping files, that each unit has its own tests, that no task uses what a later one builds, and that no unit depends on knowledge only one person has. |
 | `judgment-day` | quality | Tier 4 only, after verify: a final read-only review of the whole change in fresh context, against the spec and the risks in design.md. The person approves explicitly, or the change goes back. Record the outcome in the AI Usage Record (`judges_invoked`, with `result` exactly `approved` once the person approves). |

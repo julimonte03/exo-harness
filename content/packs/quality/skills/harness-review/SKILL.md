@@ -86,7 +86,7 @@ Without a user-facing change, write `N/A: no user-facing change`.
 
 ## 4. Accessibility (WCAG 2.2 AA)
 
-Only when the diff touches UI. Check the changed UI against WCAG 2.2 level AA, starting with the success criteria in `references/dimensions.md`: keyboard access, visible and unobscured focus, names and labels, contrast, text alternatives, target size, error identification and status messages. Each failure cites its criterion (`WCAG 2.2 SC 2.4.7`). A full audit is `accessibility-audit` (pack `frontend`), which the phase map adds when the diff touches UI. Without UI, write `N/A: no UI in the diff`.
+Only when the diff touches UI. Check the changed UI against WCAG 2.2 level AA, starting with the success criteria in `references/dimensions.md`: keyboard access, visible and unobscured focus, names and labels, contrast, text alternatives, target size, error identification and status messages. Each failure cites its criterion (`WCAG 2.2 SC 2.4.7`). A full audit is `accessibility-audit` (pack `frontend`), which the phase map adds when the diff touches UI. When it runs in the same verify, refer to its `accessibility_review` gate instead of repeating its findings. Without UI, write `N/A: no UI in the diff`.
 
 ## Severity and verdict
 

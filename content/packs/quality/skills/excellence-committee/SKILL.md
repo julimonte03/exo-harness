@@ -16,7 +16,7 @@ description: >-
 metadata:
   exo-pack: quality
   exo-execution: inline
-  exo-permissions: read-only
+  exo-permissions: read-only+record
 ---
 
 # excellence-committee

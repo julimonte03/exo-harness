@@ -28,6 +28,7 @@ metadata:
 ## What it writes and what it never touches
 
 - **Writes** only `<change-root>/design.md` and, when the tier's gates include `threat_model` (Tier 3 and 4 by default), `<change-root>/gates/threat_model.md` through `threat-modeling`; plus the memory mirror in `hybrid` and `memory` persistence (section C).
+- **With the SPDD overlay** (see SPDD canvas), also `<change-root>/canvas.md` through `reasons-canvas-author` and `<change-root>/gates/prompt_spec_review.md` through `prompt-spec-review`. With `context-anchoring`, `<change-root>/context-anchor.md`.
 - **Never touches** proposal.md, spec.md, exploration.md, the living specs or the code. If an earlier artifact is wrong (a scenario too vague to test, a requirement that contradicts the code), stop and return `status: needs-input` saying what is wrong: the fix belongs to the phase that owns that file.
 - **One exception:** the decision record that `architecture-decision-record` asks for (see Conditionals) lives in the project's docs. Write it only after the person approves its text.
 
@@ -76,6 +77,17 @@ One line per scenario: the scenario, the test file and test name in the project'
 
 `threat-modeling` is Required in every design whose tier lists the gate `threat_model` in `governance.gates` (Tier 3 and 4 by default; `.exo/shared/phase-skill-map.md`, Gates). Its threats, each with its mitigation and residual risk, go to Risks & Mitigations, and its gate to `<change-root>/gates/threat_model.md`, started from `.exo/shared/templates/gate.md`. When the skill is not installed, say the degradation sentence and still write both from its inline criteria: `exo check` requires the gate.
 
+## SPDD canvas (optional overlay)
+
+When `.exo/shared/spdd-common.md`, section A, says the overlay applies (Tier 3 or 4 with domain logic worth fixing before the code, or the person asks for it), record the choice and, once design.md passes speclint:
+
+1. Run skill:reasons-canvas-author: it writes `<change-root>/canvas.md` from the spec, design.md and the threat model.
+2. `exo speclint <change-root>` passes for the canvas too: its seven sections, and IDs that exist.
+3. The design judges (below) review design.md and canvas.md together.
+4. In Check and approve, run skill:prompt-spec-review in approval mode: the person approves the canvas, and the skill writes `gates/prompt_spec_review.md`. `exo check` requires that gate whenever canvas.md exists.
+
+When the overlay does not apply, skip this section and say so in the notes only if the person asked about it.
+
 ## Conditionals
 
 Apply each one whose trigger holds (`.exo/shared/phase-skill-map.md`, row design). When the skill is not installed, say the degradation sentence, apply its inline criteria and record it (`.exo/shared/skill-resolver.md`).
@@ -84,7 +96,7 @@ Apply each one whose trigger holds (`.exo/shared/phase-skill-map.md`, row design
 |---|---|---|
 | A decision that is hard to reverse | `architecture-decision-record` | A short record (context, decision, alternatives, consequences) in the project's docs, linked from Architecture Overview |
 | Large architecture | `software-solution` | Components, responsibilities and integration points in Architecture Overview, before the details |
-| Several sessions or developers | `context-anchoring` | The decisions so far in the change's state memory (`.exo/shared/memory-convention.md`) |
+| Several sessions or developers | skill:context-anchoring | The decisions so far in `<change-root>/context-anchor.md`, a living file that later phases keep updating |
 
 For example: `design/architecture-decision-record not installed — applying inline criteria`.
 
@@ -93,8 +105,8 @@ For example: `design/architecture-decision-record not installed — applying inl
 Once design.md passes speclint, run the design judges, each one as its own read-only delegation to `sdd-judge`, never inside this context:
 
 - `judge-security` and `judge-code-reviewer` always; `judge-frontend` when the change touches UI.
-- The prompt starts with `## Skills to load before work` and the judge's `SKILL.md` path. A judge that is not installed degrades (`quality/judge-security not installed — applying inline criteria`) and the prompt carries its inline criteria from the map.
-- Pass the change name, the change root, design.md, and the stage before it (spec.md and proposal.md), so the judge checks the design against them. Ask for findings with severity and `path:line`, and give each judge the first free ID of its prefix (from `exo change followups <change> --status all`).
+- The prompt starts with `## Skills to load before work`, the judge's `SKILL.md` path and, when installed, the skills it reuses (`accessibility-audit` and `frontend-design` for `judge-frontend`). A judge that is not installed degrades (`quality/judge-security not installed — applying inline criteria`) and the prompt carries its inline criteria from the map.
+- Pass the change name, the change root, design.md (and canvas.md when there is one), and the stage before it (spec.md and proposal.md), so the judge checks the design against them. Ask for findings with severity and `path:line`, and give each judge the first free ID of its prefix (from `exo change followups <change> --status all`).
 - Without subagents, run each judge inline after the design, as a separate pass with that judge's criteria, and say "no isolation".
 
 Record each finding with `exo change record <change> --followup '<json>'` (`.exo/shared/judge-common.md`, section F) and show them to the person. Fix the accepted ones in design.md, run speclint again and mark them with `--fixed <id>`. The findings the person decides not to fix go to `dismissed_followups`, with their `id`.
@@ -104,6 +116,7 @@ Record each finding with `exo change record <change> --followup '<json>'` (`.exo
 1. `exo speclint <change-root>` passes. It lints every artifact in the folder and checks that the Test Plan covers the delta. An error in another phase's file means `needs-input`.
 2. Show a short summary: the approach, the files, the riskiest point, and what the judges found.
 3. Approval follows `.exo/shared/sdd-phase-common.md`, section H. In interactive mode, ask "Adjust anything or continue?" and wait: the answer approves the design. Adjust, lint again, and ask again until the person approves.
+4. With a canvas, the approval of the canvas is the gate of skill:prompt-spec-review, in approval mode. In an unattended run the gate stays `ESCALATED` and the closing summary says so (`.exo/shared/spdd-common.md`, section E).
 
 ## Record
 

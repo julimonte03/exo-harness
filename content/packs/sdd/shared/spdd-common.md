@@ -14,7 +14,7 @@ Do not use it for configuration, copy, styling, dependency bumps, or pure refact
 ## B. The canvas
 
 - **File:** `<change-root>/canvas.md`, started from `.exo/shared/templates/canvas.md`. `exo speclint` requires its seven sections, none empty.
-- **Written after** `design.md`, in the design phase, by `reasons-canvas-author`. The canvas does not replace the design: it is the contract the code is checked against.
+- **Written after** `design.md`, in the design phase, by `reasons-canvas-author`. The canvas does not replace the design: it is the contract the code is checked against. In Tier 1 or 2 (the person asked for SPDD), there is no design phase: write it before apply, from the proposal and the spec.
 
 | Section | What it holds | Checked in verify |
 |---|---|---|
@@ -45,13 +45,15 @@ The skills of the overlay ship in the `sdd` pack with the phase skills, so they 
 - **Logic correction** (the behavior must change: a rule was wrong, a case was missing): change the canvas **first**, show the person the change in the canvas, then change the code. A logic correction after the gate was APPROVED sends the gate back to approval: `prompt-spec-review` runs again in approval mode before the code changes.
 - **Refactoring** (same behavior, different code): change the code **first**, then update Structure, and Operations if the steps moved. No new approval is needed.
 - **Never let them drift.** When the code cannot follow the canvas, stop the task and return `status: needs-input` with the conflict. Do not silently change either side.
+- **A correction that changes what spec.md requires or what design.md decides** goes to that phase first; the canvas follows it.
+- **In `sdd-implementer`** (a subagent), never edit canvas.md: return the exact edit in the envelope, and the orchestrator's session applies it.
 - Record each sync as a decision: `--add decisions '{"summary": "Canvas: logic correction in Operations 3 (rounding)", "by": "agent"}'`.
 
 ## E. The gate
 
 - **Name and file:** `prompt_spec_review`, `<change-root>/gates/prompt_spec_review.md`, from `.exo/shared/templates/gate.md`. It is a conditional gate: `exo check` requires it whenever `canvas.md` exists, at any tier.
 - **Approval mode (design):** `APPROVED` only when the person explicitly approves the canvas; their words go in the gate's Findings or Approval notes. Without that approval (unattended run, or the person asks for changes), `ESCALATED`, with `Requires tech_lead approval: yes`.
-- **Conformance mode (verify):** rewrite the gate with the design approval and the conformance result. `APPROVED` when every Operation, Norm and Safeguard holds and nothing is outside Structure; `ESCALATED` when one does not hold, listing each gap with `path:line` and the canvas section it breaks.
+- **Conformance mode (verify):** rewrite the gate with the design approval and the conformance result. Conformance cannot approve a canvas nobody approved: without an APPROVED design approval, the verdict stays `ESCALATED`. `APPROVED` when every Operation, Norm and Safeguard holds and nothing is outside Structure; `ESCALATED` when one does not hold, listing each gap with `path:line` and the canvas section it breaks.
 - A gate written in a read-only subagent comes back as text, and the orchestrator writes it verbatim.
 
 ## F. Recording

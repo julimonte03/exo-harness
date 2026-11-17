@@ -43,7 +43,7 @@ Cuatro piezas no entran en lo que ya existe:
 ### Gates condicionales (D-43)
 
 - **`exo check` revisa todo gate presente** en `gates/`, aunque el tier no lo exija: sin veredicto legible es un error; `ESCALATED` pide la aprobación del `tech_lead`, como los requeridos.
-- **`accessibility_review`:** lo escribe `accessibility-audit` en verify cuando el change toca UI (html, tsx, jsx, vue, svelte, css, scss). Un hallazgo Blocker o High bloquea `ready`, salvo que se descarte con su motivo.
+- **`accessibility_review`:** lo escribe `accessibility-audit` en verify cuando el change toca UI (html, tsx, jsx, vue, svelte, css, scss). Un hallazgo Critical (impide completar la tarea) o High bloquea `ready`, salvo que se descarte con su motivo. Sin el pack `frontend` no se escribe: el criterio inline va a Issues Found, y `harness-review` ya cubre accesibilidad en `code_review`.
 - **`prompt_spec_review`:** lo escribe `prompt-spec-review`. Con `canvas.md` en el change, `exo check` lo exige.
 - Un proyecto puede sumar cualquiera de los dos a `governance.gates` para exigirlo siempre en un tier.
 
