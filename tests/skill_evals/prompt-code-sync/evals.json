@@ -28,7 +28,12 @@
     {
       "id": "no-trigger",
       "expect": "no-trigger",
-      "prompt": "Make `python -m toy_todo list` print 'no tasks' when the task list is empty, and add a test for it."
+      "prompt": "Make `python -m toy_todo list` print 'no tasks' when the task list is empty, and add a test for it.",
+      "setup": {
+        "files": {
+          "docs/notes.md": "# Notes\n\nNothing planned yet.\n"
+        }
+      }
     },
     {
       "id": "output",
@@ -36,10 +41,11 @@
       "prompt": "Before I implement the overdue listing of add-due-dates: the canvas counts a task due today as overdue, and it should not. Only tasks due before today are overdue. Sort that out and tell me where we stand.",
       "checks": {
         "files_written": [
-          "specs/add-due-dates/canvas.md"
+          "specs/add-due-dates/canvas.md",
+          "specs/add-due-dates/gates/prompt_spec_review.md"
         ],
         "answer_matches": [
-          "(?i)logic correction"
+          "(?i)approv"
         ]
       },
       "review": "Operations 5 of canvas.md now says 'before today', with the same number and nothing renumbered, and the answer shows the change. It is classified as a logic correction that agrees with S-3 (spec.md is not edited). The canvas goes back to approval: prompt_spec_review is rewritten as ESCALATED, or the answer asks for the person's explicit approval. No file under src/ or tests/ changed, and the decision is recorded or proposed."
