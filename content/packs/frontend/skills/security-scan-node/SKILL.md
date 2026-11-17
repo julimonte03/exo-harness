@@ -96,14 +96,14 @@ A version you recognize as vulnerable without a tool result is reported as `Unco
 
 ## 5. Insecure code patterns
 
-In the files the diff changes (or the files the person names), look for the Node and browser patterns of `references/owasp-2025.md`: injection into queries, commands and HTML; prototype pollution through deep merges of request data; unsafe deserialization; SSRF and path traversal; secrets in code or client bundles; weak randomness and hashing; missing authorization; errors that fail open. Pay most attention to code that uses the dependency that changed. This is a pattern scan, not a full review: when the diff needs one, say which skill does it (skill:security-code-review or skill:typescript-reviewer).
+In the files the diff changes (or the files the person names), look for the Node and browser patterns of `references/code-patterns.md`: injection into queries, commands and HTML; prototype pollution through deep merges of request data; unsafe deserialization; SSRF and path traversal; secrets in code or client bundles; weak randomness and hashing; missing authorization; errors that fail open. Pay most attention to code that uses the dependency that changed. This is a pattern scan, not a full review: when the diff needs one, say which skill does it (skill:security-code-review or skill:typescript-reviewer).
 
 ## 6. Cross-check and rate
 
 - **Deduplicate** by advisory ID and its aliases (a GHSA and its CVE are one finding); list every source that reported it.
 - **Severity:** the source's rating from the CVSS base score (Critical 9.0 and up, High 7.0 to 8.9, Medium 4.0 to 6.9, Low below 4.0). When sources disagree, keep the higher and say so. Exposure is a separate column: never lower a severity because a package is dev-only or looks unreachable; the person decides with that information.
-- **Manual and pattern findings** use the severities in `references/toolchain.md` and `references/owasp-2025.md`.
-- **Map** each finding to its OWASP Top 10:2025 category (`references/owasp-2025.md`) and its CWE: a vulnerable component is `A03:2025` (Software Supply Chain Failures) with `CWE-1395`.
+- **Manual and pattern findings** use the severities in `references/toolchain.md` and `references/code-patterns.md`.
+- **Map** each finding to its CWE and, from the CWE, to its OWASP Top 10:2025 category with its year, through `.exo/shared/owasp-2025.md`, the table the Java scan and the stack reviewers use too: a vulnerable component is `A03:2025` (Software Supply Chain Failures) with `CWE-1395`.
 - **Fix as text:** the first fixed version and whether it is a major upgrade; for transitive packages, the direct dependency to upgrade or an `overrides` entry, with its risk.
 
 ## Return
@@ -124,7 +124,7 @@ Tools: npm audit --omit=dev: not run (npm audit needs package-lock.json); osv-sc
 
 | ID | Severity | path:line | Finding | OWASP 2025 |
 |---|---|---|---|---|
-| LOCK-1 | Medium | package.json:1 | No lockfile: every install resolves new versions, and no audit can run | A03:2025, CWE-829 |
+| LOCK-1 | Medium | package.json:1 | No lockfile: every install resolves new versions, and no audit can run | A03:2025, CWE-1357 |
 
 ## Code patterns
 
@@ -170,7 +170,7 @@ Record each audit tool that ran as a `command`. Findings the person decides not 
 - [ ] You identified the package manager, the workspaces, the lockfile and what ships.
 - [ ] Each tool of the chain either ran with its exact command or is listed with why it could not.
 - [ ] The manual review of manifests and lockfile was done, whatever the tools said.
-- [ ] Every finding has a severity, an exposure, an advisory ID or CWE and its OWASP Top 10:2025 category; recalled versions are marked `Unconfirmed:`.
+- [ ] Every finding has a severity, an exposure, an advisory ID or CWE and its OWASP Top 10:2025 category with its year from `.exo/shared/owasp-2025.md`; recalled versions are marked `Unconfirmed:`.
 - [ ] Duplicates across sources are merged; no severity was lowered for exposure.
 - [ ] Nothing was installed, upgraded, fixed or written; no secret was copied.
 - [ ] The report ends with `Scan: complete` or `Scan: partial (<why>)` and the counts.

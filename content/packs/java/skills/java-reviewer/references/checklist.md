@@ -59,20 +59,26 @@ Go category by category over the changed files and the code they call. Report on
 
 ## JR-SEC Security
 
-| Look for | CWE | OWASP Top 10:2025 |
-|---|---|---|
-| A new endpoint without authentication, or without an ownership check on the object it reads or changes | CWE-862, CWE-639 | A01:2025 Broken Access Control |
-| `RestTemplate`, `WebClient` or `URL.openStream` on a URL from the request (SSRF) | CWE-918 | A01:2025 Broken Access Control |
-| `permitAll()` on broad patterns, Actuator endpoints exposed, CSRF disabled with cookie sessions, CORS `*` with credentials | CWE-16, CWE-352 | A02:2025 Security Misconfiguration |
-| `MessageDigest` MD5 or SHA-1 for passwords or signatures, `Cipher` with ECB or DES, `new Random()` for tokens | CWE-327, CWE-330 | A04:2025 Cryptographic Failures |
-| Query, command or expression built from input: JPQL, SQL, `Runtime.exec`, `ProcessBuilder` with a shell, SpEL from input, LDAP filters | CWE-89, CWE-78, CWE-917 | A05:2025 Injection |
-| Credentials compared with `equals` (timing), no lockout on sign-in | CWE-208, CWE-307 | A07:2025 Authentication Failures |
-| `ObjectInputStream.readObject`, Jackson default typing, `XMLDecoder` on untrusted input | CWE-502 | A08:2025 Software or Data Integrity Failures |
-| Tokens, passwords or personal data in logs; security events not logged | CWE-532, CWE-778 | A09:2025 Security Logging and Alerting Failures |
-| `catch (Exception e)` that returns a default or grants access; stack traces in responses | CWE-755, CWE-209 | A10:2025 Mishandling of Exceptional Conditions |
-| `DocumentBuilderFactory`, `SAXParserFactory` or `XMLInputFactory` without disabling external entities | CWE-611 | A02:2025 Security Misconfiguration |
-| `Paths.get(base, input)` or `new File(input)` without normalizing and checking the base | CWE-22 | A01:2025 Broken Access Control |
-| Secrets in code, `application*.yml` or tests | CWE-798 | A07:2025 Authentication Failures |
+Each row names its CWE; the OWASP Top 10:2025 category comes from that CWE in `.exo/shared/owasp-2025.md`, written with its year (`CWE-89, A05:2025 Injection`). A row with several CWEs: cite the one that describes the finding.
+
+| Look for | CWE |
+|---|---|
+| A new endpoint without authentication, or without an ownership check on the object it reads or changes | CWE-862, CWE-639 |
+| `RestTemplate`, `WebClient` or `URL.openStream` on a URL from the request (SSRF) | CWE-918 |
+| `permitAll()` on broad patterns | CWE-862 |
+| CSRF disabled while cookies authenticate requests | CWE-352 |
+| CORS `*` or reflected origins with credentials | CWE-942 |
+| Actuator endpoints exposed beyond `health` (`env`, `heapdump`, `configprops`) | CWE-16 |
+| `MessageDigest` MD5 or SHA-1 for passwords or signatures, `Cipher` with ECB or DES, `new Random()` for tokens | CWE-327, CWE-330 |
+| Query, command or expression built from input: JPQL, SQL, `Runtime.exec`, `ProcessBuilder` with a shell, SpEL from input, LDAP filters | CWE-89, CWE-78, CWE-917 |
+| Credentials compared with `equals` (timing), no lockout on sign-in | CWE-208, CWE-307 |
+| TLS validation turned off (`TrustManager` that accepts all, a `HostnameVerifier` that returns `true`) | CWE-295 |
+| `ObjectInputStream.readObject`, Jackson default typing, `XMLDecoder` on untrusted input | CWE-502 |
+| Tokens, passwords or personal data in logs; security events not logged | CWE-532, CWE-778 |
+| `catch (Exception e)` that returns a default or grants access; stack traces in responses | CWE-755, CWE-209 |
+| `DocumentBuilderFactory`, `SAXParserFactory` or `XMLInputFactory` without disabling external entities | CWE-611 |
+| `Paths.get(base, input)` or `new File(input)` without normalizing and checking the base | CWE-22 |
+| Secrets in code, `application*.yml` or tests | CWE-798 |
 
 ## JR-CONC Concurrency
 

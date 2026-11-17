@@ -112,7 +112,7 @@ exo change record <change> --add skills_used '"backend-engineering"'
 exo change record <change> --add capabilities_used '{"name": "jpa-patterns", "type": "skill", "activation": "auto", "resolution": "fallback-registry"}'
 ```
 
-In Windows PowerShell 5.1, pass the JSON as `@<file>` (`.exo/shared/sdd-phase-common.md`, section I). Outside a change, record nothing.
+In Windows PowerShell 5.1, pass the JSON as `'@<file>'`, with the quotes (`.exo/shared/sdd-phase-common.md`, section I). Outside a change, record nothing.
 
 ## Before you finish
 

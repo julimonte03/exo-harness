@@ -1,6 +1,6 @@
 # TypeScript and JavaScript review checklist
 
-The rule IDs that `typescript-reviewer` cites. Each item says what to look for, the usual signal in a diff, and what is not a finding. Security items carry their CWE; cite it next to the ID.
+The rule IDs that `typescript-reviewer` cites. Each item says what to look for, the usual signal in a diff, and what is not a finding. Security items carry their CWE; cite it next to the ID, with the OWASP Top 10:2025 category of that CWE from `.exo/shared/owasp-2025.md`, written with its year: `TS-SEC-1 (CWE-79, A05:2025 Injection)`. An item with several CWEs: cite the one that describes the finding.
 
 ## TS-TYPE Types
 

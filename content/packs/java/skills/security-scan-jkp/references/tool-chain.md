@@ -20,15 +20,19 @@ Run only what the project already has. Each tool below downloads advisory data; 
 ### pip-audit (Python)
 
 - **Present when** `pip-audit` is on the path or in the project's dev dependencies.
-- **Run:** `pip-audit -r requirements.txt --format json` for each requirements file, or `pip-audit` inside the project's activated environment.
-- **Lockfiles of Poetry or uv:** export them to a requirements file outside the repository with the project's own tool, then `pip-audit -r <that file>`; or go straight to OSV-Scanner, which reads them.
+- **What `-r` does:** `pip-audit -r <file>` is close to `pip install -r <file>` in a temporary virtual environment. It downloads every package, resolves the transitive ones, and may build a source distribution, which runs that package's build code on this machine. Never run it that way here.
+- **Run, safely:**
+  - `pip-audit --format json` with no input, inside the project's environment that is already installed (the activated virtual environment, `uv run pip-audit`, `poetry run pip-audit`): it audits what is installed and installs nothing.
+  - `pip-audit -r <file> --no-deps --disable-pip --format json`, only when every line of the file is pinned with `==` (and better, with `--hash`, which also makes pip-audit check each hash): it reads the pins without resolving or installing.
+  - Loose requirements (`>=`, no pin) and no environment: do not audit them with pip-audit. Run OSV-Scanner, or report the step as not run with the command for the person, and report the loose pins as `LOCK-n`.
+- **Lockfiles of Poetry, uv or PDM:** go straight to OSV-Scanner, which reads them. Exporting them to a requirements file only helps when the export is pinned and hashed, and it goes to a folder outside the repository.
 - **Exit code 1** means vulnerabilities were found.
 
 ## Step 2: OSV-Scanner
 
 - **Present when** `osv-scanner` is on the path.
 - **Run (v2):** `osv-scanner scan source -r .`, or `osv-scanner scan source -L <lockfile>` for one file; `--format json` for parsing. Version 1 uses `osv-scanner -r .`.
-- **Reads:** `pom.xml` (resolving transitive dependencies from the Maven repository), `gradle.lockfile`, `buildscript-gradle.lockfile`, `requirements.txt`, `poetry.lock`, `uv.lock`, `Pipfile.lock`, among others. A Gradle build without lockfiles has nothing for it to read: say so.
+- **Reads:** `pom.xml` (resolving transitive dependencies from the Maven repository), `gradle.lockfile`, `buildscript-gradle.lockfile`, `requirements.txt`, `poetry.lock`, `uv.lock`, `pdm.lock`, `Pipfile.lock`, among others, without installing anything. A Gradle build without lockfiles has nothing for it to read: say so.
 - **Sends** package names and versions to the OSV service, never source code.
 - **Exit code 1** means vulnerabilities were found.
 
