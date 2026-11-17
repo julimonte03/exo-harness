@@ -1,0 +1,43 @@
+{
+  "skill": "review-4r",
+  "fixture": "toy-python",
+  "packs": [
+    "core",
+    "sdd",
+    "quality"
+  ],
+  "setup": {
+    "files": {
+      "src/toy_todo/cli.py": "\"\"\"Command line: `python -m toy_todo add|list|done|sync`.\"\"\"\n\nfrom __future__ import annotations\n\nimport argparse\nimport os\nfrom pathlib import Path\n\nfrom toy_todo.store import TaskStore\nfrom toy_todo.sync import push\n\nDEFAULT_FILE = \"tasks.json\"\n\n\ndef main(argv: list[str] | None = None) -> int:\n    parser = argparse.ArgumentParser(prog=\"toy_todo\", description=\"A tiny to-do list.\")\n    parser.add_argument(\n        \"--file\", type=Path, default=Path(os.environ.get(\"TOY_TODO_FILE\", DEFAULT_FILE))\n    )\n    sub = parser.add_subparsers(dest=\"command\", required=True)\n    add = sub.add_parser(\"add\", help=\"add a task\")\n    add.add_argument(\"title\")\n    listing = sub.add_parser(\"list\", help=\"list the tasks\")\n    listing.add_argument(\"--pending\", action=\"store_true\", help=\"only the pending ones\")\n    done = sub.add_parser(\"done\", help=\"mark a task as done\")\n    done.add_argument(\"id\", type=int)\n    sub.add_parser(\"sync\", help=\"push the tasks to the team server\")\n    args = parser.parse_args(argv)\n\n    store = TaskStore(args.file)\n    if args.command == \"add\":\n        task = store.add(args.title)\n        print(f\"added {task.id}: {task.title}\")\n    elif args.command == \"list\":\n        for task in store.list(include_done=not args.pending):\n            mark = \"x\" if task.done else \" \"\n            print(f\"[{mark}] {task.id}: {task.title}\")\n    elif args.command == \"sync\":\n        status = push(store)\n        print(f\"synced ({status})\")\n    else:\n        try:\n            task = store.complete(args.id)\n        except KeyError as exc:\n            print(f\"error: {exc.args[0]}\")\n            return 1\n        print(f\"done {task.id}: {task.title}\")\n    return 0\n",
+      "src/toy_todo/sync.py": "\"\"\"Push the task list to the team server.\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nimport os\nimport urllib.request\n\nfrom toy_todo.store import TaskStore\n\nSERVER = os.environ.get(\"TOY_TODO_SERVER\", \"http://localhost:8080\")\n\n\ndef push(store: TaskStore) -> int:\n    token = os.environ.get(\"TOY_TODO_TOKEN\", \"\")\n    print(f\"pushing with token {token}\")\n    data = json.dumps([t.__dict__ for t in store.list()]).encode(\"utf-8\")\n    request = urllib.request.Request(\n        SERVER + \"/tasks\", data=data, headers={\"Authorization\": token}\n    )\n    for _ in range(100):\n        try:\n            response = urllib.request.urlopen(request)\n            return response.status\n        except Exception:\n            pass\n    return 0\n"
+    }
+  },
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "Review my uncommitted changes through separate risk, readability, reliability and resilience lenses, have another pass try to refute what they find, and summarize what survives by severity."
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "Look over my uncommitted changes and tell me whether they are ready to commit."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "Give my uncommitted sync feature a five-lens production-readiness review in which a refuter challenges the findings, and give me the synthesis by severity with a verdict.",
+      "checks": {
+        "answer_contains": [
+          "sync.py"
+        ],
+        "answer_matches": [
+          "Resilien",
+          "Refut",
+          "\\b(APPROVED|ESCALATED)\\b"
+        ]
+      },
+      "review": "R1 to R4 ran as independent read-only delegations (sdd-judge or sdd-explorer), or as inline passes marked no isolation, and R5 saw only their findings. The synthesis is ordered by severity, each finding with its lens ID, src/toy_todo/sync.py:line and R5's outcome: the token printed to the console (High, never downgraded), no timeout and 100 retries with no backoff, every error swallowed into a silent 0 that the command reports as synced, plain HTTP for the token, and no tests. Refuted findings are listed with their evidence, the verdict is ESCALATED, and nothing is edited or recorded."
+    }
+  ]
+}
