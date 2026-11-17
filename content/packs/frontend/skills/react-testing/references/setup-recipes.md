@@ -69,7 +69,7 @@ import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 
 export const handlers = [
-  http.get('/api/products', () =>
+  http.get('*/api/products', () =>
     HttpResponse.json([{ id: 'p-1', name: 'Mug', priceCents: 1200, available: 3 }]),
   ),
 ];
@@ -80,11 +80,11 @@ export const server = setupServer(...handlers);
 Override one response in a test:
 
 ```ts
-server.use(http.get('/api/products', () => HttpResponse.json({ error: 'down' }, { status: 503 })));
+server.use(http.get('*/api/products', () => HttpResponse.json({ error: 'down' }, { status: 503 })));
 expect(await screen.findByRole('alert')).toHaveTextContent('Could not load products');
 ```
 
-With a relative base URL, jsdom resolves requests against `http://localhost/`; match the path the client really requests.
+Node's `fetch` does not resolve relative URLs against the simulated page, so a client whose base is relative (`/api`) fails in tests. Give it an absolute base in the test environment (the variable the client already reads, for example a `VITE_*` value in the runner's `env`), or mock the client module instead. The `*/` prefix in the handlers above matches the path on any origin.
 
 ## Without MSW: mock the API client
 
