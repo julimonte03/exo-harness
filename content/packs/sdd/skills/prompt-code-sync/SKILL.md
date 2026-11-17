@@ -74,7 +74,7 @@ A canvas edit always names the section, the item, the old text, the new text and
 2. **Check it stays inside the spec.** If the new behavior contradicts a requirement or a scenario, it is a spec change: stop.
 3. **Apply it.** Inline: edit canvas.md, keeping the numbering (append, or mark `(removed)`), and run `exo speclint <change-root>`. In `sdd-implementer`: do not edit; return `status: needs-input` with the edit, and the orchestrator's session applies it, shows it and asks for the approval (skill:sdd-orchestrator, SPDD overlay).
 4. **Show the person the change** in the canvas: the section before and after.
-5. **Back to approval.** The changed canvas goes back to the person: skill:prompt-spec-review runs again in approval mode, even when the gate was already `APPROVED`. No code changes until the person approves the changed canvas. Without that approval (unattended, or no answer), the gate is `ESCALATED` and the task stops with `needs-input`.
+5. **Back to approval.** The changed canvas goes back to the person: skill:prompt-spec-review runs again in approval mode, even when the gate was already `APPROVED`. It rewrites the gate **at once**, before asking: `ESCALATED`, with `Requires tech_lead approval: yes` and the canvas change listed as pending re-approval, so an approval of the old canvas never stays in place. Only the person's explicit approval of the changed canvas turns it back to `APPROVED`. No code changes until then; without that approval (unattended, or no answer), the gate stays `ESCALATED` and the task stops with `needs-input`.
 6. **Then the code,** test first, as skill:sdd-apply says.
 7. **Record the decision** (see Record).
 

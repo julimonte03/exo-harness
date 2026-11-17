@@ -45,7 +45,7 @@ The skills of the overlay ship in the `sdd` pack with the phase skills, so they 
 
 ## D. Keeping canvas and code in sync
 
-- **Logic correction** (the behavior must change: a rule was wrong, a case was missing): change the canvas **first**, show the person the change in the canvas, then change the code. A logic correction after the gate was APPROVED sends the gate back to approval: `prompt-spec-review` runs again in approval mode before the code changes.
+- **Logic correction** (the behavior must change: a rule was wrong, a case was missing): change the canvas **first**, show the person the change in the canvas, then change the code. A logic correction after the gate was APPROVED sends the gate back to approval: `prompt-spec-review` rewrites it at once as `ESCALATED` (pending re-approval, with the change listed), so an approval of the old canvas never stays in place, and turns it back to `APPROVED` only with the person's explicit approval, before the code changes.
 - **Refactoring** (same behavior, different code): change the code **first**, then update Structure, and Operations if the steps moved. No new approval is needed.
 - **Never let them drift.** When the code cannot follow the canvas, stop the task and return `status: needs-input` with the conflict. Do not silently change either side.
 - **A correction that changes what spec.md requires or what design.md decides** goes to that phase first; the canvas follows it.
