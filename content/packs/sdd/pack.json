@@ -1,7 +1,7 @@
 {
   "name": "sdd",
   "version": "0.1.0",
-  "description": "Spec-driven development: a phased cycle proportional to the risk of the change.",
+  "description": "Spec-driven development: a phased cycle proportional to the risk of the change, with the optional SPDD overlay (REASONS canvas, its human gate and code sync).",
   "requires": ["core"],
-  "optional": ["quality", "security", "frontend", "java", "product", "design"]
+  "optional": ["quality", "security", "frontend", "java", "python", "product", "design", "ops", "agentic"]
 }

@@ -11,7 +11,7 @@ Rules every judge follows: the judges of pack `quality` (`judge-code-reviewer`, 
 
 - **Blind to the generator:** judge the artifacts and the code, not the author's explanation. Ignore any reasoning, summary or self-assessment of whoever produced the work.
 - **Fresh context:** run in a subagent when the agent has one (`sdd-judge`); otherwise say "no isolation" and do the review as a separate pass after the work is done (`.exo/shared/agent-capabilities.md`).
-- **One judge, one set of criteria:** review only by your judge's criteria. Other judges cover the rest. Reuse the criteria of the skills your judge names (`security-code-review`, `threat-modeling`, `harness-review`); do not invent new ones.
+- **One judge, one set of criteria:** review only by your judge's criteria. Other judges cover the rest. Reuse the criteria of the skills your judge names (`security-code-review`, `threat-modeling`, `harness-review`, `product-discovery`, `accessibility-audit`, `frontend-design`); do not invent new ones.
 
 ## C. No cascade
 
@@ -49,7 +49,7 @@ Each finding has:
 | `JTEAM` | `judge-team` |
 | `J4R` | `review-4r`, when its findings are recorded in a change |
 
-`excellence-committee` keeps the code of the judge that raised each finding; its moderator adds no codes of its own.
+`excellence-committee` keeps the code of the judge that raised each finding; its moderator adds no codes of its own. `review-4r` numbers its lens findings `R<n>-<k>` while it works and records the ones that survive as `J4R-n`.
 
 Never copy secrets or personal data into a finding: point at the location. Secrets or personal data written to logs, responses or error messages are at least High, for every judge.
 

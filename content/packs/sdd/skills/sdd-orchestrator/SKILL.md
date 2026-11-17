@@ -57,7 +57,7 @@ For each phase of the tier, in order (`.exo/shared/phase-skill-map.md`, Phases p
 2. **Skills.** Required, plus the Conditionals whose trigger applies, at most 5. Resolve each one (`.exo/shared/skill-resolver.md`); a missing one degrades with its sentence and inline criteria.
 3. **Run it where the contract says** (`.exo/shared/sdd-phase-common.md`, section G):
    - inline phases (skill:sdd-propose, skill:sdd-spec, skill:sdd-design, skill:sdd-tasks, skill:sdd-archive) run here, in this session;
-   - skill:sdd-explore in `sdd-explorer`, skill:sdd-apply in `sdd-implementer`, skill:sdd-verify in `sdd-verifier` (fresh context in Tier 3 and 4), judges in `sdd-judge`.
+   - skill:sdd-explore in `sdd-explorer`, skill:sdd-apply in `sdd-implementer` (with two or more units in tasks.md, skill:parallel-dispatch first asks the person how to run them and coordinates the implementers), skill:sdd-verify in `sdd-verifier` (fresh context in Tier 3 and 4), judges in `sdd-judge`.
    Build the delegation with the template in `references/delegation-prompt.md`.
 4. **Read the envelope.**
    - `ok`: persist what a subagent returned as text (`exploration.md`, `verify-record.md`, and each gate as `gates/<gate>.md`) in the change root, exactly as returned.
@@ -75,7 +75,7 @@ For each phase of the tier, in order (`.exo/shared/phase-skill-map.md`, Phases p
   - **Downgrade:** never automatic. Tell the person the current tier, the proposed one and why, and ask for an explicit confirmation in their own words. Only then run `exo fitness classify --evidence-json '<json>' --change <change> --confirm-downgrade "<their exact words>"`. Without it, the tier stays.
 - **Every tier change** goes to the record as a decision: `exo change record <change> --add decisions '{"summary": "Tier 2 -> 3: ...", "by": "agent"}'` (`"by": "human"` for a confirmed downgrade).
 - Tier ≥ 2 needs `test-spec.md`. Tier 4 needs a `judgment-day` (skill `judgment-day` of the quality pack; when it is missing, apply its inline criteria with `sdd-judge`) and the person's explicit approval before archive.
-- **Gates.** The gates of the tier are `governance.gates` in `.exo/config.json` (by default none in Tier 1; `contract_check` and `code_review` in Tier 2; plus `security_review` and `threat_model` in Tier 3; plus `secure_coding_check` in Tier 4). A gate always runs its skill (`.exo/shared/phase-skill-map.md`, Gates), even when the skill degrades, and leaves `<change-root>/gates/<gate>.md`; `exo check` fails when one is missing. A gate that is not APPROVED needs the `tech_lead` role: in interactive mode, stop and say so; in automatic mode, go on and flag it in the closing summary.
+- **Gates.** The gates of the tier are `governance.gates` in `.exo/config.json` (by default none in Tier 1; `contract_check` and `code_review` in Tier 2; plus `security_review` and `threat_model` in Tier 3; plus `secure_coding_check` in Tier 4). A gate always runs its skill (`.exo/shared/phase-skill-map.md`, Gates), even when the skill degrades, and leaves `<change-root>/gates/<gate>.md`; `exo check` fails when one is missing. The conditional gates (`accessibility_review` with UI in the diff, `prompt_spec_review` with `canvas.md`) apply at any tier; `exo check` requires `prompt_spec_review` whenever `canvas.md` exists. A gate that is not APPROVED needs the `tech_lead` role: in interactive mode, stop and say so; in automatic mode, go on and flag it in the closing summary.
 
 ## Without subagents
 

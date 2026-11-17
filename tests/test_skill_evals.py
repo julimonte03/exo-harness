@@ -6,7 +6,8 @@ Por cada caso de `tests/skill_evals/<skill>/evals.json`:
 
 1. copia el fixture a una carpeta temporal, le da historia git y corre
    `exo init --agents claude-code --yes --packs …`, con los datos de usuario aislados
-   (`EXO_DATA_DIR` y `EXO_MEMORY_DB` en la carpeta temporal);
+   (`EXO_DATA_DIR` y `EXO_MEMORY_DB` en la carpeta temporal); después del commit base
+   pasa a una rama `feat/<skill>-eval` y aplica el `setup`;
 2. corre `claude -p <pedido> --output-format stream-json --verbose` con las tools de
    `TOOLS` (el workspace no es confiable, así que el `permissions.allow` del proyecto no
    cuenta);
@@ -73,6 +74,13 @@ def _project(case: evals.Case, root: Path, env: dict[str, str]) -> Path:
         ["git", "commit", "-q", "-m", "chore: adopt exo"],
         cwd=project,
         env=env,
+        check=True,
+        capture_output=True,
+    )
+    # Fuera de `main`, que es rama protegida: una skill que escribe no frena a proponer una rama.
+    subprocess.run(
+        ["git", "switch", "-q", "-c", f"feat/{case.skill}-eval"],
+        cwd=project,
         check=True,
         capture_output=True,
     )

@@ -16,7 +16,7 @@ description: >-
 metadata:
   exo-pack: quality
   exo-execution: inline
-  exo-permissions: read-only
+  exo-permissions: read-only+record
 ---
 
 # review-4r
@@ -138,7 +138,7 @@ Inside an SDD change only, as `.exo/shared/judge-common.md`, section F, and `.ex
 ```bash
 exo change record <change> --followup '{"id": "J4R-1", "judge": "review-4r", "rule": "R1 Risk: secrets in logs", "severity": "high", "summary": "The access token is printed to the console; remove the print", "location": "src/sync/client.py:22"}'
 exo change record <change> --add judges_invoked '{"name": "review-4r", "result": "escalated: J4R-1, J4R-2 open"}'
-exo change record <change> --add capabilities_used '{"name": "review-4r", "type": "judge", "activation": "requested", "resolution": "fallback-registry"}'
+exo change record <change> --add capabilities_used '{"name": "review-4r", "type": "skill", "activation": "requested", "resolution": "fallback-registry"}'
 exo change record <change> --add capabilities_used '{"name": "sdd-judge", "type": "subagent", "activation": "auto"}'
 exo change record <change> --add skills_used '"review-4r"'
 ```

@@ -104,9 +104,9 @@ Cite full IDs (`CAP-auth-FR-6`, `S-1`): speclint checks them against `spec.md` a
 
 ### 6. Judge (Tier 3 and 4)
 
-`judge-product` runs as a **separate read-only delegation to `sdd-judge`**, with the paths of `spec.md` and `proposal.md` and a `## Skills to load before work` block. While the quality pack is not installed, say `quality/judge-product not installed — applying inline criteria` and put the criteria in the prompt: in a separate read-only pass, check that the change solves the problem in the proposal for its user, and nothing else; report gaps as findings. Without subagents, run it inline as its own pass after the spec is done and say "no isolation" (`.exo/shared/agent-capabilities.md`).
+`judge-product` runs as a **separate read-only delegation to `sdd-judge`**, with the paths of `spec.md` and `proposal.md`, the first free `JPRD` ID from `exo change followups <change> --status all`, and a `## Skills to load before work` block with its `SKILL.md` path and, when installed, `product-discovery`. While the quality pack is not installed, say `quality/judge-product not installed — applying inline criteria` and put the criteria in the prompt: in a separate read-only pass, check that the change solves the problem in the proposal for its user, and nothing else; report gaps as findings. Without subagents, run it inline as its own pass after the spec is done and say "no isolation" (`.exo/shared/agent-capabilities.md`).
 
-Show each finding; the person decides to fix it (you edit the spec and check again) or to dismiss it.
+Record each finding with `exo change record <change> --followup '<json>'` (`.exo/shared/judge-common.md`, section F) and show it; the person decides to fix it (you edit the spec, check again and mark it with `--fixed <id>`) or to dismiss it (`dismissed_followups`, with its `id` and the reason).
 
 ### 7. Approval gate
 
