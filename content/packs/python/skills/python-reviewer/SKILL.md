@@ -1,20 +1,20 @@
 ---
 name: python-reviewer
 description: >-
-  Reviews a Python diff, read-only: correctness, type hints, exceptions,
+  Reviews Python code, read-only: correctness, type hints, exceptions,
   resource handling, security (SQL and command injection, unsafe
   deserialization, subprocess, path traversal, secrets, weak randomness),
   async pitfalls, performance and tests. Every finding has a severity, its
-  path:line, a rule ID from a stable checklist and a fix as text, and the
-  review ends with a verdict line. Runs the project's linter and type checker
-  only when the project has them, and says what it checked by hand when it
-  cannot run them. Use it when someone asks for a review of Python code, a
-  branch or a pull request, or before opening a PR on a Python project; in
-  SDD verify its Critical and High findings go to Issues Found. Not for
-  writing code. Triggers: "review this Python code", "review my Python
-  changes", "Python code review", "review the staged diff", "is this Python
-  code safe", "review this PR before merge", "find bugs in this Python
-  change".
+  path:line, a rule ID from a stable checklist (with CWE and OWASP Top
+  10:2025 for security) and a fix as text, and the review ends with a
+  verdict line. Runs the project's linter and type checker only when the
+  project has them, and says what it checked by hand when it cannot run
+  them. Use it when someone asks for a review of Python code: a Python
+  diff, a branch or a pull request. Not for writing code, the pre-commit
+  check (pre-commit-review) or the SDD verify (sdd-verify). Triggers:
+  "review this Python code", "review my Python changes", "Python code
+  review", "review this Python diff", "is this Python code safe", "find
+  bugs in this Python change".
 metadata:
   exo-pack: python
   exo-execution: inline
@@ -25,14 +25,13 @@ metadata:
 
 ## Result
 
-A review of the Python files a diff touches: a findings table ordered by severity, each finding with its `path:line`, what is wrong, its rule ID from `references/checklist.md` (with the CWE when it is a security finding) and a fix as text; the tools that ran and the ones that could not; what was not reviewed; and a last line `Verdict: approve` or `Verdict: request changes`. You change nothing.
+A review of the Python files a diff touches: a findings table ordered by severity, each finding with its `path:line`, what is wrong, its rule ID from `references/checklist.md` (with the CWE and the OWASP Top 10:2025 category when it is a security finding) and a fix as text; the tools that ran and the ones that could not; what was not reviewed; follow-ups outside the diff; and a last line `Verdict: approve` or `Verdict: request changes` (Verdict). You change nothing.
 
 ## When
 
 - Someone asks for a review of Python code: the staged or uncommitted changes, a branch, a pull request, or files they name.
-- Before opening a PR on a Python project, when the person wants a stack-specific review.
-- In SDD verify, as a stack complement to skill:harness-review, when the stack router or the person asks for it.
-- **Not for:** writing or fixing code (skill:python-patterns, after the review); the quick check before each commit (`pre-commit-review`, pack `quality`); a dependency audit (skill:security-scan-jkp); the full review of a change with its gates (skill:harness-review and skill:security-code-review).
+- **In SDD verify, on request:** when the person or the verify asks for a stack-specific review, as a complement to skill:harness-review.
+- **Not for:** the quick check before each commit (`pre-commit-review`, pack `quality`); the verify of an SDD change itself (`sdd-verify`, pack `sdd`); writing or fixing code (skill:python-patterns, after the review); a dependency audit (skill:security-scan-jkp); the full review of a change with its gates (skill:harness-review and skill:security-code-review).
 
 ## Permissions
 
@@ -64,7 +63,7 @@ A review of the Python files a diff touches: a findings table ordered by severit
 | Style | Departures from the project's formatter and linter config, `print` in library code, unclear names, dead code, missing docstrings on public API | PY-STYLE |
 | Tests | New behavior without a test, tests that cannot fail, network or real time in tests, order-dependent tests | PY-TEST |
 
-Each ID (`PY-SEC-1`, `PY-EXC-2`) is defined in `references/checklist.md` with its signals, what is not a finding, and the CWE for security items.
+Each ID (`PY-SEC-1`, `PY-EXC-2`) is defined in `references/checklist.md` with its signals, what is not a finding, and the CWE for security items. A security finding cites that CWE and its OWASP Top 10:2025 category with its year, from `.exo/shared/owasp-2025.md` (`PY-SEC-1 (CWE-89, A05:2025 Injection)`).
 
 ## Confirm before reporting
 
@@ -101,7 +100,7 @@ Tools: ruff check src tests: not run (no shell permission); checked by hand for 
 
 | # | Severity | path:line | Finding | Rule | Fix |
 |---|---|---|---|---|---|
-| 1 | Critical | src/invoices/reports/aging.py:18 | The status from the query string is formatted into the SQL text, so a caller can change the query | PY-SEC-1 (CWE-89) | Bind it: `text("... WHERE status = :status")` with `{"status": status}` |
+| 1 | Critical | src/invoices/reports/aging.py:18 | The status from the query string is formatted into the SQL text, so a caller can change the query | PY-SEC-1 (CWE-89, A05:2025 Injection) | Bind it: `text("... WHERE status = :status")` with `{"status": status}` |
 | 2 | High | src/invoices/reports/aging.py:31 | A bare `except:` returns an empty report on any error, including a lost database connection, so failures look like "no overdue invoices" | PY-EXC-1 | Catch the specific error you expect, log it, and let the rest propagate |
 | 3 | Medium | src/invoices/reports/aging.py:9 | `buckets: list = []` is a mutable default shared between calls | PY-COR-1 | Default to `None` and create the list inside |
 | 4 | High | tests/ | The new report has no test | PY-TEST-1 | Add tests for each bucket boundary and for an unknown status |
@@ -123,7 +122,7 @@ Verdict: request changes
 
 ## In an SDD change
 
-- **Verify:** it runs where the verify runs (`sdd-verifier`, read-only, in fresh context, or the session that runs the verify). Each Critical and High finding goes to Issues Found of `verify-record.md`, which `sdd-verify` writes, with its severity, `path:line`, impact and fix. This skill writes no gate and no file.
+- **Verify, on request:** it runs where the verify runs (`sdd-verifier`, read-only, in fresh context, or the session that runs the verify). Each Critical and High finding goes to Issues Found of `verify-record.md`, which `sdd-verify` writes, with its severity, `path:line`, impact and fix. This skill writes no gate and no file.
 - **Before the PR** (`branch-pr`): the same review on `git diff <target>...HEAD`; the person decides each finding.
 - **Judges** (`judge-code-reviewer`, `judge-security`) may reuse these rule IDs in their findings.
 
@@ -136,12 +135,12 @@ exo change record <change> --add capabilities_used '{"name": "python-reviewer", 
 exo change record <change> --add skills_used '"python-reviewer"'
 ```
 
-`activation` is `requested` when the person asked for the review and `auto` when the stack router or a phase loaded it. Findings the person decides not to fix go to `dismissed_followups` with their reason, recorded by the orchestrator; never dismiss one yourself. In Windows PowerShell 5.1, pass the JSON as `'@<file>'` (`.exo/shared/sdd-phase-common.md`, section I).
+`activation` is `requested` when the person asked for the review and `auto` when a phase loaded it. Findings the person decides not to fix go to `dismissed_followups` with their reason, recorded by the orchestrator; never dismiss one yourself. In Windows PowerShell 5.1, pass the JSON as `'@<file>'` (`.exo/shared/sdd-phase-common.md`, section I).
 
 ## Before you finish
 
 - [ ] Every changed Python file was read in full, and each new input was followed to its use.
-- [ ] Each finding has a severity, `path:line`, a rule ID (and a CWE for security) and a fix as text.
+- [ ] Each finding has a severity, `path:line`, a rule ID (and, for security, a CWE and its OWASP Top 10:2025 category with the year) and a fix as text.
 - [ ] Tools ran only if the project has them; the commands that could not run are named, with what you checked by hand.
 - [ ] Nothing outside the diff is in the table; it is under Follow-ups.
 - [ ] No secret or personal data is copied into the review.

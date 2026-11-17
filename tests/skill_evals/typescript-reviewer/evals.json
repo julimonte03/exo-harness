@@ -4,7 +4,9 @@
   "packs": [
     "core",
     "sdd",
-    "frontend"
+    "frontend",
+    "quality",
+    "security"
   ],
   "cases": [
     {
@@ -18,12 +20,20 @@
         },
         "stage": true
       },
-      "prompt": "I staged an order notes component for the web app and a CSV export route for the API. Look the diff over for bugs and security problems before I open the pull request."
+      "prompt": "I staged an order notes component for the web app and a CSV export route for the API. Review that TypeScript and JavaScript for bugs and security problems before I open the pull request."
     },
     {
       "id": "no-trigger",
       "expect": "no-trigger",
-      "prompt": "Can someone who uses only a keyboard and a screen reader add a product to the cart from ProductCard in packages/web? Tell me what would block them."
+      "prompt": "I am about to commit everything I staged as 'feat: order notes and CSV export'. Is it ready to commit as one unit, and is the message right?",
+      "setup": {
+        "files": {
+          "packages/web/src/components/OrderNotes.tsx": "import { useEffect, useState } from 'react';\n\ninterface OrderNotesProps {\n  orderId: string;\n}\n\nexport function OrderNotes({ orderId }: OrderNotesProps) {\n  const [notes, setNotes] = useState<any>(null);\n  const [draft, setDraft] = useState('');\n\n  useEffect(() => {\n    fetch(`/api/orders/${orderId}/notes`)\n      .then((res) => res.json())\n      .then((data) => setNotes(data));\n  }, []);\n\n  function save() {\n    try {\n      fetch(`/api/orders/${orderId}/notes`, {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ text: draft }),\n      });\n      setDraft('');\n    } catch (e) {}\n  }\n\n  return (\n    <section className=\"order-notes\">\n      <div dangerouslySetInnerHTML={{ __html: notes?.html }} />\n      <textarea value={draft} onChange={(event) => setDraft(event.target.value)} />\n      <button type=\"button\" onClick={save}>\n        Save note\n      </button>\n    </section>\n  );\n}\n",
+          "packages/api/src/routes/exports.js": "'use strict';\n\nconst { Router } = require('express');\nconst { exec } = require('node:child_process');\n\nmodule.exports = function exportsRouter({ config }) {\n  const router = Router();\n\n  router.get('/orders.csv', (req, res) => {\n    const from = req.query.from;\n    const sql = `SELECT * FROM orders WHERE created_at >= '${from}'`;\n    exec(`sqlite3 -csv ${config.databaseUrl} \"${sql}\"`, (err, stdout) => {\n      if (err) return res.status(500).send(err.message);\n      res.type('text/csv').send(stdout);\n    });\n  });\n\n  return router;\n};\n",
+          "packages/api/src/routes/index.js": "'use strict';\n\nconst { Router } = require('express');\nconst productsRouter = require('./products');\nconst ordersRouter = require('./orders');\nconst cartRouter = require('./cart');\nconst exportsRouter = require('./exports');\n\nfunction buildRouter(deps) {\n  const router = Router();\n  router.use('/products', productsRouter(deps));\n  router.use('/orders', ordersRouter(deps));\n  router.use('/carts', cartRouter(deps));\n  router.use('/exports', exportsRouter(deps));\n  return router;\n}\n\nmodule.exports = { buildRouter };\n"
+        },
+        "stage": true
+      }
     },
     {
       "id": "output",
@@ -36,7 +46,7 @@
         },
         "stage": true
       },
-      "prompt": "Review my staged changes in packages/web and packages/api and tell me whether they can be merged as they are.",
+      "prompt": "Review the TypeScript and JavaScript I staged in packages/web and packages/api and tell me whether it can be merged as it is.",
       "checks": {
         "answer_contains": [
           "OrderNotes.tsx",

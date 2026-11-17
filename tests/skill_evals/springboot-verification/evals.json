@@ -4,13 +4,15 @@
   "packs": [
     "core",
     "sdd",
-    "java"
+    "java",
+    "quality",
+    "security"
   ],
   "cases": [
     {
       "id": "trigger",
       "expect": "trigger",
-      "prompt": "I think my branch is done. Run whatever checks this project needs before I open a pull request and tell me whether it is ready.",
+      "prompt": "Run the Maven build, the tests and the other checks this Spring Boot project declares on what I staged, and tell me whether it is ready for a pull request.",
       "setup": {
         "files": {
           "src/main/java/com/example/library/loans/FineCalculator.java": "package com.example.library.loans;\n\nimport com.example.library.common.Dates;\nimport java.time.DayOfWeek;\nimport java.time.LocalDate;\nimport lombok.RequiredArgsConstructor;\nimport org.springframework.stereotype.Component;\n\n@Component\n@RequiredArgsConstructor\npublic class FineCalculator {\n\n    private final LoanPolicy policy;\n\n    /** Returns inside the grace period are free; after it every day late counts, up to the cap. */\n    public long fineCents(LocalDate dueOn, LocalDate returnedOn) {\n        long daysLate = Dates.daysBetween(dueOn, returnedOn);\n        System.out.println(\"fine check: \" + daysLate + \" days late\");\n        if (daysLate <= policy.graceDays()) {\n            return 0;\n        }\n        // The book drop is closed on Sundays: a Monday return does not pay for Sunday.\n        if (returnedOn.getDayOfWeek() == DayOfWeek.MONDAY) {\n            daysLate--;\n        }\n        return Math.min(daysLate * policy.dailyFineCents(), policy.maxFineCents());\n    }\n}\n",
@@ -22,12 +24,19 @@
     {
       "id": "no-trigger",
       "expect": "no-trigger",
-      "prompt": "Which test classes does this project have, and what does each one cover? Keep it short."
+      "prompt": "I staged a fix to the fine calculation and I am about to commit it as 'fix(loans): waive Sunday fines'. Is the commit ready: only this fix, no leftovers, a good message?",
+      "setup": {
+        "files": {
+          "src/main/java/com/example/library/loans/FineCalculator.java": "package com.example.library.loans;\n\nimport com.example.library.common.Dates;\nimport java.time.DayOfWeek;\nimport java.time.LocalDate;\nimport lombok.RequiredArgsConstructor;\nimport org.springframework.stereotype.Component;\n\n@Component\n@RequiredArgsConstructor\npublic class FineCalculator {\n\n    private final LoanPolicy policy;\n\n    /** Returns inside the grace period are free; after it every day late counts, up to the cap. */\n    public long fineCents(LocalDate dueOn, LocalDate returnedOn) {\n        long daysLate = Dates.daysBetween(dueOn, returnedOn);\n        System.out.println(\"fine check: \" + daysLate + \" days late\");\n        if (daysLate <= policy.graceDays()) {\n            return 0;\n        }\n        // The book drop is closed on Sundays: a Monday return does not pay for Sunday.\n        if (returnedOn.getDayOfWeek() == DayOfWeek.MONDAY) {\n            daysLate--;\n        }\n        return Math.min(daysLate * policy.dailyFineCents(), policy.maxFineCents());\n    }\n}\n",
+          "src/main/resources/db/migration/V2__loan_fines_and_due_index.sql": "-- Fines are computed when a copy comes back late (FineCalculator) and kept on the loan.\nALTER TABLE loans ADD COLUMN fine_cents BIGINT NOT NULL DEFAULT 0 CHECK (fine_cents >= 0);\n\n-- The daily reminder sweep scans open loans by due date and member.\nCREATE INDEX loans_open_due_on ON loans (due_on, member_id) WHERE returned_on IS NULL;\n"
+        },
+        "stage": true
+      }
     },
     {
       "id": "output",
       "expect": "trigger",
-      "prompt": "Check that what I staged is ready for a pull request: the build, the tests and anything else this project checks. Give me the overall result.",
+      "prompt": "Run the Maven checks on what I staged: the build, the tests and anything else this project declares. Give me the overall result before I open a pull request.",
       "setup": {
         "files": {
           "src/main/java/com/example/library/loans/FineCalculator.java": "package com.example.library.loans;\n\nimport com.example.library.common.Dates;\nimport java.time.DayOfWeek;\nimport java.time.LocalDate;\nimport lombok.RequiredArgsConstructor;\nimport org.springframework.stereotype.Component;\n\n@Component\n@RequiredArgsConstructor\npublic class FineCalculator {\n\n    private final LoanPolicy policy;\n\n    /** Returns inside the grace period are free; after it every day late counts, up to the cap. */\n    public long fineCents(LocalDate dueOn, LocalDate returnedOn) {\n        long daysLate = Dates.daysBetween(dueOn, returnedOn);\n        System.out.println(\"fine check: \" + daysLate + \" days late\");\n        if (daysLate <= policy.graceDays()) {\n            return 0;\n        }\n        // The book drop is closed on Sundays: a Monday return does not pay for Sunday.\n        if (returnedOn.getDayOfWeek() == DayOfWeek.MONDAY) {\n            daysLate--;\n        }\n        return Math.min(daysLate * policy.dailyFineCents(), policy.maxFineCents());\n    }\n}\n",
