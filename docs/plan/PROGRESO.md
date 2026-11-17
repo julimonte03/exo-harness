@@ -1,6 +1,6 @@
 # Progreso de construcción
 
-**Fase activa:** F7, pendiente. F6 se cerró el 2026-11-17 (hito M3, v0.2.0).
+**Fase activa:** F7, en curso (plan aprobado el 2026-11-17; rama `feat/F7-packs`). D-12 (resto), D-18 y D-38 a D-44 → ADR-0016.
 
 Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron con el comando exacto, la CI está verde en los tres sistemas operativos y el PR de la fase está mergeado.
 
@@ -17,7 +17,7 @@ Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron 
 | F4 Ciclo SDD | Terminada (local; CI diferida) | `feat/F4-ciclo-sdd`, mergeada a `main` en local, sin PR | 2026-11-14 | 2026-11-14 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL); 4 a 7 con Claude Code real. Criterio 6 sin Copilot (opcional). D-26, D-27 y D-28; D-11 → ADR-0013 |
 | F5 Gobierno y gates | Terminada (local; CI diferida) | `feat/F5-gobierno`, mergeada a `main` en local, sin PR | 2026-11-15 | 2026-11-16 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL); 7 con Claude Code real (Tier 1 y Tier 2), Copilot opcional. Hito M2 (v0.1.0). D-12, D-21 y D-29 a D-32 → ADR-0014 |
 | F6 Ingeniería inversa | Terminada (local; CI diferida) | `feat/F6-ingenieria-inversa`, mergeada a `main` en local, sin PR | 2026-11-16 | 2026-11-17 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL); 3 a 5 con Claude Code real (dos corridas sobre `py-invoices`), Copilot opcional. Criterio 8 diferido a F8 (D-35). Hito M3 (v0.2.0). D-14, D-19 y D-33 a D-37 → ADR-0015 |
-| F7 Packs | Pendiente | | | | |
+| F7 Packs | En curso | `feat/F7-packs` | 2026-11-17 | | D-12 (resto), D-18 y D-38 a D-44 → ADR-0016. Stacks del equipo: Java, Python y frontend |
 | F8 Endurecimiento + v1.0 | Pendiente | | | | |
 
 Estados: `Pendiente` · `En curso` · `Bloqueada (D-xx)` · `Terminada`.
