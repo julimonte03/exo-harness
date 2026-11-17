@@ -1,7 +1,7 @@
 {
   "name": "product",
   "version": "0.1.0",
-  "description": "Product discovery and definition before building: jobs to be done, hypotheses, success metrics, user flows, acceptance criteria in Given/When/Then and the scope of an MVP; end-to-end functional flows with their actors, decisions, exceptions and data; backlog refinement with INVEST, splitting and estimate proposals; work items for any tracker from an approved plan, with IDs checked against the project's ticket pattern; and outcome-based roadmaps with a one-page executive view. Diagrams and executive views use the executive style of the design pack when it is installed, and a neutral style otherwise.",
+  "description": "Product discovery and definition before building: jobs to be done, hypotheses, success metrics, user flows, acceptance criteria in Given/When/Then and the scope of an MVP; end-to-end functional flows with their actors, decisions, exceptions and data; backlog refinement with INVEST, splitting and estimate proposals; work items for any tracker from an approved plan, with IDs checked against the project's ticket pattern; and outcome-based roadmaps with a one-page executive view. Diagrams and executive views use the executive style of the design pack in full when it is installed, and its neutral values otherwise.",
   "requires": ["core"],
-  "optional": ["design"]
+  "optional": ["design", "security", "sdd"]
 }

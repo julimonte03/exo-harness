@@ -39,7 +39,7 @@ A customer-facing roadmap is a separate, reviewed version: never the internal on
 - **An earlier roadmap:** keep its IDs, mark what moved since the last version and why, and carry over the assumptions that were never checked.
 - **Objectives or OKRs:** use them as the objectives, with their key results as metrics.
 - **A strategy document:** extract two to four outcomes, label them proposals, and confirm them before placing anything.
-- **Open changes in the repository** (`exo change list --json`): they are in progress, so they belong to Now, under the objective they serve.
+- **Open changes in the repository** (`exo change list --no-archived --json`; without the flag the list includes the archived ones): they are in progress, so they belong to Now, under the objective they serve.
 
 ## Questions that usually unblock a stuck roadmap
 

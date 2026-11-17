@@ -5,16 +5,16 @@ description: >-
   same way: the trigger and the outcome, the actors (roles and systems), the
   numbered steps, every decision with its branches, the exceptions, the data
   that travels between actors with its protection level, the states and the
-  business rules, plus a Mermaid diagram in a neutral style, or the executive
-  style of the design pack when installed. It never invents a rule: what the
-  evidence does not show becomes an open question. Inside an SDD change it
-  returns text for the phase that owns the artifact; outside one it writes a
-  flow document. Use it to describe how a feature, a process or a user
-  journey works from start to finish, to align business and technical people
-  on one flow, or to map the exceptions and data of a process. Triggers: "design the functional flow", "map this
-  process end to end", "draw the user journey", "flow diagram for this
-  feature", "what happens when the payment fails", "swimlane diagram", "who
-  does what in this process".
+  business rules, plus a Mermaid diagram in the design pack's executive
+  style or its neutral values. It never invents a rule: what the evidence
+  does not show becomes an open question. Inside an SDD change it returns
+  text for the phase that owns the artifact; outside one it writes a flow
+  document. Use it to pin down how a process works end to end, with its
+  exceptions and business rules. Not for drawing a flow already defined
+  (diagram-design) or deciding what to build (product-discovery). Triggers:
+  "design the functional flow", "functional flow with its exceptions and
+  business rules", "map this process end to end with its exceptions",
+  "what happens when the payment fails", "who does what in this process".
 metadata:
   exo-pack: product
   exo-execution: inline
@@ -34,7 +34,7 @@ One functional flow that a business owner and an engineer read the same way:
 5. **Exceptions:** what can go wrong at each step, what the actor sees, and how the flow ends or recovers.
 6. **Data that travels:** each piece of data, who produces it, who receives it, at which step, and its protection level.
 7. **States and rules:** the lifecycle of the main entity when it has one, and the business rules `BR-n` behind the decisions.
-8. **Diagram:** Mermaid, mirroring the text, in the neutral or the executive style.
+8. **Diagram:** Mermaid, mirroring the text, in the executive style: the design pack's contract, or its neutral values.
 9. **Open questions:** what the evidence does not answer, each with the default you would assume.
 
 ## When
@@ -42,7 +42,7 @@ One functional flow that a business owner and an engineer read the same way:
 - **On request:** "how does a return work end to end", "map the refund process", "who does what when an order is cancelled".
 - **Around an SDD change,** when a flow crosses several actors or systems and the proposal, the spec or the design needs it pinned down (Where the output goes).
 - **After discovery:** once skill:product-discovery chose the main user flow, this skill gives it its full detail.
-- **Not for:** deciding whether the feature is worth building (skill:product-discovery); the components and their integration, which belong to `sdd-design` or `software-solution`; screen design; the calls inside one service, which go to design.md, Sequence Of Operations.
+- **Not for:** deciding whether the feature is worth building, or the main user flow of an MVP while discovery shapes it (skill:product-discovery); a diagram of a flow that is already defined, with no exceptions or rules to find (`diagram-design`, pack `design`); the components and their integration, which belong to `sdd-design` or `software-solution`; screen design; the calls inside one service, which go to design.md, Sequence Of Operations.
 
 ## Where the output goes
 
@@ -53,7 +53,7 @@ One functional flow that a business owner and an engineer read the same way:
 | A change, in spec | Given/When/Then scenarios for the main path, each decision branch and each exception; the rules as requirement candidates | `sdd-spec`, in spec.md, numbering IDs its way |
 | A change, in design | The steps, the exceptions and the data, for Sequence Of Operations, Error Handling and Data Shapes | `sdd-design`, in design.md |
 
-- Never edit an artifact of a phase (`.exo/shared/sdd-phase-common.md`, section C): return the text for the phase that owns it. If the person wants the flow document too, write it outside the change folder (for example in `docs/flows/`), and the phase links it.
+- Never edit an artifact of a phase (`.exo/shared/sdd-phase-common.md`, section C): return the text for the phase that owns it. If the person wants the flow document too, it is a project document, never a file of the change root: write it (for example in `docs/flows/`) with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C), and the phase links it.
 - If an earlier artifact contradicts the flow you found in the code, stop and say what disagrees: that fix belongs to the phase that owns the artifact.
 
 ## Inputs
@@ -131,10 +131,10 @@ Mermaid by default (`references/mermaid-patterns.md`):
 
 The diagram mirrors the text: the same step numbers, decision questions and exception IDs. Keep one diagram to about 20 nodes; split by sub-flow beyond that.
 
-**Style:**
+**Style:** one model (`references/mermaid-patterns.md`, Style):
 
-- **Neutral by default:** Mermaid's neutral theme and the few classes in the reference (decision, exception, external, final).
-- **Executive style:** when the `design` pack is installed, follow its `executive-style.md` contract (in `.exo/shared/`), with the brand of `.exo/brand.json` when the project has one. Without that pack, read the keys `.exo/brand.json` has, map its colors onto the classes, and ask when a key is unclear.
+- **With the `design` pack:** its contract `executive-style.md` (in `.exo/shared/`) in full, with the brand of `.exo/brand.json` when the project has one.
+- **Without it:** the neutral values of that contract, copied in the reference, with the classes decision, exception, external and final, and the keys of `.exo/brand.json` the reference lists, key by key. Never invent brand colors or fonts.
 - **A presentation diagram:** `diagram-design` (pack `design`) can turn the flow into a polished visual. Without it, say `design/diagram-design not installed — applying inline criteria` and deliver the Mermaid diagram.
 
 **Before the diagram leaves the team** (a slide, an external tracker, a vendor), apply `secure-diagram-sanitizer` (pack `security`). Without it, say `security/secure-diagram-sanitizer not installed — applying inline criteria` and remove internal hostnames, IP addresses, URLs, repository and environment names, secrets and personal data from labels and notes.
@@ -165,10 +165,10 @@ The flow document, in the answer or in the file the person named, then a short s
 ## Main path
 
 1. Customer opens a delivered order and asks to return it.
-2. Web app checks the return window (BR-1).
+2. Web shop checks the return window (BR-1).
    - Within the window → 3. Outside the window → E2.
-3. Customer picks the items and the reason.
-4. Returns service creates the return and the shipping label.
+3. Customer picks the items and a reason for each.
+4. Returns service creates the return and asks the Carrier for a label.
 5. Customer receives the label and the drop-off instructions.
 
 ## Exceptions
@@ -176,7 +176,7 @@ The flow document, in the answer or in the file the person named, then a short s
 | ID | Starts at | What the actor sees | How it ends |
 |---|---|---|---|
 | E2 | 2 | "This order can no longer be returned", with the date the window closed | Final state: not returned |
-| E3 | 4 | "We could not create your label; try again in a few minutes" | Back to 4; after three failures, a support case opens |
+| E3 | 4 | The Carrier does not answer: "We could not create your label; we will email it within a few minutes" | Retried in the background; after three failures a support case opens and the customer is told |
 ```
 
 ## Rules
@@ -189,7 +189,7 @@ The flow document, in the answer or in the file the person named, then a short s
 
 ## Record
 
-Inside a change, before the phase envelope (`.exo/shared/capability-attribution.md`); `activation` is `requested` when the person asked for the flow:
+Inside a change, an inline phase records it before its envelope (`.exo/shared/capability-attribution.md`); a subagent lists it in its envelope notes and the orchestrator records it. `activation` is `requested` when the person asked for the flow:
 
 ```bash
 exo change record <change> --add capabilities_used '{"name": "functional-flow-designer", "type": "skill", "activation": "requested", "resolution": "fallback-registry"}'
@@ -206,5 +206,5 @@ A degradation (`diagram-design`, `secure-diagram-sanitizer`) is recorded with `"
 - [ ] Every decision covers all its answers, and its rule has a source or is an open question.
 - [ ] Every exception says what the actor sees and how it ends.
 - [ ] Every data item has its level; Restricted and Critical crossings are flagged.
-- [ ] The diagram uses the same numbers and IDs as the text, in the neutral or the executive style.
+- [ ] The diagram uses the same numbers and IDs as the text, in the style of `references/mermaid-patterns.md`.
 - [ ] Nothing was written into another phase's artifact; open questions carry a default.

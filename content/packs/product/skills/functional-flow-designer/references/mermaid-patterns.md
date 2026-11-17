@@ -10,46 +10,67 @@ Three diagram kinds cover almost every flow. Pick by what the reader needs to se
 
 ## Flowchart with lanes
 
-One `subgraph` per actor, in the order they first act. Node IDs carry the text's numbers: `S3` is step 3, `D2` the decision at step 2, `E2` exception E2.
+One `subgraph` per actor, in the order they first act. Node IDs carry the text's numbers: `S3` is step 3, `D2` the decision at step 2, `E2` exception E2, and `X4` what an external actor does within step 4.
 
 ```mermaid
-%%{init: {"theme": "neutral"}}%%
+%%{init: {"theme": "base", "themeVariables": {"fontFamily": "system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif", "primaryColor": "#e7f0fa", "primaryTextColor": "#1d2125", "primaryBorderColor": "#0a58a8", "lineColor": "#7d8794", "textColor": "#1d2125", "clusterBkg": "#ffffff", "clusterBorder": "#7d8794"}}}%%
 flowchart LR
   accTitle: Return a delivered order
-  accDescr: The customer asks for a return, the shop checks the window, the returns service creates the label, and the refund follows the inspection.
+  accDescr: The customer asks for a return and the web shop checks the window; the returns service gets a label from the carrier; after the carrier's scan and the warehouse inspection, the payments provider refunds the accepted items.
 
   subgraph Customer
-    S1["1. Asks to return a delivered order"]
-    S3["3. Picks items and reasons"]
-    S5["5. Receives the label"]
+    S1("1. Asks to return a delivered order")
+    S3("3. Picks the items and a reason for each")
+    S5("5. Receives the label")
+    S9(["9. Receives the refund confirmation"])
   end
   subgraph WebShop["Web shop"]
     D2{"2. Within the return window? (BR-1)"}
   end
   subgraph Returns["Returns service"]
-    S4["4. Creates the return and the label"]
-    S8["8. Requests the refund (BR-3)"]
+    S4("4. Creates the return, asks for a label")
+    S8("8. Requests the refund (BR-3)")
   end
   subgraph Carrier["Carrier (external)"]
-    X1["Issues the label"]
+    X4("Issues the label")
+    S6("6. Scans the parcel")
+  end
+  subgraph Warehouse["Warehouse operator"]
+    D7{"7. Items accepted? (BR-2)"}
+  end
+  subgraph Payments["Payments provider (external)"]
+    X8("Refunds the payment")
   end
 
   S1 --> D2
   D2 -- "Yes" --> S3
-  D2 -- "No" --> E2(["E2. Not returnable: final"])
+  D2 -. "No" .-> E2(["E2. Not returned"])
   S3 --> S4
-  S4 --> X1
-  X1 --> S5
-  X1 -. "no answer" .-> E3["E3. Retry, then support case"]
-  S5 --> S8
+  S3 -. "not confirmed in 24 h" .-> E1(["E1. Draft expired"])
+  S4 --> X4
+  X4 --> S5
+  X4 -. "no answer" .-> E3("E3. Retry, then support case")
+  S5 --> S6
+  S5 -. "no scan in 30 days" .-> E4(["E4. Closed: not returned"])
+  S6 --> D7
+  D7 -- "Some or all accepted" --> S8
+  D7 -. "Some or all rejected" .-> E5(["E5. Rejected items shipped back"])
+  S8 --> X8
+  X8 --> S9
+  X8 -. "declined" .-> E6("E6. Store credit (BR-4)")
 
-  class D2 decision
-  class E2,E3 exception
-  class X1 external
+  classDef decision fill:#ffffff,stroke:#7d8794,color:#1d2125
+  classDef exception fill:#ffffff,stroke:#b3261e,stroke-width:1.5px,color:#1d2125
+  classDef external fill:#e9edf1,stroke:#7d8794,color:#1d2125
+  classDef final fill:#ffffff,stroke:#1d2125,color:#1d2125
+  class D2,D7 decision
+  class E1,E2,E3,E4,E5,E6 exception
+  class X4,S6,X8 external
+  class S9 final
 ```
 
 - `flowchart LR` reads left to right, which fits lanes; use `TB` when the steps are many and the actors few.
-- Decisions are `{"..."}`, final states `(["..."])`, and exceptions get the `exception` class.
+- Steps are rounded boxes `("...")`, decisions `{"..."}`, final states `(["..."])`; decisions, exceptions, external actors and the successful end get their classes (Style).
 - A dotted edge (`-. "label" .->`) is an exception path; a solid edge is the main path.
 - Steps that live in a sub-flow appear as one node with the sub-flow's name.
 
@@ -58,23 +79,23 @@ flowchart LR
 For flows that are mostly messages between systems. `alt` shows a decision, `opt` an optional step, and `break` an exception that ends the flow.
 
 ```mermaid
-%%{init: {"theme": "neutral"}}%%
+%%{init: {"theme": "base", "themeVariables": {"fontFamily": "system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif", "primaryColor": "#e7f0fa", "primaryTextColor": "#1d2125", "primaryBorderColor": "#0a58a8", "lineColor": "#7d8794", "textColor": "#1d2125", "clusterBkg": "#ffffff", "clusterBorder": "#7d8794"}}}%%
 sequenceDiagram
   accTitle: Refund after inspection
   actor Op as Warehouse operator
   participant R as Returns service
-  participant P as Payments provider
+  participant P as Payments provider (external)
 
-  Op->>R: 7. Inspection result
+  Op->>R: 7. Inspection result (BR-2)
   alt all items accepted
     R->>P: 8. Refund the order (BR-3)
-    P-->>R: Refund confirmed
   else some items rejected
-    R->>P: 8. Refund the accepted items
-    P-->>R: Refund confirmed
+    R->>P: 8. Refund the accepted items (BR-3)
     Note over R: E5. Rejected items go back to the customer
   end
-  opt the provider declines
+  alt the provider accepts
+    P-->>R: Refund confirmed
+  else the provider declines
     P-->>R: Declined
     Note over R: E6. Store credit (BR-4)
   end
@@ -85,8 +106,10 @@ sequenceDiagram
 For the lifecycle of step 7 of the skill. Every state is reachable and every state that is not final has a way out.
 
 ```mermaid
-%%{init: {"theme": "neutral"}}%%
+%%{init: {"theme": "base", "themeVariables": {"fontFamily": "system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif", "primaryColor": "#e7f0fa", "primaryTextColor": "#1d2125", "primaryBorderColor": "#0a58a8", "lineColor": "#7d8794", "textColor": "#1d2125", "clusterBkg": "#ffffff", "clusterBorder": "#7d8794"}}}%%
 stateDiagram-v2
+  state "In transit" as InTransit
+  state "Partially refunded" as PartiallyRefunded
   [*] --> Draft: 3. items picked
   Draft --> Requested: 4. return created
   Draft --> Expired: E1. draft not confirmed in 24 h
@@ -103,33 +126,39 @@ stateDiagram-v2
   Closed --> [*]
 ```
 
-## Neutral style
+## Style
 
-The default when the project has no executive style: Mermaid's `neutral` theme, plus four classes. Add the `classDef` lines at the end of a flowchart.
+One model for every diagram of this skill:
 
-```mermaid
-flowchart LR
-  classDef decision fill:#f4f4f4,stroke:#333333,stroke-width:1px
-  classDef exception fill:#ffffff,stroke:#9b1c1c,stroke-width:1px,stroke-dasharray:4 2
-  classDef external fill:#ffffff,stroke:#666666,stroke-dasharray:2 2
-  classDef final fill:#e6e6e6,stroke:#333333
+- **With the `design` pack:** its contract `executive-style.md` (in `.exo/shared/`) applies in full (roles, line styles, contrast, the first-use approval and the style marker), with `.exo/brand.json` when the project has one.
+- **Without it:** the neutral values of that contract, copied below, and the keys of `.exo/brand.json` in the last column, key by key. A missing key, or a value that is not a color (`#rrggbb` or `#rgb`), keeps the neutral value; say which keys came from the neutral default. Never invent brand colors or fonts.
+
+| Token | Neutral value | Used for | `.exo/brand.json` key |
+|---|---|---|---|
+| `ink` | `#1d2125` | text, the border of final states | `colors.neutrals.ink` |
+| `ink_muted` | `#5b6470` | edge labels | `colors.neutrals.ink_muted` |
+| `canvas` | `#ffffff` | background, decisions, final states, exceptions | `colors.neutrals.canvas` |
+| `line` | `#7d8794` | edges, lanes, the border of decisions and external actors | `colors.neutrals.line` |
+| `primary` | `#0a58a8` | the border of steps | `colors.primary` |
+| `primary_tint` | `#e7f0fa` | the fill of steps | `colors.primary_tint` |
+| `neutral_fill` | `#e9edf1` | external actors | `colors.neutrals.neutral_fill` |
+| `danger` | `#b3261e` | the border of exceptions, always with their `E<n>` label | `colors.status.danger` |
+| `accent` | `#a34f00` | the one highlight, when there is one | `colors.accent` |
+| font | `system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif` | all text | `typography.body` |
+
+Every diagram starts with this init line, and a flowchart ends with these classes:
+
+```text
+%%{init: {"theme": "base", "themeVariables": {"fontFamily": "system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif", "primaryColor": "#e7f0fa", "primaryTextColor": "#1d2125", "primaryBorderColor": "#0a58a8", "lineColor": "#7d8794", "textColor": "#1d2125", "clusterBkg": "#ffffff", "clusterBorder": "#7d8794"}}}%%
+classDef decision fill:#ffffff,stroke:#7d8794,color:#1d2125
+classDef exception fill:#ffffff,stroke:#b3261e,stroke-width:1.5px,color:#1d2125
+classDef external fill:#e9edf1,stroke:#7d8794,color:#1d2125
+classDef final fill:#ffffff,stroke:#1d2125,color:#1d2125
 ```
 
-- Color is never the only signal: exceptions are also dashed and labeled `E<n>`, external actors are labeled `(external)`.
+- Color is never the only signal: exceptions are labeled `E<n>` and reached by dotted edges, external actors are labeled `(external)`, final states are stadiums.
 - One accent at most. Gray carries the structure.
-
-## Executive style
-
-- **With the `design` pack:** its `executive-style.md` contract says how the brand maps onto diagrams. Follow it, and take the values from `.exo/brand.json` when the project has one.
-- **Without the pack, with `.exo/brand.json`:** read the keys it has. Map a primary color to the `decision` class border, a neutral or background color to the fills, and an alert color (if any) to the `exception` border. Set `themeVariables` only for keys you understood, and ask about the rest:
-
-```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "<brand background>", "primaryTextColor": "<brand text>", "lineColor": "<brand neutral>", "fontFamily": "<brand font>"}}}%%
-flowchart LR
-  A["1. Step"] --> B{"2. Decision?"}
-```
-
-- **Without either:** the neutral style. Never invent brand colors or fonts.
+- Every text pair above passes WCAG AA (the contract computes them); recheck a pair a brand value changes, at 4.5:1 for text.
 
 ## Pitfalls
 

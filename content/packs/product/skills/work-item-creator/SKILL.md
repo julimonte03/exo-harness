@@ -83,7 +83,7 @@ If the person already said it in this conversation, confirm instead of asking. I
 - **Dependencies:** by local reference, from the `Depends on:` lines and from shared files: "Blocked by: WI-1, WI-2".
 - **Suggested test cases** (when wanted): two per item by default, the main path and the most likely failure, each with its steps or Given/When/Then and the expected result. Link the test that automates it (`T-n` of test-spec.md, or the test name in tasks.md); without one, mark it `manual`. A team with a test management tool imports them there; otherwise they stay in the item.
 - **Done when:** the exact test command passes and only the item's files changed.
-- **Branch** (for work split among people): `<type>/<change-name>-unit-<letter>`, from the change's branch, as `parallel-dispatch` names them.
+- **Branch** (for work split among people): `<change-branch>-unit-<letter>`, from the change's branch, as `parallel-dispatch` names them.
 
 ### 5. References and IDs
 
@@ -99,7 +99,7 @@ If the person already said it in this conversation, confirm instead of asking. I
 
 - **Markdown** (default): one section per item, in plan order (`references/item-format.md`).
 - **A file to import:** CSV or Markdown, in the shape of `references/tracker-formats.md`. Field names and required columns change with each tracker's configuration: tell the person to compare them with their import screen before loading.
-- **Where:** in the answer, or in the file the person names, outside the change folder (for example `work-items/<change-name>.csv`); never inside `<change-root>`, which belongs to the phases. Ask before committing an import file: it is usually a one-off.
+- **Where:** in the answer, or in the file the person names, outside the change folder (for example `work-items/<change-name>.csv`); never inside `<change-root>`, which belongs to the phases. Ask before committing an import file: it is usually a one-off. Committed during a change, it is a project document: only with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C).
 - **Data protection:** the items go to an external system. Only Public data, and Internal data only to the organization's own tracker (`.exo/shared/data-protection.md`, section C). No secrets, no personal data, no customer identifiers, no production log excerpts: point at `path:line` instead.
 
 ### 7. Hand off
@@ -131,7 +131,7 @@ the IDs; I will check them against the project's pattern (like PROJ-123) and map
 
 ## Record
 
-Inside a change, before the envelope of the phase that loaded it (`.exo/shared/capability-attribution.md`); `activation` is `requested` when the person asked for the items:
+Inside a change, an inline phase records it before its envelope (`.exo/shared/capability-attribution.md`); a subagent lists it in its envelope notes and the orchestrator records it. `activation` is `requested` when the person asked for the items:
 
 ```bash
 exo change record <change> --add capabilities_used '{"name": "work-item-creator", "type": "skill", "activation": "requested", "resolution": "fallback-registry"}'
