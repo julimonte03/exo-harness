@@ -73,7 +73,7 @@ git diff --staged
 
 - Stage by path. Use `git add -A` or `git add .` only when every changed file belongs to the unit.
 - Files that do not belong to the change stay unstaged; mention them to the person.
-- Read `git diff --staged` before every commit: it is exactly what goes in. With the quality pack, run `review` on it first; without it, re-read it for scope, debug leftovers, secrets and personal data.
+- Read `git diff --staged` before every commit: it is exactly what goes in. With the quality pack, run `pre-commit-review` on it first; without it, re-read it for scope, debug leftovers, secrets and personal data.
 
 ## Secrets
 
