@@ -8,7 +8,9 @@ Para cada pack opcional del ciclo (`sdd.optional`) que existe en el contenido:
   degradación con el pack real y un criterio inline, que el agente aplica diciendo la
   frase exacta de `phase_map.note`.
 
-El test es genérico: cubre cada pack nuevo de F7 en cuanto aparece.
+El test es genérico: cubre cada pack nuevo de F7 en cuanto aparece. Un pack opcional sin
+ninguna skill en el mapa no tiene nada que degradar: tiene que estar en `UNMAPPED`, así un
+pack que queda fuera del mapa por olvido no pasa el test sin chequear nada.
 """
 
 from __future__ import annotations
@@ -24,6 +26,10 @@ BASE = ["core", "sdd"]
 EXISTING = set(COLLECTION.packs)
 OPTIONAL = sorted(set(COLLECTION.packs["sdd"].optional) & EXISTING)
 MAP_NAME = phase_map.MAP_FILE.name
+# Los packs opcionales que a propósito no tienen skills en las tablas del mapa fase → skills:
+# sus skills se cargan por su `description` (el router de `python` se nombra en el texto del
+# mapa, no en una tabla). Un pack nuevo sin skills en el mapa se suma acá, a conciencia.
+UNMAPPED = frozenset({"agentic", "ops", "python"})
 
 
 def _skills_of(pack: str) -> set[str]:
@@ -43,9 +49,25 @@ def test_hay_packs_opcionales_que_probar() -> None:
     assert OPTIONAL, "sdd.optional no nombra ningún pack existente"
 
 
+def _mapped(pack: str) -> list[str]:
+    """Las skills del pack que nombra el mapa que se instala con la base."""
+    return sorted(_skills_of(pack) & set(_installed_map(build_bundle(ROOT, BASE)).mentions))
+
+
+def test_los_packs_sin_skills_en_el_mapa_son_los_esperados() -> None:
+    """F7R1-26: los packs opcionales sin skills en el mapa son exactamente `UNMAPPED`."""
+    empty = {pack for pack in OPTIONAL if not _mapped(pack)}
+    assert empty == set(UNMAPPED), (
+        f"packs opcionales sin skills en el mapa: {sorted(empty)}; UNMAPPED: {sorted(UNMAPPED)}. "
+        "Un pack nuevo sin skills en el mapa a propósito se suma a UNMAPPED (si no, agregá sus "
+        "skills al mapa); uno que ya tiene skills en el mapa sale de UNMAPPED"
+    )
+
+
 @pytest.mark.parametrize("pack", OPTIONAL)
 def test_criterio_2_con_el_pack_resuelve_y_sin_el_degrada(pack: str) -> None:
-    mapped = sorted(_skills_of(pack) & set(_installed_map(build_bundle(ROOT, BASE)).mentions))
+    mapped = _mapped(pack)
+    assert mapped or pack in UNMAPPED, f"el mapa no nombra ninguna skill de {pack}"
     with_pack = build_bundle(ROOT, [*BASE, pack])
     without = build_bundle(ROOT, BASE)
     installed = {s.name for s in with_pack.skills}
