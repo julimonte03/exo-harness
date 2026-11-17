@@ -19,7 +19,7 @@ The fields of one work item, how to fill each, and a worked example. The shape i
 | Blocked by | yes | Local references, or `none` |
 | Test cases | if wanted | Two by default: the main path and the most likely failure |
 | Done when | yes | The exact test command passes, and only the listed files changed |
-| Branch | when work is split among people | `<type>/<change-name>-unit-<letter>`, from the change's branch |
+| Branch | when work is split among people | `<change-branch>-unit-<letter>`, from the change's branch, as `parallel-dispatch` names them |
 | Links | yes | Paths of the artifacts in the repository: `specs/<change-name>/tasks.md`, `spec.md` |
 | Labels | optional | Only labels the team already uses |
 

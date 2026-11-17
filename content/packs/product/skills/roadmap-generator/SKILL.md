@@ -5,8 +5,8 @@ description: >-
   initiatives that serve each one placed in horizons (now, next, later) or in
   quarters, their dependencies, risks and assumptions, the milestones that
   are real commitments, and a one-page executive view with summary cards and
-  a Mermaid timeline, in a neutral style or in the executive style of the
-  design pack when it is installed. It starts with a short guided intake
+  a Mermaid timeline, in the executive style of the design pack, or its
+  neutral values without that pack. It starts with a short guided intake
   (owner, audience, scope, time range, key dates, workstreams), never invents
   dates, targets, capacity or commitments, and keeps what is uncertain
   visibly uncertain. Use it when someone asks for a roadmap, a product or
@@ -28,7 +28,7 @@ metadata:
 - **The roadmap** (`references/roadmap-model.md`): a header (owner, audience, scope, time range, version and date), the objectives `O-n` with their metrics, the initiatives `I-n` placed in horizons or quarters, the milestones `M-n` marked committed or target, the dependencies, the risks `R-n`, the assumptions `A-n`, and what is not on the roadmap.
 - **The executive view** (`references/executive-view.md`): one page with a headline, three to five summary cards, the timeline, the top risks, the decisions asked of the audience, and a footer.
 - **A visual:** a Mermaid timeline (or a Gantt chart when every date is real), or a visual brief for the slide or design tool the team uses.
-- In the answer, or in the file the person names (for example `docs/roadmap/<slug>.md`).
+- In the answer, or in the file the person names (for example `docs/roadmap/<slug>.md`). Inside an SDD change, that file is a project document, written with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C).
 
 ## When
 
@@ -40,7 +40,7 @@ metadata:
 
 1. **The intake answers** (step 1, `references/intake.md`).
 2. **What the person brings:** strategy notes, objectives or OKRs, a list of initiatives, an earlier roadmap. Remove personal data and customer identifiers before working with them (`.exo/shared/data-protection.md`).
-3. **Evidence in the repository,** for a technical or product roadmap: `.exo/context.md`, the living specs (`exo specs list --json`), the open changes (`exo change list --json`), and the project's ADRs. Cite `path:line` (skill:context-retrieval).
+3. **Evidence in the repository,** for a technical or product roadmap: `.exo/context.md`, the living specs (`exo specs list --json`), the open changes (`exo change list --no-archived --json`), and the project's ADRs. Cite `path:line` (skill:context-retrieval).
 4. **Memory:** `exo mem search "roadmap"` and the topic, for earlier decisions and versions (skill:memory-protocol).
 
 ## Steps
@@ -101,10 +101,10 @@ Each initiative `I-n` has: an outcome-oriented name, the objectives it serves, t
 
 Follow `references/executive-view.md`: a one-sentence headline, three to five summary cards, the timeline, the top three risks, the decisions asked of the audience, and a footer with the owner role, the date, the version and the confidence legend ("Later is not a commitment").
 
-**Style:**
+**Style:** one model (`references/executive-view.md`, Style):
 
-- **Neutral by default:** the neutral style of the reference.
-- **Executive style:** when the `design` pack is installed, follow its `executive-style.md` contract (in `.exo/shared/`), with the brand of `.exo/brand.json` when the project has one. Without that pack, read the keys `.exo/brand.json` has, use them where they are clear, and ask about the rest. Never invent brand colors, fonts or logos.
+- **With the `design` pack:** its contract `executive-style.md` (in `.exo/shared/`) in full, with the brand of `.exo/brand.json` when the project has one.
+- **Without it:** the neutral values of that contract, copied in the reference, and the keys of `.exo/brand.json` the reference lists, key by key. Never invent brand colors, fonts or logos.
 - **Quality gate:** before it reaches leadership, apply `executive-visual-quality-gate` (pack `design`). Without it, say `design/executive-visual-quality-gate not installed — applying inline criteria` and run the checks at the end of the reference.
 
 ### 8. Draw the visual
@@ -125,11 +125,11 @@ Show the executive view first, then the detail. Ask what is wrong, what is missi
 | Card | Objective | Target | Now | Confidence |
 |---|---|---|---|---|
 | Self-service | O-1: customers solve delivery changes alone | 50% of reschedules self-served by Q3 (baseline 0%) | I-1 Reschedule before dispatch | high |
-| Fewer calls | O-2: support time goes to complex cases | Delivery calls from 40 to 15 a week | I-2 Proactive delay notices | medium |
-| Compliance | O-3: the order pages meet WCAG 2.2 AA | Audit passed | M-1 Audit, 2027-06-30 (committed: contract) | medium |
+| Fewer calls | O-2: support time goes to complex cases | Delivery calls from 40 to 15 a week | I-1 Reschedule before dispatch (I-4 Proactive delay notices is Next) | medium |
+| Compliance | O-3: the order pages meet WCAG 2.2 AA | Audit passed | I-3 Accessibility fixes, for M-1 Audit, 2027-06-30 (committed: contract) | medium |
 
 Top risk: R-1, the carrier may not accept changes after dispatch (spike in Now).
-Decision needed: approve moving I-5 (loyalty points) to Later to keep Now within capacity.
+Decision needed: approve moving I-5 (reschedule after dispatch) from Now to Next: it depends on the carrier spike I-2, and Now stays within capacity.
 ```
 
 ## Rules
@@ -143,7 +143,7 @@ Decision needed: approve moving I-5 (loyalty points) to Later to keep Now within
 
 ## Record
 
-A roadmap usually lives outside any SDD change: save the approved version's key decisions to memory, without personal data, as skill:memory-protocol says (for example `exo mem save --type decision --topic-key roadmap/<owner> --title "Roadmap v2 approved" --content "<what moved and why>"`). If the person asked for it inside a change, record it there before the phase envelope (`.exo/shared/capability-attribution.md`):
+A roadmap usually lives outside any SDD change: save the approved version's key decisions to memory, without personal data, as skill:memory-protocol says (for example `exo mem save --type decision --topic-key roadmap/<owner> --title "Roadmap v2 approved" --content "<what moved and why>"`). If the person asked for it inside a change, an inline phase records it there before its envelope (`.exo/shared/capability-attribution.md`); a subagent lists it in its envelope notes and the orchestrator records it:
 
 ```bash
 exo change record <change> --add capabilities_used '{"name": "roadmap-generator", "type": "skill", "activation": "requested", "resolution": "fallback-registry"}'

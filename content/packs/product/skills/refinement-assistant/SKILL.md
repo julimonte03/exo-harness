@@ -11,9 +11,9 @@ description: >-
   change. Use it when a story, a ticket or an idea is vague, too big or has
   no acceptance criteria, before a refinement or planning session, or when
   someone asks whether an item is ready. Triggers: "refine this story", "is
-  this ticket ready", "write acceptance criteria for this item", "this story
-  is too big, split it", "prepare this for backlog refinement", "help me
-  write a user story", "estimate this item".
+  this ticket ready", "write acceptance criteria for this backlog item",
+  "this story is too big, split it", "prepare this for backlog refinement",
+  "help me write a user story", "estimate this item".
 metadata:
   exo-pack: product
   exo-execution: inline
@@ -46,7 +46,7 @@ The person approves the text and updates the item in their tracker. This skill n
 - **An item is vague,** too big, or has no acceptance criteria.
 - **A non-technical person** brings an idea or a request and wants it written as an item the team can build.
 - **Someone asks** "is this ready?" or "can you split this?".
-- **Not for:** deciding whether the idea is worth building (skill:product-discovery); turning an approved plan into several items (skill:work-item-creator); a bug report (`issue-creation`, pack `core`); the technical design (`sdd-design`, pack `sdd`).
+- **Not for:** deciding whether the idea is worth building, or the scope and acceptance criteria of an MVP while discovery shapes it (skill:product-discovery); the end-to-end flow of a process with its exceptions (skill:functional-flow-designer); turning an approved plan into several items (skill:work-item-creator); a bug report (`issue-creation`, pack `core`); the technical design (`sdd-design`, pack `sdd`).
 
 ## Inputs
 
@@ -158,7 +158,7 @@ Not ready: split it as above; slice 1 is ready once the product owner confirms t
 
 ## Record
 
-Refinement usually happens before a change exists. When it runs inside one (for example while `sdd-new` or `sdd-propose` writes the proposal), record it before that phase's envelope (`.exo/shared/capability-attribution.md`):
+Refinement usually happens before a change exists. When it runs inside one (for example while `sdd-new` or `sdd-propose` writes the proposal), an inline phase records it before its envelope (`.exo/shared/capability-attribution.md`); a subagent lists it in its envelope notes and the orchestrator records it:
 
 ```bash
 exo change record <change> --add capabilities_used '{"name": "refinement-assistant", "type": "skill", "activation": "requested", "resolution": "fallback-registry"}'

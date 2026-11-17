@@ -110,6 +110,7 @@ Support receives about 40 calls a week asking to move a delivery (weekly support
 3. Given an order already dispatched, When the customer opens it, Then the action is not shown and a note says why.
 4. Given no other day is available in the next 14 days, When the customer opens the action, Then they see "No other days available" and a link to support.
 5. Given the change fails to save, When the customer confirms, Then they see "We could not change the day; your delivery stays on <current day>" and nothing changes.
+6. Given the order is dispatched after the customer opened the action, When they confirm, Then they see "Your order has already left; the day can no longer change" and nothing changes.
 
 ## Dependencies
 
@@ -120,7 +121,7 @@ Support receives about 40 calls a week asking to move a delivery (weekly support
 
 | Risk | Impact | Mitigation or spike |
 |---|---|---|
-| A change arrives while the order is being dispatched | The parcel leaves on the old day | Check the dispatch status when confirming, not only when opening |
+| A change arrives while the order is being dispatched | The parcel leaves on the old day | Check the dispatch status when confirming, not only when opening (criterion 6) |
 | Customers change the day many times | Slot calendar churn | Open question 2 |
 
 ## Open questions
@@ -136,16 +137,16 @@ Support receives about 40 calls a week asking to move a delivery (weekly support
 | Negotiable | pass | The criteria fix outcomes, not the screen layout |
 | Valuable | pass | Removes the most common support call |
 | Estimable | pass | After moving changes after dispatch out of scope |
-| Small | pass | One action, one page, five criteria |
+| Small | pass | One action, one page, six criteria |
 | Testable | pass | Every criterion is observable on the order page |
 
 ## Estimate
 
-5 points (proposal): one new action on an existing page, an existing calendar, one notification variant; the main unknown is the dispatch race, covered by criterion 5 and the first risk.
+5 points (proposal): one new action on an existing page, an existing calendar, one notification variant; the main unknown is the dispatch race, covered by criterion 6 and the first risk.
 
 ## Verdict
 
-Ready with open questions: start once the product owner confirms the latest change time (question 1); question 2 does not block.
+Not ready: question 1 blocks, because the latest change time decides when the action stops being offered (criteria 1 and 3). Once the product owner confirms it, the item is Ready with open questions: question 2 does not block.
 ```
 
 ## What changed, and why

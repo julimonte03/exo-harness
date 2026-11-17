@@ -32,7 +32,7 @@ Never more than five cards. A sixth objective means the roadmap has too many; sa
 A `timeline` for horizons or quarters. Name the initiatives as in the detail, with their IDs, so a reader can find them:
 
 ```mermaid
-%%{init: {"theme": "neutral"}}%%
+%%{init: {"theme": "base", "themeVariables": {"fontFamily": "system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif", "primaryColor": "#e7f0fa", "primaryTextColor": "#1d2125", "primaryBorderColor": "#0a58a8", "lineColor": "#7d8794", "textColor": "#1d2125", "clusterBkg": "#ffffff", "clusterBorder": "#7d8794"}}}%%
 timeline
   title Delivery experience, 2027
   section Now
@@ -48,7 +48,7 @@ timeline
 A `gantt` only when every bar and milestone has a real date (committed or a target the person set). Label targets as such:
 
 ```mermaid
-%%{init: {"theme": "neutral"}}%%
+%%{init: {"theme": "base", "themeVariables": {"fontFamily": "system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif", "primaryColor": "#e7f0fa", "primaryTextColor": "#1d2125", "primaryBorderColor": "#0a58a8", "lineColor": "#7d8794", "textColor": "#1d2125", "clusterBkg": "#ffffff", "clusterBorder": "#7d8794"}}}%%
 gantt
   title Committed and target dates, 2027
   dateFormat YYYY-MM-DD
@@ -62,21 +62,31 @@ gantt
 
 Check that the diagram renders where the audience will see it (the repository host, the docs site, the slide tool) before delivering it.
 
-## Neutral style
+## Style
 
-The default when the project has no executive style:
+One model, the same as the rest of the product pack:
 
-- Mermaid's `neutral` theme; black or dark gray text on white; gray for structure.
-- One accent color at most, for what needs attention (a risk, a decision). Meaning never depends on color alone: label it.
+- **With the `design` pack:** its contract `executive-style.md` (in `.exo/shared/`) applies in full (layout, colors, typography, contrast, the first-use approval, and the quality review of `executive-visual-quality-gate`), with `.exo/brand.json` when the project has one.
+- **Without it:** the neutral values of that contract, copied below, and the keys of `.exo/brand.json` in the last column, key by key. A missing key, or a value that is not a color (`#rrggbb` or `#rgb`), keeps the neutral value; say which keys came from the neutral default. The logo only from `logo.path` in the repository, on a slide or a cover, never stretched or recolored. Never invent brand colors, fonts or a logo.
+
+| Token | Neutral value | Used for | `.exo/brand.json` key |
+|---|---|---|---|
+| `ink` | `#1d2125` | headline, card text | `colors.neutrals.ink` |
+| `ink_muted` | `#5b6470` | footer, captions | `colors.neutrals.ink_muted` |
+| `canvas` | `#ffffff` | page background | `colors.neutrals.canvas` |
+| `surface` | `#f5f7f9` | card fill, table headers | `colors.neutrals.surface` |
+| `line` | `#7d8794` | card borders, dividers, timeline lines | `colors.neutrals.line` |
+| `primary` | `#0a58a8` | headings, the borders of timeline items | `colors.primary` |
+| `primary_tint` | `#e7f0fa` | the fill of timeline items | `colors.primary_tint` |
+| `accent` | `#a34f00` | the one thing that needs attention (a risk, a decision), always with a label | `colors.accent` |
+| font | `system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif` | all text | `typography.body`; the headline, `typography.heading` |
+
+Mermaid diagrams start with the init line of the examples above, with these values or the brand's.
+
 - One sans-serif font family, three sizes at most (headline, card title, body).
 - Generous white space; aligned cards of equal size; no shadows, gradients or 3D.
 - Confidence shown with words (high, medium, low), optionally with a filled, half or empty marker.
-
-## Executive style
-
-- **With the `design` pack:** follow its `executive-style.md` contract for layout, colors, typography and tone, with the values of `.exo/brand.json` when the project has one.
-- **Without the pack, with `.exo/brand.json`:** read the keys it has. Use a primary color for headings and card borders, the neutral or background colors for fills, the font family for text, and the logo only where the file says it may go. Map onto Mermaid only what you understood (`themeVariables` such as `primaryColor`, `primaryTextColor`, `lineColor`, `fontFamily`, with the theme set to `base`), and ask about the rest.
-- **Without either:** the neutral style. Never invent brand colors, fonts or a logo.
+- Every text pair above passes WCAG AA (the contract computes them); recheck a pair a brand value changes, at 4.5:1 for text.
 
 ## Visual brief
 
@@ -86,7 +96,7 @@ When the team builds the page in a slide or design tool, give a brief instead of
 # Visual brief: <roadmap name>, executive view
 
 - Format: one slide, 16:9 (or one A4 page, landscape)
-- Style: <neutral | executive-style.md of the design pack, with .exo/brand.json>
+- Style: <executive-style.md of the design pack | its neutral values (Style above)>, with .exo/brand.json when it exists
 - Headline (top, largest text): "<headline>"
 - Cards (one row, equal width, left to right):
   1. <title> | <objective> | <target> | Now: <initiative> | Confidence: <level>
