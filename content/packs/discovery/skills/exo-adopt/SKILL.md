@@ -131,7 +131,7 @@ R6 runs in interactive mode only: in an unattended run, stop before it and repor
 | no plan | R2 |
 | pending or stale units | R3 |
 | `skipped` units with `changed` files | Ask the person: `exo discover reopen <unit>` sends them back to R3 |
-| `unsynthesized_units` (closed units no capability lists in its `Source:`), or `stale_capabilities` (their cited code changed since `exo discover synthesized`) | R4 for them |
+| `unsynthesized_units` (closed units no capability lists in its `Source:`) that the wiki's Modules section does not describe as infrastructure with no capability, or `stale_capabilities` (their cited code changed since `exo discover synthesized`) | R4 for them |
 | `unrecorded_capabilities` (specs with a `Status:` preamble that were never recorded) | R4: check them and run `exo discover synthesized <capability>` |
 | specs, and `coverage` false or `audit_missing` | R5 |
 | `flagged` capabilities | R5, step 4, unless their `rounds` reached 3 |
