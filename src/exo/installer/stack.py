@@ -2,8 +2,13 @@
 
 Lee solo manifiestos conocidos y nunca contenido que pueda tener secretos. Los
 packs sugeridos que todavía no existen en el contenido se informan como
-pendientes (llegan en F7). `pyproject.toml` se revisa como texto porque
-`tomllib` no existe en Python 3.10.
+pendientes. `pyproject.toml` se revisa como texto porque `tomllib` no existe en
+Python 3.10.
+
+Los manifiestos se buscan también en subcarpetas, hasta `MAX_DEPTH` carpetas por
+debajo de la raíz (F7): en un monorepo, react vive en `packages/web/package.json`.
+La lista sale de `discovery.files.project_names`, sin la carpeta del motor ni lo de
+terceros o de build, y nunca se sigue un link.
 """
 
 from __future__ import annotations
@@ -11,11 +16,14 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
+from exo.core import fsutil
 from exo.discovery import files
 
 ALWAYS = ("core", "sdd")
+MAX_DEPTH = 3
+_DOCKER = ("Dockerfile", "docker-compose.yml", "docker-compose.yaml", "compose.yaml")
 _PY_MANIFESTS = ("pyproject.toml", "requirements.txt", "setup.py", "setup.cfg", "Pipfile")
 _JVM_MANIFESTS = ("pom.xml", "build.gradle", "build.gradle.kts")
 _PY_BACKEND = re.compile(r"\b(fastapi|flask|django|starlette|aiohttp)\b", re.IGNORECASE)
@@ -35,16 +43,18 @@ class StackReport:
 
 
 def _read(path: Path) -> str:
+    if fsutil.is_link(path):
+        return ""
     try:
         return path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return ""
 
 
-def _package_deps(project: Path) -> set[str]:
+def _package_deps(path: Path) -> set[str]:
     try:
-        data = json.loads((project / "package.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        data = json.loads(_read(path))
+    except ValueError:
         return set()
     if not isinstance(data, dict):
         return set()
@@ -56,46 +66,58 @@ def _package_deps(project: Path) -> set[str]:
     return deps
 
 
+def _by_name(project: Path) -> dict[str, list[str]]:
+    """Nombre de archivo -> rutas (relativas, con /) hasta `MAX_DEPTH` carpetas de hondo."""
+    found: dict[str, list[str]] = {}
+    for rel in files.project_names(project):
+        if rel.count("/") <= MAX_DEPTH:
+            found.setdefault(PurePosixPath(rel).name, []).append(rel)
+    return found
+
+
 def detect_stack(project: Path) -> StackReport:
     project = Path(project)
     report = StackReport()
+    names = _by_name(project)
+    every = [rel for paths in names.values() for rel in paths]
 
     def mark(name: str, evidence: str) -> None:
-        report.signals.setdefault(name, []).append(evidence)
+        if evidence not in report.signals.get(name, []):
+            report.signals.setdefault(name, []).append(evidence)
 
-    if (project / "package.json").is_file():
-        mark("node", "package.json")
-        deps = _package_deps(project)
+    for rel in sorted(names.get("package.json", [])):
+        mark("node", rel)
+        deps = _package_deps(project / rel)
         for dep in _JS_BACKEND:
             if dep in deps:
-                mark("backend-js", f"package.json: {dep}")
+                mark("backend-js", f"{rel}: {dep}")
         for dep in _JS_FRONTEND:
             if dep in deps:
-                mark("frontend", f"package.json: {dep}")
+                mark("frontend", f"{rel}: {dep}")
     py_text = ""
     for name in _PY_MANIFESTS:
-        if (project / name).is_file():
-            mark("python", name)
-            py_text += _read(project / name)
+        for rel in sorted(names.get(name, [])):
+            mark("python", rel)
+            py_text += _read(project / rel)
     for match in sorted({m.lower() for m in _PY_BACKEND.findall(py_text)}):
         mark("backend-python", f"dependency {match}")
     jvm_text = ""
     for name in _JVM_MANIFESTS:
-        if (project / name).is_file():
-            mark("jvm", name)
-            jvm_text += _read(project / name)
+        for rel in sorted(names.get(name, [])):
+            mark("jvm", rel)
+            jvm_text += _read(project / rel)
     if "spring-boot" in jvm_text:
         mark("spring-boot", "spring-boot in the build")
     if "spring-boot-starter-security" in jvm_text or "spring-security" in jvm_text:
         mark("spring-security", "spring-security in the build")
     if "data-jpa" in jvm_text or "jakarta.persistence" in jvm_text or "hibernate" in jvm_text:
         mark("jpa", "JPA in the build")
-    for name in ("Dockerfile", "docker-compose.yml", "docker-compose.yaml", "compose.yaml"):
-        if (project / name).is_file():
-            mark("docker", name)
-    if any(project.glob("*.tf")) or (project / "terraform").is_dir():
+    for name in _DOCKER:
+        for rel in sorted(names.get(name, [])):
+            mark("docker", rel)
+    if any(rel.endswith(".tf") or "terraform" in rel.split("/")[:-1] for rel in every):
         mark("infra", "terraform")
-    if (project / "Chart.yaml").is_file() or (project / "k8s").is_dir():
+    if "Chart.yaml" in names or any("k8s" in rel.split("/")[:-1] for rel in every):
         mark("infra", "kubernetes")
     report.suggested = _suggest(report)
     if files.has_code(project):

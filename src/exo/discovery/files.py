@@ -508,6 +508,24 @@ def list_files(project: Path, *, include_untracked: bool = False) -> FileSet:
     return result
 
 
+def project_names(project: Path) -> list[str]:
+    """Los archivos del proyecto, solo por nombre: no lee ni hashea nada.
+
+    Con git, lo versionado y lo nuevo que git no ignora (un proyecto recién creado todavía
+    no commiteó nada); sin git, el recorrido con las exclusiones. Nunca la carpeta del motor
+    ni lo de terceros o de build. Lo usa la detección de stack del instalador.
+    """
+    project = Path(project)
+    listed = git.run(project, "ls-files", "--cached", "--others", "--exclude-standard", "-z")
+    names = sorted({n for n in listed.out.split("\0") if n}) if listed.ok else _walked(project)
+    manifests = manifest_dirs(names)
+    return [
+        rel
+        for rel in names
+        if PurePosixPath(rel).parts[0] != _meta.PROJECT_DIR and not is_vendored(rel, manifests)
+    ]
+
+
 def has_code(project: Path) -> bool:
     """¿El proyecto ya tiene código propio? Solo mira nombres: no lee ni hashea nada."""
     project = Path(project)
