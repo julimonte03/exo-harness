@@ -36,10 +36,11 @@ When <fault> happens to <target>, <metric> stays within <range> because <mechani
 
 ## Abort conditions
 
-- <metric beyond a safety range for N minutes>
-- <any alert outside the target>
-- <data integrity check fails>
-- <time box ends>
+1. <metric beyond a safety range for N seconds or minutes>
+2. <any alert outside the target>
+3. <data integrity check fails>
+4. <time box ends>
+
 Anyone can call abort.
 
 ## Preparation
@@ -65,7 +66,7 @@ Production also requires: the same experiment passed in <non-production environm
 | | Steady state confirmed: <value> |
 | | Fault injected (approved by <role>) |
 | | <observations every minute> |
-| | Fault stopped (<reason: time box or abort rule n>) |
+| | Fault stopped (<reason: time box, or abort condition n>) |
 | | Recovery confirmed: <value> |
 
 ## Results
@@ -78,8 +79,10 @@ Production also requires: the same experiment passed in <non-production environm
 
 ## Actions
 
-| ID | Action | Owner (role) | Check |
-|---|---|---|---|
+| ID | Action | Cause | Type | Owner (role) | Due | Check | Ticket |
+|---|---|---|---|---|---|---|---|
+
+The columns of every actions table in the ops pack: Cause is the finding the action addresses; Check is what proves it is done (often: re-run this experiment and see it hold); Ticket is the ID the person gives, or `none`.
 
 ## Next experiment
 

@@ -51,11 +51,11 @@ One chain per question, every link with evidence, and no condition that needed a
 
 ## Actions
 
-| ID | Action | Root cause | Type | Owner | Check |
-|---|---|---|---|---|---|
-| A-1 | Record the consumers of each warehouse view in an ownership file reviewed in migration PRs | Views change without known consumers | prevent | data platform lead | A migration PR that touches `daily_sales` lists `sales-report` as a consumer |
-| A-2 | Fail the job when an export that is never empty returns zero rows | Success signal does not reflect the purpose | detect | reports owner | A run against an empty view exits non-zero in a test |
-| A-3 | Freshness alert: page when the report has not been delivered by 07:00 | No freshness monitor | detect | on-call lead | The alert fires in staging when the job is paused |
-| A-4 | Drop the compatibility alias, or make it computed, so old queries fail loudly | Silent always-null alias | prevent | data platform lead | A query on `region` errors in the warehouse test suite |
+| ID | Action | Cause | Type | Owner (role) | Due | Check | Ticket |
+|---|---|---|---|---|---|---|---|
+| A-1 | Record the consumers of each warehouse view in an ownership file reviewed in migration PRs | Views change without known consumers | prevent | data platform lead | 2026-05-29 | A migration PR that touches `daily_sales` lists `sales-report` as a consumer | <ID> |
+| A-2 | Fail the job when an export that is never empty returns zero rows | Success signal does not reflect the purpose | detect | reports owner | 2026-05-15 | A run against an empty view exits non-zero in a test | <ID> |
+| A-3 | Freshness alert: page when the report has not been delivered by 07:00 | No freshness monitor | detect | on-call lead | 2026-05-15 | The alert fires in staging when the job is paused | <ID> |
+| A-4 | Drop the compatibility alias, or make it computed, so old queries fail loudly | Silent always-null alias | prevent | data platform lead | 2026-06-12 | A query on `region` errors in the warehouse test suite | <ID> |
 
 Four actions, each with a check that a reviewer can see, none of them "be more careful".

@@ -4,7 +4,7 @@
 
 | Section | Write | Avoid |
 |---|---|---|
-| Status | One color and one sentence that names the single most important thing | A paragraph; "all good" when something is open |
+| Status | One color and one sentence that names the single most important thing; red only while an incident is not mitigated | A paragraph; "all good" when something is open |
 | Open incidents | The state now, the mitigation in place, the next step and who does it | The full story; link the incident record instead |
 | Resolved this shift | One line each, and whether a postmortem is owed | Details already in the record |
 | Temporary changes to undo | Exactly what was changed, how to undo it, and when it must be undone | "Some flags were changed" |

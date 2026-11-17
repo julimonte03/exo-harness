@@ -41,7 +41,7 @@ A runbook is read by a tired person who did not write it, during an outage. It h
 
 - **Action first.** The first screen says what the alert means and the first three things to check. Explanations go to Background.
 - **Never invent a command.** Take it from the project: scripts, `Makefile`, `package.json` scripts, pipeline definitions, Helm values, Kubernetes manifests, Terraform, existing runbooks. Check its options with its help output when you can run it read-only. If you cannot confirm a command, write it with `(unverified)` and list it under the runbook's open questions.
-- **Writing never runs.** While writing the runbook you may run read-only commands to confirm names and outputs; you never run a changing step "to see if it works". Testing a changing step happens in a non-production environment, with the person's approval (section Test).
+- **Writing never runs.** While writing the runbook you may run read-only commands to confirm names and outputs, never one that prints a credential (Secret objects, `-o yaml` or `-o json` on secrets, `env` or `printenv`, `kubectl exec`: skill:incident-response, Rules); you never run a changing step "to see if it works". Testing a changing step happens in a non-production environment, with the person's approval (section Test).
 - **Destructive steps need two things:** the explicit approval of the incident commander or service owner, written as a step, and a backup or a way back stated before it (data deletion, failover with possible data loss, purging a queue, restoring a backup over live data).
 - **No secrets.** Commands read credentials from the place the team already uses (a secret store, the CLI's login, environment variables), shown as names (`$DB_PASSWORD` is never echoed). No tokens, passwords or connection strings with credentials in the runbook.
 - **No personal data or contact details.** Escalate to roles and rotations.
@@ -118,9 +118,9 @@ Review it after every use in an incident and at least every six months; a runboo
 
 ### 7. Link and publish
 
-- Write the file in the folder the project uses for runbooks (look for `docs/runbooks/`, `runbooks/` or `ops/runbooks/`; if there is none, propose `docs/runbooks/<service>-<alert-slug>.md` and use it unless the person prefers another place). Update the folder's index when it has one.
+- Write the file as `<service>-<alert-slug>.md` in the folder the project uses for runbooks (look for `docs/runbooks/`, `runbooks/` or `ops/runbooks/`). If there is none, propose `docs/runbooks/` and create it only after the person says yes; until then, keep the runbook in the answer. Update the folder's index when it has one.
 - Propose the alert change that points at it (for example a `runbook_url` annotation in a Prometheus rule), as a diff for the person: changing alert rules is a configuration change, not part of writing the runbook.
-- **Inside an SDD change,** the runbook is a file of the change like any other: write it in the apply phase when the plan lists it (`tasks.md` in Tier 3 and 4, the proposal's Scope in Tier 1 and 2). In other phases, return its outline as text for the phase that owns the artifact, and never write into the change root.
+- **Inside an SDD change,** the runbook is a project document, never a file of the change root: any phase may write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C). Until then, return its outline as text for the phase that owns the plan.
 
 A full example is in `references/example-runbook.md`.
 

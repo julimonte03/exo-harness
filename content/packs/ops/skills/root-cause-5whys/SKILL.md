@@ -137,14 +137,15 @@ Each action has:
 
 **Contributing factors:** the alert threshold (2%) fired after 2 minutes only because traffic was high.
 
-| ID | Action | Root cause | Type | Owner | Due | Check |
-|---|---|---|---|---|---|---|
-| A-1 | Contract test for consumers of the payments tables | No consumer check | prevent | payments tech lead | YYYY-MM-DD | A rename on a branch fails CI |
-| A-2 | Coupon orders in the staging seed | Staging data gap | detect | QA lead | YYYY-MM-DD | The seed creates coupon orders; smoke test covers them |
-| A-3 | Canary step at 10% for 15 minutes | No canary | mitigate | platform lead | YYYY-MM-DD | Pipeline shows the canary stage on the next release |
+| ID | Action | Cause | Type | Owner (role) | Due | Check | Ticket |
+|---|---|---|---|---|---|---|---|
+| A-1 | Contract test for consumers of the payments tables | No consumer check | prevent | payments tech lead | YYYY-MM-DD | A rename on a branch fails CI | <ID given by the person> |
+| A-2 | Coupon orders in the staging seed | Staging data gap | detect | QA lead | YYYY-MM-DD | The seed creates coupon orders; smoke test covers them | <ID> |
+| A-3 | Canary step at 10% for 15 minutes | No canary | mitigate | platform lead | YYYY-MM-DD | Pipeline shows the canary stage on the next release | <ID> |
 ```
 
-- **Where it goes:** the postmortem, started from the template of skill:incident-response, when it exists; otherwise the file the person names, or the answer. Inside an SDD change, never write into the change root: return the analysis as text for the phase that owns the artifact (for example the Intent of the fix's proposal.md).
+- **The actions table** has the same columns everywhere in this pack: the postmortem template of skill:incident-response and the experiment card of skill:chaos-engineering use it too. A Ticket is the ID the person gives, or `none`.
+- **Where it goes:** the postmortem, started from the template of skill:incident-response, when it exists; otherwise the file the person names, or the answer. Inside an SDD change, that file is a project document, never a file of the change root: any phase may write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C). Until then, return the analysis as text, also for the phase that owns an artifact that needs it (for example the Intent of the fix's proposal.md).
 - **Outside a change,** save the root cause with skill:memory-protocol (`exo mem save --type bugfix` or `--type gotcha`), without personal data.
 
 ## Record

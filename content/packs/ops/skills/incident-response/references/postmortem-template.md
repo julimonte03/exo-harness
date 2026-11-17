@@ -55,12 +55,12 @@ The trigger, the chain of causes with evidence, why it was not caught earlier, a
 
 ## Actions
 
-| ID | Action | Cause it addresses | Type | Owner (role) | Due | Check that proves it is done | Ticket |
+| ID | Action | Cause | Type | Owner (role) | Due | Check | Ticket |
 |---|---|---|---|---|---|---|---|
 | A-1 | Add a contract test between checkout-api and the payments schema | Schema change shipped without a consumer test | prevent | payments tech lead | YYYY-MM-DD | The test fails on a branch that renames the column | <ID given by the person> |
 | A-2 | Alert on 5xx ratio per release version | Detection took 2 minutes only because traffic was high | detect | on-call lead | YYYY-MM-DD | GameDay: a faulty canary pages within 5 minutes | <ID> |
 
-Types: prevent (removes the cause), detect (catches it earlier), mitigate (reduces the impact), process (changes how people work). Prefer prevent and detect.
+Cause: the root cause or the finding the action addresses. Types: prevent (removes the cause), detect (catches it earlier), mitigate (reduces the impact), process (changes how people work); prefer prevent and detect. Check: what proves it is done. Ticket: the ID the person gives, or `none`. Every actions table of the ops pack uses these columns.
 
 ## Follow-up review
 
