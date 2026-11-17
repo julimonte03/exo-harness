@@ -36,7 +36,7 @@
           "\\b(APPROVED|ESCALATED)\\b"
         ]
       },
-      "review": "The report has a panel with judge-code-reviewer, judge-security, judge-product, judge-business and judge-team, each run as its own read-only sdd-judge delegation (or inline passes marked no isolation), and judge-frontend listed as not convened because there is no UI. The consolidated findings keep each judge's code (JCR-n, JSEC-n, JPRD-n, ...) and name the debug print in cli.py, the unvalidated --due, the overdue list that includes done tasks and calls datetime.now(), and the missing tests. Duplicates are merged with all their IDs, each severity change has a reason, there is one verdict, nothing is edited and nothing is recorded (there is no SDD change)."
+      "review": "The report has a panel with judge-code-reviewer, judge-security, judge-product and judge-business, each run as its own read-only sdd-judge delegation (or inline passes marked no isolation); judge-team is listed as not convened because there is no plan, and judge-frontend as not convened because there is no UI. The consolidated findings keep each judge's code (JCR-n, JSEC-n, JPRD-n, ...) and name the debug print in cli.py, the unvalidated --due, the overdue list that includes done tasks and calls datetime.now(), and the missing tests. Duplicates are merged with all their IDs, each severity change has a reason, there is one verdict, nothing is edited and nothing is recorded (there is no SDD change)."
     }
   ]
 }
