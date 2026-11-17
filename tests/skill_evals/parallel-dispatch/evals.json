@@ -40,7 +40,7 @@
           "(?i)work items?|people|team"
         ]
       },
-      "review": "Before changing anything, the answer shows the units with their files and dependencies (A and B in the first wave, C after both because of its Depends on line, integration order A, B, C) and asks the person to choose the mode: sequential inline, parallel with one sdd-implementer per unit, or work items for people. No code, test or tasks.md box was changed, no worktree or branch was created, and nothing was committed."
+      "review": "Before changing anything, the answer shows the units with their files and dependencies (A and B in the first wave, C after both because of its Depends on line, integration order A, B, C) and asks the person to choose the mode: sequential, one sdd-implementer per unit after the other on the change's branch (inline only without subagents); parallel, one sdd-implementer per unit in its own worktree, in waves; or work items for people. It does not offer to implement the units itself in the main session while subagents are available. No code, test or tasks.md box was changed, no worktree or branch was created, and nothing was committed."
     }
   ]
 }
