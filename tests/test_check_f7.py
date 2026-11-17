@@ -148,12 +148,18 @@ def test_un_artefacto_en_utf16_es_un_error_con_su_ruta(tmp_path: Path, rel: str)
     path.write_bytes(path.read_text(encoding="utf-8").encode("utf-16"))
     result = check.check(tmp_path)
     assert not result.ok
-    found = [f for f in _error_findings(result) if f.path.startswith(folder.relative_to(tmp_path).as_posix())]
+    found = [
+        f
+        for f in _error_findings(result)
+        if f.path.startswith(folder.relative_to(tmp_path).as_posix())
+    ]
     assert any(rel in f.path + f.message and "UTF-8" in f.message for f in found), found
     assert {c.name for c in result.changes} == {folder.name, other.name}  # el otro también
 
 
-def test_el_cli_no_aborta_con_un_gate_en_utf16(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_el_cli_no_aborta_con_un_gate_en_utf16(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     folder = _change(tmp_path, "medio", MEDIUM, COMPLETE)
     gate_path = folder / "gates" / "code_review.md"
     gate_path.write_bytes(gate("code_review").encode("utf-16"))
