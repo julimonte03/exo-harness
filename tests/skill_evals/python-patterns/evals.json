@@ -1,0 +1,36 @@
+{
+  "skill": "python-patterns",
+  "fixture": "toy-python",
+  "packs": [
+    "core",
+    "sdd",
+    "python"
+  ],
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "People edit tasks.json by hand and sometimes break it, and then the CLI crashes with a traceback. What is the idiomatic way to handle that in this codebase: which exception to raise, where to catch it, and how to report or log it? Explain with short snippets; do not change any files yet."
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "fixture": "py-invoices",
+      "prompt": "List the HTTP endpoints of this API with the permission each one requires, taken from the code. Just the list, no changes."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "I want to add a CSV export of the tasks to toy_todo. Before I write it, show me in your answer how the new module and its test should look in this project's style: where the files go, the type hints and the error handling. Do not create any files yet.",
+      "checks": {
+        "answer_matches": [
+          "src/toy_todo/\\w+\\.py",
+          "tests/test_\\w+\\.py",
+          "tmp_path",
+          "->\\s*(None|int|str|list|Path|bool)"
+        ]
+      },
+      "review": "The answer follows the existing layout and style: the module under src/toy_todo/ with `from __future__ import annotations`, typed public functions, pathlib with encoding='utf-8' (and newline='' for csv), the stdlib csv module with no new dependency, reuse of TaskStore and Task, and a specific exception instead of a bare except; the test goes under tests/, uses tmp_path and asserts the written rows; it names `python -m pytest` (from the README) as the command, and it creates no file."
+    }
+  ]
+}
