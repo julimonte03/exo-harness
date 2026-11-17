@@ -1,7 +1,7 @@
 {
   "name": "quality",
   "version": "0.1.0",
-  "description": "Quality gates and judges: the integral review of verify, the review of a diff before committing, the blind code and security judges, and judgment-day.",
+  "description": "Quality gates and judges: the integral review of verify, the review of a diff before committing, the blind code and security judges, the product, business, frontend and team judges, judgment-day, the excellence committee that convenes all the judges, and the five-lens 4R review.",
   "requires": ["core"],
-  "optional": ["security"]
+  "optional": ["security", "product", "frontend"]
 }
