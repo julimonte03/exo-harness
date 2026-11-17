@@ -28,7 +28,7 @@ description: >-
 metadata:
   exo-pack: <pack>
   exo-execution: inline
-  exo-permissions: <read-only | read-only+tests | read-only+record | read-only+gate | write-code | write-specs | write-specs+git>
+  exo-permissions: <read-only | read-only+tests | read-only+record | read-only+gate | read-only+classify | read-only+exo-init | write-code | write-specs | write-specs+tests | write-specs+git>
 ---
 ```
 
@@ -50,7 +50,7 @@ metadata:
   exo-permissions: write-specs
 ```
 
-The values are strings. Keys outside the standard fields go inside `metadata`, never at the top level.
+The values are strings. Keys outside the standard fields go inside `metadata`, never at the top level. A skill of the SDD cycle or one of its gates also has `exo-phase: <phase>` (the table of step 4 in `SKILL.md`).
 
 ## SKILL.md body
 

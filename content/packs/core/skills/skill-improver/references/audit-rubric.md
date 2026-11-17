@@ -83,7 +83,7 @@ The checks of step 3 of `skill-improver`, one table per dimension, with the usua
 
 | Contract | Check |
 |---|---|
-| `sdd-phase-common.md`, section C | A non-phase skill never writes a phase's artifact; it returns text, or writes its own files outside the change folder |
+| `sdd-phase-common.md`, section C | A non-phase skill never writes a phase's artifact; it returns text, and its own files are project documents, written during a change with the person's approval once the plan lists them |
 | `phase-skill-map.md` | The trigger in the skill matches the map's row; a skill of an optional pack named by the map has its inline criteria row |
 | `skill-resolver.md` | Degradation uses the exact sentence `<pack>/<skill> not installed — applying inline criteria` and records `"resolution": "none"` |
 | `capability-attribution.md` | Record commands use real fields and real values (`activation`, `resolution`); subagents never record |
