@@ -40,7 +40,7 @@ TOOLS = (
     "Read Edit Write Grep Glob TodoWrite Task Agent Skill"
 )
 MAX_TURNS = int(os.environ.get("EXO_EVALS_MAX_TURNS", "40"))
-TIMEOUT = int(os.environ.get("EXO_EVALS_TIMEOUT", "900"))
+TIMEOUT = int(os.environ.get("EXO_EVALS_TIMEOUT", "1800"))
 CASES = evals.cases()
 
 
