@@ -48,7 +48,7 @@ git diff --shortstat origin/main...HEAD -- . ':!package-lock.json' ':!**/__snaps
 1. **Cut between tasks, never through one.** Each task is one commit (skill:work-unit-commits), so the cuts fall on commit boundaries.
 2. **One theme per part,** small enough for one sitting: a unit of tasks.md, or a layer (data, logic, interface). About 400 changed lines or less.
 3. **Dependencies first:** follow the order of tasks.md and the `Depends on` lines of its units. Foundations (data model, pure modules) go early; wiring and UI go last.
-4. **Each part works alone,** on top of the previous parts: it builds, its tests pass, and merging it leaves the target branch working. New code stays unreachable until the part that wires it, or behind a flag the design names. If a part cannot be safe alone, say so: the stack then merges into the change's branch instead (Strategy).
+4. **Each part works alone,** on top of the previous parts: it builds, its tests pass, and merging it leaves the target branch working. New code stays unreachable until the part that wires it, or behind a flag the design names. If a part cannot be safe alone, say so: the stack then merges into an integration branch instead (Strategy).
 5. **Where the SDD artifacts go:**
    - **Part 1** carries the change root (proposal, spec, design, tasks, test-spec, the fitness assessment and the AI Usage Record), so reviewers start from the plan and `exo check --base` passes from the first PR.
    - **The last part** carries the verify record, the gates, the archive and `pr.md` (skill:branch-pr). The verify runs on the whole change, at the top of the stack (`git diff origin/<target>...<last part>`). Parts can be reviewed earlier, but none merges before that verify says `ready`.
@@ -75,9 +75,14 @@ The type in the branch is the change's Conventional Commits type, as skill:branc
 | Strategy | PR bases | Use it when |
 |---|---|---|
 | **Stacked onto the target** (default) | PR 1 targets the target branch; PR n targets part n-1 | every part is safe to merge alone |
-| **Into the change's branch** | PR 1 targets `<type>/<change-name>`, created from the target; PR n targets part n-1; once all are merged there, one final PR takes that branch to the target | a part cannot be safe alone in the target |
+| **Into an integration branch** | PR 1 targets `<type>/<change-name>-integration`, a new branch created from the target; PR n targets part n-1; once all are merged there, one final PR takes the integration branch to the target | a part cannot be safe alone in the target |
 
-Ask when it is not obvious. With the second strategy, the final PR holds no new code: its description lists the reviewed parts.
+Ask when it is not obvious. With the second strategy:
+
+- **The change's own branch is not touched.** `<type>/<change-name>` is where the work was done, so it already holds every part: as the base of PR 1 it would show nothing to review, and emptying it would mean a reset or a force-push. It stays as the reference the parts are checked against.
+- **The integration branch** starts at the target: `git branch feat/PROJ-123-add-coupons-integration origin/main`. It is pushed, like the parts, only when the person asks.
+- **The final PR** (integration branch into the target) holds no new code: its description lists the reviewed parts.
+- Where the next sections say "the target", read the integration branch for the parts: PR 1 targets it, a merged part's next PR is retargeted to it, and after a squash merge the next part merges `origin/<type>/<change-name>-integration`.
 
 ## Build the branches
 
