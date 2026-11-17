@@ -46,7 +46,7 @@
         "answer_matches": [
           "(?i)merge order\\W+1\\W+2\\W+3",
           "git merge (origin/)?feat/add-planning-features-part-\\d",
-          "(?i)never (amend|rebase|rewrite|force)|without rewriting|no force-push"
+          "(?i)(never|don.t|do not) (amend|rebase|rewrite|force)|without rewriting|no force-push|force-push[^.]*block"
         ]
       },
       "review": "The answer cuts the change along its tasks or units into parts of about 400 changed lines or less (for example the store fields, then filters and export, then the command line, which depends on all of them), names each branch feat/add-planning-features-part-<n> on top of the previous one, gives the merge order and the base of each PR, explains how to carry a fix in an earlier part up the stack without rewriting pushed branches, and says the PR bodies come from the pr.md template. It created no branch, pushed nothing and changed no file."

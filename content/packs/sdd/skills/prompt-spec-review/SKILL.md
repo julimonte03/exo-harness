@@ -50,6 +50,8 @@ The rules of the overlay are in `.exo/shared/spdd-common.md`. When this skill an
 
 ## Approval mode
 
+**After a logic correction** (skill:prompt-code-sync changed an approved canvas), rewrite the gate first, before anything else: `ESCALATED`, `Requires tech_lead approval: yes`, and the canvas change listed as pending re-approval in Findings. An approval of the old canvas never stays in place; only the person's explicit approval of the changed canvas, below, turns it back to `APPROVED`.
+
 ### 1. Check the canvas
 
 Read canvas.md, spec.md, design.md (with the `### Threat model` of Risks & Mitigations) and `gates/threat_model.md` when present. Run `exo speclint <change-root>`. Then check:
