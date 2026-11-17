@@ -1,0 +1,41 @@
+{
+  "skill": "java-coding-standards",
+  "fixture": "java-library",
+  "packs": [
+    "core",
+    "sdd",
+    "java"
+  ],
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "What coding conventions should new Java code in this project follow? Give me a short list for the team, grounded in how the existing code is written."
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "Does LoanService.renew compute the new due date the way the code comments describe? Only check that logic."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "I wrote src/main/java/com/example/library/loans/OverdueReport.java. Check it against Java coding conventions only (naming, Optional, exceptions, logging, injection, types), not bugs or security, and list each deviation with its line.",
+      "setup": {
+        "files": {
+          "src/main/java/com/example/library/loans/OverdueReport.java": "package com.example.library.loans;\n\nimport java.util.ArrayList;\nimport java.util.Date;\nimport java.util.List;\nimport java.util.Optional;\nimport org.springframework.beans.factory.annotation.Autowired;\nimport org.springframework.stereotype.Component;\n\n@Component\npublic class OverdueReport {\n\n    @Autowired\n    private LoanRepository loanRepo;\n\n    public Optional<String> lastError;\n\n    public List build(Optional<Integer> minDays) {\n        List rows = new ArrayList();\n        Date now = new Date();\n        for (Loan l : loanRepo.findAll()) {\n            try {\n                long d = (now.getTime() - java.sql.Date.valueOf(l.getDueOn()).getTime()) / 86400000;\n                if (d >= minDays.get()) {\n                    double fine = d * 0.25;\n                    rows.add(l.getId() + \";\" + d + \";\" + fine);\n                }\n            } catch (Exception e) {\n                System.out.println(\"skipping loan \" + l.getId());\n                lastError = Optional.of(e.getMessage());\n            }\n        }\n        return rows;\n    }\n}\n"
+        }
+      },
+      "checks": {
+        "answer_matches": [
+          "OverdueReport\\.java:\\d+",
+          "JCS-\\d+",
+          "(?i)\\bOptional\\b",
+          "(?i)\\bdouble\\b",
+          "(?i)constructor injection|field injection|@Autowired"
+        ]
+      },
+      "review": "The answer first says which project conventions it followed (Lombok @RequiredArgsConstructor for injection, Dates for time, long cents for money, SLF4J through Lombok @Slf4j), then lists each deviation of OverdueReport.java with path:line, a JCS rule and the fix: field injection (lines 13-14, JCS-11); the public mutable Optional field (line 16) and the Optional parameter with get() (lines 18 and 24, JCS-4); raw List types (lines 18-19, JCS-10); java.util.Date and millisecond arithmetic with a magic number instead of Dates (lines 20 and 23, JCS-12 and JCS-14); double for the fine instead of long cents (line 25, JCS-12); catch Exception with System.out (lines 28-29, JCS-6 and JCS-7); one-letter names l and d (JCS-1). Severities are Low or Medium, it reports no formatter matters, and the file is not changed."
+    }
+  ]
+}

@@ -35,7 +35,7 @@ metadata:
 1. Run `exo change status <change> --json` for the tier, the phase and the artifacts. An unknown tier is Tier 4.
 2. Tasks is a Tier 3 and 4 phase. In Tier 2 there is no tasks.md and `sdd-spec` writes test-spec.md; in Tier 1 neither exists. Say so if the person asks for this phase in those tiers.
 3. design.md must exist and `exo speclint <change-root>` must pass.
-4. Load the skills (section A): `test-strategy` (Required) and `parallel-dispatch` when two or more units are independent; at most 5, each `SKILL.md` read in full. `test-strategy` ships in the `core` pack, which `sdd` requires: if it is missing, the installation is incomplete. Say so, suggest `exo doctor`, and return `status: blocked`.
+4. Load the skills (section A): `test-strategy` (Required) and `parallel-dispatch` when two or more units are independent; at most 5, each `SKILL.md` read in full. Both ship in the `core` pack, which `sdd` requires: if one is missing, the installation is incomplete. Say so, suggest `exo doctor`, and return `status: blocked`.
 5. Read proposal.md, spec.md, design.md (Modules / Files, Test Plan, Risks & Mitigations) and `.exo/context.md` (how to build and test, whether TDD is strict).
 
 ## Write tasks.md
@@ -70,15 +70,12 @@ About 260 changed lines (150 code, 110 tests) in 5 files: within the 400-line bu
 ### Size forecast
 
 1. Estimate the changed lines (added plus removed, code and tests) of each task and add them up.
-2. If the whole change is expected to exceed about 400 changed lines, say so and propose how to split it into smaller changes that each deliver something on their own; each one becomes its own change with `sdd-new`.
-3. The person decides. Record the decision; if they keep a single change, write the reason in the Forecast.
+2. If the whole change is expected to exceed about 400 changed lines, say so and propose one of two splits: smaller changes that each deliver something on their own (each one becomes its own change with `sdd-new`), or one change delivered as a chain of PRs (skill:chained-pr), with the cut points in the Forecast.
+3. The person decides. Record the decision; if they keep a single change and a single PR, write the reason in the Forecast.
 
 ### Independent units
 
-When two or more groups of tasks touch disjoint files, apply `parallel-dispatch`. When it is not installed, say `core/parallel-dispatch not installed — applying inline criteria`, then:
-
-- group the tasks into units that do not touch the same files, under `### Unit A: <name>` headings inside `## Tasks`, keeping the numbering across units;
-- `sdd-apply` runs the units one after the other, unless the agent can delegate each unit to its own `sdd-implementer`.
+When two or more groups of tasks touch disjoint files, apply skill:parallel-dispatch: units under `### Unit A: <name>` headings inside `## Tasks`, numbering across units, and a plain `Depends on: Unit A` line under a unit that needs another. In apply, the same skill asks the person how to run them (in sequence, in parallel subagents, or handed out to people).
 
 ## Write test-spec.md
 
@@ -96,9 +93,9 @@ Follow `test-strategy` and the template's three sections:
 
 ## Judge (Tier 4)
 
-Run `judge-team` as its own read-only delegation to `sdd-judge`, with `## Skills to load before work` and its `SKILL.md` path, the change root, tasks.md and design.md. When it is not installed, say `quality/judge-team not installed — applying inline criteria` and pass its criteria: tasks.md can be split among people without overlapping files, and each unit has its own tests. Without subagents, run it inline after writing the plan and say "no isolation".
+Run `judge-team` as its own read-only delegation to `sdd-judge`, with `## Skills to load before work` and its `SKILL.md` path, the change root, tasks.md and test-spec.md, the stage before it (spec.md and design.md), and the first free `JTEAM` ID (from `exo change followups <change> --status all`). When it is not installed, say `quality/judge-team not installed — applying inline criteria` and pass its inline criteria from `.exo/shared/phase-skill-map.md` (Inline criteria for skills not installed), copied as they are. Without subagents, run it inline after writing the plan and say "no isolation".
 
-Show the findings to the person; fix the accepted ones in tasks.md, and record the dismissed ones in `dismissed_followups`.
+Record each finding with `exo change record <change> --followup '<json>'` (`.exo/shared/judge-common.md`, section F) and show them to the person; fix the accepted ones in tasks.md and mark them with `--fixed <id>`; the dismissed ones go to `dismissed_followups` with their `id`.
 
 ## Check and approve
 
@@ -136,7 +133,7 @@ artifacts:
     summary: 6 test cases covering 4 scenarios
 notes: >-
   Isolation: inline. Skills: sdd-tasks (fallback-registry), test-strategy (fallback-registry),
-  parallel-dispatch (none: core/parallel-dispatch not installed — applying inline criteria).
+  parallel-dispatch (fallback-registry).
 next: apply
 ```
 

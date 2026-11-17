@@ -101,7 +101,7 @@ Cualquier cambio al proyecto es un change SDD del backlog de adopción. `exo dis
 - **No corre build ni tests del proyecto** (D-19). Medir la línea base es un item del backlog, con confirmación.
 - **No escribe memoria** (D-37). Lo commiteado es la fuente compartida, y la memoria es por usuario.
 - **No se instala por defecto** (D-33). El wizard ofrece el pack `discovery` cuando el repo ya tiene código.
-- **`exo uninstall` conserva lo producido** (D-36): `discovery/` y `context.md` quedan y se informa.
+- **`exo uninstall` conserva lo producido** (D-36): `discovery/` y `context.md` quedan y se informa. Desde F7 conserva también `.exo/brand.json`, que escribe la persona (ADR-0016).
 
 ## Consecuencias
 

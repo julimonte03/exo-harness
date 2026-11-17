@@ -1,0 +1,50 @@
+{
+  "skill": "zod",
+  "fixture": "node-shop",
+  "packs": [
+    "core",
+    "sdd",
+    "frontend"
+  ],
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "setup": {
+        "files": {
+          "packages/shared/package.json": "{\n  \"name\": \"@shop/shared\",\n  \"version\": \"1.4.0\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"main\": \"src/index.ts\",\n  \"types\": \"src/index.ts\",\n  \"scripts\": {\n    \"typecheck\": \"tsc --noEmit\"\n  },\n  \"dependencies\": {\n    \"zod\": \"^4.1.0\"\n  },\n  \"devDependencies\": {\n    \"typescript\": \"^5.6.3\"\n  }\n}\n",
+          "packages/shared/src/schemas.ts": "import { z } from 'zod';\n\nexport const OrderLineSchema = z.object({\n  productId: z.string(),\n  quantity: z.number(),\n});\n\nexport const PlaceOrderSchema = z.object({\n  email: z.string(),\n  promoCode: z.string().optional(),\n  lines: z.array(OrderLineSchema),\n});\n\nexport type PlaceOrderInput = z.infer<typeof PlaceOrderSchema>;\n",
+          "packages/shared/src/index.ts": "// Node runs this package straight from source (type stripping), so imports keep `.ts`.\nexport * from './limits.ts';\nexport * from './pricing.ts';\nexport * from './schemas.ts';\nexport type * from './types.ts';\n"
+        }
+      },
+      "prompt": "We just started a shared order schema in packages/shared/src/schemas.ts. How should the checkout form and POST /orders both use it, and what should the API send back when the body is invalid? Sketch it; do not edit files."
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "Does packages/api/openapi.json document the promoCode field that POST /orders accepts? If it does not, tell me what to add, without editing it."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "setup": {
+        "files": {
+          "packages/shared/package.json": "{\n  \"name\": \"@shop/shared\",\n  \"version\": \"1.4.0\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"main\": \"src/index.ts\",\n  \"types\": \"src/index.ts\",\n  \"scripts\": {\n    \"typecheck\": \"tsc --noEmit\"\n  },\n  \"dependencies\": {\n    \"zod\": \"^4.1.0\"\n  },\n  \"devDependencies\": {\n    \"typescript\": \"^5.6.3\"\n  }\n}\n",
+          "packages/shared/src/schemas.ts": "import { z } from 'zod';\n\nexport const OrderLineSchema = z.object({\n  productId: z.string(),\n  quantity: z.number(),\n});\n\nexport const PlaceOrderSchema = z.object({\n  email: z.string(),\n  promoCode: z.string().optional(),\n  lines: z.array(OrderLineSchema),\n});\n\nexport type PlaceOrderInput = z.infer<typeof PlaceOrderSchema>;\n",
+          "packages/shared/src/index.ts": "// Node runs this package straight from source (type stripping), so imports keep `.ts`.\nexport * from './limits.ts';\nexport * from './pricing.ts';\nexport * from './schemas.ts';\nexport type * from './types.ts';\n"
+        }
+      },
+      "prompt": "The order schema in packages/shared/src/schemas.ts is too loose. Make it enforce our rules: a valid email, 1 to 10 units per line, at most 25 lines, no product twice, and promo codes that ignore case and spaces. It is a one-file fix, no spec needed: edit the file, then tell me how the API should use it to reject a bad body.",
+      "checks": {
+        "files_written": [
+          "packages/shared/src/schemas.ts"
+        ],
+        "answer_matches": [
+          "(?i)safeParse",
+          "(?i)flattenError|fieldErrors|field errors"
+        ]
+      },
+      "review": "schemas.ts uses the Zod 4 API (z.email() or a pipe into it, z.int(), the error option), reuses MAX_QTY_PER_LINE and MAX_CART_LINES from limits.ts instead of repeating 10 and 25, rejects repeated products with a refine whose path is lines, trims and upper- or lower-cases the promo code, keeps PlaceOrderInput as z.infer and keeps the .ts import extension. The answer says the API should safeParse req.body and answer 422 (or the project's error status) with z.flattenError fieldErrors in the existing { error, details } shape, that the server validates even though the form does, and names the type check command without claiming it ran. Only schemas.ts changed and no package was installed."
+    }
+  ]
+}

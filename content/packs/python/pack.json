@@ -1,0 +1,7 @@
+{
+  "name": "python",
+  "version": "0.1.0",
+  "description": "Python stack: the idioms, conventions, typing, package structure, errors, logging and pytest practices that the design and apply phases follow (the stack router), and a review of Python diffs for correctness, types, exceptions, resources, security and tests.",
+  "requires": ["core"],
+  "optional": ["quality", "security", "sdd", "java"]
+}

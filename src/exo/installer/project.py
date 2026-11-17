@@ -214,12 +214,15 @@ class UninstallResult:
     # Archivos de la carpeta del motor que no generó él (notas del humano, etc.): se
     # borran con la carpeta y quedan en el backup de seguridad.
     also_removed: list[str] = field(default_factory=list)
-    # Lo que produjo la ingeniería inversa, que es conocimiento del proyecto (D-36).
+    # Lo que produjo la ingeniería inversa, que es conocimiento del proyecto (D-36), y la
+    # marca que escribió la persona.
     kept: list[str] = field(default_factory=list)
 
 
-# Conocimiento del proyecto dentro de la carpeta del motor: `uninstall` no lo borra (D-36).
-KEEP_ON_UNINSTALL = ("discovery", "context.md")
+# Lo del proyecto dentro de la carpeta del motor: `uninstall` no lo borra. `discovery/` y
+# `context.md` son conocimiento del proyecto (D-36); `brand.json`, la marca que escribe la
+# persona para el estilo ejecutivo (D-12, ADR-0016).
+KEEP_ON_UNINSTALL = ("discovery", "context.md", "brand.json")
 
 
 def uninstall(project: Path, *, force: bool = False, dry_run: bool = False) -> UninstallResult:
@@ -227,7 +230,8 @@ def uninstall(project: Path, *, force: bool = False, dry_run: bool = False) -> U
 
     Antes guarda un backup de seguridad fuera del proyecto, en la carpeta de datos
     de usuario, para que el proyecto quede idéntico al original. Conserva lo que
-    produjo la ingeniería inversa (`discovery/` y `context.md`, D-36) y lo informa.
+    produjo la ingeniería inversa (`discovery/` y `context.md`, D-36) y la marca de la
+    persona (`brand.json`), y lo informa.
     """
     project = Path(project).resolve()
     data = lock.read(project)

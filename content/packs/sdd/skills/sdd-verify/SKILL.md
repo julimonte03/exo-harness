@@ -24,6 +24,7 @@ metadata:
 - The full text of `verify-record.md`, started from `.exo/shared/templates/verify-record.md`, with exactly its 8 sections in their order: Verdict, Spec Coverage, Scenario Coverage, Issues Found, Tests, Out-of-Scope Drift, Judgment Day Handoff, Gate summary.
 - A Verdict (`ready`, `needs-rework` or `blocked`) backed by evidence with `path:line` and by tests that actually ran.
 - From Tier 2, the full text of each verify gate the tier requires (`governance.gates` in `.exo/config.json`), each started from `.exo/shared/templates/gate.md` by the skill that owns it: `code_review` (`harness-review`) and `security_review` (`security-code-review`). `contract_check` is the Gate summary of the record itself; `threat_model` comes from design and `secure_coding_check` from apply.
+- At any tier, the full text of each **conditional gate** that applies (`.exo/shared/phase-skill-map.md`, Gates): `accessibility_review` (`accessibility-audit`) when the diff touches UI, and `prompt_spec_review` (skill:prompt-spec-review, conformance mode) when the change has `canvas.md`. A conditional gate that the tier lists in `governance.gates` always applies: `accessibility_review` with no UI in the diff is `APPROVED`, with `N/A: no UI in the diff`; `prompt_spec_review` without `canvas.md` means the canvas is missing, and the Verdict is `blocked`.
 - The record passes `exo speclint`, and the phase ends with the envelope of `.exo/shared/sdd-phase-common.md`, section D.
 
 ## Who runs it and who writes the record
@@ -53,9 +54,9 @@ metadata:
 Section A, with the verify row of `.exo/shared/phase-skill-map.md`, each `SKILL.md` read in full:
 
 - **Required:** `harness-review`. When it is not installed, say `quality/harness-review not installed — applying inline criteria` and apply them: re-read the diff against the spec and the tasks; every scenario has a passing test, nothing is outside the scope, there are no debug leftovers, and the tests and linters pass with the exact commands.
-- **Conditional:** `accessibility-audit` when the diff touches UI; `security-scan-node` or `security-scan-jkp` when a dependency or a lockfile changes; `skill-reviewer` when the diff adds or changes a skill. Each degrades with its inline criteria from the same map.
-- A gate skill that degrades still produces its gate: without `harness-review`, write `code_review` from its inline criteria.
-- **Gate skills:** the ones whose verify gate the tier requires, from the Gates table of the map: `security-code-review` from Tier 3. They count toward the limit of 5.
+- **Conditional:** `accessibility-audit` when the diff touches UI (html, tsx, jsx, vue, svelte, css, scss) or the tier lists `accessibility_review`, with its gate `accessibility_review`; skill:prompt-spec-review in conformance mode when the change has `canvas.md`, with its gate `prompt_spec_review`; `security-scan-node` or `security-scan-jkp` when a dependency or a lockfile changes; `skill-reviewer` when the diff adds or changes a skill. Each degrades with its inline criteria from the same map.
+- A gate skill that degrades still produces its gate: without `harness-review`, write `code_review` from its inline criteria. A conditional gate is the exception: when `accessibility-audit` is not installed, apply its inline criteria and report the failures in Issues Found, without writing `accessibility_review`, unless the tier lists it in `governance.gates`: then write it from those criteria.
+- **Gate skills:** the ones whose verify gate the tier requires, from the Gates table of the map (`security-code-review` from Tier 3, and a conditional gate the tier lists), and the skill of each conditional gate that applies (`accessibility-audit`, skill:prompt-spec-review). They count as Required toward the limit of 5, so the limit never leaves one out.
 
 ## Check
 
@@ -63,9 +64,9 @@ Section A, with the verify row of `.exo/shared/phase-skill-map.md`, each `SKILL.
 2. **Spec Coverage.** Every ADDED and MODIFIED requirement has a test that proves it. For a REMOVED requirement, the behavior is gone and no test still expects it.
 3. **Scenario Coverage.** Every `S-n` has the test that design.md's Test Plan names (or test-spec.md in Tier 2); the test exists, asserts the scenario's Then, and passes. A test that would pass without the behavior does not cover anything.
 4. **Tasks.** Every box of tasks.md is ticked, and the work of each ticked task is in the diff. In Tier 1 and 2, compare against the proposal's Scope.
-5. **Design.** The files match Modules / Files, and Error Handling and the mitigations of Risks & Mitigations are implemented.
+5. **Design.** The files match Modules / Files, and Error Handling and the mitigations of Risks & Mitigations are implemented. With `canvas.md`, skill:prompt-spec-review checks the diff against its Operations, Norms and Safeguards, one to one, and against Structure for scope creep.
 6. **Tests.** Run the exact test command, then the lint and the build when `.exo/context.md` has them. A failure is pre-existing only with evidence: the implementer's baseline in the delegation, or the same failure on the base branch in CI. Never switch branches to find out.
-7. **Drift.** Every changed file or hunk that no task (or, in Tier 1 and 2, the proposal's Scope) explains is drift: unrelated refactors or formatting, debug leftovers, dependencies the plan does not name.
+7. **Drift.** Every changed file or hunk that no task (or, in Tier 1 and 2, the proposal's Scope) explains is drift: unrelated refactors or formatting, debug leftovers, dependencies the plan does not name. A project document outside the change root (a diagram, a runbook, a decision record) is not drift when design.md, Modules / Files, or the proposal's Scope lists it (`.exo/shared/sdd-phase-common.md`, section C).
 8. **Criteria.** Apply `harness-review` and the Conditionals that loaded.
 
 Back every finding with `path:line`. What you could not check goes in Issues Found, with the reason.
@@ -76,7 +77,7 @@ Back every finding with `path:line`. What you could not check goes in Issues Fou
 
 | Verdict | When |
 |---|---|
-| `ready` | Every scenario has a passing test, the tests pass (apart from proven pre-existing failures), there is no Critical or High issue and no drift, and (Tier 3 and 4) every box is ticked. |
+| `ready` | Every scenario has a passing test, the tests pass (apart from proven pre-existing failures), there is no Critical or High issue and no drift, and (Tier 3 and 4) every box is ticked. A Critical or High finding of `accessibility_review` or `prompt_spec_review`, or a changed file outside the canvas's Structure, blocks `ready` unless the person dismissed it with a reason; their Medium and Low findings go to Issues Found and do not block. |
 | `needs-rework` | Something above fails and `sdd-apply` can fix it inside the plan. |
 | `blocked` | The verify cannot conclude or the fix is outside the plan: the tests cannot run, an artifact is missing or contradicts another, the spec or the design is wrong. |
 
@@ -114,7 +115,7 @@ Source: skill
 
 ## Judges (Tier 3 and 4)
 
-The verifier does not run the judges. After it answers, the orchestrator runs `judge-code-reviewer`, `judge-security` and, when the diff touches UI, `judge-frontend`, each one as its own read-only delegation to `sdd-judge`, with the diff (or the list of changed files), spec.md, design.md and tasks.md. A judge that is not installed degrades (`quality/judge-code-reviewer not installed — applying inline criteria`) and the prompt carries its criteria from the map. Without subagents, run each judge inline after the verify, as a separate pass, and say "no isolation".
+The verifier does not run the judges. After it answers, the orchestrator runs `judge-code-reviewer`, `judge-security` and, when the diff touches UI, `judge-frontend`, each one as its own read-only delegation to `sdd-judge`, with the diff (or the list of changed files), spec.md, design.md and tasks.md, and in its `## Skills to load before work` block the skills it reuses when installed (`accessibility-audit` and `frontend-design` for `judge-frontend`). A judge that is not installed degrades (`quality/judge-code-reviewer not installed — applying inline criteria`) and the prompt carries its criteria from the map. Without subagents, run each judge inline after the verify, as a separate pass, and say "no isolation".
 
 Each judge gets the first free ID of its prefix (from `exo change followups <change> --status all`), and the orchestrator records each finding with `exo change record <change> --followup '<json>'` (`.exo/shared/judge-common.md`, section F). The person decides on each finding: one to fix sends the change back to apply and then to verify again, and is marked with `--fixed <id>` once fixed; a dismissed one goes to `dismissed_followups` with its `id`. The change does not go to archive while a finding is undecided.
 

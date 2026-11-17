@@ -1,0 +1,35 @@
+{
+  "skill": "jpa-patterns",
+  "fixture": "java-library",
+  "packs": [
+    "core",
+    "sdd",
+    "java"
+  ],
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "The daily reminder job gets slower every week as loans pile up. Find out why and fix it."
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "Which tables does this service's database have, and which entity maps each one? Just list them with the migration that creates each table; no changes."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "Two members sometimes check out the last copy of the same title at the same moment, and both checkouts succeed. Show me how to fix it so that cannot happen: the entity or query change, any database migration it needs, how the losing request is answered, and the test that proves it. Put the code in your answer; do not change any files.",
+      "checks": {
+        "answer_matches": [
+          "(?i)@Version|optimistic|PESSIMISTIC_WRITE|available_?copies\\s*-\\s*1|availableCopies\\s*>\\s*0|available_copies\\s*>\\s*0",
+          "(?i)\\b409\\b|conflict|OptimisticLock",
+          "V3__\\w+\\.sql",
+          "@Test\\b|\\w+Test\\.java|class \\w+Test\\b"
+        ]
+      },
+      "review": "The answer explains the lost update: two transactions read available_copies = 1 and both write 0, and the CHECK (available_copies >= 0) in V1__init.sql cannot catch it. It fixes it with an optimistic lock (@Version on Book and a new V3__ migration adding the version column NOT NULL DEFAULT 0), an atomic conditional update, or a pessimistic lock, and maps the losing request to 409 (or retries it) through ApiErrorHandler. It shows a test that proves the second checkout fails, edits neither V1 nor V2, gives the test command as not run, opens no SDD change and changes no file."
+    }
+  ]
+}

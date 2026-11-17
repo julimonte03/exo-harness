@@ -16,6 +16,8 @@ Desde que hay `verify-record.md` (o el change está archivado), además:
 - los gates del tier (`governance.gates`) tienen que estar, bien formados; uno
   escalado o que pide aprobación queda como aviso para `tech_lead` (el motor no
   verifica roles, §7.3);
+- los gates condicionales (ADR-0016): con `canvas.md`, `prompt_spec_review`; y todo
+  gate presente que el tier no exige se revisa igual;
 - en Tier 4, `judgment-day` aprobado en el AI Usage Record.
 
 También: la config válida, el escaneo de secretos y datos personales de lo que
@@ -208,40 +210,76 @@ def _delta_capabilities(project: Path, change: observability.Change) -> set[str]
     return {block.capability for _, block in delta.blocks()}
 
 
+def _approval(project: Path, name: str, info: speclint.GateInfo) -> Finding:
+    why = (
+        "is APPROVED but its Approval says yes"
+        if info.verdict == "APPROVED"
+        else f"is {info.verdict or 'without a readable verdict'}"
+    )
+    return Finding(
+        "warning",
+        _rel(project, info.path),
+        0,
+        f"the gate {name} {why}: it needs the tech_lead role's approval in the PR",
+    )
+
+
+def _gate_info(project: Path, name: str, path: Path) -> speclint.GateInfo | Finding:
+    """La info de un gate, o un error con su ruta si no se puede leer (por ejemplo UTF-16):
+    un archivo ilegible no aborta el resto de `exo check`."""
+    try:
+        if name == speclint.CONTRACT_GATE:
+            return speclint.contract_gate(path)
+        return speclint.gate_info(path)
+    except (speclint.SpeclintError, OSError) as exc:
+        return Finding("error", _rel(project, path), 0, f"the gate {name} cannot be read: {exc}")
+
+
 def _gates(project: Path, change: observability.Change, tier: int, cfg: dict) -> list[Finding]:
+    """Los gates del tier, los condicionales que pide el change y todo gate presente.
+
+    Los condicionales (D-43, ADR-0016) no dependen del tier: `prompt_spec_review` se exige
+    cuando hay `canvas.md`. Un gate presente que nadie exige (por ejemplo
+    `accessibility_review`) igual se revisa: speclint ya rechaza su forma, y acá avisa si
+    pide la aprobación de `tech_lead`. Un gate que no se puede leer es un error con su ruta.
+    """
     folder = project / change.path
+    gates_dir = folder / speclint.GATES_DIR
     found: list[Finding] = []
-    for name in cfg["governance"]["gates"].get(str(tier), []):
+    required = list(cfg["governance"]["gates"].get(str(tier), []))
+    reasons = {name: f"Tier {tier} requires" for name in required}
+    if (folder / speclint.CANVAS).is_file() and speclint.CANVAS_GATE not in reasons:
+        required.append(speclint.CANVAS_GATE)
+        reasons[speclint.CANVAS_GATE] = f"{speclint.CANVAS} requires"
+    for name in required:
         if name == speclint.CONTRACT_GATE:
             path = folder / "verify-record.md"
-            info = speclint.contract_gate(path) if path.is_file() else None
         else:
-            path = folder / speclint.GATES_DIR / f"{name}.md"
-            info = speclint.gate_info(path) if path.is_file() else None
-        if info is None:
+            path = gates_dir / f"{name}.md"
+        info = _gate_info(project, name, path) if path.is_file() else None
+        if isinstance(info, Finding):
+            found.append(info)
+        elif info is None:
             found.append(
                 Finding(
                     "error",
                     change.path,
                     0,
-                    f"Tier {tier} requires the gate {name} ({speclint.GATES_DIR}/{name}.md): "
+                    f"{reasons[name]} the gate {name} ({speclint.GATES_DIR}/{name}.md): "
                     "run the skill that owns it",
                 )
             )
         elif info.needs_approval:
-            why = (
-                "is APPROVED but its Approval says yes"
-                if info.verdict == "APPROVED"
-                else f"is {info.verdict or 'without a readable verdict'}"
-            )
-            found.append(
-                Finding(
-                    "warning",
-                    _rel(project, info.path),
-                    0,
-                    f"the gate {name} {why}: it needs the tech_lead role's approval in the PR",
-                )
-            )
+            found.append(_approval(project, name, info))
+    present = sorted(gates_dir.glob("*.md")) if gates_dir.is_dir() else []
+    for path in present:
+        if path.stem in reasons:
+            continue
+        info = _gate_info(project, path.stem, path)
+        if isinstance(info, Finding):
+            found.append(info)
+        elif info.needs_approval:
+            found.append(_approval(project, path.stem, info))
     return found
 
 
@@ -270,7 +308,11 @@ def _readiness(project: Path, change: observability.Change, tier: int, cfg: dict
             return [Finding("error", change.path, 0, "archived without verify-record.md")]
         return []
     found: list[Finding] = []
-    result = speclint.verdict(verify.read_text(encoding="utf-8-sig"))
+    try:
+        result = speclint.verdict(speclint.read_artifact(verify))
+    except (speclint.SpeclintError, OSError) as exc:
+        # Sin veredicto legible no hay nada más que revisar; el error nombra el archivo.
+        return [Finding("error", _rel(project, verify), 0, str(exc))]
     if result != "ready":
         found.append(
             Finding(

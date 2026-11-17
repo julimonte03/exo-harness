@@ -1,0 +1,27 @@
+{
+  "skill": "react-testing",
+  "fixture": "node-shop",
+  "packs": ["core", "sdd", "frontend"],
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "ProductCard in packages/web has no tests yet. Write tests for it: the sold-out state, the quantity options capped at the line limit, and the add-to-cart callback with the chosen quantity."
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "Add a jest test in packages/api, next to the existing status tests, for order status changes that are not allowed, such as delivered back to paid."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "Write tests for packages/web/src/components/CartDrawer.tsx, next to the component like the existing CheckoutForm test: the empty cart message, the plus button disabled at the line limit, removing a line, and the free-shipping hint. Tests only, do not change the component, and tell me how to run them.",
+      "checks": {
+        "files_written": ["packages/web/src/components/CartDrawer.test.tsx"],
+        "answer_matches": ["(?i)vitest|npm (run )?test|npm test"]
+      },
+      "review": "The new CartDrawer.test.tsx imports from vitest (the config has no globals) and @testing-library/react only, since user-event, jest-dom and MSW are not installed: it uses fireEvent and plain assertions, and adds afterEach(cleanup) or renders once per test without leaking. It wraps the drawer in a MemoryRouter from react-router, because the footer renders a Link. It builds a fake cart with the Cart shape (items, count, subtotalCents, setQuantity) and checks: the empty message, the One more button disabled at quantity 10, Remove calling setQuantity with 0, and the free-shipping hint below 5000 cents and its absence above. Queries go by role and accessible name (the aria-labels One less and One more, the Remove button). CartDrawer.tsx is unchanged, no dependency is added, and the answer gives the exact command (npm test --workspace @shop/web, or vitest run with the file) and says it did not run it."
+    }
+  ]
+}

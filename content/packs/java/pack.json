@@ -1,0 +1,7 @@
+{
+  "name": "java",
+  "version": "0.1.0",
+  "description": "Java and Spring stack: the backend stack router, REST API design, Spring Boot architecture, security and verification, JPA and Hibernate patterns, Java coding standards and code review, Maven and Gradle build fixes, and the dependency and code scan for Java, Kotlin and Python.",
+  "requires": ["core"],
+  "optional": ["quality", "security", "sdd"]
+}

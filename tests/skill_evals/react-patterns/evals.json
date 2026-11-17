@@ -1,0 +1,26 @@
+{
+  "skill": "react-patterns",
+  "fixture": "node-shop",
+  "packs": ["core", "sdd", "frontend"],
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "Should the checkout form in packages/web move to Actions with useActionState? What would we gain over the current submit handler, and what would it take?"
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "Explain what packages/web/vite.config.ts sets up: the path alias, the dev server proxy and the test environment."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "Make adding to the cart in packages/web feel instant with useOptimistic, and show the pending state of the Place order button with useFormStatus. Go ahead and implement it.",
+      "checks": {
+        "answer_matches": ["(?i)react\\W{0,3}18|18\\.3", "(?i)react\\W{0,3}19"]
+      },
+      "review": "Before writing code the answer checks the version: react ^18.3.1 in packages/web/package.json (with its line), a Vite single-page app. It says useOptimistic and useFormStatus need React 19 and does not import them, nor bumps react or react-dom on its own. It explains the React 18 situation: adding to the cart only updates local state in useCart (no request to wait for, so an optimistic layer adds nothing), and CheckoutForm already disables the Place order button and shows Placing order... from its submitting state. It offers the upgrade to React 19 as a separate change (peer libraries, removed APIs, tests) and asks before doing anything else. No file changes, or only ones the person would agree to under React 18."
+    }
+  ]
+}

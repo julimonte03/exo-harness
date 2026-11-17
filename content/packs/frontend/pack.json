@@ -1,0 +1,7 @@
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "description": "Frontend work on the TypeScript and React stack: the frontend-engineering router (the stack router of design and apply), React and frontend patterns, TypeScript, Zod and Tailwind CSS 4, production-grade UI design on the project's own tokens, component tests with Testing Library and end-to-end tests with Playwright, a TypeScript reviewer, the Node dependency scan of verify, and accessibility audits against WCAG 2.2 A and AA with the accessibility_review gate.",
+  "requires": ["core"],
+  "optional": ["quality", "security"]
+}

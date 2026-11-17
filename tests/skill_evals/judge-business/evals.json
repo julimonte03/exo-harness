@@ -1,0 +1,40 @@
+{
+  "skill": "judge-business",
+  "fixture": "toy-python",
+  "packs": [
+    "core",
+    "sdd",
+    "quality"
+  ],
+  "setup": {
+    "files": {
+      "specs/add-due-dates/proposal.md": "# Proposal: add-due-dates\n\n## Intent\n\n- **User:** agents of the small support teams that buy toy_todo to track customer callbacks.\n- **Problem:** callbacks are forgotten because tasks have no date; agents keep a second list on paper.\n- **Value:** the tool becomes more modern and more competitive.\n- **Success measure:** agents like the new version.\n\n## Scope\n\n- Add an optional due date to each task (`python -m toy_todo add \"call back\" --due 2026-12-01`), shown in `list`.\n- Send a text message to the agent's phone one hour before each due date, through a paid messaging provider.\n- Offer the text message reminders only in a new paid \"Pro\" plan, for every customer from the next release.\n\n## Approach\n\nStore the due date in `tasks.json` next to the title (src/toy_todo/store.py:11). A background job checks the due dates every minute and calls the messaging provider for each reminder.\n\n## Out of Scope\n\n- Email reminders.\n"
+    }
+  },
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "Is the change in specs/add-due-dates/proposal.md worth the investment? Before we commit people to it, I want an independent read on its value, cost, risks and alternatives."
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "Summarize specs/add-due-dates/proposal.md in two sentences for the weekly status update."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "Review specs/add-due-dates/proposal.md as an independent business, marketing and sales strategist, and give me your findings and verdict.",
+      "checks": {
+        "answer_contains": [
+          "JBIZ-1"
+        ],
+        "answer_matches": [
+          "\\bESCALATED\\b"
+        ]
+      },
+      "review": "The answer is a findings report with JBIZ-n IDs, severities and specs/add-due-dates/proposal.md:line locations: the value is not in business terms and the success measure is not a business metric; the paid text messages and the background job have no cost; the new paid Pro plan changes what customers get with no risk, alternative or rollout considered. No figures are invented, the verdict is ESCALATED, and nothing is edited."
+    }
+  ]
+}

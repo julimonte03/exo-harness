@@ -1,0 +1,42 @@
+{
+  "skill": "excellence-committee",
+  "fixture": "toy-python",
+  "packs": [
+    "core",
+    "sdd",
+    "quality"
+  ],
+  "setup": {
+    "files": {
+      "src/toy_todo/cli.py": "\"\"\"Command line: `python -m toy_todo add|list|done`.\"\"\"\n\nfrom __future__ import annotations\n\nimport argparse\nimport os\nfrom pathlib import Path\n\nfrom toy_todo.store import TaskStore\n\nDEFAULT_FILE = \"tasks.json\"\n\n\ndef main(argv: list[str] | None = None) -> int:\n    parser = argparse.ArgumentParser(prog=\"toy_todo\", description=\"A tiny to-do list.\")\n    parser.add_argument(\n        \"--file\", type=Path, default=Path(os.environ.get(\"TOY_TODO_FILE\", DEFAULT_FILE))\n    )\n    sub = parser.add_subparsers(dest=\"command\", required=True)\n    add = sub.add_parser(\"add\", help=\"add a task\")\n    add.add_argument(\"title\")\n    add.add_argument(\"--due\", help=\"due date\")\n    listing = sub.add_parser(\"list\", help=\"list the tasks\")\n    listing.add_argument(\"--pending\", action=\"store_true\", help=\"only the pending ones\")\n    listing.add_argument(\"--overdue\", action=\"store_true\")\n    done = sub.add_parser(\"done\", help=\"mark a task as done\")\n    done.add_argument(\"id\", type=int)\n    args = parser.parse_args(argv)\n    print(\"DEBUG\", args)\n\n    store = TaskStore(args.file)\n    if args.command == \"add\":\n        task = store.add(args.title, args.due)\n        print(f\"added {task.id}: {task.title}\")\n    elif args.command == \"list\":\n        tasks = store.overdue() if args.overdue else store.list(include_done=not args.pending)\n        for task in tasks:\n            mark = \"x\" if task.done else \" \"\n            due = f\" (due {task.due})\" if task.due else \"\"\n            print(f\"[{mark}] {task.id}: {task.title}{due}\")\n    else:\n        try:\n            task = store.complete(args.id)\n        except KeyError as exc:\n            print(f\"error: {exc.args[0]}\")\n            return 1\n        print(f\"done {task.id}: {task.title}\")\n    return 0\n",
+      "src/toy_todo/store.py": "\"\"\"Task storage in a JSON file.\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nfrom dataclasses import asdict, dataclass\nfrom datetime import datetime\nfrom pathlib import Path\n\n\n@dataclass\nclass Task:\n    id: int\n    title: str\n    done: bool = False\n    due: str | None = None\n\n\nclass TaskStore:\n    \"\"\"Keeps the task list in a JSON file; every change is saved immediately.\"\"\"\n\n    def __init__(self, path: Path) -> None:\n        self.path = Path(path)\n\n    def _load(self) -> list[Task]:\n        if not self.path.exists():\n            return []\n        raw = json.loads(self.path.read_text(encoding=\"utf-8\"))\n        return [Task(**item) for item in raw]\n\n    def _save(self, tasks: list[Task]) -> None:\n        self.path.write_text(\n            json.dumps([asdict(t) for t in tasks], indent=2) + \"\\n\", encoding=\"utf-8\"\n        )\n\n    def add(self, title: str, due: str | None = None) -> Task:\n        tasks = self._load()\n        task = Task(id=max((t.id for t in tasks), default=0) + 1, title=title, due=due)\n        tasks.append(task)\n        self._save(tasks)\n        return task\n\n    def complete(self, task_id: int) -> Task:\n        tasks = self._load()\n        for task in tasks:\n            if task.id == task_id:\n                task.done = True\n                self._save(tasks)\n                return task\n        raise KeyError(f\"no task with id {task_id}\")\n\n    def list(self, *, include_done: bool = True) -> list[Task]:\n        return [t for t in self._load() if include_done or not t.done]\n\n    def overdue(self) -> list[Task]:\n        today = datetime.now().strftime(\"%Y-%m-%d\")\n        return [t for t in self._load() if t.due and t.due < today]\n"
+    }
+  },
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "Before we ship this, I want my uncommitted changes reviewed from every angle at once: code, security, product, business and team, each reviewer on their own, and then one consolidated verdict."
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "Give me a second opinion on the code quality of my uncommitted changes."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "Put my uncommitted changes in front of the full panel of independent judges and have a moderator merge their findings into one verdict. The changes add due dates, so the people who track errands with this tool stop missing the time-bound ones.",
+      "checks": {
+        "answer_contains": [
+          "JCR-",
+          "judge-frontend"
+        ],
+        "answer_matches": [
+          "\\b(APPROVED|ESCALATED)\\b"
+        ]
+      },
+      "review": "The report has a panel with judge-code-reviewer, judge-security, judge-product and judge-business, each run as its own read-only sdd-judge delegation (or inline passes marked no isolation); judge-team is listed as not convened because there is no plan, and judge-frontend as not convened because there is no UI. The consolidated findings keep each judge's code (JCR-n, JSEC-n, JPRD-n, ...) and name the debug print in cli.py, the unvalidated --due, the overdue list that includes done tasks and calls datetime.now(), and the missing tests. Duplicates are merged with all their IDs, each severity change has a reason, there is one verdict, nothing is edited and nothing is recorded (there is no SDD change)."
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "skill": "product-discovery",
+  "fixture": "toy-python",
+  "packs": [
+    "core",
+    "sdd",
+    "product"
+  ],
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "I am thinking about adding reminders to this to-do app, but I do not know who would use them or whether they are worth building. Help me work out what we should build first and how we would know it works. No code yet."
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "Describe for a new teammate what this to-do CLI does today: its commands, where it stores the tasks and what the tests cover."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "We want to let people set due dates on tasks, but nobody has said who asked for it or what problem it solves. Before any code, write a short discovery in docs/discovery/due-dates.md: the job to be done, the hypotheses, how we would measure success, the user flow, acceptance criteria and the smallest version worth shipping.",
+      "checks": {
+        "files_written": [
+          "docs/discovery/due-dates.md"
+        ],
+        "answer_contains": [
+          "due-dates.md"
+        ],
+        "answer_matches": [
+          "(?i)riskiest",
+          "(?i)baseline",
+          "(?i)\\bMVP\\b|smallest (version|slice)|first version",
+          "(?i)assum|open questions?"
+        ]
+      },
+      "review": "docs/discovery/due-dates.md has the six parts: a job statement with a user role, a situation and an outcome; hypotheses by kind with the riskiest one named and a way to test it; a primary metric with baseline (or 'none yet'), target, timeframe and source, plus a guardrail; a user flow with its failure paths (an invalid date); acceptance criteria in Given/When/Then; and an MVP cut with what waits. Targets are labeled as proposals and unknowns as open questions, nothing invented is presented as fact, and no code or SDD artifact was changed."
+    }
+  ]
+}

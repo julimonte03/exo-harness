@@ -1,0 +1,34 @@
+{
+  "skill": "typescript",
+  "fixture": "node-shop",
+  "packs": [
+    "core",
+    "sdd",
+    "frontend"
+  ],
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "In packages/shared I want to model a payment so it can never be both paid and failed, and so a product ID cannot be passed where an order ID is expected. How would you type that? Show the types in your answer; do not create files yet."
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "In packages/api, which order status changes are allowed and where in the code is that enforced? Point me to the files, no changes."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "Design the TypeScript types for the order status flow in packages/shared: the allowed transitions (pending to paid or cancelled, paid to shipped or cancelled, shipped to delivered), a function that applies a transition, and order and product IDs that cannot be mixed up. Show the code in your answer and say which file each piece goes in; do not create files.",
+      "checks": {
+        "answer_matches": [
+          "packages/shared/src/\\w+\\.ts",
+          "\\bnever\\b",
+          "(?i)brand|unique symbol"
+        ]
+      },
+      "review": "The answer models the statuses as a literal union or an as const array (no enum: packages/shared runs from source with Node type stripping and verbatimModuleSyntax), the transitions as a typed map checked with satisfies or an exhaustive switch with a never check, branded OrderId and ProductId created by a validating function, import type and explicit .ts extensions in relative imports, no any and no unchecked casts; it names the files under packages/shared/src, gives the type check command (npm run typecheck in packages/shared) without claiming it ran, and creates no file."
+    }
+  ]
+}

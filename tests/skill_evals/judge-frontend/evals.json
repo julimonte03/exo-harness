@@ -1,0 +1,45 @@
+{
+  "skill": "judge-frontend",
+  "fixture": "node-shop",
+  "packs": [
+    "core",
+    "sdd",
+    "quality"
+  ],
+  "setup": {
+    "files": {
+      "packages/web/src/components/SaveForLaterButton.tsx": "import type { Product } from '@shop/shared';\n\nconst STORAGE_KEY = 'node-shop.saved';\n\nfunction HeartIcon({ filled }: { filled: boolean }) {\n  return (\n    <svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\">\n      <path\n        d=\"M8 14s-6-3.5-6-8a3.5 3.5 0 0 1 6-2.4A3.5 3.5 0 0 1 14 6c0 4.5-6 8-6 8z\"\n        fill={filled ? 'currentColor' : 'none'}\n        stroke=\"currentColor\"\n      />\n    </svg>\n  );\n}\n\nexport function SaveForLaterButton({ product }: { product: Product }) {\n  const saved: string[] = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]');\n  const isSaved = saved.includes(product.id);\n\n  const toggle = () => {\n    const next = isSaved ? saved.filter((id) => id !== product.id) : [...saved, product.id];\n    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));\n  };\n\n  return (\n    <div\n      className=\"save-for-later\"\n      style={{ color: isSaved ? '#e11d48' : '#9ca3af' }}\n      onClick={toggle}\n    >\n      <HeartIcon filled={isSaved} />\n    </div>\n  );\n}\n",
+      "specs/save-for-later/design.md": "# Design: save-for-later\n\n## Architecture Overview\n\nA browser-only feature in `packages/web`. A new hook keeps the saved products in `localStorage`, as `useCart` does with the cart (packages/web/src/hooks/useCart.ts:20). `ProductCard` shows the save control and `CartDrawer` lists the saved products.\n\n## Modules / Files\n\n- `packages/web/src/hooks/useSavedItems.ts`: new hook; lists, toggles and removes saved products, stored under the key `node-shop.saved`.\n- `packages/web/src/components/SaveForLaterButton.tsx`: new component; a heart icon inside a `div` that toggles the product on click, red (`#e11d48`) when saved and grey (`#9ca3af`) when not.\n- `packages/web/src/components/ProductCard.tsx`: shows `SaveForLaterButton` next to the price.\n- `packages/web/src/components/CartDrawer.tsx`: a new \"Saved for later\" list under the cart lines, each product with a \"Move to cart\" button.\n- `packages/web/src/components/SaveForLaterButton.test.tsx`: tests of the component.\n\n## Data Shapes\n\n`SavedItem = { productId: string; name: string; priceCents: number }`, stored as a JSON array under `node-shop.saved`.\n\n## Sequence Of Operations\n\n1. The shopper clicks the heart on a product card.\n2. `SaveForLaterButton` reads the saved list from `localStorage`, adds or removes the product, and writes the list back.\n3. `CartDrawer` reads the saved list when it opens and shows it.\n4. \"Move to cart\" calls `cart.add(product, 1)` and removes the product from the saved list.\n\n## Error Handling\n\nIf `localStorage` is full or blocked, the save is lost without a message.\n\n## Test Plan\n\n- S-1 -> SaveForLaterButton.test.tsx: saves the product on click\n- S-2 -> SaveForLaterButton.test.tsx: removes the product on a second click\n- S-3 -> CartDrawer.test.tsx: moves a saved product to the cart\n\n## Migration / Backwards Compatibility\n\nNone: a new storage key; the cart key does not change.\n\n## Risks & Mitigations\n\n- The saved list and the cart drift apart when the shop is open in two tabs. Likelihood low, impact low: accepted.\n",
+      "specs/save-for-later/proposal.md": "# Proposal: save-for-later\n\n## Intent\n\n- **User:** shoppers browsing the product grid who are not ready to buy yet.\n- **Problem:** the only way to keep a product in mind is to add it to the cart, which mixes what they will buy with what they are only considering; many cart lines are removed before checkout with the Remove button (packages/web/src/components/CartDrawer.tsx:47).\n- **Value:** a short list of products to come back to, apart from the cart.\n- **Success measure:** the share of cart lines removed before checkout drops by a third within 60 days of the release, read from the shop's order analytics.\n\n## Scope\n\n- A save control on each product card that adds the product to a saved list, or takes it out.\n- A \"Saved for later\" section in the cart drawer, with a \"Move to cart\" action for each saved product.\n- The saved list is kept in the browser, like the cart (packages/web/src/hooks/useCart.ts:5).\n\n## Approach\n\nA `useSavedItems` hook keeps the saved products in `localStorage` under its own key, following `useCart` (packages/web/src/hooks/useCart.ts:20). A new `SaveForLaterButton` component goes on `ProductCard`, and `CartDrawer` lists the saved products. No API change.\n\nAlternative considered: a wishlist stored on the server per account, rejected because shoppers have no accounts.\n\n## Out of Scope\n\n- Sharing the saved list, or keeping it across devices.\n- Price-drop alerts for saved products.\n",
+      "specs/save-for-later/spec.md": "# Spec: save-for-later\n\n## ADDED Requirements\n\n### CAP-storefront-FR-1: Save a product for later\nThe system SHALL let the shopper save a product from its card, and take it out of the saved list again, without adding it to the cart.\n\n#### Scenario S-1: Save a product\n- Given the product grid shows \"Mug\"\n- When the shopper activates the save control on the card of \"Mug\"\n- Then \"Mug\" appears in the \"Saved for later\" section of the cart drawer\n- And the save control shows that \"Mug\" is saved\n\n#### Scenario S-2: Take a product out of the saved list\n- Given \"Mug\" is saved\n- When the shopper activates the save control on the card of \"Mug\" again\n- Then \"Mug\" is no longer in the \"Saved for later\" section\n\n### CAP-storefront-FR-2: Move a saved product to the cart\nThe system SHALL move a saved product to the cart, with quantity 1, when the shopper chooses \"Move to cart\".\n\n#### Scenario S-3: Move a saved product to the cart\n- Given \"Mug\" is saved and in stock\n- When the shopper chooses \"Move to cart\" for \"Mug\"\n- Then the cart has one \"Mug\"\n- And the saved list no longer has \"Mug\"\n"
+    }
+  },
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "Before we approve specs/save-for-later/design.md, look at its UI side on its own: does it fit our existing React components and design tokens, and does it cover the screen states and accessibility?"
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "Explain in a short paragraph how the cart state flows from useCart to CartDrawer in packages/web."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "I wrote packages/web/src/components/SaveForLaterButton.tsx for the save-for-later change and have not committed it. Give me an independent frontend verdict on it, with findings.",
+      "checks": {
+        "answer_contains": [
+          "JFE-1",
+          "SaveForLaterButton.tsx"
+        ],
+        "answer_matches": [
+          "\\bESCALATED\\b",
+          "WCAG"
+        ]
+      },
+      "review": "The answer is a findings report with JFE-n IDs, severities, packages/web/src/components/SaveForLaterButton.tsx:line locations and WCAG 2.2 criteria: the clickable div has no keyboard access and no accessible name (High, SC 2.1.1 and 4.1.2); the colors are hard-coded instead of the @shop/design-tokens colors that StockBadge uses; the saved state is not kept in React state, so the control does not update (S-1); a broken stored value or blocked storage has no error state; the 16-pixel target is small. The verdict is ESCALATED and no file changes."
+    }
+  ]
+}
