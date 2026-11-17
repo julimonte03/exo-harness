@@ -111,7 +111,10 @@ def register(sub: argparse._SubParsersAction) -> None:
 _LABELS = {
     "safety_backup": "safety backup",
     "also_removed": "also removed (kept in the backup)",
-    "kept": "kept (project knowledge from discovery; delete it yourself if you want)",
+    "kept": (
+        "kept (project knowledge from discovery and your brand.json; delete them yourself if "
+        "you want)"
+    ),
 }
 
 
