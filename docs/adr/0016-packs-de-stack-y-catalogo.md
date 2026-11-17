@@ -80,7 +80,7 @@ Cuatro piezas no entran en lo que ya existe:
 
 ### Marca e integraciones (D-12)
 
-- **Estilo:** neutro por defecto. Un `.exo/brand.json` opcional lo reemplaza; su forma está en `executive-style.md` (pack `design`).
+- **Estilo:** neutro por defecto. Un `.exo/brand.json` opcional lo reemplaza; su forma está en `executive-style.md` (pack `design`). `exo uninstall` lo conserva, como `discovery/` y `context.md` (D-36).
 - **Herramientas corporativas:** SonarQube, Fortify y Kibana son pasos opcionales. Sin ellas, las skills usan herramientas abiertas.
 
 ### Evals de skills (D-41)
@@ -92,8 +92,9 @@ Cuatro piezas no entran en lo que ya existe:
 - La suite normal valida su esquema.
 - `tests/test_skill_evals.py` (`agent_e2e`, fuera de la suite normal) los corre con Claude Code real:
   - sobre una copia de un fixture con `exo init`;
-  - con los datos aislados;
-  - detecta el uso de la skill en la salida `stream-json`.
+  - con los datos de exo aislados y sin la config de usuario de Claude Code (`--setting-sources project,local`, `--strict-mcp-config`); el informe registra `claude --version` y las skills visibles del evento `system`/`init`;
+  - detecta el uso de la skill en la salida `stream-json`;
+  - los chequeos de `output` miden la respuesta (`answer_contains`, `answer_matches`) y los archivos (`files_written`, `file_contains`, `files_unchanged`).
 
 ## Consecuencias
 
