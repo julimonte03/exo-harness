@@ -26,6 +26,7 @@ Every planning artifact the tier requires is in the change root (`proposal.md`, 
 3. **Plan the phases.** From `exo change status <change> --json` and the tier (`.exo/shared/phase-skill-map.md`, Phases per tier), list the planning phases still missing, in order:
    - Tier 1: nothing more after `sdd-new` (the proposal, and the delta if behavior changes);
    - Tier 2: spec, with its `test-spec.md`;
+   - with the SPDD overlay in Tier 1 and 2, then the canvas and its approval (skill:sdd-orchestrator, SPDD overlay); the person's approval is never skipped;
    - Tier 3 and 4: explore when the area is unknown, then propose, spec, design and tasks, with `test-spec.md`.
 4. **Run them in a row**, through the orchestrator's loop, without the gate between phases. Still stop at once on `needs-input`, `blocked` or a fitness signal that changes the tier: a change of tier changes the plan.
 5. **Check.** `exo speclint <change-root>`; fix what it reports in the phase that owns the file.

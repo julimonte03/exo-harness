@@ -60,7 +60,7 @@ A canvas edit always names the section, the item, the old text, the new text and
 |---|---|---|
 | The behavior must change: a rule was wrong, a case was missing, an unhappy path must end differently, a Safeguard must change | logic correction | canvas first, approval again, then code |
 | Same observable behavior, different code: names, a split inside Structure's files, steps reordered with the same result | refactor | code first, then Structure, and Operations if steps moved; no new approval |
-| The fix changes what spec.md requires (a requirement, a scenario's Then) or what design.md decides | spec or design change | stop with `needs-input`: skill:sdd-spec or skill:sdd-design first, then the canvas follows |
+| The fix changes what spec.md requires (a requirement, a scenario's Then), adds an output the spec does not mention, or changes what design.md decides | spec or design change | stop with `needs-input`: skill:sdd-spec or skill:sdd-design first, then the canvas follows |
 | The code cannot follow the canvas and you cannot tell which side is right | conflict | stop with `needs-input`, both sides described |
 | Something neither the canvas nor the plan covers: a nearby bug, a cleanup | follow-up | not a sync: list it as skill:sdd-apply says |
 
@@ -72,7 +72,7 @@ A canvas edit always names the section, the item, the old text, the new text and
 
 1. **Write the canvas edit:** section, item, old text, new text and the reason (the `S-n`, the `TM-n`, or the person's words).
 2. **Check it stays inside the spec.** If the new behavior contradicts a requirement or a scenario, it is a spec change: stop.
-3. **Apply it.** Inline: edit canvas.md, keeping the numbering (append, or mark `(removed)`), and run `exo speclint <change-root>`. In `sdd-implementer`: do not edit; return `status: needs-input` with the edit.
+3. **Apply it.** Inline: edit canvas.md, keeping the numbering (append, or mark `(removed)`), and run `exo speclint <change-root>`. In `sdd-implementer`: do not edit; return `status: needs-input` with the edit, and the orchestrator's session applies it, shows it and asks for the approval (skill:sdd-orchestrator, SPDD overlay).
 4. **Show the person the change** in the canvas: the section before and after.
 5. **Back to approval.** The changed canvas goes back to the person: skill:prompt-spec-review runs again in approval mode, even when the gate was already `APPROVED`. No code changes until the person approves the changed canvas. Without that approval (unattended, or no answer), the gate is `ESCALATED` and the task stops with `needs-input`.
 6. **Then the code,** test first, as skill:sdd-apply says.
@@ -83,7 +83,7 @@ A request from the person to fix the code is not an approval of the canvas chang
 ## Refactor
 
 1. **Change the code** inside the task's files. The tests stay green without changing what they assert; a test whose assertion has to change means the behavior changed, so it is a logic correction.
-2. **Update the canvas:** Structure, and Operations when steps moved, so it describes the code. Run `exo speclint <change-root>`. In `sdd-implementer`, return the edit in the envelope notes for the orchestrator to apply.
+2. **Update the canvas:** Structure, and Operations when steps moved, so it describes the code. Run `exo speclint <change-root>`. In `sdd-implementer`, return the edit in the envelope notes with `status: ok`, and the orchestrator's session applies it.
 3. No new approval. Record the decision.
 
 ## Conflict

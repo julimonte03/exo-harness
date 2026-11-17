@@ -10,7 +10,7 @@ Take the canvas as it is now and imagine a test written from it. After the chang
 
 - **the test would fail** → the behavior changes → logic correction (canvas first, approval, then code);
 - **the test would still pass** → only the code changes → refactor (code first, then the canvas);
-- **a scenario of the spec would fail** → the requirement changes → spec change (stop; the spec phase first).
+- **a scenario of the spec would fail, or the change adds an output the spec does not mention** → the requirement changes → spec change (stop; the spec phase first).
 
 ## Examples
 
@@ -23,7 +23,7 @@ Take the canvas as it is now and imagine a test written from it. After the chang
 | The tier lookup moves from `discount_for` to a helper in the same file | refactor | Same behavior; Structure gains the helper |
 | Two Operations swap order and the stored result is the same | refactor | Update Operations so the order matches the code |
 | A new module the plan does not name would make the code cleaner | not a sync | A file outside the plan: `needs-input` as skill:sdd-apply says, or a follow-up |
-| The person wants the applied tier shown on the invoice, and the spec says nothing about showing it | logic correction | The output changes inside the spec's limits; the canvas and the design gain it first |
+| The person wants the applied tier shown on the invoice, and the spec says nothing about showing it | spec or design change | A new output the user sees, which no requirement covers: stop with `needs-input`; the spec (and the design) gain it first, then the canvas |
 | The person wants a third tier at 1000 units | spec change | A requirement's values change: the spec first, then the canvas |
 | The canvas counts every line's quantity, and the model allows negative credit lines | conflict | The canvas cannot hold as written and either fix changes the behavior: ask |
 | A rounding bug in the tax module | follow-up | Not part of the canvas or the plan |

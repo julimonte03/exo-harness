@@ -2,8 +2,9 @@
 name: prompt-spec-review
 description: >-
   The human gate of the SPDD overlay: reviews the REASONS canvas (canvas.md)
-  of an SDD change and leaves gates/prompt_spec_review.md. Approval mode, in
-  the design phase and inline with the person: checks that the canvas is
+  of an SDD change and leaves gates/prompt_spec_review.md. Approval mode,
+  inline with the person in design (before apply in Tier 1 and 2, and again
+  after a logic correction in apply): checks that the canvas is
   complete and coherent with the spec and design.md, shows it, and asks for
   an explicit approval; APPROVED only with that approval, ESCALATED
   otherwise. Conformance mode, in the verify phase inside the read-only
@@ -36,7 +37,7 @@ The rules of the overlay are in `.exo/shared/spdd-common.md`. When this skill an
 
 | Mode | Phase | Runs in | Trigger |
 |---|---|---|---|
-| approval | design, right after skill:reasons-canvas-author | the orchestrator's session, inline with the person | a new canvas, or a changed one (a logic correction from skill:prompt-code-sync, a change in the design) |
+| approval | design (Tier 3 and 4) or right before apply (Tier 1 and 2), after skill:reasons-canvas-author; in apply, after a logic correction | the orchestrator's session, inline with the person | a new canvas, or a changed one (a logic correction from skill:prompt-code-sync, a change in the design) |
 | conformance | verify | `sdd-verifier`, read-only and in fresh context; without subagents, the session that runs the verify | `canvas.md` exists in the change |
 
 - `exo check` requires this gate whenever `canvas.md` exists, at any tier. Without `canvas.md` the change has no such gate and this skill does not run.
@@ -44,7 +45,7 @@ The rules of the overlay are in `.exo/shared/spdd-common.md`. When this skill an
 
 ## Permissions
 
-- **Approval:** writes only `gates/prompt_spec_review.md`. It never edits canvas.md: a gap goes back to skill:reasons-canvas-author, which fixes it in the same session, and you review again.
+- **Approval:** writes only `gates/prompt_spec_review.md`. It never edits canvas.md: a gap goes back to the skill that wrote the canvas or the edit (skill:reasons-canvas-author, or skill:prompt-code-sync for a logic correction), which fixes it in the same session, and you review again.
 - **Conformance:** read-only, like skill:sdd-verify: read files and read-only git (`git diff`, `git log`, `git show`, `git status`); no edits; the gate comes back as text.
 
 ## Approval mode
@@ -115,11 +116,12 @@ Back every gap with `path:line`, the canvas section and item ("Operations 4", "S
 
 | Verdict | When | Requires tech_lead approval |
 |---|---|---|
-| `APPROVED` | every Operation, Norm and Safeguard holds, nothing is outside Structure, and the design approval is `APPROVED` | `no` |
-| `ESCALATED` | any gap; or the design approval is missing or `ESCALATED`, because conformance cannot approve a canvas nobody approved: say so in the Verdict | `yes` |
+| `APPROVED` | no gap is Critical or High, every changed file is in Structure, and the design approval is `APPROVED` | `no` |
+| `ESCALATED` | a Critical or High gap; a changed file outside Structure; or the design approval is missing or `ESCALATED`, because conformance cannot approve a canvas nobody approved: say so in the Verdict | `yes` |
 
+- **Medium and Low gaps** do not change the verdict: list them in `### Conformance`, and skill:sdd-verify carries them to Issues Found.
 - A gap the person decides not to fix stays listed, marked `accepted by <role>` with the reason; the orchestrator records it in `dismissed_followups`. Never dismiss a gap yourself (`.exo/shared/spdd-common.md`, section F).
-- A canvas that changed after the design approval without a new approval is a gap: **High**, against the changed section.
+- **A canvas changed after the design approval.** Compare it with the approved version (`git log -p -- <change-root>/canvas.md` since the approval date) and with the `decisions` of `ai-usage-record.json`. A refactor edit recorded as a decision (`Canvas: refactor…`) that touches only Structure, or only the order of Operations, needs no approval and is not a gap. Any other change without a new approval changes logic: **High**, against the changed section.
 
 ### Rewrite the gate
 
@@ -127,23 +129,24 @@ Keep `### Design approval` exactly as it was, and add `### Conformance` with one
 
 ## Record
 
-**Approval mode,** inline, before the envelope of the design phase (`.exo/shared/capability-attribution.md`):
+**Approval mode,** inline, before the envelope of the phase that ran it (`.exo/shared/capability-attribution.md`):
 
 ```bash
 exo change record <change> --add capabilities_used '{"name": "prompt-spec-review", "type": "skill", "activation": "auto", "resolution": "fallback-registry"}'
 exo change record <change> --add skills_used '"prompt-spec-review"'
-exo change record <change> --add gates '{"name": "prompt_spec_review", "status": "pass", "detail": "canvas approved by the person in design"}'
+exo change record <change> --add gates '{"name": "prompt_spec_review", "status": "pass", "detail": "design: canvas approved by the person"}'
 exo change record <change> --add decisions '{"summary": "Canvas approved", "by": "human"}'
 ```
 
 - `status` is `pass` for `APPROVED` and `fail` for `ESCALATED`; `waived` once the `tech_lead` accepts an `ESCALATED` gate. Record the decision only with an explicit approval.
+- **One entry per run:** the gate gets a new `gates` entry each time it is written (design, apply after a logic correction, verify), and `detail` starts with that phase (`design:`, `apply:`, `verify:`). The last entry is the gate's current state; the earlier ones are its history.
 - In Windows PowerShell 5.1, pass the JSON as `'@<file>'` (`.exo/shared/sdd-phase-common.md`, section I).
 
-**Conformance mode,** in a subagent: list `prompt-spec-review` and its resolution in the envelope notes, with the gate result. The orchestrator records the skill, the `gates` entry and the dismissed gaps. Subagents never run `exo change record`.
+**Conformance mode,** in a subagent: list `prompt-spec-review` and its resolution in the envelope notes, with the gate result. The orchestrator records the skill, the `gates` entry (`"detail": "verify: ..."`) and the dismissed gaps (`.exo/shared/spdd-common.md`, section F). Subagents never run `exo change record`.
 
 ## Return
 
-- **Approval:** the design envelope lists the gate under `artifacts`, for example `summary: "APPROVED: the person approved the canvas"`.
+- **Approval:** the envelope of the phase that ran it (design, or apply in Tier 1 and 2 and after a logic correction) lists the gate under `artifacts`, for example `summary: "APPROVED: the person approved the canvas"`.
 - **Conformance:** the full gate text after `verify-record.md` and before the envelope of skill:sdd-verify, with a line in its notes:
 
 ```text
@@ -154,7 +157,7 @@ The orchestrator writes gates/prompt_spec_review.md from this answer.
 
 ## Before you finish
 
-- [ ] The mode matches the phase: approval in design, conformance in verify.
+- [ ] The mode matches the phase: approval in design or apply, conformance in verify.
 - [ ] Approval: every check of step 1 done; High and Medium gaps fixed or kept by the person with a reason.
 - [ ] `APPROVED` only with the person's explicit approval in this conversation, quoted with its date.
 - [ ] Conformance: every Operation, Norm and Safeguard checked one by one, and every changed file against Structure.

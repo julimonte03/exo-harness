@@ -42,6 +42,8 @@ metadata:
 | 2 | the proposal's Scope and Out of Scope, spec.md and test-spec.md |
 | 1 | the proposal's Scope and Out of Scope; spec.md when the change alters behavior |
 
+With the SPDD overlay, `canvas.md` joins the plan at any tier: the orchestrator's session writes it and asks for its approval before apply (in Tier 1 and 2 too), and skill:prompt-code-sync holds each task to it.
+
 ## What it writes and what it never touches
 
 Permissions are denied by default (section G).

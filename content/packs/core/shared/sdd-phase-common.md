@@ -37,7 +37,7 @@ With `memory` or `none`, `exo check` has nothing on disk to check, and it says s
 | spec | `sdd-spec` | `spec.md` (delta); in Tier 2 also `test-spec.md` |
 | design | `sdd-design` | `design.md`; from Tier 3, `gates/threat_model.md` through `threat-modeling`; with SPDD, `canvas.md` through `reasons-canvas-author` and `gates/prompt_spec_review.md` through `prompt-spec-review` |
 | tasks | `sdd-tasks` | `tasks.md` and `test-spec.md` |
-| apply | `sdd-apply` | code and tests; ticks the boxes in `tasks.md`; in Tier 4, `gates/secure_coding_check.md` through `secure-coding-baseline`; with SPDD, keeps `canvas.md` in sync through `prompt-code-sync` |
+| apply | `sdd-apply` | code and tests; ticks the boxes in `tasks.md`; in Tier 4, `gates/secure_coding_check.md` through `secure-coding-baseline`; with SPDD, keeps `canvas.md` in sync through `prompt-code-sync` (the orchestrator's session applies the edits `sdd-implementer` returns) and, after a logic correction, rewrites `gates/prompt_spec_review.md` through `prompt-spec-review`; in Tier 1 and 2, before the first task, `canvas.md` and that gate through `reasons-canvas-author` and `prompt-spec-review`, in the orchestrator's session |
 | verify | `sdd-verify` | `verify-record.md`, the verify gates of the tier in `gates/`, and the conditional gates that apply (`accessibility_review`, `prompt_spec_review`) |
 | archive | `sdd-archive` | merges the delta into the living specs, moves the change to `<specs_dir>/archive/[<epic>/]YYYY-MM-DD-<change-name>/`, and `pr.md` through `branch-pr` |
 
