@@ -20,20 +20,18 @@
     {
       "id": "output",
       "expect": "trigger",
-      "prompt": "Add request validation to POST /api/books: a missing or blank ISBN, title or author must be rejected with 400 and the list of invalid fields, in the error format this API already uses.",
+      "prompt": "Show me how to add request validation to POST /api/books: a missing or blank ISBN, title or author must be rejected with 400 and the list of invalid fields, in the error format this API already uses. Give me the code for each file and the test in your answer; do not change any files.",
       "checks": {
         "answer_matches": [
-          "(?i)MethodArgumentNotValidException",
-          "(?i)spring-boot-starter-validation"
-        ],
-        "files_written": [
-          "pom.xml",
-          "src/main/java/com/example/library/books/BookRequest.java",
-          "src/main/java/com/example/library/common/ApiErrorHandler.java",
-          "src/test/java/*Test.java"
+          "(?i)spring-boot-starter-validation",
+          "@NotBlank",
+          "@Valid\\b",
+          "MethodArgumentNotValidException",
+          "(?i)\\b400\\b|BAD_REQUEST",
+          "@WebMvcTest|MockMvc"
         ]
       },
-      "review": "The change adds spring-boot-starter-validation to pom.xml without a version, jakarta.validation constraints (@NotBlank) on BookRequest, @Valid on the request body in BookController.register, and a MethodArgumentNotValidException handler in ApiErrorHandler that answers 400 in the existing {code, message} style (code invalid_request) plus the invalid fields. Business rules stay in BookService. It adds a @WebMvcTest (or an equivalent test) for the 400 with the field list, and gives the test command as not run because Maven cannot run here."
+      "review": "The answer shows, file by file: spring-boot-starter-validation in pom.xml without a version (the Boot 3.3 parent manages it); jakarta.validation constraints (@NotBlank) on BookRequest; @Valid on the request body in BookController.register; and a MethodArgumentNotValidException handler in the existing ApiErrorHandler that answers 400 in its {code, message} style (code invalid_request) plus the invalid fields, without switching the API to another error format and without adding a catch-all for Exception. Business rules stay in BookService. It adds a @WebMvcTest (or an equivalent test) for the 400 with the field list, gives the test command as not run, opens no SDD change and changes no file."
     }
   ]
 }

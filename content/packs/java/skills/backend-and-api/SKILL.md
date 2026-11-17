@@ -86,10 +86,11 @@ Return RFC 9457 problem details (`application/problem+json`) unless the API alre
   "status": 422,
   "detail": "Student members can have 3 active loans.",
   "instance": "/loans",
-  "code": "loan_limit_reached",
-  "errors": [{"field": "bookId", "message": "must not be null"}]
+  "code": "loan_limit_reached"
 }
 ```
+
+- A broken business rule is about the state of the system, not about a field. Field errors (`"errors": [{"field": "bookId", "message": "must not be null"}]`) belong to the 400 validation problem, before any rule runs.
 
 - A stable machine-readable `code` (or `type`) that clients can branch on; a human `detail` without internals.
 - Never stack traces, SQL, class names, file paths or versions in the body. Log them on the server, without personal data.

@@ -1,6 +1,6 @@
 # Spring Boot examples
 
-Spring Boot 3, Java 21. The domain is a fictional shop; adapt names and packages to the project.
+Spring Boot 3 and 4, Java 21; where Boot 4 differs, the text says so (and `SKILL.md`, Boot 3 or Boot 4). The domain is a fictional shop; adapt names and packages to the project.
 
 ## Typed, validated configuration
 
@@ -78,20 +78,25 @@ class OrderController {
 
 ## One error handler with problem details
 
+For a project with no advice of its own. The base class answers Spring MVC's own exceptions (400, 404, 405, 406, 415 and any `ErrorResponse`) with problem details; this advice adds the invalid fields, the project's exceptions and a catch-all that leaves security to Spring Security. Do not also set `spring.mvc.problemdetails.enabled`: Boot's own handler backs off when this one exists.
+
 ```java
 @RestControllerAdvice
-class ApiErrors {
+class ApiErrors extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ApiErrors.class);
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    ProblemDetail invalid(MethodArgumentNotValidException ex) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Invalid request");
+    @Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        ProblemDetail problem = ex.getBody();
+        problem.setDetail("Invalid request");
         problem.setProperty("code", "invalid_request");
         problem.setProperty("errors", ex.getBindingResult().getFieldErrors().stream()
-                .map(error -> Map.of("field", error.getField(), "message", error.getDefaultMessage()))
+                .map(error -> Map.of("field", error.getField(),
+                        "message", Objects.requireNonNullElse(error.getDefaultMessage(), "is invalid")))
                 .toList());
-        return problem;
+        return handleExceptionInternal(ex, problem, headers, status, request);
     }
 
     @ExceptionHandler(NotFoundException.class)
@@ -109,14 +114,19 @@ class ApiErrors {
     }
 
     @ExceptionHandler(Exception.class)
-    ProblemDetail unexpected(Exception ex) {
+    ProblemDetail unexpected(Exception ex) throws Exception {
+        if (ex instanceof AccessDeniedException || ex instanceof AuthenticationException) {
+            throw ex;   // Spring Security answers 401 or 403
+        }
         log.error("Unexpected error", ex);
         return ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error");
     }
 }
 ```
 
-When the project already has its own error record (for example `ApiError(code, message)`), add the validation handler in the same style and add the field list to that record or a sibling, instead of switching formats in one endpoint.
+The catch-all loses to the more specific handlers of the base class, so a 405 stays a 405. Without Spring Security on the classpath, drop the rethrow and its imports.
+
+When the project already has its own advice and error record (for example `ApiError(code, message)`), keep them: add a `@ExceptionHandler(MethodArgumentNotValidException.class)` with `@ResponseStatus(HttpStatus.BAD_REQUEST)` in the same style, with the field list in that record or a sibling (`ValidationError(code, message, errors)`), instead of switching formats in one endpoint. Do not add a catch-all for `Exception` to an advice that does not extend `ResponseEntityExceptionHandler`: it would turn 405, 415 or a missing parameter into a 500.
 
 ## After-commit side effects
 

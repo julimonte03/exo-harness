@@ -1,6 +1,6 @@
 # Spring Security examples
 
-Spring Boot 3 with Spring Security 6. The domain is a fictional shop; adapt paths, roles and claims to the project.
+Spring Boot 3 with Spring Security 6, and Spring Boot 4 with Spring Security 7; where they differ, the text says so. The domain is a fictional shop; adapt paths, roles and claims to the project.
 
 ## Stateless API with a JWT resource server
 
@@ -15,6 +15,8 @@ Spring Boot 3 with Spring Security 6. The domain is a fictional shop; adapt path
     <scope>test</scope>
 </dependency>
 ```
+
+On Boot 4 the starter is `spring-boot-starter-security-oauth2-resource-server`, and the test dependency is `spring-boot-starter-security-test`; both without a version, from the Boot BOM.
 
 ```yaml
 spring:
@@ -92,6 +94,8 @@ class OrderAccess {
 
 ## Browser app with sessions and a single-page front end
 
+Spring Security 7 (Boot 4):
+
 ```java
 @Bean
 SecurityFilterChain web(HttpSecurity http) throws Exception {
@@ -100,15 +104,41 @@ SecurityFilterChain web(HttpSecurity http) throws Exception {
             .requestMatchers("/", "/assets/**", "/login/**").permitAll()
             .anyRequest().authenticated())
         .oauth2Login(Customizer.withDefaults())
-        .csrf(csrf -> csrf
-            .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-            .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
+        .csrf(csrf -> csrf.spa())
         .logout(logout -> logout.logoutSuccessUrl("/"));
     return http.build();
 }
 ```
 
-The front end reads the `XSRF-TOKEN` cookie and sends it back in the `X-XSRF-TOKEN` header on state-changing requests. The OAuth2 client secret comes from `${OAUTH_CLIENT_SECRET}`.
+Spring Security 6 (Boot 3) has no `spa()`: the same chain with a cookie repository and a request handler that renders the deferred token on every request (so the cookie is written) and accepts the raw token the front end sends in the header:
+
+```java
+        .csrf(csrf -> csrf
+            .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+            .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler()))
+```
+
+```java
+final class SpaCsrfTokenRequestHandler implements CsrfTokenRequestHandler {
+
+    private final CsrfTokenRequestHandler plain = new CsrfTokenRequestAttributeHandler();
+    private final CsrfTokenRequestHandler xor = new XorCsrfTokenRequestAttributeHandler();
+
+    @Override
+    public void handle(HttpServletRequest request, HttpServletResponse response, Supplier<CsrfToken> csrfToken) {
+        xor.handle(request, response, csrfToken);   // BREACH protection when the token is rendered in a page
+        csrfToken.get();                            // load the deferred token, so the cookie is written
+    }
+
+    @Override
+    public String resolveCsrfTokenValue(HttpServletRequest request, CsrfToken csrfToken) {
+        String header = request.getHeader(csrfToken.getHeaderName());
+        return (StringUtils.hasText(header) ? plain : xor).resolveCsrfTokenValue(request, csrfToken);
+    }
+}
+```
+
+This is the handler of the Spring Security 6.5 reference. Older guides for Spring Security 6 add a `CsrfCookieFilter` that calls `getToken()` on every request instead, with the plain attribute handler: it does the same loading. The front end reads the `XSRF-TOKEN` cookie and sends it back in the `X-XSRF-TOKEN` header on state-changing requests; the cookie is cleared at sign-in and sign-out, so it reads it again after them. The OAuth2 client secret comes from `${OAUTH_CLIENT_SECRET}`.
 
 ## CORS from configuration
 
@@ -135,10 +165,17 @@ SecurityFilterChain actuator(HttpSecurity http) throws Exception {
         .securityMatcher(EndpointRequest.toAnyEndpoint())
         .authorizeHttpRequests(auth -> auth
             .requestMatchers(EndpointRequest.to(HealthEndpoint.class)).permitAll()
-            .anyRequest().hasRole("OPS"));
+            .anyRequest().hasRole("OPS"))
+        // A role rule needs a way to sign in on this chain too: here the same bearer tokens as the API.
+        .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(rolesFromClaim())))
+        .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        // No cookie authenticates a request on this chain, so CSRF does not apply.
+        .csrf(csrf -> csrf.disable());
     return http.build();
 }
 ```
+
+It lives in the same `SecurityConfig` as the API chain, so it reuses `rolesFromClaim()`. Without an identity provider, HTTP Basic for an operations account (`.httpBasic(Customizer.withDefaults())` with its password hashed, from the secret store) is the alternative.
 
 ## Passwords
 
@@ -187,4 +224,4 @@ class ProductSecurityTest {
 }
 ```
 
-`@MockitoBean` is Boot 3.4+; use `@MockBean` on earlier versions.
+`@MockitoBean` is Boot 3.4+ and the only option on Boot 4, where `@MockBean` was removed; use `@MockBean` before 3.4. On Boot 4, `@WebMvcTest` comes from `spring-boot-starter-webmvc-test`.

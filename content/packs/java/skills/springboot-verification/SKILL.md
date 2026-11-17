@@ -53,6 +53,7 @@ In this order, and write down where each command came from:
 2. **CI wins over the README:** the pipeline file (`.github/workflows/*.yml`, `azure-pipelines.yml`, `.gitlab-ci.yml`, `Jenkinsfile`) shows what the project really runs (for example a Maven task with the goal `verify`).
 3. The wrapper (`mvnw`, `gradlew`); without one, `mvn` or `gradle`.
 4. The plugins the build declares: JaCoCo, Checkstyle, PMD, SpotBugs, Error Prone, Spotless, OWASP dependency-check, Sonar. Only declared tools run; a tool the build lacks is `not configured`, never installed.
+5. The Spring Boot version (the parent or the plugin). On Boot 4, a suite that stopped compiling after the upgrade (test slices in per-technology modules, `@MockBean` removed, Jackson 3 packages) fails the compile step, and a `@SpringBootTest` that uses MockMvc without `@AutoConfigureMockMvc` fails at context start: both go to skill:java-build-resolver, never to a skipped test.
 
 The default commands per tool are in `references/commands.md`.
 

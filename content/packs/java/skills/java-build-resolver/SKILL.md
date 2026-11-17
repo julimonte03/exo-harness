@@ -59,7 +59,7 @@ Read the build files, not only the log:
 - **Tool and layout:** `pom.xml` (modules in `<modules>`), or `settings.gradle(.kts)` with `build.gradle(.kts)`, `gradle/libs.versions.toml`, `gradle.properties`; the wrapper version (`.mvn/wrapper/maven-wrapper.properties`, `gradle/wrapper/gradle-wrapper.properties`).
 - **Java version:** `java.version` or `maven.compiler.release` (Maven), `java { toolchain { languageVersion } }` or `sourceCompatibility` (Gradle), `.java-version`, `.sdkmanrc`, the JDK in CI and in the Dockerfile.
 - **Framework:**
-  - Spring Boot: the `spring-boot-starter-parent` version, or `spring-boot-dependencies` imported as a BOM, or the `org.springframework.boot` plugin. Boot 3 needs Java 17+ and uses Jakarta EE (`jakarta.*`).
+  - Spring Boot: the `spring-boot-starter-parent` version, or `spring-boot-dependencies` imported as a BOM, or the `org.springframework.boot` plugin. Boot 3 needs Java 17+ and uses Jakarta EE (`jakarta.*`). Boot 4 also needs Java 17+, and moves to Jakarta EE 11, Spring Framework 7, Spring Security 7, Jackson 3 and modular starters: an upgrade breaks the build in known ways (`references/error-catalog.md`, Spring Boot 4 upgrade).
   - Quarkus: `io.quarkus.platform:quarkus-bom` and `quarkus-maven-plugin` (or the `io.quarkus` Gradle plugin) at the same version. Quarkus 3 uses `jakarta.*` too.
 - **Processors and plugins:** Lombok, MapStruct, the compiler plugin and its `annotationProcessorPaths`, surefire and failsafe, enforcer, code generators (OpenAPI, jOOQ, protobuf).
 
@@ -83,8 +83,9 @@ The catalog of symptoms, causes and fixes is in `references/error-catalog.md`; t
 | `Could not resolve dependencies`, `Could not find artifact` | a version that does not exist, a typo, a missing repository, no network or no credentials | fix the coordinates; check the repository and the credentials setup, without asking for them |
 | `NoSuchMethodError`, `NoClassDefFoundError`, `ClassNotFoundException` at test or start-up | two versions of a library on the classpath; a version pinned against the BOM | find it with `dependency:tree` or `dependencyInsight`; remove the pinned version or align it in `dependencyManagement` / constraints |
 | `Failed to load ApplicationContext` in tests | a bean or configuration error | read the deepest `Caused by:`: a missing property, a bean that fails, a database the test cannot reach |
+| After an upgrade to Boot 4: `@WebMvcTest`, `@DataJpaTest`, `@MockBean`, `TestRestTemplate` or `com.fasterxml.jackson.databind` not found; a `MockMvc` bean missing in a `@SpringBootTest` | the modular Boot 4: slices in per-technology test modules, `@MockBean` removed, Jackson 3 in `tools.jackson`, MockMvc only with `@AutoConfigureMockMvc` | add the test starter of the technology (`spring-boot-starter-webmvc-test`) without a version, `@MockitoBean`, the new imports, `@AutoConfigureMockMvc`; Jackson 2 code moves to Jackson 3 (the catalog has the list) |
 
-- **Spring Boot:** do not pin versions of libraries the Boot BOM manages; the Boot plugin and parent share one version; change a managed version only through its property (`<jackson-bom.version>`) and only when the cause demands it.
+- **Spring Boot:** do not pin versions of libraries the Boot BOM manages; the Boot plugin and parent share one version; change a managed version only through its property, as named in the `spring-boot-dependencies` BOM of the project's Boot version (such as `<jackson-bom.version>` on Boot 3), and only when the cause demands it.
 - **Quarkus:** add capabilities as Quarkus extensions (`quarkus-hibernate-validator`, `quarkus-rest-jackson`), not raw libraries; the BOM and the plugin stay at the same version.
 - **Tests that fail in the build:** decide first whether the failure is the code, the test, or the environment (no Docker for Testcontainers, a port in use, the time zone or locale). Fix the code or the test for the first two; for the environment, say what is missing. Never skip.
 
@@ -105,7 +106,7 @@ Confirm: ./gradlew dependencyInsight --dependency jackson-databind, then ./gradl
 Not touched: no test skipped or changed.
 ```
 
-When the fix needs a decision (a version change, a new repository), say `Fix (proposed)` and wait for the person.
+When the fix needs a decision (a version change, a new repository), say `Fix (proposed)` and wait for the person. On Boot 4 the same `NoSuchMethodError` with `tools.jackson` classes usually means Jackson 2 and Jackson 3 code mixed: the catalog, Spring Boot 4 upgrade.
 
 ## Record
 

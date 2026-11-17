@@ -21,11 +21,28 @@ Symptom, likely causes in order, and the fix. Confirm the cause in the build fil
 |---|---|---|
 | `javax.validation.*` | `jakarta.validation.*` | `spring-boot-starter-validation` |
 | `javax.persistence.*` | `jakarta.persistence.*` | `spring-boot-starter-data-jpa` |
-| `javax.servlet.*` | `jakarta.servlet.*` | `spring-boot-starter-web` / `-tomcat` |
+| `javax.servlet.*` | `jakarta.servlet.*` | `spring-boot-starter-web` / `-tomcat` (`spring-boot-starter-webmvc` on Boot 4) |
 | `javax.transaction.Transactional` | `jakarta.transaction.Transactional`, or Spring's `org.springframework.transaction.annotation.Transactional` | |
 | `javax.annotation.PostConstruct` | `jakarta.annotation.PostConstruct` | `jakarta.annotation-api` (transitive in the starters) |
 
 Not every `javax` moved: `javax.sql.DataSource`, `javax.crypto`, `javax.net.ssl` are part of the JDK and stay. Adding the old `javax.validation:validation-api` jar makes the code compile but leaves validation silently off, because Hibernate Validator 8 implements only Jakarta: do not do it.
+
+## Spring Boot 4 upgrade
+
+Boot 4 (Spring Framework 7, Jakarta EE 11, Java 17 or later) splits the auto-configuration into modules. Upgrade from the latest 3.5 with its deprecation warnings fixed; then these are the usual first errors.
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `package org.springframework.boot.test.autoconfigure.web.servlet does not exist`, `cannot find symbol: WebMvcTest` (or `DataJpaTest`, `AutoConfigureTestDatabase`) | the slices moved to per-technology test modules and packages | add the test starter of the technology without a version (`spring-boot-starter-webmvc-test`, `spring-boot-starter-data-jpa-test`); take the new import from the module (`org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest`) |
+| `cannot find symbol: MockBean` or `SpyBean` | removed in Boot 4 | `@MockitoBean` and `@MockitoSpyBean` from Spring Framework; a mock declared in a `@Configuration` class moves to the test class |
+| `No qualifying bean of type MockMvc` in a `@SpringBootTest` | `@SpringBootTest` no longer configures MockMvc | add `@AutoConfigureMockMvc` |
+| `TestRestTemplate` or `WebTestClient` not found or not injected | no longer provided by `@SpringBootTest` | `@AutoConfigureTestRestTemplate` with `spring-boot-resttestclient`, or `RestTestClient` with `@AutoConfigureRestTestClient` |
+| `package com.fasterxml.jackson.databind does not exist`, or `NoSuchMethodError` in Jackson classes | Jackson 3 is the default, in `tools.jackson.*` (annotations stay in `com.fasterxml.jackson.annotation`) | move the code to Jackson 3 (`JsonMapper`, `JsonMapperBuilderCustomizer`, `@JacksonComponent`); the `spring-boot-jackson2` module is a deprecated stopgap, only with the person's agreement |
+| `spring-boot-starter-web` deprecation warnings; OAuth2 starters not found | renamed starters | `spring-boot-starter-webmvc`; `spring-boot-starter-security-oauth2-resource-server` and `-client` |
+| Flyway or Liquibase migrations no longer run at start-up | they need their own starter | `spring-boot-starter-flyway` or `spring-boot-starter-liquibase` |
+| `spring-boot-starter-undertow` cannot be resolved | Undertow support was dropped | Tomcat (the default) or Jetty |
+
+As a temporary step only, `spring-boot-starter-classic` and `spring-boot-starter-test-classic` bring every module back; the person decides, and the real fix stays the list above.
 
 ## Dependency resolution
 

@@ -101,5 +101,5 @@ Usually safe: a new endpoint, a new optional request field, a new response field
 ## Rate limits
 
 - Per client (API key, user or IP when anonymous), on the endpoints that are expensive or abused: sign-in, password reset, search, exports, anything that sends messages.
-- Return 429 with `Retry-After`; optionally `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset`.
+- Return 429 with `Retry-After`. The quota fields of the IETF draft (`RateLimit-Policy` and `RateLimit`, draft-ietf-httpapi-ratelimit-headers, still an Internet-Draft) are optional: add them only when clients use them, and not the `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset` of its old revisions.
 - Enforce it at the gateway when there is one; otherwise in the service (a token bucket such as Bucket4j).

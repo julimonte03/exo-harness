@@ -1,19 +1,19 @@
 ---
 name: springboot-patterns
 description: >-
-  Spring Boot 3 architecture and patterns: typed configuration with
+  Spring Boot 3 and 4 architecture and patterns: typed configuration with
   @ConfigurationProperties records and profiles, constructor injection and
   bean design, controller-service-repository layers with DTOs, request
   validation with Bean Validation, centralized error handling with problem
   details, scheduling, async work and after-commit events, caching, HTTP
-  clients with timeouts, observability with Actuator and Micrometer, and
-  tests with slices (@WebMvcTest, @DataJpaTest) and Testcontainers. Use it
-  when building or changing a Spring Boot feature, binding settings from
-  application.yml, wiring beans, adding validation or error handling,
-  exposing health and metrics, or choosing how to test a Spring component.
-  Triggers: "Spring Boot", "@ConfigurationProperties", "make this
-  configurable", "profiles", "bean validation", "@ControllerAdvice",
-  "@WebMvcTest", "Actuator", "how do I structure this Spring service".
+  clients with timeouts, observability with Actuator and Micrometer, and tests
+  with slices (@WebMvcTest, @DataJpaTest) and Testcontainers. Use it when
+  building or changing a Spring Boot feature, binding settings from
+  application.yml, wiring beans, adding validation or error handling, exposing
+  health and metrics, or choosing how to test a Spring component. Triggers:
+  "Spring Boot", "@ConfigurationProperties", "make this configurable",
+  "profiles", "bean validation", "@ControllerAdvice", "@WebMvcTest",
+  "Actuator", "how do I structure this Spring service".
 metadata:
   exo-pack: java
   exo-execution: inline
@@ -36,10 +36,21 @@ metadata:
 
 ## Read first
 
-1. The Boot version (the parent or the plugin) and the starters in the build: some features below need a minimum version, noted where they apply.
+1. The Boot version (the parent or the plugin) and the starters in the build: some features below need a minimum version, noted where they apply, and Boot 4 changes several of them (Boot 3 or Boot 4).
 2. `application.yml` or `.properties`, the profile files, and how secrets arrive (`${ENV}` placeholders).
 3. One existing feature end to end: controller, service, repository, error handler, and its tests. Copy its style.
 4. `.exo/context.md`: commands and conventions.
+
+## Boot 3 or Boot 4
+
+Write for the version the build declares. Spring Boot 4 (Spring Framework 7, Spring Security 7, Jakarta EE 11, Java 17 or later) changes what the code and the build look like:
+
+- **Modular starters:** `spring-boot-starter-webmvc` replaces `spring-boot-starter-web` (the old name is deprecated); Flyway and Liquibase need `spring-boot-starter-flyway` or `spring-boot-starter-liquibase`; the OAuth2 starters are `spring-boot-starter-security-oauth2-*`.
+- **Test starters per technology** (`spring-boot-starter-webmvc-test`, `spring-boot-starter-data-jpa-test`, `spring-boot-starter-security-test`), which bring `spring-boot-starter-test`. The slices moved to those modules and to new packages (`@WebMvcTest` is `org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest`): take the imports from the build, not from Boot 3 code.
+- **`@MockBean` and `@SpyBean` are removed:** `@MockitoBean` and `@MockitoSpyBean`. `@SpringBootTest` no longer sets up MockMvc, `TestRestTemplate` or `WebTestClient` on its own: add `@AutoConfigureMockMvc`, `@AutoConfigureTestRestTemplate` or the new `RestTestClient` with `@AutoConfigureRestTestClient`.
+- **Jackson 3** by default: packages `tools.jackson.*` (the annotations stay in `com.fasterxml.jackson.annotation`); customize the `JsonMapper` with a `JsonMapperBuilderCustomizer` instead of an `ObjectMapper`; `@JsonComponent` is `@JacksonComponent`; `spring.jackson.read.*` and `spring.jackson.write.*` moved under `spring.jackson.json.*`.
+- **No Undertow:** Tomcat or Jetty.
+- An upgrade goes through the latest 3.5 first, with its deprecations fixed; build errors after it go to skill:java-build-resolver.
 
 ## 1. Configuration
 
@@ -65,15 +76,18 @@ metadata:
 
 ## 4. Validation
 
-- `spring-boot-starter-validation` in the build (Boot 3 starters do not include it).
+- `spring-boot-starter-validation` in the build (the web starters do not include it).
 - Constraints on request records (`@NotBlank`, `@Size`, `@Positive`, `@Email`, `@Pattern`), `@Valid @RequestBody` in the controller; `@Validated` on the controller class for constraints on `@RequestParam` and `@PathVariable`.
 - Custom rules as a `ConstraintValidator`. Rules that depend on the state of the system (limits, duplicates) stay in the domain or the service, not in annotations.
-- Imports are `jakarta.validation.*` on Boot 3.
+- Imports are `jakarta.validation.*` on Boot 3 and 4.
 
 ## 5. Errors
 
-- **One `@RestControllerAdvice`** maps exceptions to responses. Keep the project's error body if it has one; otherwise use `ProblemDetail` (RFC 9457) and `spring.mvc.problemdetails.enabled=true`.
-- Map, at least: `MethodArgumentNotValidException` and `HandlerMethodValidationException` (Boot 3.2+) to 400 with the invalid fields; not found to 404; business rules to the project's status (409 or 422); optimistic lock failures to 409; anything else to 500 with a generic message, logged once with its stack trace.
+- **One `@RestControllerAdvice`** maps exceptions to responses, in one way only.
+- **The project already has one:** keep its error body and add the new handlers in its style (`references/examples.md`, One error handler with problem details, the note after the code).
+- **No advice yet:** extend `ResponseEntityExceptionHandler`. The base class already answers Spring MVC's own exceptions with `ProblemDetail` (RFC 9457): an unreadable body or a failed validation 400, an unknown route 404, 405, 406, 415, and any `ErrorResponse` such as `ResponseStatusException`. Override `handleMethodArgumentNotValid` (and `handleHandlerMethodValidationException`, Boot 3.2+, for constraints on parameters) to add the invalid fields. Leave `spring.mvc.problemdetails.enabled` out: it registers Boot's own handler of the same kind, which backs off when yours exists. Use the property alone only when the project wants problem details and has no advice of its own.
+- Map, at least: validation to 400 with the invalid fields; not found to 404; business rules to the project's status (409 or 422); optimistic lock failures to 409.
+- **A catch-all for `Exception`** answers 500 with a generic message, logged once with its stack trace, and must not swallow what others answer: rethrow `AccessDeniedException` and `AuthenticationException`, so Spring Security still answers 401 or 403 (a `@PreAuthorize` denial would otherwise become a 500). Put it only in an advice that extends `ResponseEntityExceptionHandler`, whose more specific handlers win; in an advice that does not, it also turns 405, 415 or a missing parameter into a 500, so leave it out there.
 - `server.error.include-stacktrace=never` and `include-message=never` outside development.
 
 ## 6. Scheduled and async work
@@ -104,7 +118,7 @@ metadata:
 | What | Use |
 |---|---|
 | Domain and service logic | a plain JUnit test with Mockito, no Spring context |
-| A controller: mapping, validation, status codes, error bodies | `@WebMvcTest(XController.class)` with `MockMvc` (or `MockMvcTester` on Boot 3.4+), services mocked with `@MockitoBean` (Boot 3.4+) or `@MockBean` |
+| A controller: mapping, validation, status codes, error bodies | `@WebMvcTest(XController.class)` with `MockMvc` (or `MockMvcTester` on Boot 3.4+), services mocked with `@MockitoBean` (Boot 3.4+, the only option on Boot 4) or `@MockBean` (before 3.4) |
 | Repositories, mappings, migrations | `@DataJpaTest` with Testcontainers and `@ServiceConnection` (Boot 3.1+) for the real engine |
 | JSON shape of a DTO | `@JsonTest` |
 | Configuration binding and validation | `ApplicationContextRunner` with the properties |
