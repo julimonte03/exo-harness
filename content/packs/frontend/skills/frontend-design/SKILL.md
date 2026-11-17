@@ -89,7 +89,7 @@ Distinctive within the brand, never against it. Avoid the generic look:
 ## 5. Color
 
 - From tokens, by role (text, muted text, surface, border, accent, danger, success, warning), not raw hues.
-- **Contrast:** 4.5:1 for text, 3:1 for large text (24 px, or 19 px bold), and 3:1 for the boundaries of controls and for focus indicators.
+- **Contrast:** 4.5:1 for text, 3:1 for large text (24 px, or 18.66 px bold: 18 pt and 14 pt bold in WCAG), and 3:1 for the boundaries of controls and for focus indicators.
 - Never color alone to carry meaning: pair it with text or an icon.
 - Dark mode only when the project has it; then both themes come from tokens.
 

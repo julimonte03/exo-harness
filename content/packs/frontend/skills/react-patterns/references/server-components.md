@@ -85,7 +85,8 @@ Anyone can call a Server Function, with any arguments, outside your UI.
 
 import { z } from 'zod';
 
-const RenameInput = z.object({ listId: z.string().uuid(), name: z.string().trim().min(1).max(80) });
+// Zod 4: z.uuid(); in Zod 3, z.string().uuid() (skill:zod has both).
+const RenameInput = z.object({ listId: z.uuid(), name: z.string().trim().min(1).max(80) });
 
 export async function renameList(raw: unknown) {
   const session = await requireSession();                     // authenticate

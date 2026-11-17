@@ -41,17 +41,18 @@ metadata:
 
 ## Route
 
-Load the skill that fits the task, as `.exo/shared/skill-resolver.md` says, and read it in full:
+Load only the skill that fits the task, as `.exo/shared/skill-resolver.md` says, and read it in full:
 
 | Task | Skill |
 |---|---|
-| Review a Python diff: someone asks for a review, or before a PR | skill:python-reviewer |
+| Review a Python diff, when someone asks for a review | skill:python-reviewer |
 | A dependency, `requirements*.txt` or a lockfile (`uv.lock`, `poetry.lock`, `pdm.lock`) changes | skill:security-scan-jkp (pack `java`, which also covers Python) |
 | Choose the tests and write test-spec.md | skill:test-strategy |
 | Untrusted input, secrets, authentication or authorization in the code | skill:secure-coding-baseline |
 | The full review of a change in verify | skill:harness-review |
 
-- **A skill that is not installed degrades.** Say the sentence `<pack>/<skill> not installed — applying inline criteria`, apply the inline criteria of `.exo/shared/phase-skill-map.md` (last table), and record it. For `security-scan-jkp` on a Python project, that means OSV-Scanner on the lockfile, or `pip-audit` with no arguments inside the project's installed environment, only if the project has them; never `pip-audit -r` on requirements that are not pinned, because it installs them in a temporary environment (and may build them).
+- **They count toward the limit.** Inside an SDD phase, the skills this router loads count toward the limit of 5 skills per delegation of `.exo/shared/phase-skill-map.md`, after the Required and Conditional skills of the phase. When the limit is reached, keep the ones the task needs most and say which ones you left out.
+- **A skill that is not installed** degrades as `.exo/shared/skill-resolver.md` says: say `<pack>/<skill> not installed — applying inline criteria`, apply its inline criteria from the last table of `.exo/shared/phase-skill-map.md`, and record it. A skill of this pack missing while this router is installed means an incomplete install: say so, and suggest `exo doctor` and `exo sync`. For `security-scan-jkp` on a Python project, that means OSV-Scanner on the lockfile, or `pip-audit` with no arguments inside the project's installed environment, only if the project has them; never `pip-audit -r` on requirements that are not pinned, because it installs them in a temporary environment (and may build them).
 - **During apply,** your own diff is checked by `pre-commit-review` before each commit and by verify afterwards. Load skill:python-reviewer only when the person asks for a review.
 
 ## 1. Know the project

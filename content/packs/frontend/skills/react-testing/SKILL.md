@@ -132,7 +132,7 @@ Common causes and fixes are in `references/setup-recipes.md`, Flaky tests: share
 
 ## 10. Run them
 
-- Take the command from `.exo/context.md`, test-spec.md or the package scripts (for example `npm test --workspace <package>`, or `npx vitest run <file>` for one file).
+- Take the command from `.exo/context.md`, test-spec.md or the package scripts (for example `npm test --workspace <package>`, or `npm test --workspace <package> -- <file>` for one file). To call the runner directly, use the installed one: `npm exec --no -- vitest run <file>`. Never `npx vitest` or `npx jest`: without `node_modules`, npx downloads and runs a package instead of failing.
 - When you cannot run commands in this session, say so, give the exact command for the person, and review the test by reading: imports, providers, cleanup, every query against the component's real text and roles.
 - A test you write first in Red must fail for the expected reason: an assertion, not an import error.
 

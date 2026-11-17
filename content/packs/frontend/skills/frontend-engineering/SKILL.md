@@ -72,9 +72,10 @@ Read these, keep the `path:line` of each fact, and stop as soon as you know enou
 | A dependency or lockfile change | skill:security-scan-node |
 | A review of a TypeScript or JavaScript diff | skill:typescript-reviewer |
 
-- **Load only what the task needs:** usually one or two skills besides this router. Inside an SDD phase, the map's limit of five skills per delegation applies (`.exo/shared/phase-skill-map.md`); the phase's own choices come first.
+- **Load only what the task needs:** usually one or two skills besides this router.
 - **Skip what the stack does not have:** no Tailwind, no `tailwind-4`; no zod and the plan does not add it, no `zod` (validate by hand at the boundary instead).
-- **A skill that is not installed** degrades as `.exo/shared/skill-resolver.md` says: `frontend/<skill> not installed — applying inline criteria`, then apply the principles of section 3, and record it.
+- **They count toward the limit.** Inside an SDD phase, the skills this router loads count toward the limit of 5 skills per delegation of `.exo/shared/phase-skill-map.md`, after the Required and Conditional skills of the phase. When the limit is reached, keep the ones the task needs most and say which ones you left out.
+- **A skill that is not installed** degrades as `.exo/shared/skill-resolver.md` says: say `<pack>/<skill> not installed — applying inline criteria`, apply its inline criteria from the last table of `.exo/shared/phase-skill-map.md`, and record it. A skill of this pack missing while this router is installed means an incomplete install: say so, and suggest `exo doctor` and `exo sync`.
 
 ## 3. The role's principles
 
@@ -124,7 +125,7 @@ A new visual style, a new dependency or a React upgrade is a decision for the pe
 ## 5. In apply
 
 - Follow `code-generation` and the skills you loaded. Touch only the files of the task.
-- **Checks:** typecheck, lint and tests with the exact commands of `.exo/context.md` or of the web package's scripts (for example `npm test --workspace <package>`, `npx tsc --noEmit -p <package dir>`). When you cannot run a command in this session, give it to the person and say it did not run; never claim it passed.
+- **Checks:** typecheck, lint and tests with the exact commands of `.exo/context.md` or of the web package's scripts (for example `npm test --workspace <package>`, `npm run typecheck --workspace <package>`). A tool with no script runs from the installed packages only: `npm exec --no -- tsc --noEmit -p <package dir>`. Never `npx <tool>` on a package the project may not have installed: without `node_modules`, npx downloads a package of that name (`npx tsc` fetches an unrelated `tsc` package, not TypeScript). When you cannot run a command in this session, give it to the person and say it did not run; never claim it passed.
 - A dependency the plan does not name is a follow-up, not code.
 
 ## Return
@@ -138,7 +139,7 @@ When the person asks for a plan, or before a frontend task that spans several fi
 - Files: src/pages/Invoices.tsx (toolbar), src/hooks/useInvoiceFilters.ts (new), src/hooks/useInvoiceFilters.test.ts (new).
 - State: the filters live in the URL search params, so a saved view is a link; the list stays server data.
 - Risks: re-filtering a long list on every keystroke (defer it); the filter text is untrusted (parse it).
-- Checks: npm test --workspace @acme/portal; npx tsc --noEmit -p apps/portal (not run in this session).
+- Checks: npm test --workspace @acme/portal; npm exec --no -- tsc --noEmit -p apps/portal (not run in this session).
 ```
 
 ## Record
