@@ -1,6 +1,6 @@
 # Progreso de construcción
 
-**Fase activa:** F7, en curso (plan aprobado el 2026-11-17; rama `feat/F7-packs`). D-12 (resto), D-18 y D-38 a D-44 → ADR-0016.
+**Fase activa:** F8, pendiente. F7 se cerró el 2026-11-17 (106 skills en 12 packs).
 
 Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron con el comando exacto, la CI está verde en los tres sistemas operativos y el PR de la fase está mergeado.
 
@@ -17,7 +17,7 @@ Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron 
 | F4 Ciclo SDD | Terminada (local; CI diferida) | `feat/F4-ciclo-sdd`, mergeada a `main` en local, sin PR | 2026-11-14 | 2026-11-14 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL); 4 a 7 con Claude Code real. Criterio 6 sin Copilot (opcional). D-26, D-27 y D-28; D-11 → ADR-0013 |
 | F5 Gobierno y gates | Terminada (local; CI diferida) | `feat/F5-gobierno`, mergeada a `main` en local, sin PR | 2026-11-15 | 2026-11-16 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL); 7 con Claude Code real (Tier 1 y Tier 2), Copilot opcional. Hito M2 (v0.1.0). D-12, D-21 y D-29 a D-32 → ADR-0014 |
 | F6 Ingeniería inversa | Terminada (local; CI diferida) | `feat/F6-ingenieria-inversa`, mergeada a `main` en local, sin PR | 2026-11-16 | 2026-11-17 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL); 3 a 5 con Claude Code real (dos corridas sobre `py-invoices`), Copilot opcional. Criterio 8 diferido a F8 (D-35). Hito M3 (v0.2.0). D-14, D-19 y D-33 a D-37 → ADR-0015 |
-| F7 Packs | En curso | `feat/F7-packs` | 2026-11-17 | | D-12 (resto), D-18 y D-38 a D-44 → ADR-0016. Stacks del equipo: Java, Python y frontend |
+| F7 Packs | Terminada (local; CI diferida) | `feat/F7-packs`, mergeada a `main` en local, sin PR | 2026-11-17 | 2026-11-17 | Criterios 1–4 OK en Windows (3.14 y 3.10) y Linux (WSL); 3 con Claude Code real (117 de 117 evals). 65 skills nuevas, 6 packs nuevos. D-12 (resto), D-18 y D-38 a D-44 → ADR-0016 |
 | F8 Endurecimiento + v1.0 | Pendiente | | | | |
 
 Estados: `Pendiente` · `En curso` · `Bloqueada (D-xx)` · `Terminada`.
@@ -540,5 +540,128 @@ Se regeneraron los goldens de `tests/golden/` (6 archivos) y se revisó el diff.
 - **Parsers heurísticos** (D-14): no ven imports dinámicos ni alias que no están en la config.
 - **Subagentes de solo lectura:** el texto de cada unidad pasa dos veces por el contexto del orquestador. En los fixtures alcanza; F8 evalúa un extractor que escriba solo su unidad.
 - **Permisos del agente:** en las dos corridas, Claude Code no pudo leer `src/invoices/auth/tokens.py`. En la primera pidió un permiso que nadie podía dar; en la segunda lo bloqueó una regla de denegación que no está en el repo ni en la config del usuario. Es una protección del harness, no del motor: el contenido saltea la unidad con su razón y la deja como pregunta abierta.
+- **Copilot:** no se corrió (opcional).
+- **Cierre local sin remoto**, según la regla del principio de este archivo.
+
+### F7 — Packs de stack y resto del catálogo — 2026-11-17
+
+**Entorno:**
+- Windows 11, con Python 3.14.5 (`.venv`) y Python 3.10.20 (venv con `uv`, sin extras).
+- Linux Ubuntu 24.04 en WSL2, con Python 3.12 de `uv`, sobre un clon limpio de la rama.
+- Claude Code 2.1.325 para los evals, con `claude -p` sobre copias de los fixtures.
+- Los datos aislados con `EXO_DATA_DIR` y `EXO_MEMORY_DB`.
+
+**Resultados:**
+
+| Entorno | Resultado |
+|---|---|
+| Windows, Python 3.14 | 1702 passed y 6 skipped (POSIX y extras de memoria), cobertura 93,76 % |
+| Windows, Python 3.10 sin extras | 1696 passed y 12 skipped (POSIX, symlinks y extras de memoria), cobertura 93,49 % |
+| Linux | 1699 passed y 9 skipped (extras de memoria que no están), cobertura 93,52 %; `ruff check .` limpio y `exo validate` «12 packs, 106 skills, 6 subagents, 16 shared contracts: all valid» |
+
+**Lo que se escribió:** las 65 skills de F7 (de 41 a 106), en 12 packs. Seis packs son nuevos: `product`, `frontend`, `java`, `python`, `ops` y `agentic`.
+
+| Prioridad | Skills | Packs |
+|---|---|---|
+| 1 | 15 | `sdd` (overlay SPDD: 5), `quality` (jueces, comité y 4R: 6), `product`, `frontend` y `core` (4) |
+| 2 | 23 | `java` (10), `python` (2), `frontend` (11): los stacks del equipo, en el orden de D-38 |
+| 3 | 11 | `ops` (10) y `security` (`secure-diagram-sanitizer`) |
+| 4 | 16 | `product` (4), `design` (4, con el contrato `executive-style.md`), `agentic` (2) y `core` (6) |
+
+| # | Criterio | Comando ejecutado | Resultado |
+|---|---|---|---|
+| 1 | Contenido válido | `exo validate` | OK: «12 packs, 106 skills, 6 subagents, 16 shared contracts: all valid», sin advertencias |
+| 2 | Degradación correcta | `pytest -k criterio_2 tests/test_f7_degradation.py` | OK (9 passed). Para cada pack opcional del ciclo, con el pack instalado cada skill que nombra el mapa está en el bundle y en el registro; sin él, el mapa instalado trae su fila de degradación con la frase exacta. Los packs sin skills en el mapa (`agentic`, `ops`, `python`) están en una lista explícita |
+| 3 | Evals | `pytest -m agent_e2e tests/test_skill_evals.py`, con Claude Code real | OK: 117 de 117 casos con el contenido final (las 38 skills de prioridad 1 y 2, más `pre-commit-review`, con `trigger`, `no-trigger` y `output` cada una). Claude Code 2.1.325, con el runner aislado de la config de usuario: ninguna de las 20 skills de usuario de esta máquina quedó visible. 115 pasaron a la primera. Los otros dos pasaron después de su arreglo: el `output` de `prompt-code-sync` encontró un defecto real (después de corregir la lógica de un canvas aprobado, el gate quedaba `APPROVED`; ahora queda pendiente al instante), y el de `chained-pr` tenía un chequeo de texto demasiado literal. Revisé cada resultado: la skill cargada, la respuesta y los archivos escritos |
+| 4 | Instalación por stack | `pytest -k criterio_4 tests/test_stack.py` | OK (8 passed). Sobre los cuatro fixtures, con y sin git: `py-invoices` y `toy-python` sugieren `python`, `java-library` sugiere `java` y `node-shop` (monorepo) sugiere `frontend`. `exo init --yes` sobre una copia de `node-shop` instaló `frontend` y `ops` |
+
+**Extras:**
+- `ruff check .` limpio. `exo p0` en una copia de `node-shop` con `exo init`: «P0 GATE: PASSED (3/3)».
+- **Motor:**
+  - canvas SPDD (`canvas.md`, siete secciones, IDs cruzados también sin `spec.md`);
+  - gates condicionales (`exo check` revisa todo gate presente, exige `prompt_spec_review` con canvas, y un gate ilegible ya no aborta el chequeo);
+  - detección de stack en monorepos (`files.project_names`, sin terceros, muestras, borrados ni links);
+  - `exo uninstall` conserva `.exo/brand.json`.
+- **`review` pasa a `pre-commit-review`** (D-40). En un proyecto de F5, `exo sync` borra la carpeta vieja (es del lock) e instala la nueva.
+
+**Cómo se escribió:** el motor, los contratos y la integración con el ciclo los escribí yo. Las skills las escribieron subagentes, tres por tanda (P1, P2, y P3 con P4), en worktrees manuales, con un brief común y un anexo por tanda que recogía lo aprendido. Las integré con cherry-pick.
+
+**Evals (D-41):**
+- **El runner** (`tests/test_skill_evals.py`, `agent_e2e`, fuera de la suite normal):
+  - copia el fixture con historia git y corre `exo init` con los packs del eval;
+  - trabaja en una rama `feat/<skill>-eval`;
+  - corre `claude -p` con `stream-json`, aislado de la config de usuario (`--setting-sources project,local`, `--strict-mcp-config`);
+  - detecta la skill por la tool `Skill` o por la lectura de su `SKILL.md`.
+- **Los tres casos por skill:** `trigger`, `no-trigger` y `output`, con chequeos sobre la respuesta y los archivos.
+- **Primera pasada** (antes de la revisión final):
+  - P1: 45 de 45, después de corregir seis evals mal planteados y un corte por tiempo de `review-4r`. Las seis correcciones fueron:
+    - un `no-trigger` cuyo estado hacía aplicar la skill de verdad;
+    - chequeos de texto demasiado literales.
+  - P2: 67 de 69. Los dos fallos fueron `output` de Java que pedían implementar algo no trivial: el agente abrió un change SDD, como manda el `AGENTS.md` instalado.
+- **En las 114 corridas** de la primera pasada no se cargó ninguna skill que no fuera de exo.
+- **La corrida final**, con el contenido después de la revisión, está arriba (criterio 3).
+
+**Revisión final con contexto fresco** (tres subagentes: motor, contratos y P1; P1 restante y P2; P3 y P4). Encontraron 1 High, 34 Medium y 73 Low. Cuatro subagentes los arreglaron todos, con test cuando tocaban el motor; ninguno resultó falso positivo.
+- **High:** el modo secuencial de `parallel-dispatch` corría apply en la sesión del orquestador. Ahora usa un `sdd-implementer` por unidad.
+- **Motor:**
+  - la detección de stack fallaba en un proyecto ignorado por un repo padre;
+  - un gate en UTF-16 abortaba `exo check`;
+  - el canvas sin `spec.md` no cruzaba IDs;
+  - el runner no aislaba la config de usuario de Claude Code y no validaba rutas de Windows en `setup`;
+  - `test_f7_degradation` pasaba vacío para tres packs.
+- **Contratos y ciclo:**
+  - el orquestador no conocía el overlay SPDD (canvas en Tier 1 y 2, ediciones del canvas desde apply);
+  - un refactor del canvas daba un gap High;
+  - qué pasa si un proyecto lista un gate condicional en `governance.gates`;
+  - `context-anchor.md` no lo leía ninguna fase;
+  - los criterios inline copiados eran los viejos;
+  - el comité convocaba jueces sin entrada;
+  - las skills de gates condicionales no se cargaban en Tier 1.
+- **Packs de stack:**
+  - una tabla única CWE → OWASP Top 10:2025 (`.exo/shared/owasp-2025.md`), verificada contra top10.owasp.org;
+  - escáneres alineados en severidad y formato;
+  - `pip-audit -r` y `npx` que podían instalar paquetes;
+  - Spring Boot 4 y Security 7 (con fuentes);
+  - un `@ExceptionHandler(Exception.class)` que se tragaba los 4xx;
+  - disparadores de los revisores que pisaban a `pre-commit-review` y `sdd-verify`;
+  - evals sin `quality` ni `security`.
+- **P3 y P4:**
+  - `incident-response` permitía leer Secrets de Kubernetes;
+  - el sanitizador dejaba datos personales hacia el mismo equipo;
+  - `exo change record` desde un subagente;
+  - una regla única para documentos del proyecto fuera de la carpeta del change;
+  - dos estilos "neutros";
+  - el marcador de estilo contaba antes de la aprobación;
+  - disparadores que se pisaban (diagramas, logs, skills).
+
+**Decisiones tomadas durante la fase:**
+- **D-38** (del dueño): los stacks del equipo son Java, Python y frontend, en ese orden.
+- **D-39** (del dueño): las skills de Jira se generalizan como `work-item-creator` y `refinement-assistant`.
+- **D-40** (del dueño): `review` pasa a `pre-commit-review`.
+- **D-41** (del dueño): todos los evals de prioridad 1 y 2 se corren con Claude Code real.
+- **D-18:** se cerró con su default.
+- **D-12, resto:** `.exo/brand.json` opcional, y las herramientas corporativas son opcionales.
+- **D-42:** nombres en inglés.
+- **D-43:** gates condicionales.
+- **D-44:** el escaneo de Python va en `security-scan-jkp`.
+- **ADR-0016.**
+- **De la revisión:**
+  - los documentos del proyecto se escriben durante un change con aprobación y listados en el plan (`sdd-phase-common` §C);
+  - toda cita de OWASP lleva el año;
+  - un gate condicional listado en `governance.gates` se vuelve gate del tier;
+  - `context-anchor.md` y `pr-part-<n>.md` son los dos archivos fuera de las fases.
+
+**Desvíos respecto del plan y por qué:**
+- **P3 y P4 sin evals:** el plan los pide solo para prioridad 1 y 2.
+- **Skills de `ops`, `design`, `agentic` y la mayoría de P4 fuera del mapa de fases,** como en el reporte: se cargan por su `description` o a pedido. Sumarlas competiría con el tope de 5 skills por delegación.
+- **`security-scan-jkp` sigue en `java`** (D-44). Un proyecto solo Python escanea con el criterio inline de su fila de degradación.
+- **`exo-permissions`:** se unificó con el vocabulario que ya tenía el contenido (`write-code`, `write-specs`, `read-only+tests`…) en lugar de un `read-write` genérico.
+
+**Limitaciones conocidas:**
+- **OWASP:** el pack `security` (F5) sigue en el Top 10:2021, verificado entonces contra CWE; los packs de stack usan 2025. Toda cita lleva el año y la tabla compartida da la equivalencia, pero falta migrar `security` a 2025.
+- **Los evals miden el modo degradado de las herramientas:** el runner no puede correr `mvn`, `npm`, `pip` ni `pytest`, así que nunca se ve una corrida real del build, de los tests ni de los escáneres.
+- **Evals de "no dispara":** dependen de cómo Claude Code elige skills por su `description`. Un cambio de versión del agente puede moverlos.
+- **Spring Boot 4:** lo que el subagente no pudo confirmar contra las fuentes quedó marcado `[Not verified]`.
+- **Convención nueva a revisar:** la aprobación de primer uso del estilo ejecutivo (memoria más el marcador `exo-style:` en los diagramas). No toca el motor.
 - **Copilot:** no se corrió (opcional).
 - **Cierre local sin remoto**, según la regla del principio de este archivo.
