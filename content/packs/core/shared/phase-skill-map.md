@@ -8,7 +8,8 @@ Which skills each SDD phase loads, by tier. The orchestrator reads this map befo
 - **Tier 2** adds the Conditional skills whose trigger applies.
 - **Tier 3** adds the advisory judges.
 - **Tier 4** adds `judgment-day` after verify.
-- **Gates:** from Tier 2, the skills that write the gates of the tier are Required in their phase (see Gates).
+- **At any tier, Tier 1 included,** some Conditionals load whenever their trigger applies: the skills of the conditional gates (`accessibility-audit` in verify with UI in the diff, `prompt-spec-review` with `canvas.md`), the rest of the SPDD overlay (`reasons-canvas-author`, `prompt-code-sync`), and `context-anchoring` once the change has `context-anchor.md` (`.exo/shared/sdd-phase-common.md`, section A).
+- **Gates:** the skills that write the gates of the tier (`governance.gates`) and the skill of each conditional gate whose trigger holds count as Required in their phase, at any tier (see Gates).
 - **At most 5 skills per delegation,** counting only the skills of this map (the phase skill itself, `memory-protocol` and `ai-usage-record` do not count). If more apply, keep the Required ones and the Conditionals whose trigger is strongest, and say which ones you left out.
 - **Judges run as separate read-only delegations**, never inside the executor's context. Without subagents, run them inline after the executor's work and say "no isolation".
 - **The stack router** is the router skill of the project's stack pack, when one is installed: `backend-engineering` (pack `java`), `frontend-engineering` (pack `frontend`) or `python-patterns` (pack `python`). In a monorepo with several stack packs, load the router of each stack the change touches. Without one, follow the commands and conventions in `.exo/context.md`.
@@ -57,7 +58,12 @@ Threats found in design go to `design.md`, section Risks & Mitigations. Advisory
 | `security_review` | Tier 3 | verify | `security-code-review` |
 | `secure_coding_check` | Tier 4 | apply, after the last task | `secure-coding-baseline` |
 
-**Conditional gates** do not depend on the tier: the skill writes them when its trigger holds, at any tier. `exo check` reviews every gate in `gates/`, required or not, and requires `prompt_spec_review` whenever `canvas.md` exists. A project can still list either of them in `governance.gates` to require it in a tier.
+**Conditional gates** do not depend on the tier: the skill writes them when its trigger holds, at any tier, and it counts as Required in its phase. `exo check` reviews every gate in `gates/`, required or not, and requires `prompt_spec_review` whenever `canvas.md` exists.
+
+**A conditional gate listed in `governance.gates`** becomes a gate of that tier: `exo check` requires it in every change of the tier, so its skill always runs there, even when it degrades.
+
+- `prompt_spec_review` listed: the SPDD overlay is mandatory in that tier, canvas included (section A of `spdd-common.md`, the SPDD contract of the `sdd` pack).
+- `accessibility_review` listed: `accessibility-audit` runs in every verify of that tier. With no UI in the diff, the gate is `APPROVED`, with no findings and `N/A: no UI in the diff`. Without the `frontend` pack, the verify writes it from the inline criteria below.
 
 | Gate | Trigger | Phase | Skill |
 |---|---|---|---|
@@ -73,7 +79,7 @@ These skills ship in packs a project may not have: optional packs, or packs not 
 | Skill | Pack | Inline criteria when missing |
 |---|---|---|
 | `product-discovery` | product | Write who the user is, the problem, the value and how success is measured: in proposal.md, section Intent, when the phase owns proposal.md (new, propose); otherwise as open questions for the person. Ask the person when any of them is unclear. |
-| `accessibility-audit` | frontend | Check keyboard access, visible focus, labels and accessible names, contrast and text alternatives in the UI that changed (WCAG 2.2 AA). List each failure with its criterion, as an issue of the phase: without the skill, the conditional gate `accessibility_review` is not written. |
+| `accessibility-audit` | frontend | Check keyboard access, visible focus, labels and accessible names, contrast and text alternatives in the UI that changed (WCAG 2.2 AA). List each failure with its criterion, as an issue of the phase: without the skill, the conditional gate `accessibility_review` is not written, unless the tier lists it in `governance.gates`; then write it from these criteria (`APPROVED` with `N/A: no UI in the diff` when the diff has no UI). |
 | `architecture-decision-record` | design | When a decision is hard to reverse, propose a short record (status, context, decision, alternatives, consequences) as `NNNN-<slug>.md` in the ADR folder the project already uses (such as `docs/adr/`, `doc/adr/` or `docs/decisions/`; `docs/adr/` when it has none), and write it there once the person approves its text. Cite it from design.md in the design phase, or from the AI Usage Record decisions later. |
 | `frontend-design` | frontend | Reuse the project's existing UI components and design tokens. Do not add new visual styles without the person's approval. |
 | `security-scan-node` | frontend | Run the package manager's audit (for example `npm audit --omit=dev`; it needs a lockfile), review manifest and lockfile changes by hand (missing lockfile, unpinned versions, unexpected registries, install scripts), and report the high and critical findings with their OWASP Top 10:2025 category. |

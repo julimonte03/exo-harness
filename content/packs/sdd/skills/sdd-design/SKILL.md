@@ -79,7 +79,7 @@ One line per scenario: the scenario, the test file and test name in the project'
 
 ## SPDD canvas (optional overlay)
 
-When `.exo/shared/spdd-common.md`, section A, says the overlay applies (Tier 3 or 4 with domain logic worth fixing before the code, or the person asks for it), record the choice and, once design.md passes speclint:
+When `.exo/shared/spdd-common.md`, section A, says the overlay applies (Tier 3 or 4 with domain logic worth fixing before the code, the person asks for it, or the tier lists `prompt_spec_review` in `governance.gates`), record the choice and, once design.md passes speclint:
 
 1. Run skill:reasons-canvas-author: it writes `<change-root>/canvas.md` from the spec, design.md and the threat model.
 2. `exo speclint <change-root>` passes for the canvas too: its seven sections, and IDs that exist.

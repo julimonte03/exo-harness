@@ -4,10 +4,11 @@ Structured prompt-driven development (SPDD) is an optional overlay on the SDD cy
 
 ## A. When SPDD applies
 
-Use the overlay when **either** holds:
+Use the overlay when **any** of these holds:
 
-- **Tier 3 or 4 with domain logic worth fixing before the code:** business rules, calculations, state machines, permissions, money, or integrations whose contract matters; or
-- **the person asks for it**, at any tier.
+- **Tier 3 or 4 with domain logic worth fixing before the code:** business rules, calculations, state machines, permissions, money, or integrations whose contract matters;
+- **the person asks for it**, at any tier; or
+- **the project requires it:** `governance.gates` in `.exo/config.json` lists `prompt_spec_review` for the change's tier. Then every change of that tier has a canvas and its gate, whatever its content: the exclusions and the doubt rule below do not apply.
 
 Do not use it for configuration, copy, styling, dependency bumps, or pure refactors with no behavior change. When in doubt in an interactive run, ask the person; in an unattended run, skip it and say so in the phase notes. Record the choice once in the AI Usage Record: `--add decisions '{"summary": "SPDD canvas: yes (Tier 3, pricing rules)", "by": "agent"}'`.
 

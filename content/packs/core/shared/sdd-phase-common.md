@@ -5,10 +5,11 @@ Rules every SDD phase follows, whether the orchestrator delegated it or the agen
 ## A. Load the skills
 
 1. Read `.exo/skill-registry.md` to see which skills this project has and where.
-2. Find the phase in `.exo/shared/phase-skill-map.md` and pick the skills for the tier: the Required ones and, from Tier 2 on, the Conditionals whose trigger applies. At most 5 of the map's skills; the phase skill itself, `memory-protocol` and `ai-usage-record` do not count.
-3. **Read each `SKILL.md` in full** before working. Do not summarize it from its description.
-4. A missing skill degrades as `.exo/shared/skill-resolver.md` says: say so, apply the inline criteria, record it. A missing `core` skill is not a degradation but an incomplete install: say so, suggest `exo doctor` and `exo sync`, and return `blocked`.
-5. Without an orchestrator (the person called a phase skill directly), resolve the Required and Conditional skills yourself with the same steps.
+2. Find the phase in `.exo/shared/phase-skill-map.md` and pick the skills for the tier: the Required ones, which include the skill of every gate the phase writes; from Tier 2 on, the Conditionals whose trigger applies; and, at any tier, the skills of the conditional gates and of the SPDD overlay when their trigger applies (the map, How to read it). At most 5 of the map's skills; the phase skill itself, `memory-protocol` and `ai-usage-record` do not count.
+3. **The anchor.** If `<change-root>/context-anchor.md` exists, read it first and load `context-anchoring`, which then counts as Required: update the anchor with the phase's decisions, assumptions and questions before the phase ends. A subagent only reads it and lists them in its envelope notes; the orchestrator updates the anchor.
+4. **Read each `SKILL.md` in full** before working. Do not summarize it from its description.
+5. A missing skill degrades as `.exo/shared/skill-resolver.md` says: say so, apply the inline criteria, record it. A missing `core` skill is not a degradation but an incomplete install: say so, suggest `exo doctor` and `exo sync`, and return `blocked`.
+6. Without an orchestrator (the person called a phase skill directly), resolve the Required and Conditional skills yourself with the same steps.
 
 ## B. Retrieval mode
 
@@ -43,7 +44,7 @@ With `memory` or `none`, `exo check` has nothing on disk to check, and it says s
 
   **When the tier rises,** ownership moves with it: from Tier 2 on `sdd-spec` owns `spec.md` and completes the one `sdd-new` wrote; in Tier 3 and 4 `sdd-tasks` completes the `test-spec.md` that `sdd-spec` wrote in Tier 2.
 
-  **Files outside the phases:** `context-anchor.md`, the living record of decisions that `context-anchoring` starts in design, is the only file any later phase may update; and `pr-part-<n>.md`, the bodies of a chain of PRs that `chained-pr` writes. Neither is an artifact of a phase, and no tier requires them.
+  **Files outside the phases:** `context-anchor.md`, the living record of decisions that `context-anchoring` starts in design or on request, is the only file every later phase updates (section A); and `pr-part-<n>.md`, the bodies of a chain of PRs that `chained-pr` writes. Neither is an artifact of a phase, and no tier requires them.
 
 - **Templates:** start each document from `.exo/shared/templates/` (`proposal.md`, `spec.md`, `design.md`, `canvas.md`, `test-spec.md`, `verify-record.md`, `gate.md`, `pr.md`). `exo speclint <file or change root>` checks them.
 - **Mandatory artifacts per tier** (what `exo check` requires):
@@ -56,7 +57,7 @@ With `memory` or `none`, `exo check` has nothing on disk to check, and it says s
 
   Every tier also needs `ai-usage-record.json` and `fitness-assessment.json`. Without a readable assessment the tier is unknown and Tier 4 rules apply.
 - **Gates per tier:** `governance.gates` in `.exo/config.json` lists them; `exo check` requires one `<change-root>/gates/<gate>.md` per gate, from `.exo/shared/templates/gate.md`, except `contract_check`, which is the Gate summary of `verify-record.md`. The skill that writes each gate is in `.exo/shared/phase-skill-map.md`, Gates. A gate written in a read-only subagent comes back as text, and the orchestrator writes it verbatim, like `verify-record.md`.
-- **Conditional gates:** `accessibility_review` (UI in the diff) and `prompt_spec_review` (the change has `canvas.md`) do not depend on the tier. `exo check` reviews every gate in `gates/`, and requires `prompt_spec_review` whenever `canvas.md` exists.
+- **Conditional gates:** `accessibility_review` (UI in the diff) and `prompt_spec_review` (the change has `canvas.md`) do not depend on the tier. `exo check` reviews every gate in `gates/`, and requires `prompt_spec_review` whenever `canvas.md` exists. A project that lists one in `governance.gates` makes it a gate of that tier, and its skill runs in every change of the tier (`.exo/shared/phase-skill-map.md`, Gates).
 - **Living specs:** `spec.md` is a delta over `<specs_dir>/capabilities/<capability>/spec.md`, with `## ADDED Requirements`, `## MODIFIED Requirements` and `## REMOVED Requirements`. Requirement IDs are `CAP-<capability>-FR-n` or `CAP-<capability>-NFR-n`; scenarios in the delta are `#### Scenario S-n: <title>` with Given, When and Then. A new requirement takes the next free number of its capability (`exo specs list`); a removed ID is never reused. `exo specs merge <change>` applies the delta.
 - **Memory mirror** (`hybrid` and `memory`): save each artifact as `.exo/shared/memory-convention.md` says.
 
