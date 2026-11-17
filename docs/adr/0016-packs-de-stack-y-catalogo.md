@@ -43,21 +43,40 @@ Cuatro piezas no entran en lo que ya existe:
 ### Gates condicionales (D-43)
 
 - **`exo check` revisa todo gate presente** en `gates/`, aunque el tier no lo exija: sin veredicto legible es un error; `ESCALATED` pide la aprobación del `tech_lead`, como los requeridos.
-- **`accessibility_review`:** lo escribe `accessibility-audit` en verify cuando el change toca UI (html, tsx, jsx, vue, svelte, css, scss). Un hallazgo Critical (impide completar la tarea) o High bloquea `ready`, salvo que se descarte con su motivo. Sin el pack `frontend` no se escribe: el criterio inline va a Issues Found, y `harness-review` ya cubre accesibilidad en `code_review`.
+- **`accessibility_review`:** lo escribe `accessibility-audit` en verify cuando el change toca UI (html, tsx, jsx, vue, svelte, css, scss). Un hallazgo Critical (impide completar la tarea) o High bloquea `ready`, salvo que se descarte con su motivo. Sin el pack `frontend` no se escribe, salvo que el tier lo liste: el criterio inline va a Issues Found, y `harness-review` ya cubre accesibilidad en `code_review`.
 - **`prompt_spec_review`:** lo escribe `prompt-spec-review`. Con `canvas.md` en el change, `exo check` lo exige.
-- Un proyecto puede sumar cualquiera de los dos a `governance.gates` para exigirlo siempre en un tier.
+- Un proyecto puede sumar cualquiera de los dos a `governance.gates` para exigirlo siempre en un tier. Listarlo vuelve obligatoria su skill en ese tier, aunque degrade:
+  - con `prompt_spec_review`, todo change del tier lleva canvas;
+  - con `accessibility_review`, `accessibility-audit` corre en todo verify del tier y, sin UI en el diff, el gate queda `APPROVED` con `N/A: no UI in the diff`.
+- La skill que escribe un gate condicional cuyo disparador se cumple se carga en cualquier tier y cuenta como Required: el tope de 5 skills no la deja afuera.
 
 ### Canvas SPDD
 
 - `canvas.md` es un artefacto opcional del change, después de `design.md`, con las siete dimensiones REASONS: Requirements, Entities, Approach, Structure, Operations, Norms, Safeguards. speclint exige las siete secciones.
-- **Cuándo aplica** (`spdd-common.md`): Tier 3 o 4 con lógica de dominio que conviene fijar antes del código, o cuando la persona lo pide.
+- **Cuándo aplica** (`spdd-common.md`): Tier 3 o 4 con lógica de dominio que conviene fijar antes del código, cuando la persona lo pide, o cuando el tier lista `prompt_spec_review`. En Tier 1 y 2, sin fase design, el orquestador escribe el canvas y pide su aprobación justo antes de apply.
 - **Orden de los cambios:** una corrección de lógica cambia primero el canvas y después el código; un refactor, primero el código y después el canvas.
+  - La edición que devuelve `sdd-implementer` la aplica el orquestador.
+  - La de lógica vuelve a aprobación antes de tocar el código; la de refactor no.
+- **Conformidad:** el gate escala con un gap Critical o High o un archivo fuera de Structure; los Medium y Low quedan listados sin bloquear.
 
 ### Jueces
 
 - Prefijos nuevos de followups: `JPRD` (producto), `JBIZ` (negocio), `JFE` (frontend) y `JTEAM` (equipo).
 - `sdd-judge` corre también en propose y spec.
-- Los jueces siguen sin gate propio. `excellence-committee` reúne a los seis con un moderador, a pedido; `review-4r` es una revisión de cinco lentes, también a pedido.
+- Los jueces siguen sin gate propio. `review-4r` es una revisión de cinco lentes, a pedido.
+- `excellence-committee` reúne a los jueces con un moderador, también a pedido. Convoca solo a los que tienen qué juzgar:
+  - `judge-product` y `judge-business`, con una propuesta o un propósito;
+  - `judge-team`, con un plan;
+  - `judge-frontend`, con UI.
+- **OWASP:** toda cita lleva la edición (`A03:2021`, `A05:2025`).
+  - Los escáneres y revisores de los packs de stack usan la Top 10:2025, con una tabla CWE → categoría compartida en `core`.
+  - El pack `security` y los jueces que lo reusan siguen en la 2021: es una limitación conocida.
+
+### Documentos del proyecto durante un change
+
+- Diagramas, documento de solución, runbooks, SLOs y postmortems viven fuera de la carpeta del change.
+- Durante un change, una skill los escribe en cualquier fase con la aprobación de la persona. Además tienen que estar listados en el plan: Modules / Files de `design.md` en Tier 3 y 4, el Scope de `proposal.md` en Tier 1 y 2. Así verify no los cuenta como drift.
+- Fuera de un change, no hay regla.
 
 ### Marca e integraciones (D-12)
 
