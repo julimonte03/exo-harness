@@ -224,13 +224,24 @@ def _approval(project: Path, name: str, info: speclint.GateInfo) -> Finding:
     )
 
 
+def _gate_info(project: Path, name: str, path: Path) -> speclint.GateInfo | Finding:
+    """La info de un gate, o un error con su ruta si no se puede leer (por ejemplo UTF-16):
+    un archivo ilegible no aborta el resto de `exo check`."""
+    try:
+        if name == speclint.CONTRACT_GATE:
+            return speclint.contract_gate(path)
+        return speclint.gate_info(path)
+    except (speclint.SpeclintError, OSError) as exc:
+        return Finding("error", _rel(project, path), 0, f"the gate {name} cannot be read: {exc}")
+
+
 def _gates(project: Path, change: observability.Change, tier: int, cfg: dict) -> list[Finding]:
     """Los gates del tier, los condicionales que pide el change y todo gate presente.
 
     Los condicionales (D-43, ADR-0016) no dependen del tier: `prompt_spec_review` se exige
     cuando hay `canvas.md`. Un gate presente que nadie exige (por ejemplo
     `accessibility_review`) igual se revisa: speclint ya rechaza su forma, y acá avisa si
-    pide la aprobación de `tech_lead`.
+    pide la aprobación de `tech_lead`. Un gate que no se puede leer es un error con su ruta.
     """
     folder = project / change.path
     gates_dir = folder / speclint.GATES_DIR
@@ -243,11 +254,12 @@ def _gates(project: Path, change: observability.Change, tier: int, cfg: dict) ->
     for name in required:
         if name == speclint.CONTRACT_GATE:
             path = folder / "verify-record.md"
-            info = speclint.contract_gate(path) if path.is_file() else None
         else:
             path = gates_dir / f"{name}.md"
-            info = speclint.gate_info(path) if path.is_file() else None
-        if info is None:
+        info = _gate_info(project, name, path) if path.is_file() else None
+        if isinstance(info, Finding):
+            found.append(info)
+        elif info is None:
             found.append(
                 Finding(
                     "error",
@@ -263,8 +275,10 @@ def _gates(project: Path, change: observability.Change, tier: int, cfg: dict) ->
     for path in present:
         if path.stem in reasons:
             continue
-        info = speclint.gate_info(path)
-        if info.needs_approval:
+        info = _gate_info(project, path.stem, path)
+        if isinstance(info, Finding):
+            found.append(info)
+        elif info.needs_approval:
             found.append(_approval(project, path.stem, info))
     return found
 
@@ -294,7 +308,11 @@ def _readiness(project: Path, change: observability.Change, tier: int, cfg: dict
             return [Finding("error", change.path, 0, "archived without verify-record.md")]
         return []
     found: list[Finding] = []
-    result = speclint.verdict(verify.read_text(encoding="utf-8-sig"))
+    try:
+        result = speclint.verdict(speclint.read_artifact(verify))
+    except (speclint.SpeclintError, OSError) as exc:
+        # Sin veredicto legible no hay nada más que revisar; el error nombra el archivo.
+        return [Finding("error", _rel(project, verify), 0, str(exc))]
     if result != "ready":
         found.append(
             Finding(
