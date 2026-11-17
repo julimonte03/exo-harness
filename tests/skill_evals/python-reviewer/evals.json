@@ -1,0 +1,52 @@
+{
+  "skill": "python-reviewer",
+  "fixture": "py-invoices",
+  "packs": [
+    "core",
+    "sdd",
+    "python"
+  ],
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "setup": {
+        "files": {
+          "src/invoices/api/routes_reports.py": "\"\"\"Reports: open invoices grouped by age.\"\"\"\n\nimport base64\nimport pickle\nfrom datetime import datetime\n\nfrom fastapi import APIRouter, Depends\nfrom sqlalchemy import text\n\nfrom .deps import get_session\n\nrouter = APIRouter(prefix=\"/reports\", tags=[\"reports\"])\n\n\ndef aging_buckets(session, status, limits=[30, 60, 90]):\n    limits.append(10**6)\n    rows = session.execute(\n        text(f\"SELECT number, issued_at, total FROM invoices WHERE status = '{status}'\")\n    ).all()\n    report = {}\n    for number, issued_at, total in rows:\n        age = (datetime.now() - issued_at).days\n        for limit in limits:\n            if age < limit:\n                report.setdefault(limit, []).append({\"number\": number, \"total\": float(total)})\n                break\n    return report\n\n\n@router.get(\"/aging\")\ndef aging(status: str = \"issued\", saved: str = \"\", session=Depends(get_session)):\n    try:\n        options = pickle.loads(base64.b64decode(saved))\n    except:\n        options = {}\n    report = aging_buckets(session, status)\n    if options.get(\"only_overdue\"):\n        report.pop(30, None)\n    return report\n",
+          "src/invoices/api/app.py": "\"\"\"Application factory.\"\"\"\n\nfrom __future__ import annotations\n\nfrom fastapi import FastAPI\n\nfrom invoices.core.config import Settings, load_settings\nfrom invoices.storage.repositories import make_session_factory\n\nfrom . import routes_auth, routes_customers, routes_invoices, routes_payments, routes_reports\nfrom .errors import register_error_handlers\n\n\ndef create_app(settings: Settings | None = None) -> FastAPI:\n    settings = settings or load_settings()\n    app = FastAPI(title=\"Invoices API\")\n    app.state.settings = settings\n    app.state.session_factory = make_session_factory(settings)\n    for module in (routes_auth, routes_customers, routes_invoices, routes_payments, routes_reports):\n        app.include_router(module.router)\n    register_error_handlers(app)\n    return app\n\n\nif __name__ == \"__main__\":\n    import uvicorn\n\n    uvicorn.run(create_app(), host=\"127.0.0.1\", port=8000)\n"
+        },
+        "stage": true
+      },
+      "prompt": "I staged a new reports endpoint for this API. Look it over for bugs and security problems before I open the pull request."
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "Explain how the total of an invoice is computed in this project: which files take part and in what order. No changes."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "setup": {
+        "files": {
+          "src/invoices/api/routes_reports.py": "\"\"\"Reports: open invoices grouped by age.\"\"\"\n\nimport base64\nimport pickle\nfrom datetime import datetime\n\nfrom fastapi import APIRouter, Depends\nfrom sqlalchemy import text\n\nfrom .deps import get_session\n\nrouter = APIRouter(prefix=\"/reports\", tags=[\"reports\"])\n\n\ndef aging_buckets(session, status, limits=[30, 60, 90]):\n    limits.append(10**6)\n    rows = session.execute(\n        text(f\"SELECT number, issued_at, total FROM invoices WHERE status = '{status}'\")\n    ).all()\n    report = {}\n    for number, issued_at, total in rows:\n        age = (datetime.now() - issued_at).days\n        for limit in limits:\n            if age < limit:\n                report.setdefault(limit, []).append({\"number\": number, \"total\": float(total)})\n                break\n    return report\n\n\n@router.get(\"/aging\")\ndef aging(status: str = \"issued\", saved: str = \"\", session=Depends(get_session)):\n    try:\n        options = pickle.loads(base64.b64decode(saved))\n    except:\n        options = {}\n    report = aging_buckets(session, status)\n    if options.get(\"only_overdue\"):\n        report.pop(30, None)\n    return report\n",
+          "src/invoices/api/app.py": "\"\"\"Application factory.\"\"\"\n\nfrom __future__ import annotations\n\nfrom fastapi import FastAPI\n\nfrom invoices.core.config import Settings, load_settings\nfrom invoices.storage.repositories import make_session_factory\n\nfrom . import routes_auth, routes_customers, routes_invoices, routes_payments, routes_reports\nfrom .errors import register_error_handlers\n\n\ndef create_app(settings: Settings | None = None) -> FastAPI:\n    settings = settings or load_settings()\n    app = FastAPI(title=\"Invoices API\")\n    app.state.settings = settings\n    app.state.session_factory = make_session_factory(settings)\n    for module in (routes_auth, routes_customers, routes_invoices, routes_payments, routes_reports):\n        app.include_router(module.router)\n    register_error_handlers(app)\n    return app\n\n\nif __name__ == \"__main__\":\n    import uvicorn\n\n    uvicorn.run(create_app(), host=\"127.0.0.1\", port=8000)\n"
+        },
+        "stage": true
+      },
+      "prompt": "Review my staged changes to the invoices API and tell me whether they can be merged as they are.",
+      "checks": {
+        "answer_contains": [
+          "routes_reports.py"
+        ],
+        "answer_matches": [
+          "(?i)sql",
+          "(?i)pickle",
+          "routes_reports\\.py:\\d+",
+          "(?i)verdict\\W*request changes"
+        ]
+      },
+      "review": "The findings table, ordered by severity, each with src/invoices/api/routes_reports.py:line, a PY-* rule ID and a fix: the status formatted into the SQL text (Critical, PY-SEC-1, CWE-89); pickle.loads on the query string (Critical, PY-SEC-4, CWE-502); the new route has no requires(...) dependency, unlike its neighbors (PY-SEC-16); the bare except (PY-EXC-1); the limits default list that grows on every call (PY-COR-1); naive datetime.now() minus the timezone-aware issued_at, which fails at runtime (PY-COR-4); float for money (PY-COR-3); raw SQL outside the repositories; no type hints and no tests (PY-TEST-1). The tools it could not run are named with their commands (ruff check ., pytest -q), no file changes, and the last line is 'Verdict: request changes'."
+    }
+  ]
+}
