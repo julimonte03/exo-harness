@@ -50,6 +50,13 @@ _CODE_REF = re.compile(r"\[Code\]\s+([^\s\[\]]+):(\d+)(?:-(\d+))?")
 _DOC_REF = re.compile(r"\[Doc\]\s+([^\s\[\]]+)")
 _INFERRED = re.compile(r"\[Inferred:\s*(?:high|medium|low)\]")
 _COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
+# Lo que puede seguir a la ruta de un `[Doc]` en la prosa sin ser parte de ella.
+_DOC_TRAILING = ".,;:)!?'\"`"
+
+
+def _doc_target(raw: str) -> str:
+    """La ruta de un `[Doc]` sin la puntuación de la oración ni las comillas invertidas."""
+    return raw.rstrip(_DOC_TRAILING).lstrip("(`")
 
 
 class UnitError(ValueError):
@@ -223,7 +230,7 @@ def validate_doc(
                     )
                 counts["code"] += 1
             for match in _DOC_REF.finditer(body):
-                target = match.group(1)
+                target = _doc_target(match.group(1))
                 if target in sensitive or scan.is_credential_file(target):
                     errors.append(
                         f"{rel}:{number}: [Doc] {target} is a credentials file: it is never "

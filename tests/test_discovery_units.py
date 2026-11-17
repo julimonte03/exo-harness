@@ -611,6 +611,28 @@ def test_done_exige_un_hecho_en_detalle_full_y_rechaza_doc_de_credenciales(repo:
     assert units.done(repo, summary)["counts"]["inferred"] == 1
 
 
+@needs_git
+def test_la_puntuacion_despues_de_un_doc_no_es_parte_de_la_ruta(repo: Path) -> None:
+    """Corrida real de F6: `[Doc] README.md;` buscaba el archivo `README.md;`."""
+    (repo / ".env").write_text("TOKEN=never-read\n", encoding="utf-8")
+    (repo / "README.md").write_text("# App\n", encoding="utf-8")
+    git(repo, "add", ".env", "README.md")
+    plan, _ = planner.write(repo, "quick")
+    full = next(u["id"] for u in plan["units"] if u["detail"] == "full")
+    for claim in (
+        "It is documented. [Doc] README.md; also [Doc] README.md, and [Doc] README.md.",
+        "It is documented (see [Doc] README.md).",
+        "It is documented. [Doc] `README.md`",
+        "It is documented. [Doc] README.md: the setup section",
+    ):
+        _write_doc(repo, full, claim)
+        assert units.done(repo, full)["counts"]["doc"] >= 1, claim
+        units.reopen(repo, [full])
+    _write_doc(repo, full, "It reads its config. [Doc] .env;")
+    with pytest.raises(units.UnitError, match="credentials file"):
+        units.done(repo, full)
+
+
 def test_reabrir_unidades_por_id_o_por_capacidad(repo: Path) -> None:
     planner.write(repo)
     _close_all(repo)
