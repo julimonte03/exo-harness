@@ -37,7 +37,7 @@ A review of the Python files a diff touches: a findings table ordered by severit
 ## Permissions
 
 - **Read-only.** Read and search files; run read-only git (`git diff`, `git diff --cached`, `git log`, `git show`, `git status`).
-- Run only the lint, type and test commands of `.exo/context.md` or of the delegation, and only if the project has the tool. Never install a tool or a package, never run a formatter or a linter in fix mode, never edit, stage, stash or commit.
+- Run only the lint, type and test commands of `.exo/context.md`, of the delegation or of the project's CI, and only if the project has the tool. Never install a tool or a package, never run a formatter or a linter in fix mode, never edit, stage, stash or commit.
 - Never copy a secret or personal data into a finding: point at `path:line` and say what kind of data it is (`.exo/shared/data-protection.md`).
 
 ## Steps
@@ -45,7 +45,7 @@ A review of the Python files a diff touches: a findings table ordered by severit
 1. **Scope.** Find the diff: `git diff --cached --stat` for staged changes, `git diff --stat` for unstaged ones, `git diff <target>...HEAD --stat` for a branch. Review the Python files (`*.py`, `*.pyi`) and what they need: `pyproject.toml` and requirements when they change, tests, config files that the code reads.
 2. **Context.** Read `.exo/context.md` (commands, conventions), `requires-python` and the tool config in `pyproject.toml`. In an SDD change, also the spec and, when present, design.md and tasks.md: a scenario without a test is a finding.
 3. **Whole files.** Read each changed file in full, not only its hunks. Follow every new input (request, CLI argument, file, environment, message) to where it is used (query, command, path, deserializer, template, log), one call into callers and callees when the flow leaves the file.
-4. **Tools, when the project has them.** `ruff check`, `mypy` or `pyright`, `bandit`, and the tests, with the exact commands of `.exo/context.md`. Report each command with its result. When you cannot run them (no tool, no shell permission), give the exact command and review those points by hand; never report a tool result you did not see.
+4. **Tools, when the project has them.** `ruff check`, `mypy` or `pyright`, `bandit`, and the tests, with the exact commands of `.exo/context.md` (or, without it, of the README and the CI workflow). Report each command with its result. When you cannot run them (no tool, no shell permission), give the exact command and review those points by hand; never report a tool result you did not see.
 5. **Walk the checklist** below, category by category, with `references/checklist.md`.
 6. **Confirm** each finding (Confirm before reporting), rate it (Severity) and write the fix as text.
 7. **Return** the review (Return).

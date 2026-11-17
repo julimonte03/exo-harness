@@ -58,7 +58,7 @@ Load the skill that fits the task, as `.exo/shared/skill-resolver.md` says, and 
 
 Before writing code, read:
 
-1. `.exo/context.md`: Commands (format, lint, type check, test), Conventions, areas.
+1. `.exo/context.md`: Commands (format, lint, type check, test), Conventions, areas. When it does not exist, the README, `pyproject.toml` and the CI workflow give the commands.
 2. `pyproject.toml`: `requires-python`, dependencies, `[tool.ruff]`, `[tool.mypy]` or `[tool.pyright]`, `[tool.pytest.ini_options]`; or `setup.cfg`, `requirements*.txt`, `tox.ini`.
 3. The package manager from its lockfile: `uv.lock` (uv), `poetry.lock` (Poetry), `pdm.lock` (PDM), `requirements*.txt` (pip).
 4. The layout (`src/<package>/` or a flat package) and two or three neighboring modules of the one you will touch: naming, docstrings, error handling, logging and how tests are laid out.
@@ -149,7 +149,7 @@ Conventions in `references/pytest.md`.
 
 ## 10. Run the checks
 
-Run, in this order, the commands of `.exo/context.md`: format, lint, type check, tests (for example `ruff format --check .`, `ruff check .`, `mypy src`, `python -m pytest`, or the same through `uv run`). Report each exact command with its result.
+Run, in this order, the commands of `.exo/context.md` (or, without it, of the README and the CI workflow): format, lint, type check, tests (for example `ruff format --check .`, `ruff check .`, `mypy src`, `python -m pytest`, or the same through `uv run`). Report each exact command with its result.
 
 - **Never install** a tool or a package the project does not have; never change its config to make a check pass.
 - **When you cannot run a command** (no shell permission, no interpreter, no virtual environment): say so, give the exact command you would run, and check by hand what it would check: imports resolve, names exist, every new test asserts the behavior, no unused imports. Never claim a check passed if it did not run.
