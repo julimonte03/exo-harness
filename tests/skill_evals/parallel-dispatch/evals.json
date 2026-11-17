@@ -1,7 +1,10 @@
 {
   "skill": "parallel-dispatch",
   "fixture": "toy-python",
-  "packs": ["core", "sdd"],
+  "packs": [
+    "core",
+    "sdd"
+  ],
   "setup": {
     "files": {
       "specs/add-priority-and-search/proposal.md": "# Proposal: add-priority-and-search\n\n## Intent\n\n- **User:** people who keep a long to-do list in the CLI.\n- **Problem:** every task looks the same in `list`, and finding one means scrolling the whole list (src/toy_todo/cli.py:33).\n- **Value:** urgent tasks stand out and any task is one command away.\n- **Success measure:** the tests prove priorities and search; after release, the maintainers check that `search` answers in one command on a list of 200 tasks.\n\n## Scope\n\n- A priority (low, normal or high) on each task, normal by default, shown by `list`.\n- `add --priority <level>`.\n- A `search <word>` command that lists the tasks whose title contains the word, ignoring case.\n- Capability touched: tasks (new living spec).\n\n## Approach\n\nAdd an optional `priority` field to the `Task` dataclass, so old task files still load (src/toy_todo/store.py:10). Put the search in its own module, `search.py`, so the CLI only wires it. Alternative: filter inside `TaskStore.list`; rejected because it mixes storage and querying.\n\n## Out of Scope\n\n- Sorting by priority.\n- Search inside anything other than the title.\n",
@@ -29,8 +32,13 @@
       "expect": "trigger",
       "prompt": "Implement the approved plan of add-priority-and-search. Its units look independent, so coordinate them however makes sense.",
       "checks": {
-        "answer_contains": ["Unit A", "Unit B", "Unit C"],
-        "answer_matches": ["(?i)sequential", "(?i)parallel", "(?i)work items?|people|team"]
+        "answer_matches": [
+          "(?i)\\bunits?\\b",
+          "(?i)depends on|wave|after (unit )?[AB]\\b",
+          "(?i)sequential|one after (the )?other|in sequence|in order",
+          "(?i)parallel|at the same time|subagents?",
+          "(?i)work items?|people|team"
+        ]
       },
       "review": "Before changing anything, the answer shows the units with their files and dependencies (A and B in the first wave, C after both because of its Depends on line, integration order A, B, C) and asks the person to choose the mode: sequential inline, parallel with one sdd-implementer per unit, or work items for people. No code, test or tasks.md box was changed, no worktree or branch was created, and nothing was committed."
     }

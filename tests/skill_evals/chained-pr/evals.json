@@ -1,7 +1,10 @@
 {
   "skill": "chained-pr",
   "fixture": "toy-python",
-  "packs": ["core", "sdd"],
+  "packs": [
+    "core",
+    "sdd"
+  ],
   "setup": {
     "files": {
       "specs/add-planning-features/proposal.md": "# Proposal: add-planning-features\n\n## Intent\n\n- **User:** people who plan their week with the to-do CLI.\n- **Problem:** the list has no priorities, no dates and no way to filter or share it, so planning happens in another tool (src/toy_todo/cli.py:33).\n- **Value:** the week can be planned and shared from the CLI alone.\n- **Success measure:** the tests prove each feature; after release, the maintainers can plan a sample week of 30 tasks with `list` filters and export it, without editing tasks.json by hand.\n\n## Scope\n\n- A priority (low, normal or high) and an optional due date on each task.\n- `list` filters: by priority, due before a date, and by a word in the title.\n- `export --format csv|markdown` to standard output.\n- Old task files keep loading.\n- Capability touched: tasks (new living spec).\n\n## Approach\n\nOptional fields on the `Task` dataclass keep old files loading (src/toy_todo/store.py:10). Filters and export live in their own modules, `filters.py` and `export.py`, and the CLI only wires them. Alternative: one `query.py` for filters and export; rejected because they change for different reasons.\n\n## Out of Scope\n\n- Recurring tasks and reminders.\n- Importing from other tools.\n",
@@ -22,15 +25,27 @@
     {
       "id": "no-trigger",
       "expect": "no-trigger",
-      "prompt": "What branch name should the add-planning-features change use, and what is the git command to create it from main? Just tell me, do not run it."
+      "prompt": "I staged a small fix that trims task titles. What branch name and pull request title should it use? Just tell me, do not run anything.",
+      "setup": {
+        "files": {
+          "src/toy_todo/format.py": "\"\"\"Formatting of a task line.\"\"\"\n\n\ndef describe(title, done):\n    mark = \"x\" if done else \" \"\n    return f\"[{mark}] {title.strip()}\"\n"
+        },
+        "stage": true
+      }
     },
     {
       "id": "output",
       "expect": "trigger",
       "prompt": "Plan the pull requests for add-planning-features so that each one builds on the previous one: which tasks go in each, the branch names, the merge order, and what I do when reviewers ask for changes in an earlier one. Do not create branches yet.",
       "checks": {
-        "answer_contains": ["feat/add-planning-features-part-1", "feat/add-planning-features-part-2"],
-        "answer_matches": ["(?i)merge", "(?i)rebase|git merge"]
+        "answer_contains": [
+          "feat/add-planning-features-part-1",
+          "feat/add-planning-features-part-2"
+        ],
+        "answer_matches": [
+          "(?i)merge",
+          "(?i)rebase|git merge"
+        ]
       },
       "review": "The answer cuts the change along its tasks or units into parts of about 400 changed lines or less (for example the store fields, then filters and export, then the command line, which depends on all of them), names each branch feat/add-planning-features-part-<n> on top of the previous one, gives the merge order and the base of each PR, explains how to carry a fix in an earlier part up the stack without rewriting pushed branches, and says the PR bodies come from the pr.md template. It created no branch, pushed nothing and changed no file."
     }
