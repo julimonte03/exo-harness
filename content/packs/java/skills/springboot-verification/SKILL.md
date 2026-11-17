@@ -17,7 +17,7 @@ description: >-
 metadata:
   exo-pack: java
   exo-execution: inline
-  exo-permissions: read-only
+  exo-permissions: read-only+tests
 ---
 
 # springboot-verification

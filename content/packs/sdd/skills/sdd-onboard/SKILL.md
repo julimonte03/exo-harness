@@ -18,7 +18,7 @@ description: >-
 metadata:
   exo-pack: sdd
   exo-execution: inline
-  exo-permissions: read-write
+  exo-permissions: write-code
 ---
 
 # sdd-onboard

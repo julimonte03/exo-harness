@@ -16,7 +16,7 @@ description: >-
 metadata:
   exo-pack: core
   exo-execution: inline
-  exo-permissions: read-write
+  exo-permissions: write-specs+git
 ---
 
 # chained-pr

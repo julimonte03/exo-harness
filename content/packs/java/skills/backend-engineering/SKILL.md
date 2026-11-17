@@ -16,7 +16,7 @@ description: >-
 metadata:
   exo-pack: java
   exo-execution: inline
-  exo-permissions: read-write
+  exo-permissions: write-code
 ---
 
 # backend-engineering

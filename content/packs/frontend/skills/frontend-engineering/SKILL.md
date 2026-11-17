@@ -18,7 +18,7 @@ description: >-
 metadata:
   exo-pack: frontend
   exo-execution: inline
-  exo-permissions: read-write
+  exo-permissions: write-code
 ---
 
 # frontend-engineering
@@ -63,14 +63,14 @@ Read these, keep the `path:line` of each fact, and stop as soon as you know enou
 | Components, custom hooks, where state lives, data fetching and its states, forms, error boundaries, folders | skill:frontend-patterns |
 | Server and Client Components, Actions, `use()`, `useOptimistic`, transitions, Suspense, a React upgrade | skill:react-patterns |
 | A new or restyled screen, visual quality, design tokens, empty and error states | skill:frontend-design |
-| Types: unions, generics, narrowing, strict-mode errors | `typescript` |
-| Validating untrusted data: API responses, form input, browser storage, environment variables | `zod` |
-| Styling with Tailwind CSS 4 | `tailwind-4` |
+| Types: unions, generics, narrowing, strict-mode errors | skill:typescript |
+| Validating untrusted data: API responses, form input, browser storage, environment variables | skill:zod |
+| Styling with Tailwind CSS 4 | skill:tailwind-4 |
 | Component and hook tests | skill:react-testing |
 | End-to-end tests of user journeys | skill:playwright |
 | Accessibility criteria, or an audit of a UI | skill:accessibility-audit |
 | A dependency or lockfile change | skill:security-scan-node |
-| A review of a TypeScript or JavaScript diff | `typescript-reviewer` |
+| A review of a TypeScript or JavaScript diff | skill:typescript-reviewer |
 
 - **Load only what the task needs:** usually one or two skills besides this router. Inside an SDD phase, the map's limit of five skills per delegation applies (`.exo/shared/phase-skill-map.md`); the phase's own choices come first.
 - **Skip what the stack does not have:** no Tailwind, no `tailwind-4`; no zod and the plan does not add it, no `zod` (validate by hand at the boundary instead).

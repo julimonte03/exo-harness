@@ -17,7 +17,7 @@ description: >-
 metadata:
   exo-pack: python
   exo-execution: inline
-  exo-permissions: read-write
+  exo-permissions: write-code
 ---
 
 # python-patterns

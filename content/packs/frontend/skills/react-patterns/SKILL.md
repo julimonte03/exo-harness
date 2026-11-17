@@ -19,7 +19,7 @@ description: >-
 metadata:
   exo-pack: frontend
   exo-execution: inline
-  exo-permissions: read-write
+  exo-permissions: write-code
 ---
 
 # react-patterns
