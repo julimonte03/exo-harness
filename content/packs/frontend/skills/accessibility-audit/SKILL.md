@@ -7,13 +7,14 @@ description: >-
   messages, target size and reflow. Cites each failure by criterion number and
   name, with a severity, path:line and a fix. In the SDD spec phase it turns
   the criteria into requirements and scenarios; in verify, when the diff
-  touches UI (html, tsx, jsx, vue, svelte, css, scss), it reviews what changed
-  and produces the accessibility_review gate, where an open Critical or High
-  finding keeps the verify from ready. Use it when a change has UI, or when
-  someone asks whether a screen, form or component works with a keyboard, a
-  screen reader or zoom. Triggers: "accessibility", "a11y", "WCAG", "screen
-  reader", "keyboard navigation", "focus order", "color contrast", "ARIA",
-  "is this accessible", "EN 301 549".
+  touches UI (html, tsx, jsx, vue, svelte, css, scss) or the tier requires
+  it, it reviews what changed and produces the accessibility_review gate,
+  where an open Critical or High finding keeps the verify from ready. Use
+  it when a change has UI, or when someone asks whether a screen, form or
+  component works with a keyboard, a screen reader or zoom. Triggers:
+  "accessibility", "a11y", "WCAG", "screen reader", "keyboard navigation",
+  "focus order", "color contrast", "ARIA", "is this accessible", "EN 301
+  549".
 metadata:
   exo-pack: frontend
   exo-execution: inline
@@ -34,10 +35,11 @@ metadata:
 |---|---|---|
 | spec (`.exo/shared/phase-skill-map.md`) | The change has UI | Turn the criteria into requirements and scenarios |
 | verify | The diff touches UI files | Audit what changed and produce the `accessibility_review` gate |
+| verify, required gate | `governance.gates` in `.exo/config.json` lists `accessibility_review` for the change's tier | Run in every verify of that tier and always write the gate; without UI in the diff, `APPROVED` with `N/A: no UI in the diff` (The accessibility_review gate) |
 | On request | Someone asks whether a UI is accessible | Audit the files or screens they name |
 
-- **UI files:** `*.html`, `*.htm`, `*.tsx`, `*.jsx`, `*.vue`, `*.svelte`, `*.css`, `*.scss`, and templates that render HTML. Find them with `git diff --name-only <base>...HEAD`.
-- **Not for:** a change with no UI (say `N/A: no UI in the diff`); visual taste or design-system fit, which belong to `frontend-design` and `judge-frontend`; the full review of a change, which is `harness-review`. Native mobile and desktop apps: apply the same criteria where they fit and say what you could not check.
+- **UI files:** `*.html`, `*.htm`, `*.tsx`, `*.jsx`, `*.vue`, `*.svelte`, `*.css`, `*.scss`, and templates that render HTML. Find them in everything the change holds: the commits (`git diff --name-only <base>...HEAD`), the staged files (`git diff --cached --name-only`), the unstaged ones (`git diff --name-only`) and the untracked ones (`git status --porcelain`, lines that start with `??`).
+- **Not for:** a change with no UI (say `N/A: no UI in the diff`; when the tier requires the gate, write it anyway, as above); visual taste or design-system fit, which belong to `frontend-design` and `judge-frontend`; the full review of a change, which is `harness-review`. Native mobile and desktop apps: apply the same criteria where they fit and say what you could not check.
 
 ## Where it runs and who writes
 
@@ -110,7 +112,28 @@ Signals in a diff that usually mean a failure:
 
 ## The accessibility_review gate
 
-A conditional gate: it does not come from the tier. Verify writes it whenever it audits UI in the diff, `exo check` checks every gate present, and a project can require it in a tier through `governance.gates`.
+A conditional gate: it does not come from the tier. Verify writes it whenever it audits UI in the diff, and `exo check` checks every gate present.
+
+**Required by the project:** when `governance.gates` in `.exo/config.json` lists `accessibility_review` for the change's tier, `exo check` requires the gate in every change of that tier, so this skill runs in every verify of that tier and always writes it. Without UI in the diff, the gate is `APPROVED`, its Verdict says `N/A: no UI in the diff`, and its Approval says no:
+
+```markdown
+## Verdict
+
+APPROVED: N/A: no UI in the diff (git diff --name-only main...HEAD, --cached and the working tree list no UI file).
+
+## Findings
+
+| Severity | File:line | Finding | Rule/OWASP |
+|---|---|---|---|
+| - | - | No findings | - |
+
+## Approval
+
+Requires tech_lead approval: no
+Source: skill accessibility-audit
+```
+
+With UI in the diff, the gate is the full audit below.
 
 ```markdown
 # Gate: accessibility_review
@@ -140,8 +163,8 @@ Source: skill accessibility-audit
 - Keep the marker exactly `<!-- exo-gate:accessibility_review -->`, in a file named `accessibility_review.md`.
 - Each Finding starts with `A11Y-<n>`, unique in the change and never reused, so a dismissal can point at it.
 - The Rule/OWASP column holds the criterion as `WCAG 2.2 SC <number> <name> (<level>)`. Add the EN 301 549 clause only when the project must meet that standard (`references/standards-and-tools.md`).
-- `APPROVED` when no Critical or High finding is open; `ESCALATED` when one is, or when something that matters could not be reviewed (say what).
-- `Requires tech_lead approval: yes` when the verdict is `ESCALATED` or a Critical or High finding stays open or was dismissed; `no` otherwise.
+- `APPROVED` when no Critical or High finding is open; `ESCALATED` when one is, or when something that matters could not be reviewed (say what). A finding the person dismissed is no longer open (Effect on the verify).
+- `Requires tech_lead approval: yes` when the verdict is `ESCALATED`, or when a Critical or High finding was dismissed; `no` otherwise.
 - No findings: one row `| - | - | No findings | - |`, `APPROVED`, and the Not checked line when there is one.
 - Check it with `exo speclint <change-root>/gates/accessibility_review.md`. A verify that runs again rewrites the gate.
 
@@ -154,7 +177,11 @@ Source: skill accessibility-audit
   exo change record <change> --add dismissed_followups '{"id": "A11Y-1", "judge": "accessibility-audit", "rule": "WCAG 2.2 SC 2.1.1", "reason": "<reason the person gave>"}'
   ```
 
-- A dismissed finding stays in the gate, marked `dismissed: <reason>`, and in Issues Found as dismissed by the person; it no longer blocks `ready`. The gate stays `ESCALATED` with approval yes, so the PR shows it.
+- A dismissed finding stays in the gate, its row marked `dismissed: <reason>` after the finding text, and in Issues Found as dismissed by the person; it no longer blocks `ready`. With no other Critical or High finding open, the gate is `APPROVED` with `Requires tech_lead approval: yes`, so the PR still shows the dismissal and who must accept it:
+
+  ```markdown
+  | Critical | src/components/RatingInput.tsx:18 | A11Y-1: the stars are span elements with click handlers only. dismissed: <reason the person gave> | WCAG 2.2 SC 2.1.1 Keyboard (A) |
+  ```
 - Never dismiss a finding yourself, and never lower a severity to reach `ready`.
 
 ## Outside an SDD change
