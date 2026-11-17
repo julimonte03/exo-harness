@@ -24,7 +24,7 @@ metadata:
 ## Result
 
 - One `<specs_dir>/capabilities/<capability>/spec.md` per capability, with `Status: as-is`, evidence on every requirement, and `exo speclint` without errors (missing scenarios are warnings).
-- Every closed unit in the `Source:` of at least one capability, or named in your report with the reason it has none (pure infrastructure, for example).
+- Every closed unit in the `Source:` of at least one capability, or described in the wiki's Modules section as infrastructure with no capability of its own. `exo discover status` lists the others in `unsynthesized_units`, and the wiki is what tells a later session the gap is deliberate.
 - The wiki sections Architecture, Modules, Main flows and Integrations in `.exo/context.md`, each written only after the person approved it.
 - The recovered ADRs the person approved, in the inventory's `adr_dir`.
 - `.exo/discovery/open-questions.md` and `.exo/discovery/debt.md`.
@@ -44,7 +44,7 @@ The contract (sections B, E and G) rules this skill. When they disagree, the con
 
 - **By bounded context, not by folder:** what the business would name (billing, room-booking, member-accounts). Look at the entities, the operations, the vocabulary of the messages, the entrypoints and routes, and which tables each unit owns.
 - **A unit can feed several capabilities,** and a capability several units. A rule goes to the capability where the business sees it.
-- **Infrastructure units** (database helpers, configuration, logging, HTTP plumbing) usually make no capability of their own: they go to the wiki (Modules, Integrations), and the rules they enforce go to the capabilities that rely on them.
+- **Infrastructure units** (database helpers, configuration, logging, migrations, HTTP plumbing) usually make no capability of their own: they go to the wiki (Modules, Integrations), and the rules they enforce go to the capabilities that rely on them. Say in their Modules row that they feed no capability, and name them in your report.
 - **Names:** lowercase kebab-case nouns. The folder name is the one in every ID (`CAP-room-booking-FR-1`).
 - In interactive mode, show the person the grouping first (capability, units, one line of purpose) and adjust it if they ask. In automatic mode, go on and report it.
 
