@@ -95,7 +95,7 @@ Apply each one whose trigger holds (`.exo/shared/phase-skill-map.md`, row design
 | Trigger | Skill | Where its output goes |
 |---|---|---|
 | A decision that is hard to reverse | `architecture-decision-record` | A short record (context, decision, alternatives, consequences) in the project's docs, linked from Architecture Overview |
-| Large architecture | `software-solution` | Components, responsibilities and integration points in Architecture Overview, before the details |
+| Large architecture | skill:software-solution | The option the person chose, with its components, responsibilities and integration points, in Architecture Overview, before the details; its input for Data Shapes, Error Handling, Migration and Risks & Mitigations goes to those sections. A solution document it writes outside the change folder is linked from Architecture Overview |
 | Several sessions or developers | skill:context-anchoring | The decisions so far in `<change-root>/context-anchor.md`, a living file that later phases keep updating |
 
 For example: `design/architecture-decision-record not installed — applying inline criteria`.
