@@ -25,10 +25,11 @@
     {
       "id": "no-trigger",
       "expect": "no-trigger",
-      "prompt": "I staged a small fix that trims task titles. What branch name and pull request title should it use? Just tell me, do not run anything.",
+      "prompt": "I staged a small fix: TaskStore.add now trims the title, with a test. I want one pull request for it. What branch name and pull request title should it use? Just tell me, do not run anything.",
       "setup": {
         "files": {
-          "src/toy_todo/format.py": "\"\"\"Formatting of a task line.\"\"\"\n\n\ndef describe(title, done):\n    mark = \"x\" if done else \" \"\n    return f\"[{mark}] {title.strip()}\"\n"
+          "src/toy_todo/store.py": "\"\"\"Task storage in a JSON file.\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nfrom dataclasses import asdict, dataclass\nfrom pathlib import Path\n\n\n@dataclass\nclass Task:\n    id: int\n    title: str\n    done: bool = False\n\n\nclass TaskStore:\n    \"\"\"Keeps the task list in a JSON file; every change is saved immediately.\"\"\"\n\n    def __init__(self, path: Path) -> None:\n        self.path = Path(path)\n\n    def _load(self) -> list[Task]:\n        if not self.path.exists():\n            return []\n        raw = json.loads(self.path.read_text(encoding=\"utf-8\"))\n        return [Task(**item) for item in raw]\n\n    def _save(self, tasks: list[Task]) -> None:\n        self.path.write_text(\n            json.dumps([asdict(t) for t in tasks], indent=2) + \"\\n\", encoding=\"utf-8\"\n        )\n\n    def add(self, title: str) -> Task:\n        tasks = self._load()\n        task = Task(id=max((t.id for t in tasks), default=0) + 1, title=title.strip())\n        tasks.append(task)\n        self._save(tasks)\n        return task\n\n    def complete(self, task_id: int) -> Task:\n        tasks = self._load()\n        for task in tasks:\n            if task.id == task_id:\n                task.done = True\n                self._save(tasks)\n                return task\n        raise KeyError(f\"no task with id {task_id}\")\n\n    def list(self, *, include_done: bool = True) -> list[Task]:\n        return [t for t in self._load() if include_done or not t.done]\n",
+          "tests/test_store.py": "from pathlib import Path\n\nimport pytest\nfrom toy_todo.store import TaskStore\n\n\ndef test_add_and_list(tmp_path: Path) -> None:\n    store = TaskStore(tmp_path / \"tasks.json\")\n    first = store.add(\"buy milk\")\n    second = store.add(\"call mom\")\n    assert (first.id, second.id) == (1, 2)\n    assert [t.title for t in store.list()] == [\"buy milk\", \"call mom\"]\n\n\ndef test_add_trims_the_title(tmp_path: Path) -> None:\n    store = TaskStore(tmp_path / \"tasks.json\")\n    assert store.add(\"  buy milk \\n\").title == \"buy milk\"\n\n\ndef test_complete_and_pending(tmp_path: Path) -> None:\n    store = TaskStore(tmp_path / \"tasks.json\")\n    store.add(\"buy milk\")\n    store.add(\"call mom\")\n    store.complete(1)\n    assert [t.title for t in store.list(include_done=False)] == [\"call mom\"]\n    assert store.list()[0].done is True\n\n\ndef test_complete_unknown_task(tmp_path: Path) -> None:\n    with pytest.raises(KeyError):\n        TaskStore(tmp_path / \"tasks.json\").complete(9)\n"
         },
         "stage": true
       }
@@ -43,8 +44,9 @@
           "feat/add-planning-features-part-2"
         ],
         "answer_matches": [
-          "(?i)merge",
-          "(?i)rebase|git merge"
+          "(?i)merge order\\W+1\\W+2\\W+3",
+          "git merge (origin/)?feat/add-planning-features-part-\\d",
+          "(?i)never (amend|rebase|rewrite|force)|without rewriting|no force-push"
         ]
       },
       "review": "The answer cuts the change along its tasks or units into parts of about 400 changed lines or less (for example the store fields, then filters and export, then the command line, which depends on all of them), names each branch feat/add-planning-features-part-<n> on top of the previous one, gives the merge order and the base of each PR, explains how to carry a fix in an earlier part up the stack without rewriting pushed branches, and says the PR bodies come from the pr.md template. It created no branch, pushed nothing and changed no file."
