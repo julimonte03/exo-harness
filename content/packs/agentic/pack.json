@@ -3,5 +3,5 @@
   "version": "0.1.0",
   "description": "Reviews of systems built on AI agents, agnostic of the model provider: reliability (loops and stop conditions, tool errors, timeouts and retries, idempotent actions, cost limits, traces per step, evals, humans in the loop for risky actions, degradation) and context engineering (what enters each model call and why, its size and order, contradictory instructions, untrusted content mixed with instructions, tool formats and compaction), with findings by severity and path:line.",
   "requires": ["core"],
-  "optional": ["security"]
+  "optional": ["security", "sdd"]
 }

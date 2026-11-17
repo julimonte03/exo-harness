@@ -91,7 +91,7 @@ Untrusted content is anything the team did not write: user input, retrieved docu
 |---|---|---|---|
 | CE-DATA-1 | No secret in any context: no keys, tokens or passwords in prompts, tool descriptions, examples or memory | A credential inside a prompt file or a template | Critical |
 | CE-DATA-2 | Personal data reaches a model only where `.exo/shared/data-protection.md` allows it, minimized and masked where possible | Full records with personal fields sent for a task that needs none | High; Critical where the matrix blocks it |
-| CE-DATA-3 | Prompts, contexts and completions stored in logs or traces follow the same rules | Full contexts logged with no masking or retention | High |
+| CE-DATA-3 | Prompts, contexts and completions stored in logs or traces follow the same rules | Full contexts logged with no masking or retention | Critical for a secret; High for personal data |
 
 ## CE-DUP: duplication
 

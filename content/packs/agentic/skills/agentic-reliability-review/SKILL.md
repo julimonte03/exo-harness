@@ -115,7 +115,7 @@ One finding per gap, with the `path:line` of the place that should hold the cont
 | Medium | No trace per step; no eval set, or evals not run on changes; retries without backoff or cap; no budget alert; a reflection loop without a measurable exit; retrieval with no empty-result path |
 | Low | Configuration hygiene, naming, cost optimizations, missing documentation of limits |
 
-Secrets or personal data in prompts, traces or memory are at least High. Never copy them into a finding: point at the location.
+A secret in prompts, traces or memory is Critical; personal data there is at least High. Never copy either into a finding: point at the location.
 
 ## Design mode
 
@@ -150,7 +150,11 @@ The deployed timeouts and the provider's rate limits (configuration outside the 
 
 ## Inside an SDD change
 
-This skill writes no artifact and no gate. Its findings go as text to the phase that asked: in design, for design.md, Risks & Mitigations (`sdd-design` writes them); in verify, for Issues Found of verify-record.md (the verifier or the orchestrator writes them). A finding the person decides not to fix goes to `dismissed_followups` with its reason (`.exo/shared/capability-attribution.md`).
+This skill writes no artifact and no gate. Its findings go as text to the phase that asked: in design, for design.md, Risks & Mitigations (`sdd-design` writes them); in verify, for Issues Found of verify-record.md (the verifier or the orchestrator writes them). A finding the person decides not to fix goes to `dismissed_followups` with this skill as `judge`, the finding's rule and the person's reason (`.exo/shared/capability-attribution.md`); an inline phase records it, and a subagent lists it in its envelope notes for the orchestrator:
+
+```bash
+exo change record <change> --add dismissed_followups '{"id": "REL-4", "judge": "agentic-reliability-review", "rule": "AR-OBS-1", "reason": "<reason the person gave>"}'
+```
 
 ## Record
 

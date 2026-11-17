@@ -56,7 +56,7 @@ Each rule says what must hold, what to look for in the code, and the usual sever
 | Rule | Must hold | Look for | Usual severity |
 |---|---|---|---|
 | AR-OBS-1 | A trace per run with a span per model call (model, tokens, latency, stop reason) and per tool call (name, status, latency), and a correlation ID across services | One log line per run; no tokens; no tool status | Medium |
-| AR-OBS-2 | Traces and logs keep no secrets and no unmasked personal data, and have a retention period | Full prompts and tool results logged as they are | High (`.exo/shared/data-protection.md`) |
+| AR-OBS-2 | Traces and logs keep no secrets and no unmasked personal data, and have a retention period | Full prompts and tool results logged as they are | Critical for a secret; High for unmasked personal data (`.exo/shared/data-protection.md`) |
 | AR-OBS-3 | Metrics and alerts on tool error rate, limit hits, fallbacks, cost and latency | No alerts | Medium |
 | AR-OBS-4 | The prompt version and model version of each run are recorded | Prompts edited in place with no version | Medium |
 
