@@ -51,7 +51,7 @@ Load the skill that fits the task, as `.exo/shared/skill-resolver.md` says, and 
 | Untrusted input, secrets, authentication or authorization in the code | skill:secure-coding-baseline |
 | The full review of a change in verify | skill:harness-review |
 
-- **A skill that is not installed degrades.** Say the sentence `<pack>/<skill> not installed — applying inline criteria`, apply the inline criteria of `.exo/shared/phase-skill-map.md` (last table), and record it. For `security-scan-jkp` on a Python project, that means `pip-audit` or OSV-Scanner on the lockfile or requirements, only if the project has them.
+- **A skill that is not installed degrades.** Say the sentence `<pack>/<skill> not installed — applying inline criteria`, apply the inline criteria of `.exo/shared/phase-skill-map.md` (last table), and record it. For `security-scan-jkp` on a Python project, that means OSV-Scanner on the lockfile, or `pip-audit` with no arguments inside the project's installed environment, only if the project has them; never `pip-audit -r` on requirements that are not pinned, because it installs them in a temporary environment (and may build them).
 - **During apply,** your own diff is checked by `pre-commit-review` before each commit and by verify afterwards. Load skill:python-reviewer only when the person asks for a review.
 
 ## 1. Know the project

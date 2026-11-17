@@ -4,7 +4,9 @@
   "packs": [
     "core",
     "sdd",
-    "frontend"
+    "frontend",
+    "quality",
+    "security"
   ],
   "cases": [
     {
@@ -23,7 +25,14 @@
     {
       "id": "no-trigger",
       "expect": "no-trigger",
-      "prompt": "Which version of Express does packages/api use, and does the error middleware in app.js receive errors thrown by async route handlers? Just explain, no changes."
+      "prompt": "I staged a CSV export route in packages/api; no package or lockfile changed. Review that code for vulnerabilities before I merge it: injection, access control and what it leaks to the client.",
+      "setup": {
+        "files": {
+          "packages/api/src/routes/exports.js": "'use strict';\n\nconst { Router } = require('express');\nconst { exec } = require('node:child_process');\n\nmodule.exports = function exportsRouter({ config }) {\n  const router = Router();\n\n  router.get('/orders.csv', (req, res) => {\n    const from = req.query.from;\n    const sql = `SELECT * FROM orders WHERE created_at >= '${from}'`;\n    exec(`sqlite3 -csv ${config.databaseUrl} \"${sql}\"`, (err, stdout) => {\n      if (err) return res.status(500).send(err.message);\n      res.type('text/csv').send(stdout);\n    });\n  });\n\n  return router;\n};\n",
+          "packages/api/src/routes/index.js": "'use strict';\n\nconst { Router } = require('express');\nconst productsRouter = require('./products');\nconst ordersRouter = require('./orders');\nconst cartRouter = require('./cart');\nconst exportsRouter = require('./exports');\n\nfunction buildRouter(deps) {\n  const router = Router();\n  router.use('/products', productsRouter(deps));\n  router.use('/orders', ordersRouter(deps));\n  router.use('/carts', cartRouter(deps));\n  router.use('/exports', exportsRouter(deps));\n  return router;\n}\n\nmodule.exports = { buildRouter };\n"
+        },
+        "stage": true
+      }
     },
     {
       "id": "output",

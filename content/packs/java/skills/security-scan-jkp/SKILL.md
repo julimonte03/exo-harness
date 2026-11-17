@@ -25,24 +25,26 @@ metadata:
 
 ## Result
 
-A scan report with four parts:
+A scan report, in the same shape as the Node scan of the `frontend` pack:
 
 1. **Tools:** each step of the chain with its exact command and outcome: ran, not available, or not run (and why).
-2. **Dependency findings:** package, version, advisory (CVE or GHSA), severity, fixed version, direct or transitive (and through what), and the tools that confirm it.
-3. **Code findings:** insecure patterns with `path:line`, CWE and OWASP Top 10:2025 category.
-4. **For verify:** the Critical and High findings, ready for Issues Found.
+2. **Dependencies** (`DEP-n`): package, version, advisory (CVE or GHSA), severity, fixed version, direct or transitive (and through what), exposure, and the tools that confirm it.
+3. **Manifests and lockfiles** (`LOCK-n`): versions pinned against the BOM, unpinned or dynamic versions, new repositories.
+4. **Code patterns** (`PAT-n`): insecure patterns with `path:line` and CWE.
+5. Every finding with its OWASP Top 10:2025 category; the Critical and High ones ready for Issues Found; and a closing line `Scan: complete` or `Scan: partial (<why>)` with the counts per severity.
 
 You change nothing: no edits to the build, no upgrades, no installs.
 
 ## When
 
-- **SDD verify, Conditional** (`.exo/shared/phase-skill-map.md`): the diff changes a dependency manifest or a lockfile: `pom.xml`, `build.gradle(.kts)`, `settings.gradle(.kts)`, `gradle/libs.versions.toml`, `gradle.lockfile`, `requirements*.txt`, `pyproject.toml`, `poetry.lock`, `uv.lock`, `Pipfile.lock`.
+- **SDD verify, Conditional** (`.exo/shared/phase-skill-map.md`): the diff changes a dependency manifest or a lockfile: `pom.xml`, `build.gradle(.kts)`, `settings.gradle(.kts)`, `gradle/libs.versions.toml`, `gradle.lockfile`, `requirements*.txt`, `pyproject.toml`, `poetry.lock`, `uv.lock`, `pdm.lock`, `Pipfile.lock`.
 - **On request:** "are our dependencies vulnerable", before a release, after an advisory.
 - **Not for:** Node projects (`security-scan-node`, pack `frontend`); a full security review of the code of a diff (skill:security-code-review, which uses this report for its dependency check SCR-DEP-2).
 
 ## Permissions and network
 
 - Read-only. Run only scanners the project already has: a plugin declared in the build, or a tool already on the path. Never add a plugin, never install a tool, never change a version.
+- **Nothing that installs or builds packages.** `pip-audit -r <requirements>` resolves the requirements with pip in a temporary virtual environment: it downloads the packages and can run the build of a source distribution, which is running third-party code. Use it only as step 3 says.
 - Scanners download advisory data (NVD, OSV, PyPI) and OSV-Scanner sends package names and versions, never code. Run them where the project already runs them (CI) or where the person allows network access. Without network, the step is `not run`.
 - SonarQube and Fortify analyses upload code to their server: use them only when the project already does (a `sonar-project.properties`, a Sonar or Fortify plugin, a CI step), preferably by reading the result its CI already produced. They are never required.
 - Never copy a secret into the report. A hard-coded credential is a finding at its `path:line`, without the value (`.exo/shared/data-protection.md`).
@@ -53,13 +55,13 @@ You change nothing: no edits to the build, no upgrades, no installs.
 |---|---|---|
 | `pom.xml`, `mvnw` | Maven (Java, Kotlin) | every `pom.xml` of the reactor |
 | `build.gradle(.kts)`, `gradlew` | Gradle (Java, Kotlin) | `gradle.lockfile` when present, `libs.versions.toml`, the build scripts |
-| `requirements*.txt`, `pyproject.toml`, `poetry.lock`, `uv.lock`, `Pipfile.lock` | Python | the lockfile first; requirements files otherwise |
+| `requirements*.txt`, `pyproject.toml`, `poetry.lock`, `uv.lock`, `pdm.lock`, `Pipfile.lock` | Python | the lockfile first; requirements files otherwise |
 
 A project can have several: run the chain for each ecosystem.
 
 ## 2. See what changed
 
-`git diff <base>...HEAD -- <manifests>` (or `git diff --staged`): the dependencies added, upgraded, downgraded or removed, and versions pinned against the framework's BOM. Scan everything, but mark which findings the change introduced: those are the ones the change must fix or justify.
+`git diff <base>...HEAD -- <manifests>` (or `git diff --staged`): the dependencies added, upgraded, downgraded or removed. Scan everything, but mark which findings the change introduced: those are the ones the change must fix or justify. Review the manifest changes by hand as `LOCK-n` findings: a version pinned below the framework's BOM, a dynamic or open version (`+`, `latest.release`, a Maven range, a Python requirement without `==`), a SNAPSHOT outside the project's own modules, a new repository or index URL, a lockfile that did not change with its manifest.
 
 ## 3. Run the dependency chain
 
@@ -67,10 +69,12 @@ Go down the chain until one step gives a result; run the next steps too when the
 
 | Step | Java / Kotlin | Python |
 |---|---|---|
-| 1. Native audit | the OWASP dependency-check plugin, when the build declares it: `mvn -B org.owasp:dependency-check-maven:check` or `./gradlew dependencyCheckAnalyze` | `pip-audit -r requirements.txt` (or on the active environment) |
-| 2. OSV-Scanner | `osv-scanner scan source -r .` (reads `pom.xml`, Gradle lockfiles and the Python lockfiles) | same command |
+| 1. Native audit | the OWASP dependency-check plugin, when the build declares it: `./mvnw -B org.owasp:dependency-check-maven:check` or `./gradlew dependencyCheckAnalyze` | `pip-audit` with no arguments inside the project's environment, already installed; or `pip-audit -r <file> --no-deps --disable-pip` only when every requirement is pinned with `==` (better, with `--hash`) |
+| 2. OSV-Scanner | `osv-scanner scan source -r .` (reads `pom.xml` and the Gradle lockfiles) | the same command: it reads `poetry.lock`, `uv.lock`, `pdm.lock`, `Pipfile.lock` and pinned requirements without installing anything; prefer it for a Python lockfile |
 | 3. dependency-check CLI | `dependency-check --scan . --format JSON --out <folder outside the repo>` | same, with its Python analyzers (experimental) |
 | Optional | SonarQube or Fortify results, only when the project already has them | same |
+
+A Python project with only loose requirements and no environment: run OSV-Scanner if it is there; otherwise the dependency step is `not run`, with the command, because auditing them would install them.
 
 **When no tool can run** (none installed, no network, or your tools cannot run commands): say so for each step, with the exact command the person or CI should run, and review the changed dependencies by hand:
 
@@ -84,57 +88,64 @@ Search the changed files first, then the rest of the source, for the patterns of
 
 ## 5. Cross-check
 
-- **Same advisory from two tools:** one finding, confirmed by both.
+- **Same advisory from two tools:** one finding, confirmed by both. A CVE and its GHSA alias are one finding.
 - **One tool only:** keep it, and say which tool.
-- **Reachability:** a vulnerable library is worse when the code calls the vulnerable API with untrusted input; say `reachable` with the `path:line` that proves it, `not reachable` with the reason, or `unknown`.
-- **A code finding that matches a dependency finding** (the vulnerable API called from an endpoint) raises both: report the pair.
-- **False positives:** a CPE mismatch of dependency-check (a different product with the same name), a test-only dependency, or a pattern with constant input. Drop them with the reason in one line; never drop one without saying so.
+- **Exposure** goes in its own column and never changes the severity: the scope (`runtime`, `test`, `provided`, `build plugin`) and the reachability: `reachable` with the `path:line` that calls the vulnerable API with untrusted input, `not reachable` with the reason, or `unknown`.
+- **A code finding that matches a dependency finding** (the vulnerable API called from an endpoint): report the pair, each pointing at the other's ID, with the dependency's exposure `reachable` at the code finding's `path:line`.
+- **False positives:** a CPE mismatch of dependency-check (a different product with the same name), or a pattern with constant input. Drop them with the reason in one line; never drop one without saying so. A test-only dependency is not a false positive: keep it, with exposure `test`.
 
 ## 6. Rate
 
-- **Dependencies:** the advisory's CVSS: Critical 9.0 to 10.0, High 7.0 to 8.9, Medium 4.0 to 6.9, Low below 4.0; when sources disagree (NVD and the GitHub advisory), take the higher. Raise one level when it is reachable from untrusted input; never lower one without evidence.
-- **Code:** Critical when anyone who reaches the entry point can exploit it (injection, deserialization of request data, a credential in code); High when it needs sign-in or a second condition; Medium for missing hardening; Low for suggestions.
-- **OWASP Top 10:2025:** each finding gets one category, written with its year (`A03:2025 Software Supply Chain Failures`). The list, and its correspondence with the 2021 edition that other skills cite, is in `references/owasp-2025.md`.
+- **Dependencies:** the advisory's CVSS base score: Critical 9.0 to 10.0, High 7.0 to 8.9, Medium 4.0 to 6.9, Low below 4.0. When sources disagree (NVD and the GitHub advisory), keep the higher and say so. Never raise or lower it for exposure: the person decides with the Exposure column.
+- **Manifests and code:** the usual severity of the pattern in `references/code-patterns.md`, or Medium for a `LOCK-n` finding (High when it pins a known vulnerable version); lower a pattern only when the code proves the input is trusted.
+- **OWASP Top 10:2025:** each finding gets one category, written with its year, from its CWE through `.exo/shared/owasp-2025.md` (`CWE-502, A08:2025 Software or Data Integrity Failures`). Dependency findings are `A03:2025 Software Supply Chain Failures`.
 
 ## 7. Report and hand off
 
 - **Fixes as text:** the fixed version and where to set it (the BOM property such as `<log4j2.version>` in Spring Boot, `dependencyManagement`, a Gradle constraint, the lockfile), an exclusion, or the safe API for a code pattern. You do not apply them.
-- **In verify:** the Critical and High findings go to Issues Found of `verify-record.md`, which `sdd-verify` writes. When the tier has the `security_review` gate, skill:security-code-review takes this report as the result of its check SCR-DEP-2. This skill writes no gate.
-- **Outside SDD:** the report goes in the answer. A finding the person decides to accept stays visible in the report with their reason; never drop it on your own.
+- **In verify:** it runs where the verify runs (`sdd-verifier`, read-only, or the session that runs the verify). The Critical and High findings go to Issues Found of `verify-record.md`, which `sdd-verify` writes. When the tier has the `security_review` gate, skill:security-code-review takes this report as the result of its check SCR-DEP-2: give the same findings as rows in the gate's Findings format (`| Critical | pom.xml:52 | DEP-1: log4j-core 2.14.1 ... | A03:2025, CWE-1395 |`). This skill writes no gate and no file.
+- **Outside SDD:** the report goes in the answer. Findings the person decides not to fix go to `dismissed_followups` with their reason, recorded by the orchestrator inside a change; never drop or dismiss one yourself.
 
 ## Return
 
 ```markdown
-# Security scan: PROJ-88-export-reports
+# Security scan: PROJ-88-export-reports (origin/main...HEAD)
 
-## Tools
+Scope: pom.xml changed (snakeyaml pinned), ReportImport.java added.
+Tools: dependency-check-maven (declared in pom.xml:142): `./mvnw -B org.owasp:dependency-check-maven:check`, not run (this agent cannot run Maven here); osv-scanner: not available on the path; dependency-check CLI: not available on the path; SonarQube, Fortify: not configured.
 
-| Step | Tool | Command | Outcome |
-|---|---|---|---|
-| 1 | dependency-check-maven (declared in pom.xml:142) | mvn -B org.owasp:dependency-check-maven:check | not run: this agent cannot run Maven here |
-| 2 | OSV-Scanner | osv-scanner scan source -r . | not available on the path |
-| 3 | dependency-check CLI | dependency-check --scan . --format JSON --out <folder> | not available on the path |
-| - | SonarQube, Fortify | - | not configured in this project |
+## Dependencies
 
-No scanner ran: dependency findings below are manual and need a scanner to confirm.
+| ID | Severity | Package | Installed, fixed | Advisory | Path | Exposure | Introduced | OWASP 2025 | Source |
+|---|---|---|---|---|---|---|---|---|---|
+| DEP-1 | Critical | org.yaml:snakeyaml | 1.33, 2.0 | CVE-2022-1471 (unsafe constructor) | direct, pom.xml:88 | runtime, reachable: PAT-1 | yes | A03:2025, CWE-1395 | manual, not confirmed by a scanner |
 
-## Dependency findings
+## Manifests and lockfiles
 
-| Severity | Package | Version | Advisory | Fixed in | Path | Introduced by this change | Confirmed by |
-|---|---|---|---|---|---|---|---|
-| Critical | org.yaml:snakeyaml | 1.33 | CVE-2022-1471 (unsafe constructor) | 2.0 | direct, pom.xml:88, pinned below the Boot BOM | yes | manual, not confirmed by a scanner |
-
-## Code findings
-
-| Severity | path:line | Finding | CWE | OWASP Top 10:2025 |
+| ID | Severity | path:line | Finding | OWASP 2025 |
 |---|---|---|---|---|
-| Critical | src/main/java/com/example/reports/ReportImport.java:41 | `new Yaml().load(body)` on the request body: arbitrary types from user input; reachable from POST /reports/import | CWE-502 | A08:2025 Software or Data Integrity Failures |
+| LOCK-1 | High | pom.xml:88 | snakeyaml is pinned below the version the Spring Boot BOM manages, at a known vulnerable version (DEP-1) | A03:2025, CWE-1357 |
 
-## For verify
+## Code patterns
 
-- Critical: ReportImport.java:41 unsafe YAML load of request data (CWE-502, A08:2025); use `new Yaml(new SafeConstructor(new LoaderOptions()))` and a typed mapping.
-- Critical: snakeyaml 1.33 pinned below the Boot BOM (CVE-2022-1471, A03:2025); remove the explicit version.
+| ID | Severity | path:line | Finding | OWASP 2025 |
+|---|---|---|---|---|
+| PAT-1 | Critical | src/main/java/com/example/reports/ReportImport.java:41 | `new Yaml().load(body)` on the request body of POST /reports/import: arbitrary types from user input (see DEP-1) | A08:2025, CWE-502 |
+
+## Not checked
+
+Transitive dependencies (no scanner ran).
+
+## Fixes (for the person)
+
+1. PAT-1: `new Yaml(new SafeConstructor(new LoaderOptions()))` and a typed mapping.
+2. DEP-1, LOCK-1: remove the explicit snakeyaml version, so the Boot BOM manages it.
+
+Scan: partial (no scanner ran; dependency findings are manual). Critical 2, High 1, Medium 0, Low 0.
 ```
+
+- IDs: `DEP-n` for vulnerable packages, `LOCK-n` for manifest and lockfile findings, `PAT-n` for code patterns; unique in the report.
+- `Scan: complete` only when a scanner covered the full dependency tree (from a lockfile or the resolved build); otherwise `Scan: partial (<why>)`.
 
 ## Record
 
@@ -146,12 +157,12 @@ exo change record <change> --add capabilities_used '{"name": "osv-scanner", "typ
 exo change record <change> --add skills_used '"security-scan-jkp"'
 ```
 
-Record a tool only when it ran. In Windows PowerShell 5.1, pass the JSON as `@<file>` (`.exo/shared/sdd-phase-common.md`, section I).
+Record a tool only when it ran. In Windows PowerShell 5.1, pass the JSON as `'@<file>'` (`.exo/shared/sdd-phase-common.md`, section I).
 
 ## Before you finish
 
-- [ ] Every step of the chain has its exact command and outcome; nothing was installed or changed.
-- [ ] Each dependency finding has its advisory, fixed version, path and confirmation source; manual ones say so.
-- [ ] Each code finding has `path:line`, CWE and an OWASP Top 10:2025 category with its year.
+- [ ] Every step of the chain has its exact command and outcome; nothing was installed, built or changed.
+- [ ] Each dependency finding has its advisory, fixed version, path, exposure and confirmation source; manual ones say so.
+- [ ] Each finding has its ID, a severity that exposure did not change, and an OWASP Top 10:2025 category with its year from `.exo/shared/owasp-2025.md`.
 - [ ] Reachability is stated where the code shows it; dropped false positives have a reason.
-- [ ] The Critical and High findings are listed for verify, and no secret is copied into the report.
+- [ ] The Critical and High findings are listed for verify, no secret is copied into the report, and the last line is `Scan: complete` or `Scan: partial (<why>)` with the counts.
