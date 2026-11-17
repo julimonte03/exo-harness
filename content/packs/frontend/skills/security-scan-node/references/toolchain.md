@@ -10,7 +10,7 @@ Commands for each step of the chain in `security-scan-node`, and the manual chec
 | pnpm | `pnpm audit --prod --json` | `pnpm audit --json` | `pnpm why <package>` | `pnpm-lock.yaml` |
 | Yarn 2 and later | `yarn npm audit --all --recursive --environment production --json` | `yarn npm audit --all --recursive --json` | `yarn why <package>` | `yarn.lock` |
 | Yarn 1 | `yarn audit --groups dependencies --json` | `yarn audit --json` | `yarn why <package>` | `yarn.lock` |
-| Bun | `bun audit` (recent Bun versions) | the same | `bun pm ls` | `bun.lock` |
+| Bun | `bun audit --prod --json` | `bun audit --json` | `bun pm ls` | `bun.lock` |
 
 - In a workspace monorepo, run at the root: the root lockfile covers every workspace. `npm audit --workspace <name>` narrows the report to one.
 - `--audit-level=high` changes only the exit code, not what is reported; read the whole JSON.
@@ -21,10 +21,10 @@ Commands for each step of the chain in `security-scan-node`, and the manual chec
 
 | Version | Whole repository | One lockfile | Output |
 |---|---|---|---|
-| 2.x | `osv-scanner scan source -r .` | `osv-scanner scan source --lockfile package-lock.json` | `--format json` |
+| 2.x | `osv-scanner scan -r .` | `osv-scanner scan -L package-lock.json` | `--format json` |
 | 1.x | `osv-scanner -r .` | `osv-scanner --lockfile=package-lock.json` | `--format json` |
 
-It reads every lockfile it finds, Node and others, and reports OSV IDs with their GHSA and CVE aliases. An `osv-scanner.toml` in the repository may ignore some IDs on purpose: list the ignored IDs and their reasons in the report. Offline mode works only with a local database the project already keeps.
+It reads every lockfile it finds, Node and others, and reports OSV IDs with their GHSA and CVE aliases. An `osv-scanner.toml` in the repository may ignore some IDs on purpose: list the ignored IDs and their reasons in the report. Offline, `--offline-vulnerabilities` checks against local databases that are already cached; never add `--download-offline-databases` in a build that must stay offline.
 
 ## Step 3: OWASP dependency-check
 

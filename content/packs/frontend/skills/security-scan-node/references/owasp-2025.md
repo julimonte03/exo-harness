@@ -14,7 +14,7 @@ How `security-scan-node` maps findings. Cite the category as `A03:2025` and add 
 | A06:2025 | Insecure Design | A04:2021 |
 | A07:2025 | Authentication Failures | A07:2021 Identification and Authentication Failures |
 | A08:2025 | Software or Data Integrity Failures | A08:2021 |
-| A09:2025 | Logging and Alerting Failures | A09:2021 Security Logging and Monitoring Failures |
+| A09:2025 | Security Logging and Alerting Failures | A09:2021 Security Logging and Monitoring Failures |
 | A10:2025 | Mishandling of Exceptional Conditions | New; it gathers error handling that fails open or leaks |
 
 When a finding fits two categories, pick the one that names its root cause and keep the CWE.
