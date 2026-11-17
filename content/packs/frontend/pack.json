@@ -1,0 +1,7 @@
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "description": "Frontend work: accessibility audits against WCAG 2.2 A and AA with the accessibility_review gate of verify; the TypeScript and React stack skills come later.",
+  "requires": ["core"],
+  "optional": ["quality", "security"]
+}
