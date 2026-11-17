@@ -43,10 +43,10 @@
           "BookReportService\\.java:\\d+",
           "(?i)inject|concatenat|CWE-89|parameteri[sz]|bind",
           "(?i)transaction",
-          "(?i)CHANGES REQUESTED"
+          "(?i)verdict\\W*request changes"
         ]
       },
-      "review": "The answer reviews the staged BookReportService.java and BookReportController.java, read in full, with severity, path:line, rule and fix for each finding: the author from the query string concatenated into JPQL (BookReportService.java:24, Critical, CWE-89, A05:2025); restock (lines 38-41) changes the entity outside any transaction, so nothing is saved, it bypasses the copy limit and retired-title rules of BookService.addCopies, and a missing ID throws a NullPointerException; one em.find per loan over an unbounded findAll (lines 30-32, N+1); the swallowed exception that returns 0 (lines 48-49); LocalDate.now() instead of Dates.today() (line 46); field injection; entities returned by the controller; no tests. The last line is Verdict: CHANGES REQUESTED, and no file was changed or committed."
+      "review": "The answer reviews the staged BookReportService.java and BookReportController.java, read in full, with severity, path:line, rule and fix for each finding: the author from the query string concatenated into JPQL (BookReportService.java:24, Critical, CWE-89, A05:2025); restock (lines 38-41) changes the entity outside any transaction, so nothing is saved, it bypasses the copy limit and retired-title rules of BookService.addCopies, and a missing ID throws a NullPointerException; one em.find per loan over an unbounded findAll (lines 30-32, N+1); the swallowed exception that returns 0 (lines 48-49); LocalDate.now() instead of Dates.today() (line 46); field injection; entities returned by the controller; no tests. The last line is Verdict: request changes, and no file was changed or committed."
     }
   ]
 }

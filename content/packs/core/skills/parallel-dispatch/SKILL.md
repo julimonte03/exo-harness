@@ -18,7 +18,7 @@ description: >-
 metadata:
   exo-pack: core
   exo-execution: inline
-  exo-permissions: read-write
+  exo-permissions: write-code
 ---
 
 # parallel-dispatch

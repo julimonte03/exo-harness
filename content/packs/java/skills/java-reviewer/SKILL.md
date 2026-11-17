@@ -24,7 +24,7 @@ metadata:
 
 - A findings table: severity, `path:line`, what is wrong, the rule, and a suggested fix as text (a short snippet is fine).
 - A `Not reviewed` line for what you could not check.
-- A verdict as the last line, exactly `Verdict: APPROVED` (no Critical or High finding) or `Verdict: CHANGES REQUESTED`.
+- A verdict as the last line, exactly `Verdict: approve` (no Critical or High finding) or `Verdict: request changes`.
 - You change nothing: no edits, no staging, no commits.
 
 ## When
@@ -96,7 +96,7 @@ Reviewed: staged diff, 3 files (OrderService.java, OrderController.java, OrderSe
 
 Not reviewed: the OpenAPI contract (not in the diff).
 
-Verdict: CHANGES REQUESTED
+Verdict: request changes
 ```
 
 ## Record
@@ -114,4 +114,4 @@ exo change record <change> --add skills_used '"java-reviewer"'
 - [ ] Every finding has a severity, `path:line`, a rule (CWE and OWASP Top 10:2025 for security) and a fix.
 - [ ] Data access, transactions, security and concurrency were checked, or listed under Not reviewed.
 - [ ] No secret or personal data is copied into the answer.
-- [ ] The last line is `Verdict: APPROVED` or `Verdict: CHANGES REQUESTED`, and nothing was changed.
+- [ ] The last line is `Verdict: approve` or `Verdict: request changes`, and nothing was changed.
