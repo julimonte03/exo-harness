@@ -1,0 +1,27 @@
+{
+  "skill": "frontend-patterns",
+  "fixture": "node-shop",
+  "packs": ["core", "sdd", "frontend"],
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "In packages/web, App.tsx passes the cart object down through Layout into CartDrawer and into CheckoutPage. Is there a cleaner way to share it, and should it become a context? Recommend an approach before we change anything."
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "Is the expiry check in packages/web/src/components/checkoutValidation.ts right for a card that expires this month? Look only at that function and tell me."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "The back office page in packages/web/src/pages/Admin/index.tsx does its order lookup inline and shows nothing while a request is running. Pull the lookup into a custom hook with loading and error states, use it in the page, and leave the rest as it is. It is a small refactor, so do it directly.",
+      "checks": {
+        "files_written": ["packages/web/src/*use[A-Z]*.ts", "packages/web/src/pages/Admin/index.tsx"],
+        "answer_matches": ["(?i)loading"]
+      },
+      "review": "A new hook file follows the project's convention (packages/web/src/hooks/use<Name>.ts with a named export, like useCart.ts and useProducts.ts, or next to the page), over the existing fetchOrder of src/api/client.ts rather than a raw fetch. Its state is a discriminated union or an equivalent that cannot be loading and failed at once; a new lookup ignores or aborts a stale response. The page uses the hook, shows a loading state and the error with role alert as before, and keeps the token input, the status buttons and OrderSummary working. No new dependency, no unrelated rewrite of the status buttons (at most a follow-up, for example that they can be pressed twice). The answer names the pattern and the files, and gives the typecheck and test commands for @shop/web, saying they did not run."
+    }
+  ]
+}
