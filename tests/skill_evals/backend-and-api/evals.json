@@ -1,0 +1,35 @@
+{
+  "skill": "backend-and-api",
+  "fixture": "java-library",
+  "packs": [
+    "core",
+    "sdd",
+    "java"
+  ],
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "Members should be able to place a hold on a title that has no copies on the shelf. Propose the API for it: paths, methods, request and response bodies, status codes and error cases."
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "Why does LoanServiceTest mock BookRepository and MemberRepository? Explain its setup in a few sentences."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "Review the loans part of this API, LoanController and its entries in openapi.yaml, for REST design problems, and tell me what you would change, with the file and line of each problem.",
+      "checks": {
+        "answer_matches": [
+          "LoanController\\.java:\\d+",
+          "(?i)\\bDTO\\b|response (record|type|object|class)|entity",
+          "(?i)openapi\\.yaml",
+          "(?i)\\bLocation\\b|\\b404\\b"
+        ]
+      },
+      "review": "The answer is a findings table with severity, path:line, rule and fix: LoanController returns the JPA entity Loan instead of a response record (LoanController.java:23, 28 and 33); POST /api/loans answers 201 without a Location header; the Checkout body is not validated (primitive IDs default to 0); openapi.yaml does not document 404 for renewal and return, nor any error for return, nor the loan response schema. It notes that the API uses a {code, message} error body and 422 for business rules, and keeps that convention instead of switching formats. No file was changed."
+    }
+  ]
+}

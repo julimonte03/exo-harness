@@ -1,11 +1,11 @@
 """Lint de artefactos SDD contra sus plantillas (`exo/sdd/templates/`).
 
-Tipos (§4.1 del reporte, más los de ADR-0013): `functional` (proposal.md),
+Tipos (§4.1 del reporte, más los de ADR-0013 y ADR-0016): `functional` (proposal.md),
 `delta` (el spec.md de un change), `capability` (la spec viva de una capacidad,
-`capabilities/<cap>/spec.md`), `technical` (design.md), `test-spec`,
-`verify-record` y `pr`. Las secciones `##` de cada plantilla son obligatorias y
-no pueden quedar vacías (los comentarios HTML no cuentan como contenido), salvo
-en el delta, donde cada sección es opcional. Además:
+`capabilities/<cap>/spec.md`), `technical` (design.md), `canvas` (el Canvas REASONS
+del overlay SPDD), `test-spec`, `verify-record` y `pr`. Las secciones `##` de cada
+plantilla son obligatorias y no pueden quedar vacías (los comentarios HTML no cuentan
+como contenido), salvo en el delta, donde cada sección es opcional. Además:
 
 - delta y capacidad: el formato de `sdd/specs.py` (IDs `CAP-<cap>-FR-n`,
   escenarios con Given, When y Then, `S-n` solo en el delta).
@@ -15,7 +15,9 @@ en el delta, donde cada sección es opcional. Además:
   `Requires tech_lead approval: yes|no` y `Source:`.
 - Carpeta de change: cada `S-n` del delta aparece en el Test Plan de design.md;
   cada requisito ADDED o MODIFIED y cada escenario del delta aparecen en
-  test-spec.md; y toda referencia a un ID existe en el delta o en las specs vivas.
+  test-spec.md; y toda referencia a un ID existe en el delta o en las specs vivas
+  (sin delta, como en un Tier 1 con SPDD, las del canvas se cruzan solo con las vivas).
+- Un artefacto que no es UTF-8 es un `SpeclintError` que nombra el archivo.
 """
 
 from __future__ import annotations
@@ -33,6 +35,7 @@ ARTIFACTS = {
     "proposal.md": "proposal",
     "spec.md": "spec",
     "design.md": "design",
+    "canvas.md": "canvas",
     "test-spec.md": "test-spec",
     "verify-record.md": "verify-record",
     "pr.md": "pr",
@@ -42,6 +45,7 @@ KIND_OF = {
     "spec": "delta",
     "capability-spec": "capability",
     "design": "technical",
+    "canvas": "canvas",
     "test-spec": "test-spec",
     "verify-record": "verify-record",
     "pr": "pr",
@@ -52,6 +56,7 @@ KINDS = (
     "delta",
     "capability",
     "technical",
+    "canvas",
     "test-spec",
     "verify-record",
     "pr",
@@ -60,6 +65,9 @@ KINDS = (
 GATES_DIR = "gates"
 GATE_VERDICTS = ("APPROVED", "ESCALATED")
 CONTRACT_GATE = "contract_check"
+# El Canvas REASONS del overlay SPDD (ADR-0016) y el gate humano que lo aprueba.
+CANVAS = "canvas.md"
+CANVAS_GATE = "prompt_spec_review"
 VERDICTS = ("ready", "needs-rework", "blocked")
 GATE_MARKER = re.compile(rf"<!--\s*{re.escape(_meta.BLOCK_PREFIX)}-gate:[a-z][a-z0-9_]*\s*-->")
 
@@ -115,6 +123,22 @@ class _Section:
 
 def template_text(name: str) -> str:
     return (TEMPLATES_DIR / f"{name}.md").read_text(encoding="utf-8")
+
+
+def read_artifact(path: Path) -> str:
+    """El texto de un artefacto (UTF-8, con o sin BOM).
+
+    Si no es UTF-8 (por ejemplo el UTF-16 que escribe `Out-File` de Windows PowerShell 5.1),
+    un `SpeclintError` que nombra el archivo y dice cómo guardarlo.
+    """
+    try:
+        return Path(path).read_text(encoding="utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise SpeclintError(
+            f"{path} is not UTF-8 text ({exc.reason}); save it as UTF-8, for example with your "
+            "editor or `Set-Content -Encoding utf8` in PowerShell (`Out-File` in Windows "
+            "PowerShell 5.1 writes UTF-16)"
+        ) from exc
 
 
 def _norm(title: str) -> str:
@@ -189,13 +213,13 @@ def _first_word(section: _Section | None) -> str | None:
 
 def section_text(path: Path, title: str) -> str | None:
     """El texto de una sección `##`, con sus comentarios, o None si no está."""
-    section = _find(_sections(Path(path).read_text(encoding="utf-8-sig")), title)
+    section = _find(_sections(read_artifact(path)), title)
     return section.text(comments=True) if section is not None else None
 
 
 def gate_info(path: Path) -> GateInfo:
     """Nombre, veredicto y si pide aprobación de `tech_lead`, de un archivo de gate."""
-    text = Path(path).read_text(encoding="utf-8-sig")
+    text = read_artifact(path)
     sections = _sections(text)
     found = _GATE_NAME.search(text)
     word = (_first_word(_find(sections, "Verdict")) or "").upper()
@@ -208,7 +232,7 @@ def gate_info(path: Path) -> GateInfo:
 
 def contract_gate(verify_record: Path) -> GateInfo:
     """El gate `contract_check` sale del Gate summary de verify-record.md."""
-    text = Path(verify_record).read_text(encoding="utf-8-sig")
+    text = read_artifact(verify_record)
     sections = _sections(text)
     summary = _find(sections, "Gate summary")
     # Sin comentarios: la plantilla trae comentada la línea "yes | no".
@@ -295,7 +319,7 @@ def _template_for(path: Path, kind: str | None) -> str:
 
 
 def _lint_file(path: Path, template: str) -> tuple[FileReport, list[_Section], dict[str, int]]:
-    text = path.read_text(encoding="utf-8-sig")
+    text = read_artifact(path)
     sections = _sections(text)
     report = FileReport(path, KIND_OF[template], template)
     defined: dict[str, int] = {}
@@ -321,7 +345,7 @@ def _lint_file(path: Path, template: str) -> tuple[FileReport, list[_Section], d
 def _references(path: Path) -> list[tuple[int, str]]:
     refs: list[tuple[int, str]] = []
     in_code = False
-    raw = path.read_text(encoding="utf-8-sig")
+    raw = read_artifact(path)
     text = _COMMENT.sub(lambda m: "\n" * m.group(0).count("\n"), raw)
     for number, line in enumerate(text.splitlines(), start=1):
         if _FENCE.match(line):
@@ -350,12 +374,14 @@ def _living_ids(change: Path) -> set[str]:
 def _cross_check(
     folder: Path, reports: dict[str, tuple[FileReport, list[_Section], dict[str, int]]]
 ) -> None:
-    if "spec.md" not in reports:
-        return
-    defined = reports["spec.md"][2]
+    # Sin delta (un Tier 1 con el overlay SPDD) el canvas igual se cruza: lo que nombra tiene
+    # que estar vigente en las specs vivas, y no hay escenarios que nombrar. Los demás
+    # artefactos se cruzan contra el delta, así que sin él no.
+    has_delta = "spec.md" in reports
+    defined = reports["spec.md"][2] if has_delta else {}
     living: set[str] | None = None
-    for name in ("design.md", "test-spec.md", "verify-record.md"):
-        if name not in reports:
+    for name in ("design.md", CANVAS, "test-spec.md", "verify-record.md"):
+        if name not in reports or (not has_delta and name != CANVAS):
             continue
         report = reports[name][0]
         seen: set[str] = set()
@@ -370,11 +396,14 @@ def _cross_check(
                     message = f"{token} is not defined in spec.md nor in the living specs"
                     report.errors.append(Issue(number, message))
             else:
-                report.errors.append(Issue(number, f"{token} is not defined in spec.md"))
+                missing = "" if has_delta else " (the change has no spec.md)"
+                report.errors.append(Issue(number, f"{token} is not defined in spec.md{missing}"))
+    if not has_delta:
+        return
     if "test-spec.md" in reports:
         report = reports["test-spec.md"][0]
         mentioned = {token for _, token in _references(report.path)}
-        delta = specs.parse_delta((folder / "spec.md").read_text(encoding="utf-8-sig"))
+        delta = specs.parse_delta(read_artifact(folder / "spec.md"))
         covered = [b.id for b in (*delta.added, *delta.modified)] + list(delta.scenarios)
         for token in covered:
             if token not in mentioned:

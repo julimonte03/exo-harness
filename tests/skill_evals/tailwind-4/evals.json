@@ -1,0 +1,66 @@
+{
+  "skill": "tailwind-4",
+  "fixture": "node-shop",
+  "packs": [
+    "core",
+    "sdd",
+    "frontend"
+  ],
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "setup": {
+        "files": {
+          "packages/web/package.json": "{\n  \"name\": \"@shop/web\",\n  \"version\": \"1.4.0\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"scripts\": {\n    \"dev\": \"vite\",\n    \"build\": \"tsc -b && vite build\",\n    \"test\": \"vitest run\"\n  },\n  \"dependencies\": {\n    \"@shop/design-tokens\": \"^2.3.0\",\n    \"@shop/shared\": \"*\",\n    \"clsx\": \"^2.1.1\",\n    \"react\": \"^18.3.1\",\n    \"react-dom\": \"^18.3.1\",\n    \"react-router\": \"^7.0.1\",\n    \"tailwind-merge\": \"^3.3.0\"\n  },\n  \"devDependencies\": {\n    \"@tailwindcss/vite\": \"^4.1.0\",\n    \"@testing-library/react\": \"^16.0.1\",\n    \"@types/react\": \"^18.3.12\",\n    \"@vitejs/plugin-react\": \"^4.3.3\",\n    \"jsdom\": \"^25.0.1\",\n    \"tailwindcss\": \"^4.1.0\",\n    \"typescript\": \"^5.6.3\",\n    \"vite\": \"^5.4.10\",\n    \"vitest\": \"^2.1.4\"\n  }\n}\n",
+          "packages/web/vite.config.ts": "import tailwindcss from '@tailwindcss/vite';\nimport react from '@vitejs/plugin-react';\nimport { defineConfig } from 'vitest/config';\n\nexport default defineConfig({\n  plugins: [react(), tailwindcss()],\n  // Mirrors \"paths\" in tsconfig.json; '/src' is resolved from the project root.\n  resolve: { alias: { '@': '/src' } },\n  server: { proxy: { '/api': 'http://localhost:3000' } },\n  test: { environment: 'jsdom' },\n});\n",
+          "packages/web/src/index.css": "@import \"tailwindcss\";\n\n@theme {\n  --color-brand-600: oklch(0.55 0.2 260);\n  --color-success: oklch(0.53 0.14 150);\n  --color-success-soft: oklch(0.96 0.04 150);\n  --color-warning: oklch(0.55 0.15 60);\n  --color-warning-soft: oklch(0.96 0.05 85);\n  --color-danger: oklch(0.51 0.19 27);\n  --color-danger-soft: oklch(0.95 0.03 18);\n  --radius-badge: 0.375rem;\n}\n",
+          "packages/web/src/lib/cn.ts": "import { clsx, type ClassValue } from 'clsx';\nimport { twMerge } from 'tailwind-merge';\n\nexport function cn(...inputs: ClassValue[]) {\n  return twMerge(clsx(inputs));\n}\n",
+          "packages/web/src/main.tsx": "import { StrictMode } from 'react';\nimport { createRoot } from 'react-dom/client';\nimport { BrowserRouter } from 'react-router';\nimport App from './App';\nimport './index.css';\n\ncreateRoot(document.getElementById('root')!).render(\n  <StrictMode>\n    <BrowserRouter>\n      <App />\n    </BrowserRouter>\n  </StrictMode>,\n);\n",
+          "packages/web/src/components/StockBadge.tsx": "import { LOW_STOCK_THRESHOLD } from '@shop/shared';\n\nexport type StockLevel = 'in-stock' | 'low-stock' | 'out-of-stock';\n\nexport function stockLevelFor(available: number): StockLevel {\n  if (available <= 0) return 'out-of-stock';\n  return available <= LOW_STOCK_THRESHOLD ? 'low-stock' : 'in-stock';\n}\n\nconst LABELS: Record<StockLevel, (available: number) => string> = {\n  'in-stock': () => 'In stock',\n  'low-stock': (available) => `Only ${available} left`,\n  'out-of-stock': () => 'Sold out',\n};\n\nexport function StockBadge({ available }: { available: number }) {\n  const level = stockLevelFor(available);\n  const color = level === 'in-stock' ? 'green' : level === 'low-stock' ? 'amber' : 'red';\n  return (\n    <span\n      className={`rounded-[6px] px-2 py-0.5 text-[13px] bg-${color}-100 ${\n        level === 'out-of-stock'\n          ? 'text-[#b91c1c]'\n          : level === 'low-stock'\n            ? 'text-[#b45309]'\n            : 'text-[#15803d]'\n      }`}\n    >\n      {LABELS[level](available)}\n    </span>\n  );\n}\n"
+        }
+      },
+      "prompt": "We moved packages/web to Tailwind. StockBadge builds its color classes from strings and uses hex values. How should it pick its colors with our setup? Explain with a snippet; do not edit anything yet."
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "Where do the colors of StockBadge in packages/web come from today: which values does it use for each stock level, and where are they defined? Just tell me, no changes.",
+      "setup": {
+        "files": {
+          "packages/web/package.json": "{\n  \"name\": \"@shop/web\",\n  \"version\": \"1.4.0\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"scripts\": {\n    \"dev\": \"vite\",\n    \"build\": \"tsc -b && vite build\",\n    \"test\": \"vitest run\"\n  },\n  \"dependencies\": {\n    \"@shop/design-tokens\": \"^2.3.0\",\n    \"@shop/shared\": \"*\",\n    \"clsx\": \"^2.1.1\",\n    \"react\": \"^18.3.1\",\n    \"react-dom\": \"^18.3.1\",\n    \"react-router\": \"^7.0.1\",\n    \"tailwind-merge\": \"^3.3.0\"\n  },\n  \"devDependencies\": {\n    \"@tailwindcss/vite\": \"^4.1.0\",\n    \"@testing-library/react\": \"^16.0.1\",\n    \"@types/react\": \"^18.3.12\",\n    \"@vitejs/plugin-react\": \"^4.3.3\",\n    \"jsdom\": \"^25.0.1\",\n    \"tailwindcss\": \"^4.1.0\",\n    \"typescript\": \"^5.6.3\",\n    \"vite\": \"^5.4.10\",\n    \"vitest\": \"^2.1.4\"\n  }\n}\n",
+          "packages/web/vite.config.ts": "import tailwindcss from '@tailwindcss/vite';\nimport react from '@vitejs/plugin-react';\nimport { defineConfig } from 'vitest/config';\n\nexport default defineConfig({\n  plugins: [react(), tailwindcss()],\n  // Mirrors \"paths\" in tsconfig.json; '/src' is resolved from the project root.\n  resolve: { alias: { '@': '/src' } },\n  server: { proxy: { '/api': 'http://localhost:3000' } },\n  test: { environment: 'jsdom' },\n});\n",
+          "packages/web/src/index.css": "@import \"tailwindcss\";\n\n@theme {\n  --color-brand-600: oklch(0.55 0.2 260);\n  --color-success: oklch(0.53 0.14 150);\n  --color-success-soft: oklch(0.96 0.04 150);\n  --color-warning: oklch(0.55 0.15 60);\n  --color-warning-soft: oklch(0.96 0.05 85);\n  --color-danger: oklch(0.51 0.19 27);\n  --color-danger-soft: oklch(0.95 0.03 18);\n  --radius-badge: 0.375rem;\n}\n",
+          "packages/web/src/lib/cn.ts": "import { clsx, type ClassValue } from 'clsx';\nimport { twMerge } from 'tailwind-merge';\n\nexport function cn(...inputs: ClassValue[]) {\n  return twMerge(clsx(inputs));\n}\n",
+          "packages/web/src/main.tsx": "import { StrictMode } from 'react';\nimport { createRoot } from 'react-dom/client';\nimport { BrowserRouter } from 'react-router';\nimport App from './App';\nimport './index.css';\n\ncreateRoot(document.getElementById('root')!).render(\n  <StrictMode>\n    <BrowserRouter>\n      <App />\n    </BrowserRouter>\n  </StrictMode>,\n);\n",
+          "packages/web/src/components/StockBadge.tsx": "import { LOW_STOCK_THRESHOLD } from '@shop/shared';\n\nexport type StockLevel = 'in-stock' | 'low-stock' | 'out-of-stock';\n\nexport function stockLevelFor(available: number): StockLevel {\n  if (available <= 0) return 'out-of-stock';\n  return available <= LOW_STOCK_THRESHOLD ? 'low-stock' : 'in-stock';\n}\n\nconst LABELS: Record<StockLevel, (available: number) => string> = {\n  'in-stock': () => 'In stock',\n  'low-stock': (available) => `Only ${available} left`,\n  'out-of-stock': () => 'Sold out',\n};\n\nexport function StockBadge({ available }: { available: number }) {\n  const level = stockLevelFor(available);\n  const color = level === 'in-stock' ? 'green' : level === 'low-stock' ? 'amber' : 'red';\n  return (\n    <span\n      className={`rounded-[6px] px-2 py-0.5 text-[13px] bg-${color}-100 ${\n        level === 'out-of-stock'\n          ? 'text-[#b91c1c]'\n          : level === 'low-stock'\n            ? 'text-[#b45309]'\n            : 'text-[#15803d]'\n      }`}\n    >\n      {LABELS[level](available)}\n    </span>\n  );\n}\n"
+        }
+      }
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "setup": {
+        "files": {
+          "packages/web/package.json": "{\n  \"name\": \"@shop/web\",\n  \"version\": \"1.4.0\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"scripts\": {\n    \"dev\": \"vite\",\n    \"build\": \"tsc -b && vite build\",\n    \"test\": \"vitest run\"\n  },\n  \"dependencies\": {\n    \"@shop/design-tokens\": \"^2.3.0\",\n    \"@shop/shared\": \"*\",\n    \"clsx\": \"^2.1.1\",\n    \"react\": \"^18.3.1\",\n    \"react-dom\": \"^18.3.1\",\n    \"react-router\": \"^7.0.1\",\n    \"tailwind-merge\": \"^3.3.0\"\n  },\n  \"devDependencies\": {\n    \"@tailwindcss/vite\": \"^4.1.0\",\n    \"@testing-library/react\": \"^16.0.1\",\n    \"@types/react\": \"^18.3.12\",\n    \"@vitejs/plugin-react\": \"^4.3.3\",\n    \"jsdom\": \"^25.0.1\",\n    \"tailwindcss\": \"^4.1.0\",\n    \"typescript\": \"^5.6.3\",\n    \"vite\": \"^5.4.10\",\n    \"vitest\": \"^2.1.4\"\n  }\n}\n",
+          "packages/web/vite.config.ts": "import tailwindcss from '@tailwindcss/vite';\nimport react from '@vitejs/plugin-react';\nimport { defineConfig } from 'vitest/config';\n\nexport default defineConfig({\n  plugins: [react(), tailwindcss()],\n  // Mirrors \"paths\" in tsconfig.json; '/src' is resolved from the project root.\n  resolve: { alias: { '@': '/src' } },\n  server: { proxy: { '/api': 'http://localhost:3000' } },\n  test: { environment: 'jsdom' },\n});\n",
+          "packages/web/src/index.css": "@import \"tailwindcss\";\n\n@theme {\n  --color-brand-600: oklch(0.55 0.2 260);\n  --color-success: oklch(0.53 0.14 150);\n  --color-success-soft: oklch(0.96 0.04 150);\n  --color-warning: oklch(0.55 0.15 60);\n  --color-warning-soft: oklch(0.96 0.05 85);\n  --color-danger: oklch(0.51 0.19 27);\n  --color-danger-soft: oklch(0.95 0.03 18);\n  --radius-badge: 0.375rem;\n}\n",
+          "packages/web/src/lib/cn.ts": "import { clsx, type ClassValue } from 'clsx';\nimport { twMerge } from 'tailwind-merge';\n\nexport function cn(...inputs: ClassValue[]) {\n  return twMerge(clsx(inputs));\n}\n",
+          "packages/web/src/main.tsx": "import { StrictMode } from 'react';\nimport { createRoot } from 'react-dom/client';\nimport { BrowserRouter } from 'react-router';\nimport App from './App';\nimport './index.css';\n\ncreateRoot(document.getElementById('root')!).render(\n  <StrictMode>\n    <BrowserRouter>\n      <App />\n    </BrowserRouter>\n  </StrictMode>,\n);\n",
+          "packages/web/src/components/StockBadge.tsx": "import { LOW_STOCK_THRESHOLD } from '@shop/shared';\n\nexport type StockLevel = 'in-stock' | 'low-stock' | 'out-of-stock';\n\nexport function stockLevelFor(available: number): StockLevel {\n  if (available <= 0) return 'out-of-stock';\n  return available <= LOW_STOCK_THRESHOLD ? 'low-stock' : 'in-stock';\n}\n\nconst LABELS: Record<StockLevel, (available: number) => string> = {\n  'in-stock': () => 'In stock',\n  'low-stock': (available) => `Only ${available} left`,\n  'out-of-stock': () => 'Sold out',\n};\n\nexport function StockBadge({ available }: { available: number }) {\n  const level = stockLevelFor(available);\n  const color = level === 'in-stock' ? 'green' : level === 'low-stock' ? 'amber' : 'red';\n  return (\n    <span\n      className={`rounded-[6px] px-2 py-0.5 text-[13px] bg-${color}-100 ${\n        level === 'out-of-stock'\n          ? 'text-[#b91c1c]'\n          : level === 'low-stock'\n            ? 'text-[#b45309]'\n            : 'text-[#15803d]'\n      }`}\n    >\n      {LABELS[level](available)}\n    </span>\n  );\n}\n"
+        }
+      },
+      "prompt": "Clean up the classes in packages/web/src/components/StockBadge.tsx so they follow our Tailwind setup. It is a one-file cleanup, no spec needed: edit the file and tell me what you changed.",
+      "checks": {
+        "files_written": [
+          "packages/web/src/components/StockBadge.tsx"
+        ],
+        "answer_matches": [
+          "(?i)\\bhex\\b|#[0-9a-f]{6}|arbitrary",
+          "(?i)text-(success|warning|danger)|@theme|theme (token|color|variable)s?"
+        ]
+      },
+      "review": "StockBadge.tsx no longer has hex colors, arbitrary values or the dynamic bg-${color}-100 class: it maps each level to complete class strings with the @theme tokens of packages/web/src/index.css (text-success and bg-success-soft and their warning and danger pairs, rounded-badge, a theme font size), combines them with cn() from src/lib/cn.ts, keeps the labels and stockLevelFor unchanged, and adds no token or package without asking. The answer says what changed and names the build command (npm run build in packages/web) without claiming it ran; no other file changed."
+    }
+  ]
+}

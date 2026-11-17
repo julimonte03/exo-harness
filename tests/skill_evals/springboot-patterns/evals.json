@@ -1,0 +1,37 @@
+{
+  "skill": "springboot-patterns",
+  "fixture": "java-library",
+  "packs": [
+    "core",
+    "sdd",
+    "java"
+  ],
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "The fine and renewal settings are already bound from application.yml. Make the reminder sweep settings (the days before due and the overdue notice days) configurable the same way, and make the app refuse to start when they are invalid."
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "What does FineCalculator charge for a book returned ten days late? Walk me through the code."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "Show me how to add request validation to POST /api/books: a missing or blank ISBN, title or author must be rejected with 400 and the list of invalid fields, in the error format this API already uses. Give me the code for each file and the test in your answer; do not change any files.",
+      "checks": {
+        "answer_matches": [
+          "(?i)spring-boot-starter-validation",
+          "@NotBlank",
+          "@Valid\\b",
+          "MethodArgumentNotValidException",
+          "(?i)\\b400\\b|BAD_REQUEST",
+          "@WebMvcTest|MockMvc"
+        ]
+      },
+      "review": "The answer shows, file by file: spring-boot-starter-validation in pom.xml without a version (the Boot 3.3 parent manages it); jakarta.validation constraints (@NotBlank) on BookRequest; @Valid on the request body in BookController.register; and a MethodArgumentNotValidException handler in the existing ApiErrorHandler that answers 400 in its {code, message} style (code invalid_request) plus the invalid fields, without switching the API to another error format and without adding a catch-all for Exception. Business rules stay in BookService. It adds a @WebMvcTest (or an equivalent test) for the 400 with the field list, gives the test command as not run, opens no SDD change and changes no file."
+    }
+  ]
+}

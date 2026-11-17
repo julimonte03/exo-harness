@@ -1,0 +1,45 @@
+{
+  "skill": "judge-team",
+  "fixture": "toy-python",
+  "packs": [
+    "core",
+    "sdd",
+    "quality"
+  ],
+  "setup": {
+    "files": {
+      "specs/add-due-dates/design.md": "# Design: add-due-dates\n\n## Architecture Overview\n\nThree pieces: a new `dates` module with the date rules, the store that keeps the due date, and the command line that reads `--due` and `--overdue` and prints the marks. The command line depends on both; the store does not depend on the command line.\n\n## Modules / Files\n\n- `src/toy_todo/dates.py` (new): `parse_due(text) -> date`, which raises `ValueError` for an invalid date, and `is_overdue(task, today) -> bool`.\n- `src/toy_todo/store.py`: `Task` gains `due: str | None = None`; `TaskStore.add(title, due=None)`.\n- `src/toy_todo/cli.py`: `--due` on `add`, `--overdue` on `list`, the `[!]` mark and the due date in each line, and the error for an invalid date.\n- `tests/test_dates.py` (new), `tests/test_store.py`, `tests/test_cli.py`.\n\n## Data Shapes\n\nA task in `tasks.json`: `{\"id\": 1, \"title\": \"renew passport\", \"done\": false, \"due\": \"2026-12-01\"}`. `due` is missing or `null` when the task has no due date.\n\n## Sequence Of Operations\n\n1. `add --due <text>`: `parse_due(text)`; on `ValueError`, print the error and return 1 without touching the store; otherwise `TaskStore.add(title, due)`.\n2. `list`: load the tasks, compute `is_overdue(task, today)` for each, print the mark and the due date.\n3. `list --overdue`: the same, keeping only the overdue pending tasks.\n\n## Error Handling\n\nAn invalid date prints `error: <text> is not a valid date (use YYYY-MM-DD)` and exits with 1. A `due` that cannot be parsed in an existing file is shown as it is, without a mark.\n\n## Test Plan\n\n- S-1 -> tests/test_cli.py::test_add_with_due_date\n- S-2 -> tests/test_cli.py::test_add_rejects_invalid_date\n- S-3 -> tests/test_cli.py::test_list_marks_overdue\n- S-4 -> tests/test_cli.py::test_list_overdue_only\n- `parse_due` and `is_overdue` -> tests/test_dates.py\n\n## Migration / Backwards Compatibility\n\nFiles without `due` load as before: the field defaults to `None`.\n\n## Risks & Mitigations\n\n- Today's date makes tests flaky. Likelihood medium, impact medium: `is_overdue` takes `today` as a parameter, and the tests pass a fixed date.\n",
+      "specs/add-due-dates/proposal.md": "# Proposal: add-due-dates\n\n## Intent\n\n- **User:** people who track their own errands with toy_todo from the terminal.\n- **Problem:** tasks have no date, so time-bound errands get missed, and `list` cannot show what is late (src/toy_todo/store.py:11 keeps only an id, a title and a done flag).\n- **Value:** they see at a glance what is due and what is late.\n- **Success measure:** in a check with five users two weeks after the release, each one finds the overdue tasks in `list` in under ten seconds.\n\n## Scope\n\n- An optional due date on `add`: `--due YYYY-MM-DD`.\n- `list` shows the due date of each task and marks the pending tasks that are overdue.\n- `list --overdue` shows only the overdue pending tasks.\n- A clear error for a date that is not valid.\n\n## Approach\n\nKeep the due date as an ISO date string in `tasks.json`; files written before this change still load, because a missing field takes its default (src/toy_todo/store.py:27). A new module, `src/toy_todo/dates.py`, parses and compares dates, so the command line and the store share it.\n\nAlternative considered: storing a timestamp, rejected because a date is what the user types and sees.\n\n## Out of Scope\n\n- Reminders.\n- Times of day and time zones.\n",
+      "specs/add-due-dates/spec.md": "# Spec: add-due-dates\n\n## ADDED Requirements\n\n### CAP-todo-list-FR-1: Optional due date on a new task\nThe system SHALL accept an optional due date, as YYYY-MM-DD, when adding a task, store it with the task, and reject a date that is not valid without adding the task.\n\n#### Scenario S-1: Add a task with a due date\n- Given an empty task list\n- When the user runs `add \"renew passport\" --due 2026-12-01`\n- Then the task is stored with the due date 2026-12-01\n- And the output is `added 1: renew passport (due 2026-12-01)`\n\n#### Scenario S-2: Reject a date that is not valid\n- Given an empty task list\n- When the user runs `add \"renew passport\" --due 2026-13-01`\n- Then no task is added\n- And the output is `error: 2026-13-01 is not a valid date (use YYYY-MM-DD)` with exit code 1\n\n### CAP-todo-list-FR-2: Due dates and overdue marks in the list\nThe system SHALL show the due date of each task in `list` and mark with `!` the pending tasks whose due date is before today.\n\n#### Scenario S-3: Mark an overdue task\n- Given a pending task due 2026-11-01 and today is 2026-11-17\n- When the user runs `list`\n- Then the line of that task starts with `[!]` and ends with `(due 2026-11-01)`\n\n### CAP-todo-list-FR-3: List only the overdue tasks\nThe system SHALL show only the overdue pending tasks when the user runs `list --overdue`.\n\n#### Scenario S-4: Only overdue tasks\n- Given one overdue pending task, one pending task due next week and one done task\n- When the user runs `list --overdue`\n- Then only the overdue pending task is shown\n",
+      "specs/add-due-dates/tasks.md": "# Tasks: add-due-dates\n\n## Forecast\n\nAbout 520 changed lines (300 code, 220 tests) in 6 files: over the 400-line budget, kept as one change.\n\n## Tasks\n\n### Unit A: Storage\n\n- [ ] 1. Store the due date and accept it on add\n  - Files: src/toy_todo/store.py, src/toy_todo/cli.py, tests/test_store.py\n  - Tests: tests/test_store.py::test_add_keeps_due_date\n  - Covers: S-1 (CAP-todo-list-FR-1)\n- [ ] 2. Reject an invalid date on add\n  - Files: src/toy_todo/cli.py\n  - Tests: none\n  - Covers: S-2 (CAP-todo-list-FR-1)\n\n### Unit B: Listing\n\n- [ ] 3. Show due dates and mark overdue tasks in list, using parse_due and is_overdue\n  - Files: src/toy_todo/cli.py, tests/test_cli.py\n  - Tests: tests/test_cli.py::test_list_marks_overdue\n  - Covers: S-3 (CAP-todo-list-FR-2)\n- [ ] 4. Write the date helpers, the --overdue option and a README section, and refactor the output of every command\n  - Files: src/toy_todo/dates.py, src/toy_todo/cli.py, tests/test_dates.py, tests/test_cli.py, README.md\n  - Tests: tests/test_dates.py, tests/test_cli.py::test_list_overdue_only\n  - Covers: S-4 (CAP-todo-list-FR-3)\n",
+      "specs/add-due-dates/test-spec.md": "# Test Spec: add-due-dates\n\n## Scope\n\nUnit tests of the date helpers and the store, and command-line tests that call `main()` with a temporary tasks file. No end-to-end tests: the command line is the whole interface.\n\n## Test Cases\n\n| ID | Covers | Level | Description | Command |\n|---|---|---|---|---|\n| T-1 | S-1, CAP-todo-list-FR-1 | unit | add keeps the due date | python -m pytest tests/test_cli.py::test_add_with_due_date |\n| T-2 | S-2, CAP-todo-list-FR-1 | unit | add rejects a date that is not valid | python -m pytest tests/test_cli.py::test_add_rejects_invalid_date |\n| T-3 | S-3, CAP-todo-list-FR-2 | unit | list marks the overdue tasks | python -m pytest tests/test_cli.py::test_list_marks_overdue |\n| T-4 | S-4, CAP-todo-list-FR-3 | unit | list --overdue shows only the overdue pending tasks | python -m pytest tests/test_cli.py::test_list_overdue_only |\n\n## Traceability\n\n- CAP-todo-list-FR-1: T-1 (S-1), T-2 (S-2)\n- CAP-todo-list-FR-2: T-3 (S-3)\n- CAP-todo-list-FR-3: T-4 (S-4)\n"
+    }
+  },
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "Three of us will share specs/add-due-dates/tasks.md next week. Can we work on it in parallel without stepping on each other? I want an independent assessment of the plan."
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "How many tasks does specs/add-due-dates/tasks.md have, and how many changed lines does it forecast?"
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "Before the team picks up specs/add-due-dates/tasks.md, check whether the plan can be shared among several developers, and give me your findings and verdict as an independent reviewer of the plan.",
+      "checks": {
+        "answer_contains": [
+          "JTEAM-1",
+          "cli.py"
+        ],
+        "answer_matches": [
+          "\\bESCALATED\\b"
+        ]
+      },
+      "review": "The answer is a findings report with JTEAM-n IDs, severities and specs/add-due-dates/tasks.md:line locations: src/toy_todo/cli.py is edited by both units with no owner or order (High); task 2 has no tests (High); task 3 uses parse_due and is_overdue, which task 4 builds later (High); task 4 mixes several behaviors with a refactor and a README the design does not name. It judges the plan, not people, the verdict is ESCALATED, and tasks.md is not edited."
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "name": "ops",
+  "version": "0.1.0",
+  "description": "Operations and site reliability: incident response with SEV1 to SEV4 severities and blameless postmortems, root cause analysis with 5 Whys, systematic debugging with git bisect, log search in Elastic, Kibana or OpenSearch with a grep and jq fallback, tool-independent log analysis, runbooks, on-call handoffs, SLOs with error budgets and burn-rate alerts, capacity planning for peaks and growth, and chaos experiments with a bounded blast radius. Proposes every command that changes a system and waits for the person's approval.",
+  "requires": ["core"],
+  "optional": ["security", "quality", "sdd"]
+}

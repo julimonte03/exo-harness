@@ -44,6 +44,7 @@ metadata:
 5. No finding is undecided: `exo change followups <change>` lists no open followups, and every finding in `verify-record.md`, Issues Found, is fixed or dismissed by the person (`.exo/shared/capability-attribution.md`, Findings).
 6. `exo check --change <change>` passes. An error in an artifact goes back to the phase that owns it.
 7. If a `handoff.md` was left in the change root by a verify, delete it: it is not an artifact.
+8. If the change has `context-anchor.md`, close it before the move with skill:context-anchoring (At archive): status `closed`, the final Now, and where each decision landed. The anchor belongs to no phase (`.exo/shared/sdd-phase-common.md`, section C), so closing it is not an edit of an artifact; its hard-to-reverse decisions are the input of step 4.
 
 ## 2. Merge the delta
 

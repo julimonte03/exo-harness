@@ -1,0 +1,51 @@
+{
+  "skill": "accessibility-audit",
+  "fixture": "node-shop",
+  "packs": [
+    "core",
+    "sdd",
+    "frontend",
+    "quality",
+    "security"
+  ],
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "Can someone who only uses a keyboard or a screen reader get through checkout in packages/web? Review the checkout components and tell me what would stop them."
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "I am about to commit the free-shipping banner I staged in packages/web as 'feat(web): add free shipping banner'. Check that the commit is ready: nothing unrelated, no debug leftovers or secrets, and the message.",
+      "setup": {
+        "files": {
+          "packages/web/src/components/FreeShippingBanner.tsx": "import { FREE_SHIPPING_THRESHOLD_CENTS } from '@shop/shared';\nimport { Price } from './Price';\n\ninterface FreeShippingBannerProps {\n  cartTotalCents: number;\n}\n\nexport function FreeShippingBanner({ cartTotalCents }: FreeShippingBannerProps) {\n  const missing = FREE_SHIPPING_THRESHOLD_CENTS - cartTotalCents;\n  console.log('banner', { cartTotalCents, missing });\n  if (missing <= 0) {\n    return <p className=\"banner banner--success\">Your order ships free.</p>;\n  }\n  return (\n    <p className=\"banner\">\n      Add <Price cents={missing} /> more for free shipping.\n    </p>\n  );\n}\n"
+        },
+        "stage": true
+      }
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "I added a quantity stepper to packages/web; it is staged, not committed. Before I open the PR, check whether people who use only a keyboard or a screen reader can use it, and list what fails with the criterion for each problem.",
+      "setup": {
+        "files": {
+          "packages/web/src/components/QuantityStepper.tsx": "import './QuantityStepper.css';\n\ninterface QuantityStepperProps {\n  value: number;\n  max: number;\n  onChange: (value: number) => void;\n}\n\nexport function QuantityStepper({ value, max, onChange }: QuantityStepperProps) {\n  return (\n    <div className=\"stepper\">\n      <div className=\"stepper__button\" onClick={() => onChange(Math.max(value - 1, 1))}>\n        <img src=\"/icons/minus.svg\" />\n      </div>\n      <span className=\"stepper__value\">{value}</span>\n      <div className=\"stepper__button\" onClick={() => onChange(Math.min(value + 1, max))}>\n        <img src=\"/icons/plus.svg\" />\n      </div>\n    </div>\n  );\n}\n",
+          "packages/web/src/components/QuantityStepper.css": ".stepper {\n  display: inline-flex;\n  align-items: center;\n  gap: 4px;\n}\n\n.stepper__button {\n  width: 16px;\n  height: 16px;\n  cursor: pointer;\n}\n\n.stepper__button:focus {\n  outline: none;\n}\n\n.stepper__value {\n  color: #b0b0b0;\n  background: #ffffff;\n}\n"
+        },
+        "stage": true
+      },
+      "checks": {
+        "answer_contains": [
+          "QuantityStepper"
+        ],
+        "answer_matches": [
+          "2\\.1\\.1",
+          "4\\.1\\.2"
+        ]
+      },
+      "review": "The answer reviews the staged QuantityStepper.tsx and QuantityStepper.css and reports, each with severity, path:line, the WCAG 2.2 criterion by number and name, who is blocked and a fix: the div controls with click handlers only (2.1.1 Keyboard, 4.1.2 Name, Role, Value; Critical, since keyboard users cannot change the quantity), the icons without text alternatives (1.1.1), the 16-pixel targets (2.5.8), the value text at about 2.2:1 on white (1.4.3) and the removed outline (2.4.7). It lists what it could not check without running the UI, installs no tool, and changes no file."
+    }
+  ]
+}

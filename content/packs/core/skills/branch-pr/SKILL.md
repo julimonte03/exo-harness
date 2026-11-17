@@ -49,6 +49,7 @@ Run the checkpoint Before the PR of `.exo/shared/project-wiki-guard.md`, in this
 2. **Branch clean.** `git status`: everything that belongs to the change is committed (skill:work-unit-commits), and nothing else is.
 3. **Fresh review done.** `verify-record.md` exists and its Verdict is `ready`. In Tier 3 and 4 it comes from a verify in fresh context; without subagents, from a new session (`.exo/shared/agent-capabilities.md`). `exo change followups <change> --json` shows no open findings.
 4. **Checks pass.** `exo check --change <change>` exits with 0. In CI, the same check runs as `exo check --base <target branch>`, for example `exo check --base origin/main`.
+5. **Size.** `git diff --shortstat <target branch>...HEAD`. Over about 400 changed lines, offer skill:chained-pr to deliver the change as a chain of smaller PRs; the person decides. When the plan already chose a chain (the Forecast of tasks.md), follow it.
 
 - `exo check --change <change>` finds the change before and after `sdd-archive` moves it to `archive/`, and `exo check --base <target branch>` checks what the branch touched, archived changes included.
 - If a step fails, stop: fix it in the phase that owns it, or ask the person.

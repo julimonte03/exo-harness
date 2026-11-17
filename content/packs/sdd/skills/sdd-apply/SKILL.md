@@ -31,6 +31,7 @@ metadata:
 
 - **With subagents:** the orchestrator delegates to `sdd-implementer` (section G). The prompt starts with `## Skills to load before work` (this `SKILL.md` and the apply skills) and gives the change name, the change root, the tier, the plan, the test command and what to return.
 - **Without subagents:** run it inline, in the same session, with the same steps, and write `Isolation: no isolation (inline)` in the notes (`.exo/shared/agent-capabilities.md`).
+- **One unit of a parallel plan:** when skill:parallel-dispatch delegates a single unit with its own worktree folder, implement only that unit's tasks, there.
 - **Rework:** after a `needs-rework` verdict, the input is what the person accepted from verify-record.md (Issues Found, Out-of-Scope Drift) and from the judges' findings. Fix it only inside the plan; then the change goes to verify again.
 
 ## The frozen plan
@@ -41,11 +42,13 @@ metadata:
 | 2 | the proposal's Scope and Out of Scope, spec.md and test-spec.md |
 | 1 | the proposal's Scope and Out of Scope; spec.md when the change alters behavior |
 
+With the SPDD overlay, `canvas.md` joins the plan at any tier: the orchestrator's session writes it and asks for its approval before apply (in Tier 1 and 2 too), and skill:prompt-code-sync holds each task to it.
+
 ## What it writes and what it never touches
 
 Permissions are denied by default (section G).
 
-- **Writes:** the code and test files the plan names, and the boxes of tasks.md (only the box: never reword, reorder or add tasks).
+- **Writes:** the code and test files the plan names, and the boxes of tasks.md (only the box: never reword, reorder or add tasks). With the SPDD overlay, canvas.md only through skill:prompt-code-sync, under its rules.
 - **Never touches:** proposal.md, spec.md, design.md, test-spec.md, verify-record.md, the living specs, the engine files under `.exo/`, or the AI Usage Record by hand. Nor anything else outside the plan: dependencies and lockfiles it does not name, CI, configuration.
 
 ## Load the skills
@@ -53,7 +56,7 @@ Permissions are denied by default (section G).
 Section A, with these skills (`.exo/shared/phase-skill-map.md`, row apply), each `SKILL.md` read in full:
 
 - **Required:** `code-generation`, `secure-coding-baseline`, `work-unit-commits`, and the stack router. Without a stack router, follow the commands and conventions in `.exo/context.md`.
-- **Conditional:** `review` before each commit; `prompt-hygiene` when logs, tickets or production data go to the model; `frontend-design` when the change touches UI.
+- **Conditional:** `pre-commit-review` before each commit; `prompt-hygiene` when logs, tickets or production data go to the model; `frontend-design` when the change touches UI; skill:prompt-code-sync when the change has `canvas.md` (before each task it reads the Operations and Safeguards the task implements, and keeps canvas and code in sync; in `sdd-implementer` it never edits canvas.md, and the edit comes back in the envelope); skill:parallel-dispatch when tasks.md has two or more units (`### Unit A:`), to run them in the mode the person picks.
 - **Degraded:** a skill from a pack that is not installed degrades as `.exo/shared/skill-resolver.md` says. For example: `security/secure-coding-baseline not installed — applying inline criteria`, then validate and encode untrusted input at the boundary, use parameterized queries, keep secrets out of code and logs, check authorization on every entry point and fail closed.
 - `code-generation` and `work-unit-commits` ship in `core`, which `sdd` requires. If one is missing, the installation is incomplete: say so, suggest `exo doctor`, and return `status: blocked`.
 

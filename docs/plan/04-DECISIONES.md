@@ -97,6 +97,9 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 - **Contexto:** el reporte tiene piezas propias de la organización de origen: un estilo ejecutivo propio, detectores de CUIT/CUIL/DNI, una matriz DPA propia, SonarQube/Fortify, Kibana, Xray y su plataforma interna de CI.
 - **Default:** generalizar como **perfiles de organización**: `dpa_profile: legacy-profile` (incluye los detectores argentinos y la matriz del reporte), estilo visual con tokens de marca configurables, herramientas corporativas como integraciones opcionales que degradan.
 - **Estado:** Decidida por el dueño (ADR-0014), 2026-11-15: nada atado a bancos ni a un país. Los secretos siempre se protegen. Los datos personales se protegen con detectores genéricos (tarjetas e IBAN por defecto); los documentos de cada país, el email y el teléfono son opcionales. La matriz de niveles por destino es definición propia y sale el perfil `legacy-profile`. La memoria sigue sin perfiles ni detectores (D-24, ADR-0009). El estilo visual y las herramientas corporativas quedan para F7, como integraciones opcionales.
+- **F7** (ADR-0016), 2026-11-17:
+  - **Estilo ejecutivo:** las skills de diseño y producto usan un estilo neutro por defecto. Un `.exo/brand.json` opcional (colores, tipografía, logo, tono) lo reemplaza; su forma está en el contrato `executive-style.md` del pack `design`.
+  - **Herramientas corporativas:** SonarQube, Fortify y Kibana son pasos opcionales que se usan si el proyecto los tiene. Sin ellos, las skills degradan a herramientas abiertas (la auditoría del gestor de paquetes, OSV, dependency-check, los logs que haya).
 
 ### D-21 — Git hooks por defecto
 - **Default:** sí, instalados con `core.hooksPath=.arnes/githooks`. Si el proyecto ya usa husky o el framework pre-commit, el motor se integra con ese mecanismo en vez de reemplazarlo.
@@ -123,6 +126,7 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 ### D-18 — Licencia de las skills de origen `ecc`
 - **Contexto:** 14 skills del reporte dicen venir de un catálogo externo adaptado.
 - **Default:** escribirlas desde cero en F7 a partir de su rol, salvo que se confirme una licencia compatible.
+- **Estado:** Decidida (ADR-0016), 2026-11-17: el default. Igual no hay cuerpos originales: el reporte solo trae la descripción, el tamaño y las referencias de cada skill.
 
 ### D-20 — Memoria compartida de equipo
 - **Default:** no en la v1. El experimento con Qdrant en servidor (F3) deja la evidencia para decidir. Compartir sigue siendo posible con `mem export`/`mem import` redactado, como en el reporte.
@@ -219,3 +223,41 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 ### D-37 — Memoria en la ingeniería inversa
 - **Contexto:** el plan de F6 guardaba un resumen por unidad en memoria (`discovery/<unidad>`). La memoria es por usuario (ADR-0009) y el estado ya se commitea (D-34).
 - **Estado:** Decidida (ADR-0015), 2026-11-16: las skills de discovery no escriben memoria. Es un desvío del plan.
+
+### D-38 — Stacks del equipo
+- **Contexto:** F7 pide que el equipo diga qué stacks usa de verdad, para ordenar los packs de stack (prioridad 2).
+- **Estado:** Decidida por el dueño, 2026-11-17: los tres. El orden es `java`, `python` y `frontend`.
+
+### D-39 — Las skills de Jira
+- **Contexto:** el reporte trae `jira-card-creator` y `jira-refinement-assistant`, atadas a Jira y a Xray. ADR-0012 dejó el motor sin integración con ningún tracker, y la clave `tracker.type` ya no existe.
+- **Opciones:** (a) generalizarlas; (b) sacarlas de F7; (c) dejarlas atadas a Jira en un pack aparte.
+- **Estado:** Decidida por el dueño (ADR-0016), 2026-11-17: (a).
+  - `jira-card-creator` pasa a `work-item-creator` y `jira-refinement-assistant` pasa a `refinement-assistant`.
+  - El formato del ID sale de `tickets.pattern`.
+  - Jira, Azure Boards y GitHub Issues quedan como ejemplos en `references/`.
+
+### D-40 — La skill `review`
+- **Contexto:** la skill `review` de F5 (revisión del diff antes de commitear) se instala en `.claude/skills/review/` y choca con el comando integrado `/review` de Claude Code.
+- **Estado:** Decidida por el dueño (ADR-0016), 2026-11-17: pasa a `pre-commit-review`.
+
+### D-41 — Cómo se corren los evals de las skills
+- **Contexto:** F7 pide tres prompts de evaluación por skill de prioridad 1 y 2 (unas 38 skills, 114 prompts), revisados con Claude Code.
+- **Opciones:** (a) un runner que corre todos con Claude Code real; (b) una muestra; (c) solo escribirlos, y que los corra el dueño.
+- **Estado:** Decidida por el dueño (ADR-0016), 2026-11-17: (a). El runner es un test `agent_e2e`, fuera de la suite normal, con los datos aislados. Los resultados se revisan y se anotan en PROGRESO.
+
+### D-42 — Nombres de las skills instaladas
+- **Contexto:** ADR-0011 pide inglés para todo lo que se instala. El reporte tiene `comite-excelencia`.
+- **Estado:** Decidida (ADR-0016), 2026-11-17:
+  - `comite-excelencia` pasa a `excellence-committee`;
+  - `kibana-logs` conserva el nombre y cubre también OpenSearch Dashboards y Elastic.
+
+### D-43 — Gates de accesibilidad y de SPDD
+- **Contexto:** el plan pide un gate de accesibilidad en verify (§6.7) y un gate humano del Canvas SPDD (§6.8). Ninguno de los dos aplica a todo change de un tier: dependen de que haya UI o canvas.
+- **Estado:** Decidida (ADR-0016), 2026-11-17: son **gates condicionales**, fuera de `governance.gates`.
+  - `accessibility_review` lo escribe `accessibility-audit` en verify cuando el change toca UI. Un hallazgo Critical (impide completar la tarea) o High bloquea `ready`, salvo que se descarte con su motivo.
+  - `prompt_spec_review` lo escribe `prompt-spec-review` cuando el change tiene `canvas.md`, y `exo check` lo exige en ese caso.
+  - `exo check` revisa todo gate presente, aunque el tier no lo pida.
+
+### D-44 — Escaneo de dependencias en Python
+- **Contexto:** `security-scan-jkp` cubre Java, Kotlin y Python, pero vive en el pack `java`. Un proyecto solo Python no lo recibe por la sugerencia de stack.
+- **Estado:** Decidida (ADR-0016), 2026-11-17: queda en `java`, como dice el plan. Su fila de degradación en el mapa trae el criterio inline para Python (pip-audit u OSV-Scanner), así un proyecto solo Python escanea igual.

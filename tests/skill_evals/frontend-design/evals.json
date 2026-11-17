@@ -1,0 +1,27 @@
+{
+  "skill": "frontend-design",
+  "fixture": "node-shop",
+  "packs": ["core", "sdd", "frontend"],
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "The product cards in packages/web look bare and generic. Give the catalog a polished, production-ready look that still fits the colors and components the store already uses."
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "Explain how useCart in packages/web keeps the cart between visits, and what happens when the stored value is not valid JSON."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "When Hide sold out leaves nothing to show, the catalog in packages/web only says 'No products match.' Design a proper empty state as a reusable component and use it there, in line with the rest of the store. It is a small UI change, so do it directly.",
+      "checks": {
+        "files_written": ["packages/web/src/components/*.tsx"],
+        "answer_matches": ["(?i)\\btokens?\\b"]
+      },
+      "review": "The answer takes stock first: the components in packages/web/src/components, the colors from @shop/design-tokens that StockBadge.tsx uses, the BEM-like class names, and the fact that no stylesheet for those classes is in the repo. It builds a reusable empty-state component next to the others (exported from components/index.ts if it follows that convention) and uses it in ProductGrid.tsx. The empty state says why it is empty (sold-out items are hidden) and offers one action that widens the result (show sold-out items, by unchecking the filter), without breaking the existing Loading and error states. Colors come from the design tokens or existing classes, not new hard-coded hex values, and no new styling system or dependency appears; any new style is flagged for approval. Semantic markup (a heading or text plus a real button), visible focus, and a design note with direction, tokens, states and what to check in a browser."
+    }
+  ]
+}

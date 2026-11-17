@@ -3,5 +3,5 @@
   "version": "0.1.0",
   "description": "Base rules, shared contracts and cross-cutting skills of the engine.",
   "requires": [],
-  "optional": ["quality", "security"]
+  "optional": ["quality", "security", "product"]
 }

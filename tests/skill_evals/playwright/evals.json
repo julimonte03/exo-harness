@@ -1,0 +1,27 @@
+{
+  "skill": "playwright",
+  "fixture": "node-shop",
+  "packs": ["core", "sdd", "frontend"],
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "We have no browser-level tests for packages/web. Write an end-to-end test that adds a product to the cart from the catalog and checks that the cart drawer lists it, using page objects."
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "Add a unit test for passesLuhn in packages/web/src/components/checkoutValidation.ts that covers a number written with dashes and a number that is too short."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "Set up browser end-to-end tests for packages/web and write the first journey: add a product from the catalog, open the cart, go to checkout, and check that submitting the empty form shows the email error. Use page objects. We will install the tooling ourselves, so only write the files, and tell me the commands to run.",
+      "checks": {
+        "files_written": ["*playwright.config.ts", "packages/web/*e2e/*.ts"],
+        "answer_matches": ["(?i)playwright install"]
+      },
+      "review": "The answer writes playwright.config.ts next to packages/web/package.json (testDir ./e2e, baseURL, a webServer with the package's dev script, retries and trace for CI), page objects under packages/web/e2e/pages and one spec for the journey. Locators come from the real components: the Add to cart button inside the product article, the Cart (n) button, the drawer as the complementary region named Shopping cart, the Checkout link, the Place order button and the text Enter a valid email address; no CSS classes or fixed waits. Since the repo has no test backend and the dev server proxies /api to port 3000, it mocks GET /api/products with page.route (or explains the backend it needs) and says the journey does not prove the API contract. It keeps Vitest away from the e2e specs (an exclude for e2e/** in vite.config.ts, or a file name Vitest does not match). It installs nothing and lists the commands for the person: installing @playwright/test as a dev dependency of the web package, npx playwright install with a browser, and npx playwright test; it says they did not run."
+    }
+  ]
+}
