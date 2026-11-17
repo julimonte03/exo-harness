@@ -63,7 +63,7 @@ Before (release-notes/SKILL.md:44):
 > 4. Append the notes to the change's proposal.md under a new Release Notes section.
 
 After:
-> 4. Write the notes to `CHANGELOG.md` under the next version heading. Inside an SDD change, never edit the change's artifacts: the notes live outside the change folder.
+> 4. Write the notes to `CHANGELOG.md` under the next version heading. Inside an SDD change, never edit the change's artifacts: `CHANGELOG.md` is a project document, written with the person's approval once the plan lists it (`.exo/shared/sdd-phase-common.md`, section C).
 
 Why: the proposal belongs to its phase; speclint would also reject the extra section.
 
