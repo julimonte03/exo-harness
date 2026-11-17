@@ -1,0 +1,7 @@
+{
+  "name": "product",
+  "version": "0.1.0",
+  "description": "Product discovery and definition before building: jobs to be done, hypotheses, success metrics, user flows, acceptance criteria in Given/When/Then and the scope of an MVP.",
+  "requires": ["core"],
+  "optional": ["design"]
+}
