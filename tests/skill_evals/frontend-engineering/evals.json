@@ -1,0 +1,30 @@
+{
+  "skill": "frontend-engineering",
+  "fixture": "node-shop",
+  "packs": ["core", "sdd", "frontend"],
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "I want to add a recently viewed products strip to the storefront in packages/web. Before any code, tell me how to approach it on the frontend: which components to touch, where the state should live, how it gets its data, and what to watch for performance."
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "In packages/api, why does changing an order to shipped require the x-admin-token header? Show me where that check is enforced."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "Before I start on packages/web: I want a search box on the catalog that filters the products as you type and keeps the query in the URL. Give me the frontend plan: the stack and conventions that apply here, which components and hooks to touch, where the state lives, and which specialist guidance to follow. No code yet.",
+      "checks": {
+        "answer_contains": ["ProductGrid"],
+        "answer_matches": [
+          "(?i)react\\W{0,3}18|18\\.3",
+          "(?i)\\b(frontend-patterns|react-patterns|react-testing|playwright|frontend-design)\\b"
+        ]
+      },
+      "review": "The plan states the stack with evidence: react ^18.3.1 in packages/web/package.json, a Vite client-only app, TypeScript strict with the @/ alias, react-router 7, Vitest with @testing-library/react, no Tailwind and no zod. It names the skills to load (frontend-patterns for URL state and a hook, react-testing for tests) and why others are not needed (no React 19 feature, no Tailwind). It touches ProductGrid.tsx (the toolbar next to Sort by and Hide sold out) and adds a hook in src/hooks or uses useSearchParams from react-router for the query, keeping the products as server data from useProducts. It covers performance (defer filtering with useDeferredValue or similar; the list is filtered in a useMemo already), the untrusted query from the URL, accessibility (a labelled search input, results announced), and gives the check commands for @shop/web without claiming they ran. No files are written."
+    }
+  ]
+}
