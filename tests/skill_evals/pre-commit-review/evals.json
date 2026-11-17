@@ -1,0 +1,33 @@
+{
+  "skill": "pre-commit-review",
+  "fixture": "toy-python",
+  "packs": ["core", "sdd", "quality"],
+  "setup": {
+    "files": {
+      "src/toy_todo/stats.py": "\"\"\"Counts of done and pending items.\"\"\"\n\n\ndef counts(items):\n    done = sum(1 for item in items if item.get(\"done\"))\n    print(\"DEBUG counts\", done, len(items))\n    breakpoint()\n    return {\"done\": done, \"pending\": len(items) - done}\n"
+    },
+    "stage": true
+  },
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "Before I commit anything, look over my current changes and tell me whether they are ready to commit."
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "Explain in two sentences what this project does, based on its README and source files."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "I am about to commit what I staged. Check it and give me your verdict.",
+      "checks": {
+        "answer_contains": ["stats.py"],
+        "answer_matches": ["Result: fix before committing"]
+      },
+      "review": "The answer flags the debug print and the breakpoint() in src/toy_todo/stats.py with a severity and path:line, ends with the Result line, and changes no file nor makes a commit."
+    }
+  ]
+}
