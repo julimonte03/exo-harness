@@ -6,20 +6,28 @@ Por cada caso de `tests/skill_evals/<skill>/evals.json`:
 
 1. copia el fixture a una carpeta temporal, le da historia git y corre
    `exo init --agents claude-code --yes --packs …`, con los datos de usuario aislados
-   (`EXO_DATA_DIR` y `EXO_MEMORY_DB` en la carpeta temporal); después del commit base
-   pasa a una rama `feat/<skill>-eval` y aplica el `setup`;
+   (`EXO_DATA_DIR` y `EXO_MEMORY_DB` en la carpeta temporal) y el bin del intérprete de la
+   suite primero en el PATH (el `exo` que corre el agente es el mismo); después del
+   commit base pasa a una rama `feat/<skill>-eval` y aplica el `setup` (sus rutas no
+   pueden salir del proyecto);
 2. corre `claude -p <pedido> --output-format stream-json --verbose` con las tools de
    `TOOLS` (el workspace no es confiable, así que el `permissions.allow` del proyecto no
-   cuenta);
+   cuenta) y aislado de la config de usuario de Claude Code: `--setting-sources
+   project,local` (ni los settings, ni las skills, plugins, hooks o `CLAUDE.md` de
+   usuario) y `--strict-mcp-config` sin `--mcp-config` (ningún servidor MCP);
 3. lee qué skills cargó (`_skill_evals.parse_stream`) y verifica: `trigger` la carga,
    `no-trigger` no, `output` la carga y cumple sus chequeos.
 
 Cada resultado se agrega como una línea JSON a `EXO_EVALS_REPORT` (o a
-`skill-evals.jsonl` en la carpeta temporal base) para la revisión humana.
+`skill-evals.jsonl` en la carpeta temporal base) para la revisión humana, con la versión
+de Claude Code (`claude --version`) y las skills que el agente veía (`visible_skills`,
+del evento `system`/`init` del stream): ahí se comprueba que no se coló nada de fuera de
+exo y de Claude Code.
 """
 
 from __future__ import annotations
 
+import functools
 import json
 import os
 import shutil
@@ -42,6 +50,18 @@ TOOLS = (
 MAX_TURNS = int(os.environ.get("EXO_EVALS_MAX_TURNS", "40"))
 TIMEOUT = int(os.environ.get("EXO_EVALS_TIMEOUT", "1800"))
 CASES = evals.cases()
+
+
+@functools.lru_cache(maxsize=1)
+def _claude_version(claude: str) -> str:
+    """`claude --version`, una vez por sesión, para el informe."""
+    try:
+        done = subprocess.run(
+            [claude, "--version"], capture_output=True, text=True, timeout=60, check=False
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return f"unknown ({exc})"
+    return (done.stdout or done.stderr).strip() or f"unknown (exit {done.returncode})"
 
 
 def _project(case: evals.Case, root: Path, env: dict[str, str]) -> Path:
@@ -86,7 +106,7 @@ def _project(case: evals.Case, root: Path, env: dict[str, str]) -> Path:
     )
     files = case.setup.get("files", {})
     for rel, text in files.items():
-        path = project / rel
+        path = evals.setup_target(project, rel)  # falla si la ruta sale del proyecto
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8", newline="\n")
     if files and case.setup.get("stage"):
@@ -108,21 +128,11 @@ def test_skill_eval(
 ) -> None:
     data = tmp_path / "data"
     data.mkdir()
-    env = {**os.environ, "EXO_DATA_DIR": str(data), "EXO_MEMORY_DB": str(data / "memory.db")}
+    env = evals.runner_env(data, os.environ)
     project = _project(case, tmp_path, env)
     before = evals.snapshot(project)
-    command = [
-        shutil.which("claude") or "claude",
-        "-p",
-        case.prompt,
-        "--output-format",
-        "stream-json",
-        "--verbose",
-        "--allowedTools",
-        TOOLS,
-        "--max-turns",
-        str(MAX_TURNS),
-    ]
+    claude = shutil.which("claude") or "claude"
+    command = evals.claude_command(claude, case.prompt, TOOLS, MAX_TURNS)
     failed: list[str] = []
     try:
         done = subprocess.run(
@@ -144,14 +154,16 @@ def test_skill_eval(
         failed.append(f"timed out after {TIMEOUT} s (EXO_EVALS_TIMEOUT)")
     (tmp_path / "stream.jsonl").write_text(stdout, encoding="utf-8")
     run = evals.parse_stream(stdout.splitlines())
-    written = evals.changed(before, evals.snapshot(project))
+    after = evals.snapshot(project)
+    written = evals.changed(before, after)
+    deleted = evals.removed(before, after)
     used = case.skill in run.used
     if case.expect == "trigger" and not used:
         failed.append(f"{case.skill} was not loaded (loaded: {run.used or 'none'})")
     if case.expect == "no-trigger" and used:
         failed.append(f"{case.skill} was loaded and should not have been")
     if case.id == "output" and used:
-        failed += evals.check_output(case, run, written)
+        failed += evals.check_output(case, run, written, project, deleted)
     _report(
         tmp_path_factory,
         {
@@ -164,8 +176,11 @@ def test_skill_eval(
             "error": run.error,
             "exit": code,
             "written": written,
+            "deleted": deleted,
             "answer": run.answer,
             "review": case.review,
+            "claude_version": _claude_version(claude),
+            "visible_skills": run.visible,
             "stream": str(tmp_path / "stream.jsonl"),
         },
     )
