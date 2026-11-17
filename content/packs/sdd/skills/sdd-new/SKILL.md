@@ -48,6 +48,7 @@ Run the start checkpoint of `.exo/shared/project-wiki-guard.md`:
 2. With an upstream, `git status -sb`. If the branch is behind, say so and ask before going on.
 3. No `.exo/context.md`: suggest `project-onboarding` first. Tier 1 can go on without it; if step 4 gives Tier 3 or 4, stop and ask the person whether to run `project-onboarding` before planning.
 4. Read `.exo/context.md`. If the change touches an area it does not describe, or it contradicts the code, note it as a wiki update for the end of the change.
+5. With `.exo/discovery/` in the project, `exo discover update --json`. Note the stale units and capabilities the change will touch as an update for the end of the change, and tell the person now if it will change a capability that is still `Status: as-is` (the guard, step 5).
 
 ### 2. Name the change
 

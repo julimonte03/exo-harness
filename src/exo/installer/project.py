@@ -214,13 +214,20 @@ class UninstallResult:
     # Archivos de la carpeta del motor que no generó él (notas del humano, etc.): se
     # borran con la carpeta y quedan en el backup de seguridad.
     also_removed: list[str] = field(default_factory=list)
+    # Lo que produjo la ingeniería inversa, que es conocimiento del proyecto (D-36).
+    kept: list[str] = field(default_factory=list)
+
+
+# Conocimiento del proyecto dentro de la carpeta del motor: `uninstall` no lo borra (D-36).
+KEEP_ON_UNINSTALL = ("discovery", "context.md")
 
 
 def uninstall(project: Path, *, force: bool = False, dry_run: bool = False) -> UninstallResult:
     """Revierte todo lo del lock y borra la carpeta del motor.
 
     Antes guarda un backup de seguridad fuera del proyecto, en la carpeta de datos
-    de usuario, para que el proyecto quede idéntico al original.
+    de usuario, para que el proyecto quede idéntico al original. Conserva lo que
+    produjo la ingeniería inversa (`discovery/` y `context.md`, D-36) y lo informa.
     """
     project = Path(project).resolve()
     data = lock.read(project)
@@ -242,11 +249,25 @@ def uninstall(project: Path, *, force: bool = False, dry_run: bool = False) -> U
     if result.applied and not dry_run:
         githooks.deactivate(project)
     also_removed = _human_files_in(project, motor_dir, data)
-    if result.applied and not result.unresolved and motor_dir.is_dir():
+    kept = [
+        f"{_meta.PROJECT_DIR}/{name}" for name in KEEP_ON_UNINSTALL if (motor_dir / name).exists()
+    ]
+    also_removed = [
+        r for r in also_removed if not any(r == k or r.startswith(k + "/") for k in kept)
+    ]
+    if result.applied and not result.unresolved and motor_dir.is_dir() and not dry_run:
         if fsutil.is_link(motor_dir):
             raise ProjectError(f"{motor_dir} is a link; not deleting it")
-        shutil.rmtree(motor_dir)
-    return UninstallResult(result, backup, also_removed)
+        for child in sorted(motor_dir.iterdir()):
+            if child.name in KEEP_ON_UNINSTALL:
+                continue
+            if child.is_dir() and not fsutil.is_link(child):
+                shutil.rmtree(child)
+            else:
+                child.unlink()
+        if not any(motor_dir.iterdir()):
+            motor_dir.rmdir()
+    return UninstallResult(result, backup, also_removed, kept)
 
 
 def _safe(project: Path, rel: str) -> bool:

@@ -40,7 +40,7 @@ The same scanner runs in the `pre-commit` git hook (staged lines), in `exo check
 
 - **Critical detectors, always on:** AWS keys, GitHub tokens, private keys, Slack tokens, credential assignments, unquoted `.env` assignments, JWTs, URLs with a password, connection strings and Azure DevOps tokens.
 - **Restricted detectors:** the ones in `data_protection.pii` in `.exo/config.json`. The default is `card` (Luhn check) and `iban` (mod 97 check). The project can add `email`, `phone` and national documents: `ar-cuit`, `br-cpf` and `es-nif` with their check digit, `ar-dni` (next to the word DNI) and `us-ssn` (format only). Add only the ones its data can contain.
-- **Files that never get committed:** `.env` and `.env.*` (except `.env.example`, `.env.sample` and `.env.template`), `*.pem`, `*.p12`, `*.pfx` and SSH private keys (`id_rsa` and similar). The `pre-commit` hook blocks them.
+- **Files that never get committed,** whatever their case: `.env` and `.env.*` (except `.env.example`, `.env.sample` and `.env.template`), private keys and keystores (`*.pem`, `*.key`, `*.p12`, `*.pfx`, `*.jks`, `*.keystore`, `*.ppk`, `id_rsa` and similar), and credential files (`.pypirc`, `.netrc`, `credentials.json`). The `pre-commit` hook blocks them, and reverse engineering lists them by name without reading them.
 
 A blocked commit or check names the file, the line, the detector and a redacted excerpt. Fix the cause; never use `--no-verify` (CI runs the same scan).
 

@@ -1,6 +1,6 @@
 # Progreso de construcción
 
-**Fase activa:** ninguna. F5 cerrada el 2026-11-16 (hito M2, v0.1.0); la próxima es F6, que arranca con su plan.
+**Fase activa:** F7, pendiente. F6 se cerró el 2026-11-17 (hito M3, v0.2.0).
 
 Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron con el comando exacto, la CI está verde en los tres sistemas operativos y el PR de la fase está mergeado.
 
@@ -16,7 +16,7 @@ Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron 
 | F3 Memoria v2 | Terminada (local; CI diferida) | `feat/F3-memoria`, mergeada a `main` en local, sin PR | 2026-11-13 | 2026-11-13 | Criterios 2–8 OK en Windows (3.14 y 3.10 sin extras) y Linux (WSL, con y sin extras). Criterio 1 fuera de alcance (ADR-0009). D-07/D-08 → ADR-0010; D-20, D-24 y D-25 → ADR-0009; D-12 parcial |
 | F4 Ciclo SDD | Terminada (local; CI diferida) | `feat/F4-ciclo-sdd`, mergeada a `main` en local, sin PR | 2026-11-14 | 2026-11-14 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL); 4 a 7 con Claude Code real. Criterio 6 sin Copilot (opcional). D-26, D-27 y D-28; D-11 → ADR-0013 |
 | F5 Gobierno y gates | Terminada (local; CI diferida) | `feat/F5-gobierno`, mergeada a `main` en local, sin PR | 2026-11-15 | 2026-11-16 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL); 7 con Claude Code real (Tier 1 y Tier 2), Copilot opcional. Hito M2 (v0.1.0). D-12, D-21 y D-29 a D-32 → ADR-0014 |
-| F6 Ingeniería inversa | Pendiente | | | | |
+| F6 Ingeniería inversa | Terminada (local; CI diferida) | `feat/F6-ingenieria-inversa`, mergeada a `main` en local, sin PR | 2026-11-16 | 2026-11-17 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL); 3 a 5 con Claude Code real (dos corridas sobre `py-invoices`), Copilot opcional. Criterio 8 diferido a F8 (D-35). Hito M3 (v0.2.0). D-14, D-19 y D-33 a D-37 → ADR-0015 |
 | F7 Packs | Pendiente | | | | |
 | F8 Endurecimiento + v1.0 | Pendiente | | | | |
 
@@ -444,4 +444,101 @@ Se regeneraron los goldens de `tests/golden/` (6 archivos) y se revisó el diff.
 - **Framework pre-commit:** el `pre-push` toma la ref de las variables `PRE_COMMIT_*` cuando no llega por stdin [No verificado contra el framework real].
 - **Nombre de la skill `review`:** puede chocar con el comando integrado `/review` de Claude Code. Se mantiene porque el plan lo nombra así; a revisar en F7.
 - **Ejemplos de CI y de `publish_command`** (`gh`, `az`, `glab`): `[No verificado]`, porque no hay remoto.
+- **Cierre local sin remoto**, según la regla del principio de este archivo.
+
+### F6 — Ingeniería inversa y adopción de proyectos existentes — 2026-11-17
+
+**Entorno:**
+- Windows 11, con Python 3.14.5 (`.venv`) y Python 3.10.20 (venv con `uv`, sin extras).
+- Linux Ubuntu 24.04 en WSL2, con Python 3.12 de `uv`, sobre un clon limpio de la rama.
+- Claude Code 2.1.325, con `claude -p` sobre copias de `tests/fixtures/repos/py-invoices/`.
+- Los datos aislados con `EXO_DATA_DIR` y `EXO_MEMORY_DB`.
+
+**Resultados:**
+
+| Entorno | Resultado |
+|---|---|
+| Windows, Python 3.14 | 1577 passed y 6 skipped (POSIX y extras de memoria), cobertura 93,72 % |
+| Windows, Python 3.10 sin extras | 1571 passed y 12 skipped (POSIX, symlinks y extras de memoria), cobertura 93,45 % |
+| Linux | 1575 passed y 8 skipped (extras de memoria que no están), cobertura 93,48 %; `exo --version` y `python -m exo --version` dan `exo 0.2.0`; `ruff check .` limpio y `exo validate` «6 packs, 41 skills, 6 subagents, 13 shared contracts: all valid» |
+
+| # | Criterio | Comando ejecutado | Resultado |
+|---|---|---|---|
+| 1 | Determinismo | `pytest -k criterio_1 tests/test_discovery_inventory.py tests/test_discovery_ground_truth.py` | OK (4 passed). En los tres fixtures, con historia de tres autores, `exo discover inventory`, `structure` y `plan` en subprocesos con `PYTHONHASHSEED` 1, 4242 y 77 dan los mismos bytes en todo `discovery/`. Commitear los resultados y correrlos otra vez no cambia nada y deja el árbol limpio |
+| 2 | Inventario correcto | `pytest -k criterio_2 tests/test_discovery_ground_truth.py` | OK (6 passed). En `py-invoices`, `node-shop` y `java-library`: lenguajes, frameworks, entrypoints, tests, CI, migraciones, contratos de API, infraestructura y archivos sensibles según la verdad conocida; módulos y aristas exactos |
+| 3 | Adopción completa | Claude Code real con `/exo-adopt` sobre `py-invoices` (`docs/checklists/F6-adopcion.md`), verificado contra la verdad conocida | OK en dos corridas. En la segunda, con el contenido final: R0 a R6 completos, 9 de 10 unidades cerradas y 1 salteada con su razón, 4 capacidades as-is (51 FR y 2 NFR, todos con evidencia). Las 5 capacidades de la verdad conocida tienen una spec que cita sus archivos clave |
+| 4 | Precisión | `exo discover coverage` después de la auditoría, en las mismas corridas | OK. Segunda corrida: muestra de 30 FR, las 4 capacidades al 100 % sin ronda de reapertura. Primera: `quotes` dio 75 %, el agente la reabrió, re-extrajo, re-sintetizó y re-auditó, y terminó al 100 % |
+| 5 | Solo lectura | `pytest -k criterio_5 tests/test_discovery_units.py`, más las corridas reales | OK (1 passed). En las dos corridas, `outside_changes: []` y `git status` solo con `.exo/context.md`, `.exo/discovery/`, los ADRs `*-recovered-*` y `specs/capabilities/` |
+| 6 | Reanudable | `pytest -k criterio_6 tests/test_discovery_units.py` | OK (1 passed). Cortar a mitad de R3 y seguir no rehace las unidades cerradas, y una unidad cortada a medias se extrae de nuevo |
+| 7 | Incremental | `pytest -k criterio_7 tests/test_discovery_units.py` | OK (1 passed). Cambiar un archivo y correr `update` marca stale solo su unidad y la capacidad que lo cita. La capacidad tiene que estar registrada con `exo discover synthesized`; una que nunca se registró aparece en `unrecorded_capabilities` |
+| 8 | Escala | — | Diferido a F8 (D-35) |
+
+**Extras:**
+- `ruff check .` limpio y `exo validate` sin advertencias.
+- **Fixtures con verdad conocida:** `py-invoices` (FastAPI, 1114 líneas), `node-shop` (Express y React con TypeScript, 1306) y `java-library` (Spring, 1256). Su verdad conocida vive afuera, en `tests/fixtures/ground-truth/`, así el agente de la corrida real no lee la respuesta. Los escribieron tres subagentes en paralelo, con la lista obligatoria de casos difíciles.
+- **`tests/_git.py`** reemplaza cinco helpers `_git` duplicados y da historias con fechas y autores fijos.
+- **`.npmrc` no es un archivo de credenciales:** muchos repos lo versionan solo con la URL del registro, y bloquearlo en el `pre-commit` rompía proyectos legítimos. Un token adentro lo sigue viendo el escáner.
+- **Al subir la versión** (0.2.0, hito M3), el install editable se reinstala en los dos venvs (`uv pip install --offline --no-deps -e .`), y los goldens cambian solo en la versión del lock y en el encabezado del registro de skills.
+- **Un fallo intermitente en Python 3.10:** `test_check.py::test_base_revisa_el_change_archivado_en_el_diff` (de F4) falló una vez en una suite completa que corría junto con la corrida real. No se reprodujo en otras dos suites completas ni en cuatro corridas sueltas, y no quedó el traceback. La sospecha es el `rename` de una carpeta recién escrita en Windows, pero no está confirmada.
+
+**Corridas reales** (`docs/checklists/F6-adopcion.md`):
+- **La primera**, con el contenido de antes de la revisión, cumplió los criterios 3 a 5. También mostró tres huecos del contenido: la re-auditoría parcial, `speclint` sobre la carpeta de capacidades y una unidad bloqueada que dejaba a R4 sin salida.
+- **La segunda**, con el contenido final, cumplió los criterios 3 a 5 y usó los comandos nuevos: `skip` para la unidad de auth, `synthesized` para cada capacidad, la muestra entera en una sola auditoría y el commit en una rama de adopción como paso siguiente. Mostró dos cosas más, corregidas con su test o en el contenido:
+  - `done` tomaba la puntuación que sigue a un `[Doc] path` como parte de la ruta;
+  - una unidad de infraestructura sin capacidad (las migraciones) mandaba la reanudación a R4 sin fin.
+
+**Revisión final con contexto fresco** (dos subagentes: motor y contenido). Todo lo que encontraron se corrigió con su test, salvo L13, que queda como limitación:
+- **Motor (4 High, 9 Medium, 13 Low):**
+  - commitear los resultados cambiaba el inventario y el churn;
+  - un checkout con `core.autocrlf` daba otros hashes y reescribía los archivos;
+  - una unidad cuyo conjunto de archivos cambió en un replan seguía cerrada;
+  - un archivo de código o una spec que no es UTF-8 rompían el pipeline;
+  - la relajación de severidad valía para specs sin `Status:`;
+  - imports de varios nombres, `extends` de `tsconfig` y TOML con corchetes adentro de strings;
+  - `build`, `coverage` u `out` se excluían también adentro del código (ahora, solo en la raíz o junto a un manifiesto), y el recorrido seguía links;
+  - `done` salteaba un párrafo suelto sin evidencia, y aceptaba un `[Doc]` a un archivo de credenciales;
+  - el chequeo de rutas permitidas tenía huecos (renombres, un proyecto en una subcarpeta del repo) y tomaba el lock del índice de git (ahora usa `--no-optional-locks`);
+  - la cobertura contaba veredictos de una muestra vieja;
+  - además, un `TypeError` previo en `graph._join(".", ".")`.
+- **Contenido (3 High, 7 Medium, 10 Low):**
+  - una unidad que no se podía cerrar trababa el pipeline;
+  - el chequeo final usaba `speclint` sobre la carpeta de capacidades;
+  - una capacidad stale se perdía al cerrar otra vez sus unidades;
+  - la tabla de Resume no salía de `status`, y `reopen --capability` no tenía fallback;
+  - la re-auditoría era parcial;
+  - R6 rompía el chequeo de solo lectura;
+  - el `@archivo` sin comillas en PowerShell;
+  - el contenido prometía un escáner de PII que no cubre todo;
+  - la regla de memoria siempre activa chocaba con D-37;
+  - formatos desalineados con `context-template` y la plantilla de ADR.
+- **Lo que el contenido corregido necesitó del motor** (E1 a E5):
+  - `exo discover skip <unidad> --reason`;
+  - `exo discover synthesized <capacidad>`, con su registro en `discovery/capabilities/` (resuelve L10: la señal stale ya no se pierde);
+  - `status` con lo que falta para cerrar la adopción;
+  - el fallback de `reopen --capability` a su `Source:`;
+  - specs que no son UTF-8 con un aviso en vez de traceback.
+
+**Decisiones tomadas durante la fase:**
+- **D-33** (del dueño): el pack `discovery` se ofrece solo si el repo ya tiene código.
+- **D-34** (del dueño): `.exo/discovery/` se commitea.
+- **D-35** (del dueño): la prueba de escala, a F8.
+- **D-14 y D-19,** cerradas con su default: parsers heurísticos con stdlib, y sin build ni tests del proyecto.
+- **D-36:** `exo uninstall` conserva `discovery/` y `context.md`.
+- **D-37:** las skills de discovery no escriben memoria.
+- **ADR-0015:** estado en el repo, evidencia verificable y specs as-is.
+
+**Desvíos respecto del plan y por qué:**
+- **Fixtures de 1,1 a 1,3 mil líneas,** en vez de 2 a 3 mil. Alcanzan para los casos difíciles y la suite no se alarga.
+- **Sin escritura de memoria** (D-37, F6:33): lo commiteado es la fuente compartida, y la memoria es por usuario (ADR-0009).
+- **Pack `design` adelantado desde F7,** con `architecture-decision-record`, para los ADRs recuperados.
+- **Comandos que el plan no nombraba:** `next`, `done`, `skip`, `reopen`, `synthesized`, `sample`, `audit` y `coverage`. Salieron del bucle por CLI (ADR-0005), de la revisión y de la corrida real. Solo `status` es tool (`discovery_status`): los demás escriben.
+- **Sin `state.json`:** el estado de cada unidad y de cada capacidad se deriva de sus registros, así dos ramas no se pisan.
+- **Criterio 7:** una capacidad es stale desde su registro de `synthesized`, no desde el estado de sus unidades. Así la señal dura hasta que se re-sintetiza.
+
+**Limitaciones conocidas:**
+- **IDs con colisión de slug (L13):** si aparece `src/user_profile` junto a `src/user-profile`, en un replan la unidad ya cerrada cambia de ID y vuelve a pendiente. Solo pasa con `--replan`.
+- **Parsers heurísticos** (D-14): no ven imports dinámicos ni alias que no están en la config.
+- **Subagentes de solo lectura:** el texto de cada unidad pasa dos veces por el contexto del orquestador. En los fixtures alcanza; F8 evalúa un extractor que escriba solo su unidad.
+- **Permisos del agente:** en las dos corridas, Claude Code no pudo leer `src/invoices/auth/tokens.py`. En la primera pidió un permiso que nadie podía dar; en la segunda lo bloqueó una regla de denegación que no está en el repo ni en la config del usuario. Es una protección del harness, no del motor: el contenido saltea la unidad con su razón y la deja como pregunta abierta.
+- **Copilot:** no se corrió (opcional).
 - **Cierre local sin remoto**, según la regla del principio de este archivo.

@@ -1,0 +1,7 @@
+{
+  "name": "design",
+  "version": "0.1.0",
+  "description": "Architecture and design records: architecture decision records in the project's own ADR folder, written with the person's approval, recovered from code during an adoption, and audited for gaps and contradictions.",
+  "requires": ["core"],
+  "optional": []
+}

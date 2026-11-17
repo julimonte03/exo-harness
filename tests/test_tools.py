@@ -101,6 +101,7 @@ def test_tools_con_schema() -> None:
         "get_change_state",
         "get_followups",
         "get_ai_usage_record",
+        "discovery_status",
     ]
     for tool in registry.TOOLS:
         described = tool.describe()

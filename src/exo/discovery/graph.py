@@ -1,0 +1,508 @@
+"""R1, estructura: módulos y grafo de imports (F6, ADR-0015, D-14).
+
+**Módulo:** la carpeta que contiene archivos de código de producción (ni tests ni
+migraciones). **Arista:** un import de un archivo de la carpeta A que resuelve a un
+archivo del proyecto en la carpeta B, con A distinta de B. Los imports a paquetes
+externos son dependencias, no aristas.
+
+Los extractores son heurísticos con stdlib (D-14):
+- **Python:** `ast` sobre los bytes, y regex si no parsea.
+- **JS/TS:** regex sobre el texto sin comentarios, con extensiones, `index`, los
+  `paths` del `tsconfig.json` y los workspaces del repo.
+- **Java:** regex de `import`, con las raíces `src/main/java/`.
+
+Un archivo que no es UTF-8 se lee con caracteres de reemplazo y queda en `warnings`.
+"""
+
+from __future__ import annotations
+
+import ast
+import json
+import posixpath
+import re
+import warnings
+from dataclasses import dataclass, field
+from pathlib import Path, PurePosixPath
+from typing import Any
+
+from exo.discovery import files as files_mod
+from exo.discovery import store
+
+FILENAME = "structure.json"
+MERMAID = "module-graph.mmd"
+JS_EXTENSIONS = (".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")
+_PY_FALLBACK = re.compile(
+    r"^\s*(?:from\s+(\.*[\w.]*)\s+import\s+(.+)|import\s+(.+))$", re.MULTILINE
+)
+_JS_SPECIFIERS = (
+    re.compile(r"\bimport\s+(?:[\w*{}\s,$]+?\s+from\s+)?(['\"`])([^'\"`$]+)\1"),
+    re.compile(r"\bexport\s+(?:[\w*{}\s,$]+?)\s+from\s+(['\"`])([^'\"`$]+)\1"),
+    re.compile(r"\bimport\s*\(\s*(['\"`])([^'\"`$]+)\1\s*\)"),
+    re.compile(r"\brequire\s*\(\s*(['\"`])([^'\"`$]+)\1\s*\)"),
+)
+_JAVA_IMPORT = re.compile(r"^\s*import\s+(static\s+)?([\w.]+?)(\.\*)?\s*;", re.MULTILINE)
+
+
+@dataclass
+class Index:
+    """Lo que necesitan los extractores para resolver: archivos, carpetas y configuración."""
+
+    files: set[str]
+    dirs: set[str] = field(default_factory=set)
+    by_dir: dict[str, list[str]] = field(default_factory=dict)  # carpeta -> archivos, ordenados
+    python_roots: list[str] = field(default_factory=list)
+    java_roots: list[str] = field(default_factory=list)
+    # nombre -> (carpeta, entradas posibles en orden)
+    workspaces: dict[str, tuple[str, tuple[str, ...]]] = field(default_factory=dict)
+    tsconfigs: dict[str, tuple[str, dict[str, list[str]]]] = field(default_factory=dict)
+
+    @classmethod
+    def build(
+        cls, project: Path, paths: list[str], reader: files_mod.TextReader | None = None
+    ) -> Index:
+        reader = reader or files_mod.TextReader(project)
+        index = cls(set(paths))
+        for path in sorted(paths):
+            index.by_dir.setdefault(posixpath.dirname(path) or ".", []).append(path)
+            parent = PurePosixPath(path).parent
+            while True:
+                index.dirs.add(parent.as_posix())
+                if parent == parent.parent:
+                    break
+                parent = parent.parent
+        roots = {"."}
+        for path in paths:
+            name = PurePosixPath(path).name
+            folder = posixpath.dirname(path) or "."
+            if name in ("pyproject.toml", "setup.py", "setup.cfg"):
+                roots.add(folder)
+        index.python_roots = sorted(
+            {_join(r, "src") for r in roots if _join(r, "src") in index.dirs} | roots,
+            key=lambda r: (-len(r), r),
+        )
+        index.java_roots = sorted(
+            {d for d in index.dirs if d == "src/main/java" or d.endswith("/src/main/java")}
+        )
+        index.workspaces = _workspaces(reader, paths)
+        index.tsconfigs = _tsconfigs(reader, paths)
+        return index
+
+
+def _join(*parts: str) -> str:
+    kept = [p for p in parts if p and p != "."]
+    return posixpath.normpath(posixpath.join(*kept)) if kept else "."
+
+
+# -- Python ---------------------------------------------------------------------------------
+
+
+def _py_module_file(base: str, dotted: str, index: Index) -> str | None:
+    parts = [p for p in dotted.split(".") if p]
+    if not parts:
+        candidate = _join(base, "__init__.py")
+        return candidate if candidate in index.files else None
+    stem = _join(base, *parts)
+    for candidate in (stem + ".py", _join(stem, "__init__.py")):
+        if candidate in index.files:
+            return candidate
+    return None
+
+
+def _py_from(base: str, module: str, names: list[str], index: Index) -> set[str]:
+    """`from <module> import <names>` desde `base`: cada nombre que es un submódulo, o el
+    módulo mismo si ninguno lo es (los nombres son funciones o clases del módulo)."""
+    found: set[str] = set()
+    for name in names:
+        if name != "*":
+            target = _py_module_file(base, f"{module}.{name}" if module else name, index)
+            if target:
+                found.add(target)
+    if found:
+        return found
+    target = _py_module_file(base, module, index)
+    return {target} if target else set()
+
+
+def _py_resolve_absolute(dotted: str, names: list[str], index: Index) -> set[str]:
+    for root in index.python_roots:
+        found = _py_from(root, dotted, names, index)
+        if found:
+            return found
+    return set()
+
+
+def python_imports(path: str, source: bytes, index: Index) -> tuple[set[str], set[str]]:
+    """(archivos del proyecto importados, paquetes externos) de un archivo Python."""
+    resolved: set[str] = set()
+    external: set[str] = set()
+    package = posixpath.dirname(path) or "."
+    try:
+        # Un escape inválido en un string del proyecto da un SyntaxWarning: no es nuestro.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            tree = ast.parse(source)
+        statements: list[tuple[int, str, list[str]]] = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                statements += [(0, alias.name, []) for alias in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                names = [alias.name for alias in node.names]
+                statements.append((node.level, node.module or "", names))
+    except (SyntaxError, ValueError):
+        statements = []
+        text = files_mod.decode(files_mod.to_lf(source))[0]
+        for match in _PY_FALLBACK.finditer(text):
+            if match.group(3):
+                for item in match.group(3).split(","):
+                    statements.append((0, item.split(" as ")[0].strip(), []))
+            else:
+                module = match.group(1)
+                level = len(module) - len(module.lstrip("."))
+                names = [n.split(" as ")[0].strip(" \t()") for n in match.group(2).split(",")]
+                statements.append((level, module.lstrip("."), names))
+    for level, module, names in statements:
+        if level:
+            base = package
+            for _ in range(level - 1):
+                base = posixpath.dirname(base) or "."
+            resolved |= _py_from(base, module, names, index)
+            continue
+        found = _py_resolve_absolute(module, names, index)
+        if found:
+            resolved |= found
+        elif module:
+            external.add(module.split(".")[0])
+    return resolved, external
+
+
+# -- JS/TS ----------------------------------------------------------------------------------
+
+
+def strip_comments(text: str) -> str:
+    """El texto sin comentarios `//` y `/* */`, respetando strings y template literals."""
+    out: list[str] = []
+    index, size = 0, len(text)
+    quote: str | None = None
+    while index < size:
+        char = text[index]
+        if quote:
+            out.append(char)
+            if char == "\\" and index + 1 < size:
+                out.append(text[index + 1])
+                index += 2
+                continue
+            if char == quote:
+                quote = None
+            index += 1
+            continue
+        if char in "'\"`":
+            quote = char
+            out.append(char)
+            index += 1
+            continue
+        if text.startswith("//", index):
+            end = text.find("\n", index)
+            index = size if end < 0 else end
+            continue
+        if text.startswith("/*", index):
+            end = text.find("*/", index + 2)
+            stop = size if end < 0 else end + 2
+            out.append("\n" * text.count("\n", index, stop))
+            index = stop
+            continue
+        out.append(char)
+        index += 1
+    return "".join(out)
+
+
+def _loose_json(text: str) -> Any:
+    """JSON con comentarios y comas finales, como el de un `tsconfig.json`."""
+    clean = re.sub(r",(\s*[}\]])", r"\1", strip_comments(text))
+    try:
+        return json.loads(clean)
+    except json.JSONDecodeError:
+        return None
+
+
+def _workspaces(
+    reader: files_mod.TextReader, paths: list[str]
+) -> dict[str, tuple[str, tuple[str, ...]]]:
+    """Paquetes del propio repo, por nombre: (carpeta, entradas posibles en orden).
+
+    `exports` o `main` suelen apuntar a lo compilado (`dist/`, excluido): después se
+    prueban `types`/`typings` y `src/index.*`.
+    """
+    root = _loose_json(reader.text("package.json")) if "package.json" in paths else None
+    patterns: list[str] = []
+    if isinstance(root, dict):
+        spaces = root.get("workspaces")
+        if isinstance(spaces, dict):
+            spaces = spaces.get("packages")
+        if isinstance(spaces, list):
+            patterns = [str(p).rstrip("/") for p in spaces]
+    found: dict[str, tuple[str, tuple[str, ...]]] = {}
+    for path in paths:
+        if PurePosixPath(path).name != "package.json" or path == "package.json":
+            continue
+        folder = posixpath.dirname(path)
+        if patterns and not any(PurePosixPath(folder).match(p) for p in patterns):
+            continue
+        data = _loose_json(reader.text(path))
+        if not isinstance(data, dict) or not isinstance(data.get("name"), str):
+            continue
+        exports = data.get("exports")
+        if isinstance(exports, dict):
+            exports = exports.get(".")
+        declared = [exports, data.get("main")]
+        entries = [e for e in declared if isinstance(e, str)]
+        if not entries:
+            entries.append("index")  # lo que usa Node sin `main`
+        entries += [e for e in (data.get("types"), data.get("typings")) if isinstance(e, str)]
+        entries.append("src/index")
+        found[data["name"]] = (folder, tuple(dict.fromkeys(entries)))
+    return found
+
+
+def _tsconfig_options(
+    reader: files_mod.TextReader, path: str, paths: set[str], seen: frozenset[str] = frozenset()
+) -> dict[str, Any]:
+    """Las `compilerOptions` que importan (`baseUrl`, `paths`) de un tsconfig, con las de
+    sus `extends` relativos fusionadas debajo (varios niveles, sin ciclos).
+
+    Como en TypeScript, cada ruta es relativa al tsconfig que la declara: `baseUrl` queda
+    resuelto y `paths` lleva su carpeta, la base cuando no hay `baseUrl`.
+    """
+    if path in seen or path not in paths:
+        return {}
+    data = _loose_json(reader.text(path))
+    if not isinstance(data, dict):
+        return {}
+    folder = posixpath.dirname(path) or "."
+    merged: dict[str, Any] = {}
+    parents = data.get("extends")
+    for parent in parents if isinstance(parents, list) else [parents]:
+        if not isinstance(parent, str) or not parent.startswith(("./", "../")):
+            continue  # un paquete (`@tsconfig/node20`) no está en el repo
+        target = _join(folder, parent)
+        for candidate in (target, target + ".json"):
+            if candidate in paths:
+                merged.update(_tsconfig_options(reader, candidate, paths, seen | {path}))
+                break
+    options = data.get("compilerOptions")
+    if isinstance(options, dict):
+        if isinstance(options.get("baseUrl"), str):
+            merged["baseUrl"] = _join(folder, options["baseUrl"])
+        aliases = options.get("paths")
+        if isinstance(aliases, dict):
+            merged["paths"] = {
+                str(k): [str(v) for v in values]
+                for k, values in aliases.items()
+                if isinstance(values, list)
+            }
+            merged["paths_base"] = folder
+    return merged
+
+
+def _tsconfigs(
+    reader: files_mod.TextReader, paths: list[str]
+) -> dict[str, tuple[str, dict[str, list[str]]]]:
+    """Por carpeta de cada `tsconfig.json` con `paths` (propios o heredados por `extends`):
+    (base resuelta, paths). Uno sin `paths` no figura: sus archivos usan los del tsconfig
+    padre más cercano."""
+    existing = set(paths)
+    found: dict[str, tuple[str, dict[str, list[str]]]] = {}
+    for path in paths:
+        if PurePosixPath(path).name != "tsconfig.json":
+            continue
+        options = _tsconfig_options(reader, path, existing)
+        if "paths" in options:
+            base = options.get("baseUrl", options["paths_base"])
+            found[posixpath.dirname(path) or "."] = (base, options["paths"])
+    return found
+
+
+def _js_file(stem: str, index: Index) -> str | None:
+    candidates = [stem] + [stem + ext for ext in JS_EXTENSIONS]
+    candidates += [_join(stem, "index" + ext) for ext in JS_EXTENSIONS]
+    # `./x.js` en TypeScript (ESM) apunta a `x.ts`: el especificador es el del compilado.
+    root, ext = posixpath.splitext(stem)
+    if ext in (".js", ".mjs", ".cjs"):
+        candidates += [root + ts for ts in (".ts", ".tsx", ".mts", ".cts")]
+    for candidate in candidates:
+        if candidate in index.files:
+            return candidate
+    return None
+
+
+def _nearest_tsconfig(path: str, index: Index) -> tuple[str, dict[str, list[str]]] | None:
+    folder = PurePosixPath(path).parent
+    while True:
+        key = folder.as_posix() or "."
+        if key in index.tsconfigs:
+            return index.tsconfigs[key]
+        if folder == folder.parent:
+            return None
+        folder = folder.parent
+
+
+def _js_resolve(path: str, spec: str, index: Index) -> tuple[str | None, str | None]:
+    """(archivo resuelto, paquete externo) de un especificador."""
+    if spec.startswith((".", "/")):
+        return _js_file(_join(posixpath.dirname(path) or ".", spec), index), None
+    config = _nearest_tsconfig(path, index)
+    if config:
+        base, aliases = config
+        for pattern, targets in aliases.items():
+            prefix, star, suffix = pattern.partition("*")
+            if star and spec.startswith(prefix) and spec.endswith(suffix):
+                middle = spec[len(prefix) : len(spec) - len(suffix) if suffix else None]
+                for target in targets:
+                    found = _js_file(_join(base, target.replace("*", middle, 1)), index)
+                    if found:
+                        return found, None
+            elif not star and spec == pattern:
+                for target in targets:
+                    found = _js_file(_join(base, target), index)
+                    if found:
+                        return found, None
+    for name, (folder, entries) in index.workspaces.items():
+        if spec == name:
+            for entry in entries:
+                found = _js_file(_join(folder, entry), index)
+                if found:
+                    return found, None
+            return None, name
+        if spec.startswith(name + "/"):
+            return _js_file(_join(folder, spec[len(name) + 1 :]), index), None
+    parts = spec.split("/")
+    package = "/".join(parts[:2]) if spec.startswith("@") else parts[0]
+    return None, package
+
+
+def js_imports(path: str, text: str, index: Index) -> tuple[set[str], set[str]]:
+    resolved: set[str] = set()
+    external: set[str] = set()
+    clean = strip_comments(text)
+    for pattern in _JS_SPECIFIERS:
+        for match in pattern.finditer(clean):
+            found, package = _js_resolve(path, match.group(2), index)
+            if found:
+                resolved.add(found)
+            elif package and not match.group(2).startswith((".", "/")):
+                external.add(package)
+    return resolved, external
+
+
+# -- Java -----------------------------------------------------------------------------------
+
+
+def java_imports(path: str, text: str, index: Index) -> tuple[set[str], set[str]]:
+    resolved: set[str] = set()
+    external: set[str] = set()
+    for match in _JAVA_IMPORT.finditer(strip_comments(text)):
+        static, dotted, wildcard = match.groups()
+        parts = dotted.split(".")
+        if static and not wildcard:
+            parts = parts[:-1]  # import static a.b.C.m: la clase es a.b.C
+        found = None
+        for root in index.java_roots:
+            if wildcard and not static:
+                # El paquete: su primer `.java`, del índice por carpeta (ya ordenado).
+                folder = _join(root, *parts)
+                found = next((f for f in index.by_dir.get(folder, ()) if f.endswith(".java")), None)
+            else:
+                candidate = _join(root, *parts) + ".java"
+                if candidate in index.files:
+                    found = candidate
+            if found:
+                break
+        if found:
+            resolved.add(found)
+        else:
+            external.add(".".join(parts[: min(3, len(parts))]))
+    return resolved, external
+
+
+# -- estructura -----------------------------------------------------------------------------
+
+
+def module_of(path: str) -> str:
+    return posixpath.dirname(path) or "."
+
+
+def imports(
+    item: files_mod.SourceFile, index: Index, reader: files_mod.TextReader
+) -> tuple[set[str], set[str]]:
+    """(archivos del proyecto importados, paquetes externos) de un archivo, por lenguaje."""
+    if item.language == "python":
+        return python_imports(item.path, reader.python(item.path), index)
+    if item.language in ("javascript", "typescript"):
+        return js_imports(item.path, reader.text(item.path), index)
+    if item.language == "java":
+        return java_imports(item.path, reader.text(item.path), index)
+    return set(), set()
+
+
+def build(project: Path, fileset: files_mod.FileSet | None = None) -> dict[str, Any]:
+    project = Path(project)
+    fileset = fileset or files_mod.list_files(project)
+    readable = [f.path for f in fileset.files if not f.sensitive]
+    reader = files_mod.TextReader(project)
+    index = Index.build(project, readable, reader)
+    code = [f for f in fileset.files if f.category == "code"]
+    modules: dict[str, dict[str, Any]] = {}
+    edges: dict[tuple[str, str], int] = {}
+    external: dict[str, set[str]] = {}
+    production = {f.path for f in code}
+    for item in code:
+        module = module_of(item.path)
+        entry = modules.setdefault(module, {"files": 0, "lines": 0, "languages": set()})
+        entry["files"] += 1
+        entry["lines"] += item.lines
+        if item.language:
+            entry["languages"].add(item.language)
+        targets, outside = imports(item, index, reader)
+        external.setdefault(module, set()).update(outside)
+        for target in targets:
+            if target not in production:
+                continue
+            other = module_of(target)
+            if other != module:
+                edges[(module, other)] = edges.get((module, other), 0) + 1
+    # Cada par (origen, destino) aparece una vez en `edges`: una sola pasada alcanza.
+    fan_in = dict.fromkeys(modules, 0)
+    fan_out = dict.fromkeys(modules, 0)
+    for source, target in edges:
+        fan_out[source] += 1
+        fan_in[target] += 1
+    return {
+        "modules": [
+            {
+                "path": name,
+                "files": data["files"],
+                "lines": data["lines"],
+                "languages": sorted(data["languages"]),
+                "fan_in": fan_in[name],
+                "fan_out": fan_out[name],
+                "external": sorted(external.get(name, set())),
+            }
+            for name, data in sorted(modules.items())
+        ],
+        "edges": [{"from": a, "to": b, "imports": n} for (a, b), n in sorted(edges.items())],
+        "warnings": reader.warnings,
+    }
+
+
+def mermaid(structure: dict[str, Any]) -> str:
+    ids = {m["path"]: f"m{i}" for i, m in enumerate(structure["modules"], start=1)}
+    lines = ["graph LR"]
+    lines += [f'  {ids[m["path"]]}["{m["path"]}"]' for m in structure["modules"]]
+    lines += [f"  {ids[e['from']]} --> {ids[e['to']]}" for e in structure["edges"]]
+    return "\n".join(lines) + "\n"
+
+
+def write(project: Path, fileset: files_mod.FileSet | None = None) -> tuple[dict[str, Any], bool]:
+    data = build(project, fileset)
+    wrote = store.write_json(project, FILENAME, data)
+    wrote = store.write_text(project, MERMAID, mermaid(data)) or wrote
+    return data, wrote

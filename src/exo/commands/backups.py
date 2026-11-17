@@ -11,9 +11,7 @@ from exo.core import snapshots
 
 
 def _project_arg(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--project", type=Path, default=Path("."), help="project root (default: .)"
-    )
+    parser.add_argument("--project", type=Path, default=Path("."), help="project root (default: .)")
 
 
 def register(sub: argparse._SubParsersAction) -> None:
@@ -103,10 +101,7 @@ def _restore(args: argparse.Namespace) -> int:
             }
         )
         return 0
-    print(
-        f"restored {args.name}: {len(result.restored)} files, "
-        f"{len(result.removed)} removed"
-    )
+    print(f"restored {args.name}: {len(result.restored)} files, {len(result.removed)} removed")
     if before:
         print(f"previous state saved in {before}")
     return 0

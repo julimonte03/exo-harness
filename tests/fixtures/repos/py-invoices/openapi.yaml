@@ -1,0 +1,26 @@
+openapi: 3.1.0
+info: {title: Invoices API, version: 1.4.0}
+security: [{bearer: []}]
+components:
+  securitySchemes:
+    bearer: {type: http, scheme: bearer}
+paths:
+  /auth/token:
+    post: {summary: "Sandbox only: a token for any role", security: [], responses: {"200": {description: Token}}}
+  /customers:
+    post: {summary: "Create a customer (admin)", responses: {"201": {description: Created}, "409": {description: Email taken}}}
+  /customers/{customer_id}:
+    get: {summary: "Read a customer", responses: {"200": {description: Customer}, "404": {description: Not found}}}
+  /invoices:
+    get: {summary: "List invoices, 20 per page and 100 at most", responses: {"200": {description: Page}}}
+    post: {summary: "Create a draft invoice", responses: {"201": {description: Draft}, "422": {description: Invalid}}}
+  /invoices/{invoice_id}:
+    get: {summary: "Read an invoice", responses: {"200": {description: Invoice}, "404": {description: Not found}}}
+  /invoices/{invoice_id}/issue:
+    post: {summary: "Issue a draft within the credit limit", responses: {"200": {description: Issued}, "409": {description: Over limit}}}
+  /invoices/{invoice_id}/void:
+    post: {summary: "Void an invoice without payments (admin)", responses: {"200": {description: Void}, "409": {description: Has payments}}}
+  /invoices/{invoice_id}/payments:
+    post: {summary: "Pay by card; the sandbox takes test cards only", responses: {"201": {description: Paid}, "409": {description: Overpaid}}}
+  /payments/{payment_id}/refund:
+    post: {summary: "Refund part of a payment (admin)", responses: {"200": {description: Refunded}}}

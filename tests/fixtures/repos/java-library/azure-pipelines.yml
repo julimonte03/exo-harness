@@ -1,0 +1,22 @@
+trigger:
+  branches:
+    include: [main]
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: Maven@4
+    inputs:
+      mavenPomFile: pom.xml
+      goals: verify
+      options: -B
+      jdkVersionOption: "1.21"
+      publishJUnitResults: true
+  - task: Docker@2
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    inputs:
+      command: buildAndPush
+      containerRegistry: library-registry
+      repository: library
+      tags: $(Build.BuildId)

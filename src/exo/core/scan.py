@@ -15,15 +15,39 @@ salen redactados. Solo biblioteca estándar.
 
 from __future__ import annotations
 
+import fnmatch
 import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from pathlib import PurePosixPath
 
 CRITICAL = "critical"
 RESTRICTED = "restricted"
 DEFAULT_PII = ("card", "iban")
 OPTIONAL_PII = ("email", "phone", "ar-cuit", "ar-dni", "br-cpf", "es-nif", "us-ssn")
 KNOWN_PII = DEFAULT_PII + OPTIONAL_PII
+# Archivos de credenciales: no se commitean ni se leen (los ejemplos, sí). Sin distinguir
+# mayúsculas: en Windows y macOS `.ENV` es el mismo archivo que `.env`. `.npmrc` no está:
+# muchos repos lo versionan solo con la URL del registro.
+CREDENTIAL_FILES = (
+    ".env",
+    ".env.*",
+    "*.pem",
+    "*.p12",
+    "*.pfx",
+    "*.key",
+    "*.jks",
+    "*.keystore",
+    "*.ppk",
+    "id_rsa",
+    "id_dsa",
+    "id_ecdsa",
+    "id_ed25519",
+    ".pypirc",
+    ".netrc",
+    "credentials.json",
+)
+CREDENTIAL_EXAMPLES = (".env.example", ".env.sample", ".env.template")
 
 _PLACEHOLDER = re.compile(
     r"^(?:<.*>|\$\{.*\}|\$[A-Za-z_][A-Za-z0-9_]*|%[A-Za-z_]+%|x+|\*+|changeme|example.*|dummy.*"
@@ -304,3 +328,12 @@ def scan_text(
             continue
         found.extend(_scan_line(number, line, detectors))
     return found
+
+
+def is_credential_file(path: str) -> bool:
+    """Un archivo con nombre de credencial (`.env`, claves privadas, tokens de registros),
+    salvo los ejemplos. Sin distinguir mayúsculas."""
+    name = PurePosixPath(path.replace("\\", "/")).name.lower()
+    if name in CREDENTIAL_EXAMPLES:
+        return False
+    return any(fnmatch.fnmatchcase(name, pattern) for pattern in CREDENTIAL_FILES)

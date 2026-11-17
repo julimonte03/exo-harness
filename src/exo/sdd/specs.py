@@ -47,6 +47,18 @@ NEW_CAPABILITY = """# Capability: {name}
 """
 
 _HEADING = re.compile(r"^(#{2,4})(?!#)\s+(.*?)\s*#*\s*$")
+# Marcas de evidencia de la ingeniería inversa (ADR-0015). `FACTS`: solo las que citan
+# código o docs, sin las inferencias.
+_FACT_MARKS = r"\[Code\]\s+[^\s\[\]]+:\d+(?:-\d+)?|\[Doc\]\s+[^\s\[\]]+"
+FACTS = re.compile(_FACT_MARKS)
+EVIDENCE = re.compile(rf"{_FACT_MARKS}|\[Inferred:\s*(?:high|medium|low)\]")
+STATUSES = ("as-is", "as-is-validated")
+# `Status: as-is`, `**Status:** as-is`, `**Status**: as-is` o `status: as-is`.
+_PREAMBLE = re.compile(
+    r"^\s*(?:\*\*|__)?(status|source)(?:\*\*|__)?\s*:\s*(?:\*\*|__)?\s*(.*?)\s*$",
+    re.IGNORECASE,
+)
+_LATE_STATUS = "Status goes before ## Purpose"
 _REQ_HEADING = re.compile(r"^([^\s:]+)\s*:?\s*(.*)$")
 _SCENARIO = re.compile(r"^Scenario\b\s*(S-[0-9]+)?\s*:?\s*(.*)$", re.IGNORECASE)
 _FENCE = re.compile(r"^\s*(```|~~~)")
@@ -74,6 +86,7 @@ class MergeError(SpecsError):
 class Problem:
     line: int
     message: str
+    severity: str = "error"  # error | warning (ADR-0015)
 
 
 @dataclass(frozen=True)
@@ -113,6 +126,12 @@ class Capability:
     requirements: dict[str, Block]
     removed: dict[str, Block]
     problems: tuple[Problem, ...]
+    status: str | None = None  # None: una spec viva normal; as-is | as-is-validated (ADR-0015)
+    source: str | None = None
+
+    @property
+    def errors(self) -> tuple[Problem, ...]:
+        return tuple(p for p in self.problems if p.severity == "error")
 
 
 @dataclass(frozen=True)
@@ -122,7 +141,8 @@ class CapabilityInfo:
     functional: int
     non_functional: int
     removed: int
-    problems: int
+    problems: int  # solo errores; los warnings no cuentan
+    status: str | None = None
 
 
 @dataclass(frozen=True)
@@ -234,8 +254,15 @@ def _check_block(
     delta: bool,
     problems: list[Problem],
     scenarios: dict[str, int],
+    status: str | None = None,
 ) -> tuple[str, ...]:
-    """Valida un bloque de requisito y devuelve los IDs de sus escenarios."""
+    """Valida un bloque de requisito y devuelve los IDs de sus escenarios.
+
+    En una capacidad con preámbulo (`status`), un requisito que trae evidencia
+    (`[Code] path:line`, `[Doc] path` o `[Inferred: …]`) puede no tener escenario: es un
+    warning. En una `as-is`, un requisito sin evidencia es un error. Sin preámbulo todo
+    es como antes de la ingeniería inversa (ADR-0015).
+    """
     heads = [(i, text) for i, level, text in _headings(masked[start:end]) if level == 4]
     heads = [(start + i, text) for i, text in heads]
     body_end = heads[0][0] if heads else end
@@ -287,8 +314,23 @@ def _check_block(
         for word in ("Given", "When", "Then"):
             if not re.search(rf"\b{word}\b", body, re.IGNORECASE):
                 problems.append(Problem(index + 1, f"{label} has no {word}"))
+    has_evidence = status is not None and any(
+        EVIDENCE.search(line) for line in masked[start + 1 : end]
+    )
+    if status == "as-is" and not has_evidence:
+        problems.append(
+            Problem(
+                start + 1,
+                f"{block_id} needs evidence in an as-is spec: [Code] path:line, [Doc] path or "
+                "[Inferred: high|medium|low]",
+            )
+        )
     if not heads and "-FR-" in block_id and "-NFR-" not in block_id:
-        problems.append(Problem(start + 1, f"{block_id} has no scenarios"))
+        if has_evidence:
+            message = f"{block_id} has no scenarios yet: add one when a change touches it"
+            problems.append(Problem(start + 1, message, "warning"))
+        else:
+            problems.append(Problem(start + 1, f"{block_id} has no scenarios"))
     return tuple(found)
 
 
@@ -366,10 +408,57 @@ def parse_delta(text: str) -> Delta:
 # -- capacidad -------------------------------------------------------------------
 
 
+def _status_value(value: str) -> str:
+    return value.strip("`*_ ").lower()
+
+
+def _preamble(masked: list[str], problems: list[Problem]) -> tuple[str | None, str | None]:
+    """`Status:` y `Source:` antes del primer `##`, fuera de los bloques (ADR-0015).
+
+    Un `Status:` desconocido es un warning: una spec viva que ya tenía, por ejemplo,
+    `Status: draft` sigue siendo una spec viva y no bloquea nada. Un `Status: as-is`
+    después del primer `##` no cuenta, y es un warning.
+    """
+    status = source = None
+    first = next((i for i, line in enumerate(masked) if _HEADING.match(line)), len(masked))
+    for index, line in enumerate(masked[:first]):
+        match = _PREAMBLE.match(line)
+        if match is None:
+            continue
+        key, value = match.groups()
+        if key.lower() == "source":
+            source = value or None
+        elif _status_value(value) in STATUSES:
+            status = _status_value(value)
+        else:
+            problems.append(
+                Problem(
+                    index + 1,
+                    f"Status must be {' or '.join(STATUSES)}, not {value!r}; without one of "
+                    "them this is a normal living spec",
+                    "warning",
+                )
+            )
+    in_code = False
+    for index in range(first, len(masked)):
+        line = masked[index]
+        if _FENCE.match(line):
+            in_code = not in_code
+            continue
+        match = None if in_code else _PREAMBLE.match(line)
+        if match is None or match.group(1).lower() != "status":
+            continue
+        if _status_value(match.group(2)) in STATUSES:
+            message = f"{_LATE_STATUS}: move it above the first section, or it does not count"
+            problems.append(Problem(index + 1, message, "warning"))
+    return status, source
+
+
 def parse_capability(text: str, name: str) -> Capability:
     lines, _, _ = _split(text)
     masked = _mask(lines)
     problems: list[Problem] = []
+    status, source = _preamble(masked, problems)
     requirements: dict[str, Block] = {}
     removed: dict[str, Block] = {}
     seen: dict[str, int] = {}
@@ -421,9 +510,11 @@ def parse_capability(text: str, name: str) -> Capability:
                 delta=False,
                 problems=problems,
                 scenarios={},
+                status=status,
             )
             target[token] = _block(masked, start, end, token, label, ())
-    return Capability(name, requirements, removed, tuple(sorted(problems, key=lambda p: p.line)))
+    ordered = tuple(sorted(problems, key=lambda p: p.line))
+    return Capability(name, requirements, removed, ordered, status, source)
 
 
 def capabilities_root(project: Path) -> Path:
@@ -434,26 +525,52 @@ def _relative(project: Path, path: Path) -> str:
     return path.relative_to(project).as_posix()
 
 
-def list_capabilities(project: Path) -> list[CapabilityInfo]:
+def capability_texts(
+    project: Path, warnings: list[str] | None = None
+) -> list[tuple[str, Path, str]]:
+    """(nombre, ruta, texto) de cada spec de capacidad, por nombre.
+
+    Una spec que no es UTF-8 se saltea y, si se pasa `warnings`, deja un aviso que la
+    nombra: una spec ilegible no frena a las demás.
+    """
     project = Path(project)
     root = capabilities_root(project)
     if not root.is_dir():
         return []
-    found: list[CapabilityInfo] = []
+    found: list[tuple[str, Path, str]] = []
     for folder in sorted(p for p in root.iterdir() if p.is_dir() and p.name[0] not in "._"):
         path = folder / SPEC_FILE
         if not path.is_file():
             continue
-        cap = parse_capability(path.read_bytes().decode("utf-8-sig"), folder.name)
+        try:
+            text = path.read_bytes().decode("utf-8-sig")
+        except UnicodeDecodeError as exc:
+            if warnings is not None:
+                warnings.append(
+                    f"{_relative(project, path)} is not UTF-8 text ({exc.reason}), so it was "
+                    "skipped; save it as UTF-8 to include it"
+                )
+            continue
+        found.append((folder.name, path, text))
+    return found
+
+
+def list_capabilities(project: Path, warnings: list[str] | None = None) -> list[CapabilityInfo]:
+    """Las capacidades, salteando con un aviso (en `warnings`) las que no son UTF-8."""
+    project = Path(project)
+    found: list[CapabilityInfo] = []
+    for name, path, text in capability_texts(project, warnings):
+        cap = parse_capability(text, name)
         functional = sum(1 for key in cap.requirements if "-NFR-" not in key)
         found.append(
             CapabilityInfo(
-                folder.name,
+                name,
                 _relative(project, path),
                 functional,
                 len(cap.requirements) - functional,
                 len(cap.removed),
-                len(cap.problems),
+                len(cap.errors),
+                cap.status,
             )
         )
     return found
@@ -699,9 +816,14 @@ def merge(project: Path, change: str, *, dry_run: bool = False) -> MergeResult:
             rel = _relative(project, path)
             problems.append(f"{rel}: not UTF-8 text ({exc.reason}); save it as UTF-8")
             continue
-        if cap.problems:
-            rel = _relative(project, path)
-            problems += [f"{rel}:{p.line}: {p.message}" for p in cap.problems]
+        rel = _relative(project, path)
+        if cap.errors:
+            problems += [f"{rel}:{p.line}: {p.message}" for p in cap.errors]
+        if cap.status == "as-is":
+            problems.append(
+                f"{rel}: the capability is an as-is spec recovered from code; a person validates "
+                "it first (Status: as-is-validated), then changes modify it by delta"
+            )
         docs[name] = (doc, cap)
     plan, plan_problems = _plan(change, delta, docs)
     problems += plan_problems

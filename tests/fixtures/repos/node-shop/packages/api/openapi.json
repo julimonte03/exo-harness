@@ -1,0 +1,39 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "Node Shop API", "version": "1.4.0" },
+  "servers": [{ "url": "/api" }],
+  "paths": {
+    "/products": {
+      "get": { "summary": "Catalog with live availability", "responses": { "200": { "description": "Products" } } }
+    },
+    "/orders": {
+      "post": {
+        "summary": "Place an order with an email, lines (1 to 10 units each) and an optional promo code",
+        "responses": {
+          "201": { "description": "Order placed as pending" },
+          "400": { "description": "Invalid email, quantity or duplicate line" },
+          "409": { "description": "Not enough stock" },
+          "422": { "description": "Unknown promo code" }
+        }
+      }
+    },
+    "/orders/{id}/status": {
+      "patch": {
+        "summary": "Move an order to its next status (back office)",
+        "security": [{ "adminToken": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Updated order" }, "401": { "description": "Missing admin token" }, "409": { "description": "Transition not allowed" } }
+      }
+    },
+    "/carts/{cartId}/items": {
+      "post": {
+        "summary": "Add a product to a guest cart",
+        "parameters": [{ "name": "cartId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "201": { "description": "The cart" }, "422": { "description": "Cart is full" } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": { "adminToken": { "type": "apiKey", "in": "header", "name": "x-admin-token" } }
+  }
+}
