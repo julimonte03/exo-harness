@@ -123,8 +123,8 @@ Close the plan with the readiness checklist of `references/load-testing.md`: sca
 
 ## Where it goes
 
-- The folder the project uses for capacity plans (look for `docs/capacity/`, `docs/ops/` or `docs/reliability/`); if there is none, propose `docs/capacity/<event-or-scenario>.md` and use it unless the person prefers another place.
-- **Inside an SDD change,** never write into the change root: return the plan's numbers as text for the phase that owns the artifact (for example the NFRs of the spec, or the design's Risks & Mitigations). A load test script is code: it belongs to the apply phase when the plan lists it.
+- The folder the project uses for capacity plans (look for `docs/capacity/`, `docs/ops/` or `docs/reliability/`), as `<event-or-scenario>.md`. If there is none, propose `docs/capacity/` and create it only after the person says yes; until then, keep the plan in the answer.
+- **Inside an SDD change,** the capacity plan is a project document, never a file of the change root: any phase may write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C). Until then, return the plan's numbers as text, also for the phase that owns an artifact that needs them (for example the NFRs of the spec, or the design's Risks & Mitigations). A load test script is code: it belongs to the apply phase when the plan lists it.
 
 ## Return
 

@@ -6,14 +6,16 @@ description: >-
   in UTC, narrows by service, environment, level and fields, counts and
   aggregates before reading documents, compares with a baseline window, and
   follows one request across services by its trace or request ID. Without a
-  log stack it falls back to grep and jq on local or exported logs. Read-only:
-  it never writes to the cluster, and never copies secrets or personal data
-  from the logs into the conversation. Use it when someone needs to find
+  log stack it searches the runtime's logs (kubectl, docker, journald) and
+  the hosts' log files; a file or export in hand goes to log-analysis.
+  Read-only: it never writes to the cluster, and never copies secrets or
+  personal data from the logs into the conversation. Use it when someone needs to find
   errors in production logs, investigate an incident in the logs, follow a
   request ID, or write a query for Kibana, Elastic or OpenSearch. Triggers:
-  "search in Kibana", "check the logs", "errors in prod", "Kibana query",
-  "KQL", "OpenSearch query", "PPL query", "find this request ID in the
-  logs", "trace this request", "what do the logs say".
+  "search in Kibana", "check the logs in Kibana", "errors in prod",
+  "Kibana query", "KQL", "OpenSearch query", "PPL query", "find this
+  request ID in the logs", "trace this request", "what do the production
+  logs say".
 metadata:
   exo-pack: ops
   exo-execution: inline
@@ -22,27 +24,27 @@ metadata:
 
 # kibana-logs
 
-Finds the log lines that matter in an Elastic or OpenSearch stack, or in plain files when there is no stack. It finds; skill:log-analysis analyzes what was found (patterns, spikes, correlation). The name says Kibana, but Elasticsearch, OpenSearch and OpenSearch Dashboards are covered the same way, and none of them is required.
+Finds the log lines that matter where the logs live: an Elastic or OpenSearch stack, or the runtime and the hosts when there is no stack. It finds; skill:log-analysis analyzes what was found (patterns, spikes, correlation). The name says Kibana, but Elasticsearch, OpenSearch and OpenSearch Dashboards are covered the same way, and none of them is required.
 
 ## Result
 
 - **Queries ready to paste:** KQL or Lucene for Kibana and OpenSearch Dashboards, PPL for OpenSearch, or a read-only API request body, each with its index or data view and an **absolute time range in UTC**.
 - **What they returned:** counts, a histogram over time, the top error types or messages, a comparison with a baseline window, and a few representative documents, masked.
 - **The next query** to run, or the conclusion and the handoff (to skill:log-analysis, skill:incident-response or skill:debug-systematically).
-- Without a log stack: the same search as `grep` or `jq` commands on local or exported logs (`references/local-fallback.md`).
+- Without a log stack: the same search on the runtime's logs (`kubectl logs`, `docker logs`, `journalctl`) or the hosts' log files, with `grep` or `jq` (`references/local-fallback.md`).
 
 ## When
 
 - Errors in production or another shared environment, an incident investigation, a request or trace ID to follow, or a query that someone needs written or fixed.
-- **Not for:** analyzing a log file or an export that is already in hand (skill:log-analysis); metrics dashboards or alert design (skill:slo-design).
+- **Not for:** a log file or an export that is already in hand, even to search it (skill:log-analysis); metrics dashboards or alert design (skill:slo-design).
 
 ## Rules
 
-- **Read-only.** Only search and read APIs (`_search`, `_count`, `_field_caps`, `_sql`, `_query`, `_plugins/_ppl`, `_plugins/_sql`, `_cat/indices`). Never index, update, delete, reindex, change mappings, close indices or touch index lifecycle policies, even when asked to "clean up" logs: that is a change for the people who own the cluster.
+- **Read-only.** Only search and read APIs (`_search`, `_count`, `_field_caps`, `_sql`, `_query`, `_plugins/_ppl`, `_plugins/_sql`, `_cat/indices`). Through the SQL endpoints, only `SELECT`, `SHOW` and `DESCRIBE`: OpenSearch can run a `DELETE` there when its cluster allows it. Never index, update, delete, reindex, change mappings, close indices or touch index lifecycle policies, even when asked to "clean up" logs: that is a change for the people who own the cluster.
 - **Access comes from the person or the project.** Three ways, in this order:
   1. the person runs the query in Kibana or OpenSearch Dashboards and pastes masked results or aggregations;
   2. a tool the project has already configured: an MCP server for Elastic or OpenSearch, or an endpoint in an environment variable (`$ES_URL`) with credentials the person set in the environment or the tool's configuration;
-  3. local or exported files (`references/local-fallback.md`).
+  3. without a stack, the runtime's logs and the hosts' log files (`references/local-fallback.md`).
   Credentials never go through the conversation: do not read, print or repeat their values, and never put them in a command line you show.
 - **External destinations.** An MCP server or endpoint that leaves the organization is an external system: check what each call sends (`.exo/shared/data-protection.md`, section C).
 - **Clean what comes back.** Log documents carry tokens, emails, IPs, names and customer IDs. Prefer aggregations over raw documents, select only the fields you need, and mask every sample before it reaches the conversation (skill:prompt-hygiene; when the security pack is not installed: `security/prompt-hygiene not installed — applying inline criteria`, with the inline criteria of `.exo/shared/phase-skill-map.md`). A secret found in a log is pointed at (index, document ID, field), never copied; tell the person to rotate it.
@@ -109,7 +111,7 @@ What you searched (index, query, absolute window), what you found (counts, start
 
 ## Without a log stack
 
-When there is no Elastic or OpenSearch, or the person has an export, run the same search on files with `grep`, `jq`, `zgrep`, `kubectl logs --since-time`, `docker logs --since`, `journalctl --since`, or `Select-String` in PowerShell. All read-only. Recipes in `references/local-fallback.md`.
+When there is no Elastic or OpenSearch, run the same search where the runtime keeps the logs: `kubectl logs --since-time`, `docker logs --since`, `journalctl --since`, or the service's log files on the host with `grep`, `jq`, `zgrep` or `Select-String` in PowerShell. All read-only. Recipes in `references/local-fallback.md`. An export or a file the person already has goes to skill:log-analysis.
 
 ## Return
 

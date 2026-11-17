@@ -36,7 +36,7 @@ A log is evidence with a lot of noise. This skill turns it into a few facts: whe
 ## When
 
 - Someone shares a log file, an export or query results; asks what is happening in the logs; sees a spike; wants a before and after comparison around a deploy.
-- **Not for:** writing the query in Kibana or OpenSearch (skill:kibana-logs), declaring and running an incident (skill:incident-response), or fixing the bug once found (skill:debug-systematically).
+- **Not for:** searching a log stack (Kibana, OpenSearch) or the runtime's logs where they live (skill:kibana-logs), declaring and running an incident (skill:incident-response), or fixing the bug once found (skill:debug-systematically).
 
 ## Rules
 

@@ -107,7 +107,7 @@ A refuted hypothesis is a success of the experiment: it found a weakness before 
 
 ### 9. Turn findings into actions
 
-Each finding gets an action with an owner role and a check that proves it is done (often: "re-run this experiment and see it hold"). Runbooks that were wrong or missing go to skill:runbook-writer. Plan the next experiment, possibly one step wider.
+Each finding gets an action in the actions table of `references/experiment-template.md`, the same format as the rest of the pack: the finding it addresses, its type, an owner role, a due date and a check that proves it is done (often: "re-run this experiment and see it hold"). Runbooks that were wrong or missing go to skill:runbook-writer. Plan the next experiment, possibly one step wider.
 
 ## GameDays
 
@@ -115,8 +115,8 @@ A GameDay runs one or more experiments with the team present, to exercise people
 
 ## Where it goes
 
-- The folder the project uses for resilience work (look for `docs/chaos/`, `docs/resilience/` or `docs/gamedays/`); if there is none, propose `docs/chaos/YYYY-MM-DD-<slug>.md` and use it unless the person prefers another place.
-- **Inside an SDD change,** never write into the change root: return the experiment design as text for the phase that owns the artifact (for example the Test Plan of design.md). Fault injection code or configuration is code: apply phase, when the plan lists it.
+- The folder the project uses for resilience work (look for `docs/chaos/`, `docs/resilience/` or `docs/gamedays/`), as `YYYY-MM-DD-<slug>.md`. If there is none, propose `docs/chaos/` and create it only after the person says yes; until then, keep the card in the answer.
+- **Inside an SDD change,** the experiment card is a project document, never a file of the change root: any phase may write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C). Until then, return the experiment design as text, also for the phase that owns an artifact that needs it (for example the Test Plan of design.md). Fault injection code or configuration is code: apply phase, when the plan lists it.
 
 ## Return
 
@@ -124,8 +124,8 @@ A GameDay runs one or more experiments with the team present, to exercise people
 Experiment: cache node loss (staging), 2026-03-10 10:00-10:15 UTC
 Hypothesis: when 1 of 3 cache nodes stops, checkout success stays above 99.5% and p99 under 900 ms, because clients fail over within 5 s.
 Fault: stop cache-node-2 in staging (proposed command shown; run by the person at 10:02).
-Abort: success below 98% for 1 minute, or any alert outside staging. Stop: start cache-node-2 (checked at 09:55).
-Result: refuted. Success dropped to 96.8% for 40 s; p99 reached 4.2 s; recovered by itself at 10:03:10. Abort called at 10:02:50 (rule 1).
+Abort: (1) success below 98% for 30 s, or (2) any alert outside staging. Stop: start cache-node-2 (checked at 09:55).
+Result: refuted. From 10:02:20 success fell to 96.8% and p99 reached 4.2 s. Abort called at 10:02:50 (abort condition 1); cache-node-2 started at 10:02:55; success back above 99.5% at 10:03:10.
 Finding: the client keeps a 30 s DNS cache, so it retried the dead node until the entry expired.
 Actions: A-1 set the client's DNS cache to 5 s (platform lead; check: re-run holds). A-2 alert on cache client errors (on-call lead).
 Next: re-run in staging after A-1; production only with the owner's approval.

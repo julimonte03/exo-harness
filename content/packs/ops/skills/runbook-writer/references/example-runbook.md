@@ -48,12 +48,12 @@ Orders are accepted but not processed. Customers see "order received" and no con
 Run only with the incident commander's go-ahead.
 
 1. Read why they crash: `kubectl logs deploy/orders-worker -n <namespace> --previous --tail=50` (read-only).
-   Expected: the last error before the restart. An out-of-memory kill shows in `kubectl describe pod <pod> -n <namespace>` as `OOMKilled`.
+   Expected: the last error before the restart. For an out-of-memory kill, `kubectl get pod <pod> -n <namespace> -o jsonpath='{.status.containerStatuses[*].lastState.terminated.reason}'` (read-only) prints `OOMKilled`.
 2. If the cause is a bad release: go to M2. If it is memory: go to M3 and escalate to the orders team.
-3. If the cause is unknown and only some pods crash, restart them: `kubectl rollout restart deploy/orders-worker -n <namespace>`
-   Expected: new pods READY within 3 minutes.
+3. If the cause is unknown and only some pods crash, delete those pods one at a time, and let the Deployment replace them: `kubectl delete pod <pod> -n <namespace>`. Never `kubectl rollout restart`: it restarts every pod, the healthy ones too.
+   Expected: each replacement pod READY within 3 minutes.
 4. Verify: consumer rate above the incoming rate on the dashboard within 10 minutes; the backlog starts falling.
-Undo: no undo needed; a restart does not change configuration.
+Undo: no undo needed; deleting a pod of a Deployment does not change configuration.
 
 ### M2. Roll back orders-worker [changes state]
 

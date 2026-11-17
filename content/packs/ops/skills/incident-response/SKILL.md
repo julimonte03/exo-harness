@@ -40,7 +40,8 @@ Stop the bleeding first, understand it later. This skill keeps the response orde
 ## Rules
 
 - **The person decides, the agent supports.** The incident commander is a person. The agent works as scribe and analyst: it keeps the timeline, reads logs and metrics, lists options, and drafts updates.
-- **No change without approval.** Read-only diagnostics (log queries, metrics, `kubectl get`, `describe` and `logs`, `git log`) run when your tools and access allow it. Every command that changes a system is proposed as a block with what it does, its risk, its undo and the signal that proves it worked; it runs only after the person says yes, by them or by you. Destructive actions (deleting data, dropping a queue, a failover with possible data loss) also need the incident commander's explicit approval, recorded in the timeline.
+- **No change without approval.** Read-only diagnostics (log queries, metrics, `kubectl get`, `describe` and `logs` on workloads, `git log`) run when your tools and access allow it, except the ones the next rule forbids. Every command that changes a system is proposed as a block with what it does, its risk, its undo and the signal that proves it worked; it runs only after the person says yes, by them or by you. Destructive actions (deleting data, dropping a queue, a failover with possible data loss) also need the incident commander's explicit approval, recorded in the timeline.
+- **Never read credentials.** Read-only is not enough when a command puts a secret in the context: no Secret objects in any form (`kubectl get secret`, `kubectl describe secret`, `-o yaml` or `-o json` on secrets), no `-o yaml` or `-o json` on config maps that hold credentials, no `kubectl exec`, and no `env`, `printenv` or anything else that dumps environment variables. Of environment variables, read only the names; `describe pod` prints literal values, so take only its state and events. When a value matters, the person checks it.
 - **Mitigate before root cause.** When a safe mitigation exists (rolling back the change that correlates with the start), propose it now; the full explanation can wait.
 - **One change at a time** during mitigation, each with its verification, so you know what worked.
 - **Clean what you paste.** Logs and tickets carry personal data and secrets: apply skill:prompt-hygiene before anything reaches the conversation, an update or a document. When the security pack is not installed, say `security/prompt-hygiene not installed — applying inline criteria` and apply the inline criteria of `.exo/shared/phase-skill-map.md`.
@@ -102,7 +103,7 @@ Use the commands the project really has (its deploy pipeline, scripts, runbooks 
 ## 4. Diagnose in parallel
 
 - While the operations lead mitigates, look for the cause without blocking the mitigation: logs with skill:kibana-logs or skill:log-analysis, metrics, traces, the diff of the suspect change, and recent alerts.
-- **Delegate wide reading.** An incident is a mandatory delegation trigger of `.exo/shared/sdd-phase-common.md`, section G: with subagents and the sdd pack, send the reading of four or more files or long logs to `sdd-explorer` (read-only), with a brief cleaned as skill:prompt-hygiene says. Without subagents, read in small batches (`.exo/shared/agent-capabilities.md`).
+- **Delegate the investigation.** "An incident or a production error" is a mandatory delegation trigger of its own (trigger 4 of `.exo/shared/sdd-phase-common.md`, section G), whatever the number of files: with subagents and the sdd pack, send the reading of code, logs and history to `sdd-explorer` (read-only), with a brief cleaned as skill:prompt-hygiene says, and keep the coordination here. Without subagents, read in small batches (`.exo/shared/agent-capabilities.md`).
 - Write each hypothesis in the timeline with how it was tested and the result, including the ones that were wrong.
 
 ## 5. Communicate
@@ -142,7 +143,7 @@ One line per event, in UTC, appended as things happen; never rewrite past lines,
 
 ## 8. Postmortem
 
-Within five working days for SEV1 and SEV2. Start from `references/postmortem-template.md`; write it in the folder the project uses for postmortems (look for `docs/postmortems/`, `postmortems/` or `docs/incidents/`; if there is none, propose `docs/postmortems/YYYY-MM-DD-<slug>.md` and use it unless the person prefers another place).
+Within five working days for SEV1 and SEV2. Start from `references/postmortem-template.md`; write it as `YYYY-MM-DD-<slug>.md` in the folder the project uses for postmortems (look for `docs/postmortems/`, `postmortems/` or `docs/incidents/`). If there is none, propose `docs/postmortems/` and create it only after the person says yes; until then, keep the postmortem in the answer.
 
 1. **Summary, impact and timeline,** from the record: duration, users affected, error budget consumed.
 2. **Detection and response:** how it was noticed (alert, user report), time to detect, to mitigate and to resolve, and what helped or slowed the response.
@@ -151,7 +152,7 @@ Within five working days for SEV1 and SEV2. Start from `references/postmortem-te
 5. **Actions:** each one removes or detects a cause, with an owner role, a due date and a check that proves it is done. With `tickets.pattern` in `.exo/config.json`, the person files them and gives you the IDs; never invent one.
 6. **Review** with the people involved, then share it as the team usually does.
 
-Inside an SDD change, the postmortem is never written into the change root: it is a project document. Outside one, save what others will need with skill:memory-protocol (`exo mem save --type bugfix` with the symptom, the cause and the fix), without personal data.
+Inside an SDD change, the postmortem is a project document, never a file of the change root: any phase may write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C); until then, keep it in the answer. Outside one, write it as above, and save what others will need with skill:memory-protocol (`exo mem save --type bugfix` with the symptom, the cause and the fix), without personal data.
 
 ## Record
 

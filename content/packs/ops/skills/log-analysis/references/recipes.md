@@ -111,10 +111,15 @@ jq -s -c 'map(select(.["trace.id"] == "<trace-id>")) | sort_by(.["@timestamp"]) 
 ## Masking a sample before showing it
 
 ```bash
-sed -E -e 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/user@example.com/g' \
-       -e 's/([0-9]{1,3}\.){3}[0-9]{1,3}/203.0.113.10/g' \
-       -e 's/(token|password|secret|authorization)=[^ ]*/\1=<redacted>/gI' \
-       sample.log
+perl -pe '
+  s/\b(Bearer|Basic)\s+[A-Za-z0-9._~+\/=-]+/$1 <redacted>/gi;
+  s/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/<jwt>/g;
+  s/("?(?:token|access_token|refresh_token|password|passwd|secret|api_?key|authorization|cookie)"?\s*[:=]\s*)("[^"]*"|[^\s,;&}]+)/$1<redacted>/gi;
+  s/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/user\@example.com/g;
+  s/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/203.0.113.10/g;
+' sample.log
 ```
+
+It masks `Authorization: Bearer` and `Basic` headers, JWTs, secret keys as `key=value`, `key: value` or JSON (`"password": "..."`), emails and IPv4 addresses. `perl` behaves the same on Linux, macOS and Git for Windows; `sed` does not (the case-insensitive `I` flag is GNU only).
 
 A regular expression never catches everything: read the masked sample before you paste it, and summarize free text written by people instead of quoting it.

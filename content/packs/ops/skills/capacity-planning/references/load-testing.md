@@ -63,7 +63,7 @@ locust -f loadtest/locustfile.py --headless -u 500 -r 50 --run-time 30m --host <
 jmeter -n -t loadtest/checkout.jmx -l <work>/results.jtl -e -o <work>/report
 
 # vegeta (open model: a constant rate)
-echo "GET <test-environment-url>/health" | vegeta attack -rate=480 -duration=10m | vegeta report
+echo "POST <test-environment-url>/checkout/confirm" | vegeta attack -rate=480 -duration=10m -body=loadtest/cart.json -header="Content-Type: application/json" | vegeta report
 
 # hey (quick and simple)
 hey -z 5m -q 10 -c 50 <test-environment-url>/search?q=shoes
@@ -73,7 +73,7 @@ A k6 skeleton for the scenario, with an open model and thresholds:
 
 ```javascript
 import http from 'k6/http';
-import { check, sleep } from 'k6';
+import { check } from 'k6';
 
 export const options = {
   scenarios: {
@@ -102,7 +102,7 @@ export default function () {
     tags: { journey: 'checkout' },
   });
   check(res, { 'status is 200': (r) => r.status === 200 });
-  sleep(1);
+  // no sleep: the arrival-rate executor starts the iterations; a sleep only holds VUs
 }
 ```
 

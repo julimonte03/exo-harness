@@ -128,7 +128,7 @@ When the project has an endpoint configured in the environment, the request goes
 curl -s "$ES_URL/logs-*/_search" -H "Content-Type: application/json" --data-binary @query.json
 ```
 
-Only `_search`, `_count`, `_field_caps`, `_sql`, `_query`, `_plugins/_ppl`, `_plugins/_sql` and `_cat/indices`. Never a request that indexes, updates, deletes or changes settings.
+Only `_search`, `_count`, `_field_caps`, `_sql`, `_query`, `_plugins/_ppl`, `_plugins/_sql` and `_cat/indices`, and through `_sql` and `_plugins/_sql` only `SELECT`, `SHOW` and `DESCRIBE` statements (OpenSearch runs a `DELETE` there when its cluster allows it). Never a request that indexes, updates, deletes or changes settings.
 
 ## Common fields
 

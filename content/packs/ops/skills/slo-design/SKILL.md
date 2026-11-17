@@ -69,7 +69,7 @@ Compute each SLI over the last four weeks, or as long as data exists, with the q
 
 ### 4. Set target and window
 
-- **Window:** a rolling 28 or 30 days is the common choice. It covers weekly cycles, and it has no reset: a bad day keeps counting for the next 30 days, while a calendar month forgets it on the first.
+- **Window:** a rolling 28 or 30 days is the common choice, and a rolling window has no reset: a bad day keeps counting until it leaves the window, while a calendar month forgets it on the first. Only 28 days holds whole weeks (four), so every weekday weighs the same; 30 days matches the monthly reports, but its mix of weekdays shifts as it rolls.
 - **Target:** at or slightly below what the baseline shows the service already achieves when users are happy, and above the level where they complain. Check it against what each dependency can deliver: a service cannot be more available than the dependencies it needs on every request, unless it has a fallback.
 - **The cost of each nine:**
 
@@ -116,13 +116,14 @@ A review date (monthly at first, then quarterly): compare the SLI with user comp
 
 ## Where it goes
 
-- The folder the project uses for SLOs (look for `docs/slo/`, `slo/` or `docs/reliability/`); if there is none, propose `docs/slo/<service>.md` and use it unless the person prefers another place.
+- The folder the project uses for SLOs (look for `docs/slo/`, `slo/` or `docs/reliability/`), as `<service>.md`. If there is none, propose `docs/slo/` and create it only after the person says yes; until then, keep the document in the answer.
 - Alert rules: proposed as a diff to the project's alerting configuration, for the person to apply.
 
 ## Inside an SDD change
 
 - **Spec and design:** return the targets as text for the phase that owns the artifact: non-functional requirements in the format of `.exo/shared/sdd-phase-common.md`, section C, for `sdd-spec` to number (`CAP-<capability>-NFR-n`), for example "99.9% of checkout requests over a rolling 30 days are answered without a server error". Never write into the change root yourself.
-- **Apply:** the SLO document and the alert rules are files of the change when the plan lists them (`tasks.md` in Tier 3 and 4, the proposal's Scope in Tier 1 and 2).
+- **The SLO document:** it is a project document, never a file of the change root: any phase may write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C).
+- **The alert rules** are configuration: the apply phase writes them when the plan lists them.
 
 ## Return
 

@@ -41,7 +41,7 @@ A handoff fails when something important lives only in the outgoing person's hea
 - **Verify before writing.** Check the current state of each open item (is the flag still off, is the alert still silenced) instead of copying an earlier note.
 - **No personal contact data.** Escalation goes to roles and rotations ("payments on-call", "database team rotation"), never personal phone numbers or emails.
 - **No secrets or customer data.** Clean anything you paste from logs or tickets (skill:prompt-hygiene; when the security pack is not installed: `security/prompt-hygiene not installed — applying inline criteria`, with the inline criteria of `.exo/shared/phase-skill-map.md`).
-- **Read-only on systems.** Gathering facts uses read-only queries; the handoff never changes a system. A temporary change that should be undone is listed with its undo, for the person to decide.
+- **Read-only on systems.** Gathering facts uses read-only queries, never one that reads a credential (Secret objects, environment dumps, `kubectl exec`: skill:incident-response, Rules); the handoff never changes a system. A temporary change that should be undone is listed with its undo, for the person to decide.
 - **The note complements a conversation.** Recommend a short live handoff; the incoming person confirms they read it.
 
 ## Steps
@@ -120,18 +120,18 @@ Read the note with the outgoing person, fix what is wrong, and suggest a short l
 - <item, who could confirm it>
 ```
 
-- **Status:** green when nothing is open; yellow when something is open or at risk but stable; red when an incident is active or a risk is likely to fire during the next shift.
+- **Status:** green when nothing is open; yellow when something is open but mitigated or stable (an incident in monitoring, a risk being watched); red when an incident is active, that is, not mitigated yet, or a risk is likely to fire during the next shift.
 - **Tickets** follow `tickets.pattern` in `.exo/config.json` when the project has one; use the IDs the person gives, never invented ones.
 
 ## Where it goes
 
 - **By default, the answer:** most teams paste the handoff where they coordinate.
-- **In the repository** when the project already keeps handoffs there (look for `docs/oncall/`, `oncall/handoffs/` or `docs/handoffs/`) or the person names a path: `YYYY-MM-DD-<rotation>.md` in that folder. Never create such a folder without the person agreeing that handoffs belong in the repository.
-- **Inside an SDD change,** never in the change root: a handoff is not an artifact of the change.
+- **In the repository** when the project already keeps handoffs there (look for `docs/oncall/`, `oncall/handoffs/` or `docs/handoffs/`) or the person names a path: `YYYY-MM-DD-<rotation>.md` in that folder. Without such a folder, propose one (`docs/oncall/`) and create it only after the person says yes: handoffs in the repository are the team's choice.
+- **Inside an SDD change,** a handoff is a project document, never a file of the change root: any phase may write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C); until then, it stays in the answer.
 
 ## Record
 
-Handoffs usually happen outside SDD changes, so there is nothing to record. Inside one (an incident fix that spans shifts), an inline phase records the skill (`.exo/shared/capability-attribution.md`):
+Handoffs usually happen outside SDD changes, so there is nothing to record. Inside one (an incident fix that spans shifts), an inline phase records the skill (`.exo/shared/capability-attribution.md`); a subagent lists it in its envelope notes and the orchestrator records it:
 
 ```bash
 exo change record <change> --add capabilities_used '{"name": "on-call-handoff", "type": "skill", "activation": "requested", "resolution": "fallback-registry"}'

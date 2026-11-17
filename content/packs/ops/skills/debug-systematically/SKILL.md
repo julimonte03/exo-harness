@@ -12,8 +12,8 @@ description: >-
   flaky test, a wrong result, an error nobody understands, a regression since
   a release, or something that only fails in CI. Triggers: "it doesn't
   work", "this is broken", "I don't understand why it fails", "debug this",
-  "find the bug", "flaky test", "it worked yesterday", "regression since the
-  last release", "only fails in CI", "why does this return".
+  "find the bug", "this test is flaky", "it worked yesterday", "regression
+  since the last release", "only fails in CI", "why does this return".
 metadata:
   exo-pack: ops
   exo-execution: inline
@@ -37,6 +37,7 @@ Guessing is slow. Each change made without a hypothesis adds noise, and a fix wi
 - A test fails or flakes, a result is wrong, an error makes no sense, a regression appeared, or something works locally and fails in CI or in another environment.
 - **Not first in a production incident with users affected:** mitigate with skill:incident-response, then debug.
 - **Not for** a build or dependency failure in a JVM project when `java-build-resolver` (pack `java`) is installed; not for capacity limits under load (skill:capacity-planning).
+- **Flaky browser or component tests** go first to the skill of their tool when it is installed: `playwright` (pack `frontend`) for end-to-end and browser tests, `react-testing` (pack `frontend`) for React component tests. They know the waits, locators and isolation of their tools; come back here when the cause is outside the test (the code under test, the data, the environment).
 
 ## Rules
 

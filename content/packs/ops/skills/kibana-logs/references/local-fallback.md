@@ -1,6 +1,6 @@
-# Without a log stack: local and exported logs
+# Without a log stack: the runtime's logs and the hosts' files
 
-The same search as in Kibana or OpenSearch, on files and on the logs that the runtime keeps. Every command here only reads. Run them on copies or exports when the person prefers, and mask what you paste.
+The same search as in Kibana or OpenSearch, on the logs that the runtime keeps and on the hosts' log files. Every command here only reads; mask what you paste. A file or an export the person already has goes to skill:log-analysis.
 
 ## Pin the window
 
@@ -70,7 +70,7 @@ Get-WinEvent -FilterHashtable @{ LogName = 'Application'; Level = 2; StartTime =
 
 ## Exports from a log platform
 
-A CSV or JSON export from Kibana, OpenSearch Dashboards, CloudWatch, Loki, Datadog or Splunk is a file like any other: read its header or first record, then apply the recipes above. Hand the analysis itself (grouping, baselines, correlation) to skill:log-analysis.
+A CSV or JSON export from Kibana, OpenSearch Dashboards, CloudWatch, Loki, Datadog or Splunk is a file in hand: hand it to skill:log-analysis, which reads it with the same tools and does the analysis (grouping, baselines, correlation).
 
 ## Big files
 
