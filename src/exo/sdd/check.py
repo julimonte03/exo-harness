@@ -16,6 +16,8 @@ Desde que hay `verify-record.md` (o el change está archivado), además:
 - los gates del tier (`governance.gates`) tienen que estar, bien formados; uno
   escalado o que pide aprobación queda como aviso para `tech_lead` (el motor no
   verifica roles, §7.3);
+- los gates condicionales (ADR-0016): con `canvas.md`, `prompt_spec_review`; y todo
+  gate presente que el tier no exige se revisa igual;
 - en Tier 4, `judgment-day` aprobado en el AI Usage Record.
 
 También: la config válida, el escaneo de secretos y datos personales de lo que
@@ -208,15 +210,42 @@ def _delta_capabilities(project: Path, change: observability.Change) -> set[str]
     return {block.capability for _, block in delta.blocks()}
 
 
+def _approval(project: Path, name: str, info: speclint.GateInfo) -> Finding:
+    why = (
+        "is APPROVED but its Approval says yes"
+        if info.verdict == "APPROVED"
+        else f"is {info.verdict or 'without a readable verdict'}"
+    )
+    return Finding(
+        "warning",
+        _rel(project, info.path),
+        0,
+        f"the gate {name} {why}: it needs the tech_lead role's approval in the PR",
+    )
+
+
 def _gates(project: Path, change: observability.Change, tier: int, cfg: dict) -> list[Finding]:
+    """Los gates del tier, los condicionales que pide el change y todo gate presente.
+
+    Los condicionales (D-43, ADR-0016) no dependen del tier: `prompt_spec_review` se exige
+    cuando hay `canvas.md`. Un gate presente que nadie exige (por ejemplo
+    `accessibility_review`) igual se revisa: speclint ya rechaza su forma, y acá avisa si
+    pide la aprobación de `tech_lead`.
+    """
     folder = project / change.path
+    gates_dir = folder / speclint.GATES_DIR
     found: list[Finding] = []
-    for name in cfg["governance"]["gates"].get(str(tier), []):
+    required = list(cfg["governance"]["gates"].get(str(tier), []))
+    reasons = {name: f"Tier {tier} requires" for name in required}
+    if (folder / speclint.CANVAS).is_file() and speclint.CANVAS_GATE not in reasons:
+        required.append(speclint.CANVAS_GATE)
+        reasons[speclint.CANVAS_GATE] = f"{speclint.CANVAS} requires"
+    for name in required:
         if name == speclint.CONTRACT_GATE:
             path = folder / "verify-record.md"
             info = speclint.contract_gate(path) if path.is_file() else None
         else:
-            path = folder / speclint.GATES_DIR / f"{name}.md"
+            path = gates_dir / f"{name}.md"
             info = speclint.gate_info(path) if path.is_file() else None
         if info is None:
             found.append(
@@ -224,24 +253,19 @@ def _gates(project: Path, change: observability.Change, tier: int, cfg: dict) ->
                     "error",
                     change.path,
                     0,
-                    f"Tier {tier} requires the gate {name} ({speclint.GATES_DIR}/{name}.md): "
+                    f"{reasons[name]} the gate {name} ({speclint.GATES_DIR}/{name}.md): "
                     "run the skill that owns it",
                 )
             )
         elif info.needs_approval:
-            why = (
-                "is APPROVED but its Approval says yes"
-                if info.verdict == "APPROVED"
-                else f"is {info.verdict or 'without a readable verdict'}"
-            )
-            found.append(
-                Finding(
-                    "warning",
-                    _rel(project, info.path),
-                    0,
-                    f"the gate {name} {why}: it needs the tech_lead role's approval in the PR",
-                )
-            )
+            found.append(_approval(project, name, info))
+    present = sorted(gates_dir.glob("*.md")) if gates_dir.is_dir() else []
+    for path in present:
+        if path.stem in reasons:
+            continue
+        info = speclint.gate_info(path)
+        if info.needs_approval:
+            found.append(_approval(project, path.stem, info))
     return found
 
 
