@@ -1,6 +1,6 @@
 # Judge contract
 
-Rules every judge follows: `judge-code-reviewer` and `judge-security` (pack `quality`), the two blind judges of `judgment-day`, and the `sdd-judge` subagent that runs any of them. A judge skill cites the sections it uses; when a judge skill and this contract disagree, this contract wins.
+Rules every judge follows: the judges of pack `quality` (`judge-code-reviewer`, `judge-security`, `judge-product`, `judge-business`, `judge-frontend` and `judge-team`), the two blind judges of `judgment-day`, the panel that `excellence-committee` convenes, and the `sdd-judge` subagent that runs any of them. A judge skill cites the sections it uses; when a judge skill and this contract disagree, this contract wins.
 
 ## A. Advisory first
 
@@ -15,7 +15,17 @@ Rules every judge follows: `judge-code-reviewer` and `judge-security` (pack `qua
 
 ## C. No cascade
 
-Validate against the stage before, in the change root under `specs/`: the proposal and the spec for a design, the design for a plan, the spec, the design and the tasks for a diff. A defect that comes from an earlier stage is a finding against that stage, named as such; do not judge a design by a spec the design never received.
+Validate against the stage before, in the change root under `specs/`:
+
+| Under review | Validate against |
+|---|---|
+| proposal.md | The request, the exploration when there is one, and `.exo/context.md` |
+| spec.md | The proposal |
+| design.md (and canvas.md) | The proposal and the spec |
+| tasks.md | The spec and the design |
+| The diff | The spec, the design and the tasks |
+
+A defect that comes from an earlier stage is a finding against that stage, named as such; do not judge a design by a spec the design never received.
 
 ## D. Findings
 
@@ -23,11 +33,23 @@ Each finding has:
 
 | Field | Rule |
 |---|---|
-| `id` | `J<judge code>-<n>`, unique in the change: `JCR-1` for `judge-code-reviewer`, `JSEC-1` for `judge-security`. Never reuse a number. |
-| `severity` | Critical (data loss, a security hole, the main flow broken), High (a requirement or scenario not met, a mitigation missing), Medium (an edge case or error path), Low (readability, naming) |
+| `id` | `J<judge code>-<n>`, unique in the change. Never reuse a number. The codes are in the table below. |
+| `severity` | Critical (data loss, a security hole, the main flow broken), High (a requirement or scenario not met, a mitigation missing), Medium (an edge case or error path), Low (readability, naming). For an artifact before code (a proposal, a spec, a plan), High means it misses something the next stage needs, and Critical means it would build the wrong thing. |
 | `location` | `path:line` when it points at code |
 | `rule` | The rule, OWASP or WCAG item, requirement ID or scenario ID it breaks |
 | `summary` | What is wrong, and a suggested fix as text |
+
+| Code | Judge |
+|---|---|
+| `JCR` | `judge-code-reviewer` |
+| `JSEC` | `judge-security` |
+| `JPRD` | `judge-product` |
+| `JBIZ` | `judge-business` |
+| `JFE` | `judge-frontend` |
+| `JTEAM` | `judge-team` |
+| `J4R` | `review-4r`, when its findings are recorded in a change |
+
+`excellence-committee` keeps the code of the judge that raised each finding; its moderator adds no codes of its own.
 
 Never copy secrets or personal data into a finding: point at the location. Secrets or personal data written to logs, responses or error messages are at least High, for every judge.
 
