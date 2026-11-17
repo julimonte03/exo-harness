@@ -64,7 +64,7 @@ Say these where the phase would have run, and why this change does not need it.
 | tasks (`sdd-tasks`) | an ordered checklist of small tasks and a size forecast; `tasks.md` and `test-spec.md` | the proposal's Scope is already one work unit |
 | judges | advisory reviews in separate read-only passes (security, code, product, business, frontend, team) | they start at Tier 3 |
 | `judgment-day` | a final review in fresh context that the person approves | Tier 4 only |
-| SPDD canvas | a seven-section contract the code is checked against, approved by a person (`.exo/shared/spdd-common.md`) | for Tier 3 and 4 domain logic, or on request |
+| SPDD canvas | a seven-section contract the code is checked against, approved by a person (`.exo/shared/spdd-common.md`) | for Tier 3 and 4 domain logic, on request, or when the project requires it in the tier |
 
 You may open the template of a skipped artifact (`.exo/shared/templates/design.md`, `canvas.md`) to show its sections. Never write the artifact itself.
 

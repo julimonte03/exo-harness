@@ -5,10 +5,11 @@ description: >-
   prompt that fixes what the code will do before any code exists, in seven
   sections (Requirements, Entities, Approach, Structure, Operations, Norms,
   Safeguards) drawn from the spec delta, design.md and the threat model. Part
-  of the optional SPDD overlay: it runs in the design phase, after design.md,
-  for Tier 3 and 4 changes with domain logic worth fixing first (business
-  rules, calculations, state machines, permissions, money, integration
-  contracts) or whenever the person asks for it. A section it cannot fill
+  of the optional SPDD overlay: it runs in the design phase, after design.md
+  (right before apply in Tier 1 and 2), for Tier 3 and 4 changes with domain
+  logic worth fixing first (business rules, calculations, state machines,
+  permissions, money, integration contracts), whenever the person asks for
+  it, or when the project requires it in the tier. A section it cannot fill
   becomes a question for the person, never a guess. Use it when the person
   asks for a canvas, a structured prompt or a design contract before coding,
   or mentions SPDD. Triggers: "write the canvas", "REASONS canvas", "SPDD",
