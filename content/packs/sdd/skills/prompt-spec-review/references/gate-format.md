@@ -17,7 +17,7 @@ The examples below belong to a synthetic change, `add-volume-discount` (the canv
 | Severity | the gap's severity, or `-` when there is none | the gap's severity, or `-` |
 | File:line | `<change-root>/canvas.md`, with the line when it helps | the code (`path:line`), or the canvas item for a missing file |
 | Finding | what is missing, contradicted or vague, and the fix | what the code does against what the canvas says, and the fix |
-| Rule/OWASP | the canvas section and item, and the source it disagrees with (`S-3`, `TM-1`, a design.md section) | the canvas section and item (`Operations 4`, `Safeguards 2`, `Structure`, `Norms 1`); add the OWASP or CWE item for a security Safeguard |
+| Rule/OWASP | the canvas section and item, and the source it disagrees with (`S-3`, `TM-1`, a design.md section) | the canvas section and item (`Operations 4`, `Safeguards 2`, `Structure`, `Norms 1`); add the OWASP item, with its edition (`OWASP A01:2021`), or the CWE for a security Safeguard |
 
 ## 1. Approval mode, approved
 
@@ -126,6 +126,8 @@ Source: skill prompt-spec-review
 
 Checked: Operations 1 to 6, Norms 1 to 4, Safeguards 1 to 4, against `git diff main...HEAD` (4 files).
 ```
+
+With only Medium and Low gaps and every changed file in Structure, the rows list them and the Verdict is still `APPROVED`, for example `APPROVED: every Operation and Safeguard holds; 1 Low gap in Norms 2.` The gaps also go to Issues Found of `verify-record.md`.
 
 The Verdict is `APPROVED` only when the design approval was `APPROVED` too; otherwise it stays `ESCALATED` and says that the canvas never had a person's approval.
 

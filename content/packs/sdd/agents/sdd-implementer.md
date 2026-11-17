@@ -29,7 +29,7 @@ Denied by default. You may:
 
 You never:
 
-- edit the other artifacts of the change (`proposal.md`, `spec.md`, `design.md`, `test-spec.md`, `verify-record.md`, `ai-usage-record.json`, `fitness-assessment.json`), the living specs, or the engine files under `.exo/`;
+- edit the other artifacts of the change (`proposal.md`, `spec.md`, `design.md`, `canvas.md`, `test-spec.md`, `verify-record.md`, the gates, `ai-usage-record.json`, `fitness-assessment.json`), the living specs, or the engine files under `.exo/`: a canvas edit or a gate goes back as text in your answer, as `prompt-code-sync` and `sdd-apply` say;
 - add dependencies, change lockfiles, CI or configuration that the plan does not name;
 - push, force, use `--no-verify`, rewrite history, or commit on a protected branch;
 - run destructive commands (recursive deletes, `git reset --hard`, `git clean`);

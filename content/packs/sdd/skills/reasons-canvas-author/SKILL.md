@@ -41,8 +41,9 @@ The rules of the overlay are in `.exo/shared/spdd-common.md`. When this skill an
   3. the design judges review design.md and canvas.md together (`.exo/shared/judge-common.md`, section C);
   4. skill:prompt-spec-review asks the person to approve the canvas;
   5. the design phase asks for its own approval.
-- **Tier 1 and 2** have no design phase. When the person asks for the overlay there, write the canvas right before apply, from the proposal (Scope, Out of Scope) and spec.md, and read the code yourself for Structure and Norms. Say in the notes that there was no design.md to check against.
-- **Again** when spec.md or design.md change after the canvas, or when skill:prompt-code-sync brings a logic correction: update only the affected items. The changed canvas goes back to approval.
+- **Tier 1 and 2** have no design phase. When the overlay applies there, the orchestrator runs this skill in its session right before apply (skill:sdd-orchestrator, SPDD overlay): write the canvas from the proposal (Scope, Out of Scope) and spec.md, and read the code yourself for Structure and Norms. Say in the notes that there was no design.md to check against.
+- **Again** when spec.md or design.md change after the canvas: update only the affected items. The changed canvas goes back to approval.
+- **Not for a logic correction found in apply:** skill:prompt-code-sync writes that edit and sends it to approval (`.exo/shared/spdd-common.md`, section D).
 
 ## What it writes and what it never touches
 

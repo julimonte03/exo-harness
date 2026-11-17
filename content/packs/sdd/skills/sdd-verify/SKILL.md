@@ -77,7 +77,7 @@ Back every finding with `path:line`. What you could not check goes in Issues Fou
 
 | Verdict | When |
 |---|---|
-| `ready` | Every scenario has a passing test, the tests pass (apart from proven pre-existing failures), there is no Critical or High issue and no drift, and (Tier 3 and 4) every box is ticked. A Critical or High finding of `accessibility_review`, or a gap of `prompt_spec_review`, counts as an issue here unless the person dismissed it with a reason. |
+| `ready` | Every scenario has a passing test, the tests pass (apart from proven pre-existing failures), there is no Critical or High issue and no drift, and (Tier 3 and 4) every box is ticked. A Critical or High finding of `accessibility_review` or `prompt_spec_review`, or a changed file outside the canvas's Structure, blocks `ready` unless the person dismissed it with a reason; their Medium and Low findings go to Issues Found and do not block. |
 | `needs-rework` | Something above fails and `sdd-apply` can fix it inside the plan. |
 | `blocked` | The verify cannot conclude or the fix is outside the plan: the tests cannot run, an artifact is missing or contradicts another, the spec or the design is wrong. |
 
