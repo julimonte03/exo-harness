@@ -60,15 +60,15 @@ Threats found in design go to `design.md`, section Risks & Mitigations. Advisory
 
 **Conditional gates** do not depend on the tier: the skill writes them when its trigger holds, at any tier, and it counts as Required in its phase. `exo check` reviews every gate in `gates/`, required or not, and requires `prompt_spec_review` whenever `canvas.md` exists.
 
+| Gate | Trigger | Phase | Skill |
+|---|---|---|---|
+| `accessibility_review` | The diff touches UI (html, tsx, jsx, vue, svelte, css, scss) | verify | `accessibility-audit` |
+| `prompt_spec_review` | The change has `canvas.md` (SPDD) | design, or right before apply in Tier 1 and 2 (approval); verify (conformance) | `prompt-spec-review` |
+
 **A conditional gate listed in `governance.gates`** becomes a gate of that tier: `exo check` requires it in every change of the tier, so its skill always runs there, even when it degrades.
 
 - `prompt_spec_review` listed: the SPDD overlay is mandatory in that tier, canvas included (section A of `spdd-common.md`, the SPDD contract of the `sdd` pack).
 - `accessibility_review` listed: `accessibility-audit` runs in every verify of that tier. With no UI in the diff, the gate is `APPROVED`, with no findings and `N/A: no UI in the diff`. Without the `frontend` pack, the verify writes it from the inline criteria below.
-
-| Gate | Trigger | Phase | Skill |
-|---|---|---|---|
-| `accessibility_review` | The diff touches UI (html, tsx, jsx, vue, svelte, css, scss) | verify | `accessibility-audit` |
-| `prompt_spec_review` | The change has `canvas.md` (SPDD) | design (approval), verify (conformance) | `prompt-spec-review` |
 
 A gate that is not APPROVED, or whose Approval says yes, needs the `tech_lead` role; in an unattended run, the cycle does not stop, but the gate stays as it is and the closing summary says so.
 
@@ -80,7 +80,7 @@ These skills ship in packs a project may not have: optional packs, or packs not 
 |---|---|---|
 | `product-discovery` | product | Write who the user is, the problem, the value and how success is measured: in propose, in proposal.md, section Intent; in explore and spec, which do not own proposal.md, as open questions for the person. Ask the person when any of them is unclear. |
 | `accessibility-audit` | frontend | Check keyboard access, visible focus, labels and accessible names, contrast and text alternatives in the UI that changed (WCAG 2.2 AA). List each failure with its criterion, as an issue of the phase: without the skill, the conditional gate `accessibility_review` is not written, unless the tier lists it in `governance.gates`; then write it from these criteria (`APPROVED` with `N/A: no UI in the diff` when the diff has no UI). |
-| `architecture-decision-record` | design | When a decision is hard to reverse, propose a short record (status, context, decision, alternatives, consequences) as `NNNN-<slug>.md` in the ADR folder the project already uses (such as `docs/adr/`, `doc/adr/` or `docs/decisions/`; `docs/adr/` when it has none), and write it there once the person approves its text. Cite it from design.md in the design phase, or from the AI Usage Record decisions later. |
+| `architecture-decision-record` | design | When a decision is hard to reverse, propose a short record (status, context, decision, alternatives, consequences) as `NNNN-<slug>.md` in the ADR folder the project already uses (such as `docs/adr/`, `doc/adr/` or `docs/decisions/`; `docs/adr/` when it has none), and write it there once the person approves its text. Cite it from design.md in the design phase, where Modules / Files lists it (`.exo/shared/sdd-phase-common.md`, section C), or from the AI Usage Record decisions later. |
 | `frontend-design` | frontend | Reuse the project's existing UI components and design tokens. Do not add new visual styles without the person's approval. |
 | `security-scan-node` | frontend | Run the package manager's audit (for example `npm audit --omit=dev`; it needs a lockfile), review manifest and lockfile changes by hand (missing lockfile, unpinned versions, unexpected registries, install scripts), and report the high and critical findings with their OWASP Top 10:2025 category. |
 | `security-scan-jkp` | java | Run the dependency audit the project already has and report the Critical and High findings in Issues Found: for Java or Kotlin, the OWASP dependency-check plugin of the build, or OSV-Scanner on `pom.xml` or the Gradle lockfiles; for Python, OSV-Scanner on the lockfile first, or `pip-audit` on the project's active environment; `pip-audit -r <requirements>` only with `--no-deps --disable-pip` and requirements pinned with hashes, because without them it resolves and downloads packages in a temporary environment and may build them. Report each finding with its OWASP Top 10:2025 category. Install nothing; a step that cannot run is reported as not run, with its command. |
