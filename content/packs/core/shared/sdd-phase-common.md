@@ -46,6 +46,8 @@ With `memory` or `none`, `exo check` has nothing on disk to check, and it says s
 
   **Files outside the phases:** `context-anchor.md`, the living record of decisions that `context-anchoring` starts in design or on request, is the only file every later phase updates (section A); and `pr-part-<n>.md`, the bodies of a chain of PRs that `chained-pr` writes. Neither is an artifact of a phase, and no tier requires them.
 
+  **Project documents outside the change root** (diagrams, a solution document, runbooks, SLOs, postmortems, capacity or chaos plans, decision records): during a change, a skill writes them in any phase, with the person's approval of their text, and only when the plan lists them: design.md, Modules / Files, in Tier 3 and 4; the proposal's Scope in Tier 1 and 2. Listed there, verify does not count them as drift. One the plan does not list goes first to the phase that owns the plan, or to a later change. A document written after verify (a decision record in archive) needs only the person's approval. Outside a change, this rule does not apply.
+
 - **Templates:** start each document from `.exo/shared/templates/` (`proposal.md`, `spec.md`, `design.md`, `canvas.md`, `test-spec.md`, `verify-record.md`, `gate.md`, `pr.md`). `exo speclint <file or change root>` checks them.
 - **Mandatory artifacts per tier** (what `exo check` requires):
 

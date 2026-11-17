@@ -30,7 +30,7 @@ metadata:
 - **Writes** only `<change-root>/design.md` and, when the tier's gates include `threat_model` (Tier 3 and 4 by default), `<change-root>/gates/threat_model.md` through `threat-modeling`; plus the memory mirror in `hybrid` and `memory` persistence (section C).
 - **With the SPDD overlay** (see SPDD canvas), also `<change-root>/canvas.md` through `reasons-canvas-author` and `<change-root>/gates/prompt_spec_review.md` through `prompt-spec-review`. With `context-anchoring`, `<change-root>/context-anchor.md`.
 - **Never touches** proposal.md, spec.md, exploration.md, the living specs or the code. If an earlier artifact is wrong (a scenario too vague to test, a requirement that contradicts the code), stop and return `status: needs-input` saying what is wrong: the fix belongs to the phase that owns that file.
-- **One exception:** the decision record that `architecture-decision-record` asks for (see Conditionals) lives in the project's docs. Write it only after the person approves its text.
+- **Project documents outside the change root:** a decision record, a diagram or a solution document that a Conditional asks for lives in the project's docs. Write each one only after the person approves its text, and list it in Modules / Files, so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C). The same holds for a runbook, an SLO or another project document that a skill of a later phase will write: list it here.
 
 ## Before you start
 
@@ -94,8 +94,8 @@ Apply each one whose trigger holds (`.exo/shared/phase-skill-map.md`, row design
 
 | Trigger | Skill | Where its output goes |
 |---|---|---|
-| A decision that is hard to reverse | `architecture-decision-record` | A short record (context, decision, alternatives, consequences) in the project's docs, linked from Architecture Overview |
-| Large architecture | skill:software-solution | The option the person chose, with its components, responsibilities and integration points, in Architecture Overview, before the details; its input for Data Shapes, Error Handling, Migration and Risks & Mitigations goes to those sections. A solution document it writes outside the change folder is linked from Architecture Overview |
+| A decision that is hard to reverse | `architecture-decision-record` | A short record (context, decision, alternatives, consequences) in the project's docs, linked from Architecture Overview and listed in Modules / Files |
+| Large architecture | skill:software-solution | The option the person chose, with its components, responsibilities and integration points, in Architecture Overview, before the details; its input for Data Shapes, Error Handling, Migration and Risks & Mitigations goes to those sections. A solution document it writes outside the change folder is linked from Architecture Overview and listed in Modules / Files |
 | Several sessions or developers | skill:context-anchoring | The decisions so far in `<change-root>/context-anchor.md`, a living file that later phases keep updating |
 
 For example: `design/architecture-decision-record not installed — applying inline criteria`.
