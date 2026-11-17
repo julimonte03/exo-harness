@@ -62,7 +62,7 @@ Run the first step that works; when later steps are also available, run them too
 | Step | Tool | Example | Runs when |
 |---|---|---|---|
 | 1 | The package manager's audit | `npm audit --omit=dev --json`, then `npm audit --json` | Always, when there is a lockfile |
-| 2 | OSV-Scanner | `osv-scanner scan source -r .` | Installed |
+| 2 | OSV-Scanner | `osv-scanner scan -r .` | Installed |
 | 3 | OWASP dependency-check | `dependency-check --scan . --format JSON --out <temporary folder>` | Installed, with its data already set up |
 | Optional | SonarQube, Fortify | The project's existing CI job or CLI | Already configured in the project; never set them up |
 
