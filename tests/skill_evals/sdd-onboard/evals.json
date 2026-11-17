@@ -1,0 +1,32 @@
+{
+  "skill": "sdd-onboard",
+  "fixture": "toy-python",
+  "packs": [
+    "core",
+    "sdd"
+  ],
+  "cases": [
+    {
+      "id": "trigger",
+      "expect": "trigger",
+      "prompt": "I have never used spec-driven development. Walk me through the whole cycle on a small real improvement in this repo, explaining each step as we go."
+    },
+    {
+      "id": "no-trigger",
+      "expect": "no-trigger",
+      "prompt": "Start a new change so that tasks can have a due date."
+    },
+    {
+      "id": "output",
+      "expect": "trigger",
+      "prompt": "Teach me the SDD cycle by doing it for real on something small in this project. For now, just find a good improvement to use and explain what comes first.",
+      "checks": {
+        "answer_matches": [
+          "(?i)tier\\s*[12]",
+          "src/toy_todo/\\w+\\.py"
+        ]
+      },
+      "review": "The answer gives a short map of the cycle, proposes two or three small real improvements of toy-todo with path:line evidence and an expected tier of 1 or 2, explains what the first phase does and leaves, and asks the person to choose. Nothing is created before the person answers: no change folder, no code, no commit."
+    }
+  ]
+}
