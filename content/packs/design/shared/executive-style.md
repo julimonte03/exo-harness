@@ -1,6 +1,6 @@
 # Executive style contract
 
-The visual style of the diagrams, slides and documents that the skills of the `design` pack produce: `diagram-design`, `architecture-diagram-designer` and `uml-visual-designer` apply it, and `executive-visual-quality-gate` checks it. Other packs read section H for the shape of `.exo/brand.json`.
+The visual style of the diagrams, slides and documents that exo's skills produce. Who applies it, and how, is at the end of section B.
 
 The style is neutral by default. A project that wants its own brand writes `.exo/brand.json`, and its keys replace the neutral values one by one.
 
@@ -12,7 +12,7 @@ The style is neutral by default. A project that wants its own brand writes `.exo
 4. **Restraint.** One accent at most. Status colors only for status, always with text.
 5. **Consistency.** The same role always looks the same: shape, color, line and label form.
 6. **Accessible by default.** Contrast meets WCAG 2.2 AA (section G), color never carries meaning alone, and every piece has a text alternative.
-7. **Nothing sensitive.** No secrets, personal data or internal addresses in a piece (`.exo/shared/data-protection.md`). Before a piece leaves the team, it is sanitized.
+7. **Nothing sensitive.** No secrets, personal data or internal addresses in a piece (`.exo/shared/data-protection.md`). Before a piece is shared, it is sanitized for its destination: secrets and personal data always, and internal identifiers when it goes outside the organization.
 
 ## B. Where the style comes from
 
@@ -23,6 +23,12 @@ In this order, per key:
 3. The neutral default (sections C to F).
 
 Never mix two brands in one piece, and never invent brand values. A project's UI design tokens are for its UI, not for its diagrams; use them only when the person asks.
+
+**Who applies it:**
+
+- **The `design` pack:** `diagram-design`, `architecture-diagram-designer` and `uml-visual-designer` apply it, and `executive-visual-quality-gate` checks it.
+- **The `product` pack:** `functional-flow-designer` and `roadmap-generator` apply the whole contract when the `design` pack is installed. Without it this file is not installed, so they use the neutral values of section C, copied in their own references, and the keys of section H from `.exo/brand.json`: the same neutral and the same brand keys either way.
+- **Other packs** read section H for the shape of `.exo/brand.json`.
 
 ## C. The neutral default
 
@@ -62,11 +68,12 @@ Never mix two brands in one piece, and never invent brand values. A project's UI
 | `ink_muted` on `primary_tint` | 5.2:1 | all text |
 | `on_primary` on `primary` | 7.1:1 | all text |
 | `primary` on `canvas` | 7.1:1 | all text, edges |
-| `on_secondary` on `secondary` | 11.4:1 | all text |
+| `on_secondary` on `secondary` | 11.3:1 | all text |
 | `on_accent` on `accent` | 5.7:1 | all text |
 | `accent` on `canvas` | 5.7:1 | all text, edges |
 | `success` on `canvas` | 5.4:1 | all text |
 | `warning` on `canvas` | 5.2:1 | all text |
+| `warning` on `neutral_fill` | 4.46:1 | fails as text (4.5:1): edges and large text only; a status word on `neutral_fill` goes in `ink` |
 | `danger` on `canvas` | 6.5:1 | all text |
 | `line` on `canvas` | 3.6:1 | connectors and edges (3:1) |
 | `line` on `neutral_fill` | 3.1:1 | edges (3:1) |
@@ -104,15 +111,16 @@ Recompute any pair you change (section G).
 | External system, out of scope | rounded rectangle | `neutral_fill` | `line` | `ink` |
 | Data store | cylinder | as its owner (inside or outside the focus) | as its owner | as its owner |
 | Queue or topic | horizontal cylinder, or a rectangle labeled "Queue" | as its owner | as its owner | as its owner |
-| Boundary (system, team, network zone) | rectangle, dashed | none or `surface` | `line`, dashed | label `ink_muted`, top left |
+| Boundary (system, team, network zone) | rectangle, dashed edge | none or `surface` | `line`, dashed | label `ink_muted`, top left |
 | The highlight (new, changed, at risk) | the element's own shape | unchanged | `accent`, 3 px | a short tag such as "New" |
-| Not confirmed (inferred, planned) | the element's own shape | unchanged | dashed | "(inferred)" or "(planned)" in the label |
+| Not confirmed (inferred, planned) | the element's own shape | unchanged | dotted | "(inferred)" or "(planned)" in the label |
 | Connector, synchronous | solid line, 1.5 px, arrow toward the callee | — | `line` | label `ink_muted` |
 | Connector, asynchronous | dashed line, arrow toward the consumer | — | `line` | label `ink_muted` |
 
 - **Labels on elements:** the name, then the type and technology in brackets on a second line, then at most one line of responsibility: `Orders API` / `[Container: Python]` / `Takes and tracks orders`. About 30 characters per line, three lines at most.
 - **Labels on connectors:** a verb phrase in the direction of the arrow, with the protocol when it helps: `Publishes order events to [AMQP]`.
 - **Status color** never alone: the element also says the status in words.
+- **One meaning per line style:** a dashed edge is a boundary, a dashed connector is asynchronous, and a dotted edge is not confirmed. A relation that is not confirmed says so in its label.
 
 ## E. What an executive diagram looks like
 
@@ -138,7 +146,7 @@ A diagram that needs more than nine primary elements becomes two: an overview an
 
 **Thresholds** (WCAG 2.2 AA):
 
-- Text: 4.5:1. Large text, 24 px or more, or 18.66 px (14 pt) or more in semibold: 3:1.
+- Text: 4.5:1. Large text, 24 px (18 pt) or more, or 18.66 px (14 pt) or more in bold: 3:1. Bold means a weight of 700 or more; semibold (600) is not bold for this rule.
 - Connectors, edges of shapes that carry meaning, icons and focus marks: 3:1 against what is next to them.
 - Decoration and disabled elements: no minimum, but they never carry meaning.
 
@@ -256,16 +264,16 @@ Before a skill produces diagrams or documents in series in a project, the person
 1. **The style source:** `neutral`, or `brand <hash>` when `.exo/brand.json` exists, where `<hash>` is the first seven characters of `git hash-object .exo/brand.json` (without git, just `brand`).
 2. **Already approved** when either holds:
    - memory has the convention with topic key `design/executive-style` for the same style source (`exo mem search "executive style" --json`, then `exo mem get <id>`);
-   - a diagram in the repository carries the style marker (below) with the same source.
-3. **Otherwise, show a sample:** the first piece the person asked for, kept small, and under it the colors, fonts and roles in use, and the keys that came from the neutral default. Ask: "Use this style for the diagrams and documents of this project?" Produce nothing else until they answer.
-4. **On approval,** save it (the `memory-protocol` skill):
+   - a diagram in the repository carries the final style marker (below) with the same source. A pending marker does not count.
+3. **Otherwise, show a sample:** the first piece the person asked for, kept small, with the pending marker in its source, and under it the colors, fonts and roles in use, and the keys that came from the neutral default. Ask: "Use this style for the diagrams and documents of this project?" Produce nothing else until they answer.
+4. **On approval,** replace the pending marker of the sample with the final one, and save the approval (the `memory-protocol` skill):
 
    ```bash
    exo mem save --type convention --title "Executive style approved" --topic-key design/executive-style --content "Style source: neutral. Approved by the person on 2026-11-17."
    ```
 
 5. **On changes,** adjust the sample and ask again. A change to the brand itself is a change to `.exo/brand.json`: show the JSON and let the person write it, or write it when they ask.
-6. **Unattended runs** (no person to answer): produce only the first piece, say "style pending approval" in the answer, and stop the series.
+6. **Unattended runs** (no person to answer): produce only the first piece, with the pending marker, say "style pending approval" in the answer, and stop the series.
 
 When `.exo/brand.json` appears, disappears or changes, the style source changes and the approval is asked again.
 
@@ -279,3 +287,5 @@ When `.exo/brand.json` appears, disappears or changes, the style source changes 
 | draw.io | a data property `exo-style` on the diagram itself (Edit Data with nothing selected) |
 
 With a brand, the value is `brand <hash>`. The marker tells the next session, and the quality review, which style a diagram was made with.
+
+**The pending marker** goes on a sample whose style the person has not approved yet: the value followed by `(pending)`, as in `%% exo-style: neutral (pending)` or `%% exo-style: brand <hash> (pending)`. It never counts as an approval (step 2); on approval it becomes the final marker.

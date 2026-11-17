@@ -14,11 +14,11 @@ flowchart LR
     customer(["Customer<br/>[Person]"])
     %% [Code] services/admin/app/roles.py:5 (support role)
     agent(["Support agent<br/>[Person]"])
-    platform["Order platform<br/>[Software system]<br/>Takes and tracks orders"]
+    platform("Order platform<br/>[Software system]<br/>Takes and tracks orders")
     %% [Code] services/orders/app/payments_client.py:20 (PAYMENTS_BASE_URL)
-    payments["Payment provider<br/>[Software system]"]
+    payments("Payment provider<br/>[Software system]")
     %% [Inferred: low] services/orders/app/events.py:12 (topic orders.created)
-    warehouse["Warehouse system (inferred)<br/>[Software system]"]
+    warehouse("Warehouse system (inferred)<br/>[Software system]")
 
     customer -->|"Places and tracks orders in"| platform
     agent -->|"Handles refunds in"| platform
@@ -28,7 +28,7 @@ flowchart LR
     classDef focus fill:#0a58a8,stroke:#0a58a8,color:#ffffff
     classDef person fill:#2f3b4c,stroke:#2f3b4c,color:#ffffff
     classDef external fill:#e9edf1,stroke:#7d8794,color:#1d2125
-    classDef unconfirmed stroke-dasharray:5 5
+    classDef unconfirmed stroke-dasharray:1 3
     class platform focus
     class customer,agent person
     class payments,warehouse external
@@ -46,19 +46,19 @@ flowchart LR
     customer(["Customer<br/>[Person]"])
     subgraph platform["Order platform"]
         %% [Code] services/web/package.json:5
-        web["Shop front end<br/>[Container: TypeScript, React]"]
+        web("Shop front end<br/>[Container: TypeScript, React]")
         %% [Code] deploy/gateway/routes.yaml:3
-        gateway["API gateway<br/>[Container: reverse proxy]"]
+        gateway("API gateway<br/>[Container: reverse proxy]")
         %% [Code] services/orders/pyproject.toml:8
-        orders["Orders API<br/>[Container: Python, FastAPI]"]
+        orders("Orders API<br/>[Container: Python, FastAPI]")
         %% [Code] services/catalog/pom.xml:12
-        catalog["Catalog API<br/>[Container: Java, Spring Boot]"]
+        catalog("Catalog API<br/>[Container: Java, Spring Boot]")
         %% [Code] services/orders/app/db.py:9 (ORDERS_DB_URL)
         ordersdb[("Orders database<br/>[Container: PostgreSQL]")]
         %% [Code] services/orders/app/events.py:12
         events[["Order events<br/>[Queue]"]]
     end
-    payments["Payment provider<br/>[Software system]"]
+    payments("Payment provider<br/>[Software system]")
 
     customer -->|"Shops in [HTTPS]"| web
     web -->|"Calls [HTTPS/JSON]"| gateway
@@ -85,21 +85,21 @@ flowchart TB
     accTitle: The Orders API keeps payment and event logic out of its routes
     accDescr: The routes call the order service, which uses the order repository, the payment client and the event publisher.
 
-    gateway["API gateway<br/>[Container]"]
+    gateway("API gateway<br/>[Container]")
     subgraph orders["Orders API [Container: Python, FastAPI]"]
         %% [Code] services/orders/app/routes.py:1
-        routes["Order routes<br/>[Component]"]
+        routes("Order routes<br/>[Component]")
         %% [Code] services/orders/app/service.py:1
-        service["Order service<br/>[Component]"]
+        service("Order service<br/>[Component]")
         %% [Code] services/orders/app/repository.py:1
-        repo["Order repository<br/>[Component]"]
+        repo("Order repository<br/>[Component]")
         %% [Code] services/orders/app/payments_client.py:1
-        payclient["Payment client<br/>[Component]"]
+        payclient("Payment client<br/>[Component]")
         %% [Code] services/orders/app/events.py:1
-        publisher["Event publisher<br/>[Component]"]
+        publisher("Event publisher<br/>[Component]")
     end
     db[("Orders database<br/>[Container: PostgreSQL]")]
-    payments["Payment provider<br/>[Software system]"]
+    payments("Payment provider<br/>[Software system]")
 
     gateway -->|"Calls"| routes
     routes -->|"Delegates to"| service
@@ -129,12 +129,12 @@ flowchart TB
     users(["Customers<br/>[Person]"])
     subgraph prod["Production [Environment]"]
         %% [Code] infra/network.tf:14
-        lb["Load balancer"]
+        lb("Load balancer")
         subgraph cluster["Cluster [Kubernetes]"]
             %% [Code] deploy/k8s/gateway.yaml:1
-            gw["API gateway x2"]
+            gw("API gateway x2")
             %% [Code] deploy/k8s/orders.yaml:1
-            ord["Orders API x3"]
+            ord("Orders API x3")
         end
         subgraph private["Private network"]
             %% [Code] infra/database.tf:3

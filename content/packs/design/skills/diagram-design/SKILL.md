@@ -11,10 +11,11 @@ description: >-
   default, .exo/brand.json when the project has one. The first time in a
   project it shows a sample of the style and waits for approval before
   producing diagrams in series. Use it whenever someone needs a diagram or
-  asks which diagram fits. Triggers: "draw a diagram", "diagram this",
-  "make a flowchart", "sequence diagram for", "state diagram", "ER diagram",
-  "visualize this process", "mermaid diagram", "which diagram should I use",
-  "clean up this diagram".
+  asks which diagram fits; UML goes to uml-visual-designer and C4
+  architecture to architecture-diagram-designer. Triggers: "draw a
+  diagram", "diagram this", "make a flowchart", "ER diagram", "visualize
+  this process", "mermaid diagram", "which diagram should I use", "clean
+  up this diagram".
 metadata:
   exo-pack: design
   exo-execution: inline
@@ -27,7 +28,7 @@ A diagram answers one question for one audience. This skill decides which diagra
 
 ## Result
 
-- One diagram per question, as source text in the project's diagram tool (Mermaid unless the project uses another), with a title that states the takeaway, a legend, a text alternative, its source and date, and the style marker in the source.
+- One diagram per question, as source text in the project's diagram tool (Mermaid unless the project uses another), with a title that states the takeaway, a legend, a text alternative, its source and date, and the style marker in the source (its pending form while the style waits for approval).
 - Saved where the project keeps its diagrams, or embedded in the document that needs it, or returned as text to the phase that owns that document.
 - A short note in the answer: the question it answers, the type and notation chosen and why, the facts it rests on, what is unconfirmed, and how to render it.
 
@@ -35,14 +36,14 @@ A diagram answers one question for one audience. This skill decides which diagra
 
 | Need | Who does it |
 |---|---|
-| Any diagram: a flow, a sequence, states, data, a timeline | This skill |
+| Any diagram that is not UML or C4 architecture: a flow, a business process, data, a timeline | This skill |
 | Architecture from the code or from design.md: C4 context, containers, components, deployment | skill:architecture-diagram-designer, which uses this skill |
 | UML: classes, sequence, activity, states, use cases | skill:uml-visual-designer, which uses this skill |
 | Review a piece before an executive audience | skill:executive-visual-quality-gate |
 | Share a piece outside the team | skill:secure-diagram-sanitizer (pack `security`) |
 | A chart of data (bars, lines, trends) | Not a diagram: use the project's charting tools |
 
-When `secure-diagram-sanitizer` is not installed, say `security/secure-diagram-sanitizer not installed — applying inline criteria`, and before the piece leaves the team remove secrets, personal data, internal URLs, hostnames, IP addresses, ports and account, repository and environment names, replacing each with a consistent generic label, and never put the list of replacements in the piece.
+When `secure-diagram-sanitizer` is not installed, say `security/secure-diagram-sanitizer not installed — applying inline criteria`, and before the piece is shared remove secrets and personal data and, when it goes outside the organization, internal URLs, hostnames, IP addresses, ports and account, repository and environment names, replacing each with a consistent generic label; never put the list of replacements in the piece.
 
 ## The style
 
@@ -50,7 +51,7 @@ The style is the contract `.exo/shared/executive-style.md`. Read it before the f
 
 1. Load `.exo/brand.json` when it exists, key by key, with the neutral default for what is missing (section H of the contract). Say which keys came from the neutral default.
 2. Check the contrast of every pair the diagram uses (section G). A failing pair gets a warning and the nearest passing value.
-3. **First use in the project** (section I): unless memory or an existing diagram shows that the person already approved this style source, make the first diagram a small sample, show it with the colors, fonts and roles in use, and ask "Use this style for the diagrams and documents of this project?" Produce nothing else until they answer. When they approve, save the convention as section I says. If they asked for several diagrams, the others wait.
+3. **First use in the project** (section I): unless memory or an existing diagram shows that the person already approved this style source, make the first diagram a small sample with the pending marker of section I, show it with the colors, fonts and roles in use, and ask "Use this style for the diagrams and documents of this project?" Produce nothing else until they answer. When they approve, save the convention as section I says. If they asked for several diagrams, the others wait.
 
 ## Steps
 
@@ -77,6 +78,8 @@ When the person gives only "diagram the system", ask which question it must answ
 | Where does it run: nodes, networks, regions? | Deployment |
 | Which data exists, how is it related, who owns it? | Data (entity-relationship or data flow) |
 
+Sequence and state machine diagrams are UML: UML → skill:uml-visual-designer, which builds on this skill. The C4 levels go to skill:architecture-diagram-designer.
+
 Signs, edge cases and the less common types (timeline, swimlane, quadrant, layer stack, decision tree) are in `references/diagram-types.md`. One question, one diagram: a diagram that answers two questions answers neither.
 
 ### 3. The notation
@@ -97,7 +100,7 @@ How to detect each tool, what renders where, and the render commands are in `ref
 ### 5. The facts
 
 - Every element and relation comes from somewhere: the code (`path:line`), a document of the project, or the person. Never invent a component, a relation or a technology to complete the picture.
-- What you cannot confirm is drawn as unconfirmed (dashed, "(inferred)" in the label) and listed as a question for the person.
+- What you cannot confirm is drawn as unconfirmed (dotted edge, "(inferred)" in the label) and listed as a question for the person.
 - From the code, read 1 to 3 files inline; for a broader read, delegate it to a read-only explorer when the agent has one, or read in small batches. For architecture from the code, use skill:architecture-diagram-designer, which cites the source of every element.
 
 ### 6. The structure
@@ -112,7 +115,7 @@ The readability rules, with the checks to run before showing it, are in `referen
 
 ### 7. The style in the tool
 
-Map each element to its role (section D of the contract) and apply the palette, the fonts and the line styles through the tool's own mechanism: an init block and class definitions in Mermaid, `skinparam` in PlantUML, style strings in draw.io, a `styles` block in Structurizr. Snippets for each tool are in `references/tool-styling.md`. Put the style marker in the source.
+Map each element to its role (section D of the contract) and apply the palette, the fonts and the line styles through the tool's own mechanism: an init block and class definitions in Mermaid, `skinparam` in PlantUML, style strings in draw.io, a `styles` block in Structurizr. Snippets for each tool are in `references/tool-styling.md`. Put the style marker in the source: its pending form on the sample, until the person approves the style.
 
 ### 8. Title, legend and text alternative
 
@@ -133,7 +136,7 @@ Show the diagram and the note. Then save it, after the person agrees, in this or
 2. In the folder where the project keeps diagrams (`docs/diagrams/`, `docs/architecture/` or similar).
 3. With none, `docs/diagrams/<slug>.md`: the title, the diagram block, the legend and the source line.
 
-**Inside an SDD change,** each artifact has an owner (`.exo/shared/sdd-phase-common.md`, section C): return the diagram as text to the phase that owns the document (for example `sdd-design` for design.md, Architecture Overview), or save it outside the change folder. Never edit another phase's artifact.
+**Inside an SDD change,** each artifact has an owner (`.exo/shared/sdd-phase-common.md`, section C): return the diagram as text to the phase that owns the document (for example `sdd-design` for design.md, Architecture Overview). A diagram file of its own is a project document, never a file of the change root: any phase may write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C). Never edit another phase's artifact.
 
 A complete example, with its note, is in `references/examples.md`.
 
@@ -145,7 +148,7 @@ A complete example, with its note, is in `references/examples.md`.
 Question: how an order reaches the warehouse. Audience: operations leads.
 Type: flow with two lanes (shop, warehouse), basic BPMN in a Mermaid flowchart.
 Facts: src/orders/service.py:40-88 (order states), src/warehouse/consumer.py:12 (queue consumer).
-Unconfirmed: whether cancelled orders notify the warehouse (drawn dashed; question for the person).
+Unconfirmed: whether cancelled orders notify the warehouse (drawn dotted; question for the person).
 Style: neutral, approved on 2026-11-17 (memory). Contrast: all pairs pass.
 Render: shows in the repository host's Markdown preview; for an image, copy the block to order-flow.mmd and run `mmdc -i order-flow.mmd -o order-flow.svg` (mermaid-cli, not installed here).
 ```
@@ -166,7 +169,7 @@ In Windows PowerShell 5.1, pass the JSON as `'@<file>'` (`.exo/shared/sdd-phase-
 - [ ] The diagram answers one question, stated in the title as a takeaway.
 - [ ] Type, notation and tool are the ones that fit the question and the project; nothing was installed.
 - [ ] 7±2 primary elements, every connector labeled with a verb, one focus, at most one highlight.
-- [ ] Every element comes from the code, a document or the person; the unconfirmed ones are dashed and listed as questions.
+- [ ] Every element comes from the code, a document or the person; the unconfirmed ones are dotted and listed as questions.
 - [ ] The style follows `.exo/shared/executive-style.md`, with the brand keys that apply, the contrast checked and the style marker in the source; the first use in the project was approved.
 - [ ] Legend, text alternative, source and date are there.
 - [ ] Nothing sensitive in the piece; a piece leaving the team was sanitized.

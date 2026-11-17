@@ -29,30 +29,29 @@ Flow with lanes (basic BPMN) · as of 2026-11-17 · from the code at commit `<co
 %% exo-style: neutral
 flowchart LR
     accTitle: Every paid order reaches the warehouse within one queue hop
-    accDescr: The shop takes the order and the payment; once paid, it publishes the order to a queue. The warehouse picks it up, checks stock, and either ships it or puts it on back order.
+    accDescr: The shop takes the order and checks the payment; once paid, it publishes the order to the warehouse through a queue. The warehouse checks stock and either ships the order or puts it on back order until the stock comes back.
 
     subgraph shop["Shop"]
-        start(["Order placed"]) --> pay["Take payment"]
-        pay --> paid{"Payment<br/>accepted?"}
+        start(["Order placed"]) --> paid{"Payment<br/>accepted?"}
         paid -->|"No"| rejected(["Order rejected"])
-        paid -->|"Yes"| publish["Publish order<br/>to the warehouse"]
+        paid -->|"Yes"| publish("Publish order<br/>to the warehouse")
     end
     subgraph wh["Warehouse"]
-        receive["Receive order"] --> stock{"Stock<br/>available?"}
-        stock -->|"Yes"| ship["Pick, pack<br/>and ship"]
-        stock -->|"No"| backorder["Put on back order"]
+        stock{"Stock<br/>available?"}
+        stock -->|"Yes"| ship("Pick, pack<br/>and ship")
+        stock -->|"No"| backorder("Put on back order")
+        backorder -->|"When restocked"| stock
         ship --> shipped(["Order shipped"])
-        cancel["Stop a cancelled<br/>order (inferred)"]
+        cancel("Stop a cancelled<br/>order (inferred)")
     end
-    publish -.->|"Order event"| receive
-    backorder -.->|"Restock event"| stock
+    publish -.->|"Order event"| stock
 
     classDef task fill:#e7f0fa,stroke:#0a58a8,color:#1d2125
     classDef event fill:#ffffff,stroke:#1d2125,color:#1d2125
     classDef gateway fill:#ffffff,stroke:#7d8794,color:#1d2125
     classDef highlight stroke:#a34f00,stroke-width:3px
-    classDef unconfirmed stroke-dasharray:5 5
-    class pay,publish,receive,ship,backorder,cancel task
+    classDef unconfirmed stroke-dasharray:1 3
+    class publish,ship,backorder,cancel task
     class start,rejected,shipped event
     class paid,stock gateway
     class publish highlight
@@ -61,7 +60,7 @@ flowchart LR
     style wh fill:#ffffff,stroke:#7d8794,stroke-dasharray:5 5,color:#5b6470
 ```
 
-**Legend:** rounded boxes are steps, diamonds are decisions, stadiums are start and end events (basic BPMN). Solid arrows: order of work inside a team. Dashed arrows: messages between teams. Orange edge: new in this release. Dashed box: not confirmed in the code.
+**Legend:** rounded boxes are steps, diamonds are decisions, stadiums are start and end events (basic BPMN). Dashed frames: the team of each lane. Solid arrows: order of work inside a team. Dashed arrows: messages between teams. Orange edge: new in this release. Dotted box: not confirmed in the code.
 
 Source: `src/orders/service.py`, `src/warehouse/consumer.py` · Owner: order platform team · Internal
 ````
@@ -74,7 +73,7 @@ Source: `src/orders/service.py`, `src/warehouse/consumer.py` · Owner: order pla
 Question: how an order reaches the warehouse and who acts. Audience: operations leads.
 Type: flow with two lanes, basic BPMN in a Mermaid flowchart.
 Facts: src/orders/service.py:40-88 (order states), src/warehouse/consumer.py:12 (consumer).
-Unconfirmed: whether cancelled orders are stopped in the warehouse (dashed); is there such a step?
+Unconfirmed: whether cancelled orders are stopped in the warehouse (dotted); is there such a step?
 Style: neutral, approved today (saved in memory). Contrast: all pairs pass.
 Render: shows in the Markdown preview of the repository host. Pending a visual check: label wrapping in the warehouse lane.
 ```

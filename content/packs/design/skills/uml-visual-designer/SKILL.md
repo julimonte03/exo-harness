@@ -67,7 +67,7 @@ Install nothing: when no renderer is available, give the command that would rend
   - Activity: the steps of the job or the handler, its branches and its parallel parts.
   - Use case: the user-facing entry points and the roles that guard them.
 - **From the person or a document:** say so, and cite the document.
-- **Never invent** a class, a message, a state or a transition. What the code does not show is dashed or noted "(inferred)" and asked.
+- **Never invent** a class, a message, a state or a transition. What the code does not show is drawn dotted or noted "(inferred)" and asked: in UML a dashed line already means a reply, a dependency or a realization.
 
 ### 4. Draw it small
 
@@ -91,7 +91,7 @@ Apply the roles of the contract (`.exo/shared/executive-style.md`, section D): t
 
 ### 7. Check, show, save
 
-Run the readability checklist of skill:diagram-design. Show the diagram with a short note: the question, the type and tool and why, the sources, what is unconfirmed. Save it after the person agrees, as skill:diagram-design says; **inside an SDD change**, return it as text to the phase that owns the document (`.exo/shared/sdd-phase-common.md`, section C) or save it outside the change folder. Before an executive audience, offer skill:executive-visual-quality-gate; before it leaves the team, skill:secure-diagram-sanitizer (pack `security`). When that skill is not installed, say `security/secure-diagram-sanitizer not installed — applying inline criteria`, replace internal names, addresses, ports and account names with consistent generic labels, and keep the list of replacements out of the shared piece.
+Run the readability checklist of skill:diagram-design. Show the diagram with a short note: the question, the type and tool and why, the sources, what is unconfirmed. Save it after the person agrees, as skill:diagram-design says; **inside an SDD change**, return it as text to the phase that owns the document (`.exo/shared/sdd-phase-common.md`, section C); a diagram file of its own is a project document, written as skill:diagram-design says (with the person's approval, once the plan lists it). Before an executive audience, offer skill:executive-visual-quality-gate; before it leaves the team, skill:secure-diagram-sanitizer (pack `security`). When that skill is not installed, say `security/secure-diagram-sanitizer not installed — applying inline criteria`, replace internal names, addresses, ports and account names with consistent generic labels, and keep the list of replacements out of the shared piece.
 
 ## Return
 
@@ -101,7 +101,7 @@ Run the readability checklist of skill:diagram-design. Show the diagram with a s
 Question: what happens when the payment provider does not answer. Audience: the team and support leads.
 Tool: Mermaid (the repository already uses it). Participants: 4. Fragments: one `alt`, one `opt`.
 Sources: services/orders/app/service.py:61-97, services/orders/app/payments_client.py:20-44.
-Unconfirmed: whether support is notified after the release (dashed note); the code has a TODO at service.py:95.
+Unconfirmed: whether support is notified after the release (dotted note); the code has a TODO at service.py:95.
 Style: neutral, approved earlier. Contrast: all pairs pass.
 ```
 
@@ -121,7 +121,7 @@ In Windows PowerShell 5.1, pass the JSON as `'@<file>'` (`.exo/shared/sdd-phase-
 - [ ] One question per diagram, stated in the title as a takeaway.
 - [ ] The tool is the one the project uses (Mermaid when none); nothing was installed; a Mermaid use case diagram says it approximates UML.
 - [ ] Only the light UML subset, within the limits of `references/uml-by-type.md`.
-- [ ] Every element from the code cites its `path:line`; nothing invented; the unconfirmed is dashed or noted and asked.
+- [ ] Every element from the code cites its `path:line`; nothing invented; the unconfirmed is dotted or noted and asked.
 - [ ] Style from `.exo/shared/executive-style.md`, approved on first use, contrast checked, style marker in the source.
 - [ ] Legend and text alternative present.
 - [ ] Inside a change, the diagram went to the phase that owns the document.

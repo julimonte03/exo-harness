@@ -6,7 +6,7 @@ description: >-
   executive style of the design pack (neutral by default, .exo/brand.json
   when present). Every element and relation that comes from the code cites
   the path:line it was found at, in the diagram source and in an evidence
-  table; what the code cannot confirm is drawn dashed and asked, never
+  table; what the code cannot confirm is drawn dotted and asked, never
   invented. Uses the project's diagram tool, Mermaid by default. Inside an
   SDD change it hands the diagrams to the phase that owns the document. Use
   it when someone wants to see how a system is built, what it talks to,
@@ -29,7 +29,7 @@ An architecture diagram is a claim about the system. This skill draws only what 
 
 - One diagram per C4 level the question needs (context, containers, components of one container, deployment), in the project's diagram tool, styled with `.exo/shared/executive-style.md`.
 - **Evidence:** a `[Code] path:line` comment next to each element and relation in the diagram source, and an evidence table under the diagram (element or relation, source, confidence). Elements from design.md cite `[Doc] path`.
-- **Open questions:** each unconfirmed element or relation, drawn dashed with "(inferred)" in its label, and asked in the answer.
+- **Open questions:** each unconfirmed element or relation, drawn dotted with "(inferred)" in its label, and asked in the answer.
 - Saved where the project keeps architecture diagrams, or returned as text to the phase that owns the document.
 
 ## When
@@ -38,7 +38,7 @@ An architecture diagram is a claim about the system. This skill draws only what 
 |---|---|
 | Someone asks to see or document the architecture | Build the levels the question needs from the code |
 | SDD design phase, a change with a new container, integration or deployment | Draw the target architecture from the design draft and give it to `sdd-design` for design.md, Architecture Overview |
-| Adoption of an existing repository | Draw the as-is architecture from the code and from `.exo/discovery/` when it exists |
+| Adoption of an existing repository | Draw the as-is architecture from the code and from `.exo/discovery/` when it exists. While the adoption runs, return it as text for `.exo/context.md`, written with the person's approval: discovery writes only its own paths, and `exo discover status` flags any other file. Save it in the project's docs once the adoption is done |
 | A review of drift | Compare the diagrams the repository has with the code and list what changed |
 
 - **Not for:** flows, states and data diagrams (skill:diagram-design); UML classes, sequences and use cases (skill:uml-visual-designer); the threat model's data flow (the `threat-modeling` skill of the `security` pack).
@@ -95,7 +95,7 @@ List before drawing, each with its evidence:
 | `[Inferred: high\|medium\|low]` | Deduced: a naming convention, an environment variable whose target is not in the repository |
 
 - **Cite the place, never the value.** A connection setting is `[Code] config/settings.py:22 (ORDERS_DB_URL)`, the name of the variable, never its content.
-- **Inferred elements** are drawn dashed with "(inferred)" in the label, and each one becomes a question for the person. Low confidence never goes on an executive diagram without the person's confirmation.
+- **Inferred elements** are drawn dotted with "(inferred)" in the label, and each one becomes a question for the person. Low confidence never goes on an executive diagram without the person's confirmation.
 - **Never invent** a container, a relation or a technology to complete a level. A gap stays a gap, said in a note.
 
 ### 5. Draw
@@ -125,7 +125,7 @@ Then the open questions, one per unconfirmed element or relation.
 ### 7. Hand over
 
 - **Outside a change:** show the diagrams, the evidence and the questions; save them after the person agrees, where the project keeps architecture diagrams (`docs/architecture/`, `docs/diagrams/` or the folder already used), or embedded in the README or ADR that needs them.
-- **Inside an SDD change:** design.md belongs to `sdd-design` (`.exo/shared/sdd-phase-common.md`, section C). Return the diagram and its evidence as text for its Architecture Overview, or save the diagram outside the change folder and let the phase link it. Never edit a phase artifact yourself.
+- **Inside an SDD change:** design.md belongs to `sdd-design` (`.exo/shared/sdd-phase-common.md`, section C). Return the diagram and its evidence as text for its Architecture Overview. A diagram file of its own is a project document, never a file of the change root: any phase may write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C), and the phase links it. Never edit a phase artifact yourself.
 - **Before an executive audience:** offer skill:executive-visual-quality-gate. **Before it leaves the team:** skill:secure-diagram-sanitizer (pack `security`); when it is not installed, say `security/secure-diagram-sanitizer not installed — applying inline criteria`, replace internal hostnames, URLs, IP addresses, ports and account, repository and environment names with consistent generic labels, and keep the list of replacements out of the shared piece.
 
 ## Return
@@ -134,7 +134,7 @@ Then the open questions, one per unconfirmed element or relation.
 **The order platform: three services behind one gateway** (containers, as of 2026-11-17; saved in docs/architecture/containers.md)
 
 Sources: the code at `<commit>` (compose file, three service manifests, clients); no design.md.
-Elements: 6 containers, 2 external systems, 1 person; 1 relation inferred (dashed).
+Elements: 6 containers, 2 external systems, 1 person; 1 relation inferred (dotted, "(inferred)" in its label).
 Evidence: table under the diagram, `[Code]` comment per element in the source.
 Questions:
 1. Does the warehouse system consume `orders.created`? Only the topic name suggests it (services/orders/app/events.py:12).
@@ -159,7 +159,7 @@ In Windows PowerShell 5.1, pass the JSON as `'@<file>'` (`.exo/shared/sdd-phase-
 
 - [ ] Each diagram is one C4 level and answers the question of its level.
 - [ ] Every element and relation from the code has its `[Code] path:line` in the source and in the evidence table; values of settings are never copied, only their names.
-- [ ] Nothing invented: unconfirmed items are dashed, marked "(inferred)" and asked.
+- [ ] Nothing invented: unconfirmed items are dotted, marked "(inferred)" and asked.
 - [ ] Names are identical across levels, the code and the documents.
 - [ ] 7±2 primary elements per view; every relation labeled with a verb, and with the protocol from the containers level.
 - [ ] Style from `.exo/shared/executive-style.md`, approved on first use, contrast checked, style marker in the source.

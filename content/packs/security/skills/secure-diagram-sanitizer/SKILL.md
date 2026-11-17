@@ -27,7 +27,7 @@ A diagram that leaves the team takes the network with it: hostnames, address ran
 
 ## Result
 
-- **A sanitized copy,** written apart from the original, in the same format so it still renders: `<name>.shared.<ext>` next to the original, or in the folder the person names. The original is only read.
+- **A sanitized copy,** written apart from the original, in the same format so it still renders. Name it for its content (`network-overview.shared.drawio`), never with a name or a folder that carries an identifier of the original, and ask where it goes: next to the original only when the person says so (`references/hidden-content.md`, Around the file). Inside an SDD change, a copy in the repository is a project document, written with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C). The original is only read.
 - **The replacement table,** in your answer to the person who asked, and nowhere else: each label, its kind, where it was in the original, and the original value only when it is Internal (section The replacement table).
 - **Residual risks:** what text replacement cannot fix (an image with text in its pixels, a topology that identifies the organization by itself), and what you could not check.
 
@@ -43,11 +43,10 @@ The rules come from `.exo/shared/data-protection.md`: the levels (section A), th
 
 | Destination | Remove |
 |---|---|
-| The same team | Critical (secrets) always. Nothing else is needed, unless the person asks |
-| Other teams of the organization | Critical and Restricted (personal data) |
+| Inside the organization: the same team or other teams | Critical (secrets) and Restricted (personal data). Only the Internal identifiers stay |
 | Outside the organization: vendors, clients, partners, the public, external tools | Critical, Restricted, and every Internal identifier of the categories below |
 
-When the person does not say where it goes, ask once; without an answer, assume outside the organization.
+Critical never stays. Restricted stays only where a waiver in force covers the path the copy goes to (`.exo/shared/data-protection.md`, section E). When the person does not say where it goes, ask once; without an answer, assume outside the organization.
 
 ## What to look for
 
@@ -81,7 +80,7 @@ A viewer, or anyone with the file, can reach more than the rendered picture. Che
 
 ## Steps
 
-1. **Scope.** The original files, the destination, and where the copy goes. Ask once for what is missing. Several files shared together are one job: they share one label map.
+1. **Scope.** The original files, the destination, and where the copy goes, with its name. Ask once for what is missing. Several files shared together are one job: they share one label map.
 2. **Read** each original in full. Never edit it, rename it or stage it.
 3. **Find.** Search with the patterns of `references/detectors.md`, then read the text line by line: patterns miss names. Cover the hidden places of the format.
 4. **Classify** each hit: its level (`.exo/shared/data-protection.md`, section A) and whether the destination allows it (the table above). When in doubt, replace it.
@@ -89,7 +88,7 @@ A viewer, or anyone with the file, can reach more than the rendered picture. Che
    - **Consistent:** the same original value gets the same label everywhere, in every file of the job, so relations survive.
    - **Role-preserving:** a database stays a database (`database-a`), a host stays a host (`service-b.example.com`); numbering follows first appearance.
    - **Unlinkable:** labels never derive from the original (no initials, no hashes, no partial values).
-6. **Write the copy** apart (`<name>.shared.<ext>` or the folder the person named), with every replacement applied. Remove source comments rather than relabel them, except the style marker (`exo-style:`), which reveals nothing. Remove secrets with their whole line or attribute. Never write the label map into the copy.
+6. **Write the copy** apart, named for its content, where the person said (step 1), with every replacement applied. Remove source comments rather than relabel them, except the style marker (`exo-style:`), which reveals nothing. Remove secrets with their whole line or attribute. Never write the label map into the copy.
 7. **Verify** the copy:
    - search it for every original value of the map, exactly; none may remain;
    - run the category patterns again;
@@ -132,7 +131,7 @@ Then the replacement table.
 
 ## Record
 
-Inside an SDD change (`.exo/shared/capability-attribution.md`), record the skill, never the label map:
+Inside an SDD change, a phase that runs inline records the skill, never the label map (`.exo/shared/capability-attribution.md`); in a subagent, list it in the envelope notes and the orchestrator records it:
 
 ```bash
 exo change record <change> --add capabilities_used '{"name": "secure-diagram-sanitizer", "type": "skill", "activation": "requested", "resolution": "fallback-registry"}'

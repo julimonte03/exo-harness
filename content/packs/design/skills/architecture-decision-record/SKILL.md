@@ -64,7 +64,7 @@ An ADR records one decision that is hard to reverse: what was decided, why, what
 
 | Who | Trigger | What this skill does |
 |---|---|---|
-| `sdd-design` | A decision of the design that is hard to reverse: a data store, a framework, an API style, a security mechanism, a boundary between modules | Drafts the ADR as `Proposed`. Once the person approves the text, writes it and links it from design.md, Architecture Overview |
+| `sdd-design` | A decision of the design that is hard to reverse: a data store, a framework, an API style, a security mechanism, a boundary between modules | Drafts the ADR as `Proposed`. Once the person approves the text, writes it, lists it in design.md, Modules / Files (so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C)), and links it from Architecture Overview |
 | `sdd-archive` | Decisions worth keeping: the ADRs design.md links, and the `decisions` of the AI Usage Record | Moves the change's `Proposed` ADRs to `Accepted` and writes the missing ones, with the person's approval, pointing to the archived design.md |
 | `re-synthesize` (pack `discovery`) | A decision the code shows, during an adoption | Writes it as a recovered ADR (see Recovered records) |
 | The person | "write an ADR", "audit our ADRs" | Writes the ADR they ask for, or audits the folder |
@@ -117,7 +117,7 @@ Report each finding with its `file:line` and a suggested fix, then offer the fix
 
 ## Record
 
-Inside an SDD change (`.exo/shared/capability-attribution.md`). `activation` is `requested` when the person asked for the ADR, and `auto` when the phase map chose it:
+Inside an SDD change, a phase that runs inline records the skill (`.exo/shared/capability-attribution.md`); in a subagent, list it in the envelope notes and the orchestrator records it. `activation` is `requested` when the person asked for the ADR, and `auto` when the phase map chose it:
 
 ```bash
 exo change record <change> --add capabilities_used '{"name": "architecture-decision-record", "type": "skill", "activation": "auto", "resolution": "fallback-registry"}'
