@@ -123,7 +123,7 @@ Verdict: request changes
 ## In an SDD change
 
 - **Verify, on request:** it runs where the verify runs (`sdd-verifier`, read-only, in fresh context, or the session that runs the verify). Each Critical and High finding goes to Issues Found of `verify-record.md`, which `sdd-verify` writes, with its severity, `path:line`, impact and fix. This skill writes no gate and no file.
-- **Before the PR** (`branch-pr`): the same review on `git diff <target>...HEAD`; the person decides each finding.
+- **Before the PR, on request:** when the person asks for it, the same review on `git diff <target>...HEAD`; the person decides each finding. The checks before a PR are `branch-pr`'s, and it does not load this skill by itself.
 - **Judges** (`judge-code-reviewer`, `judge-security`) may reuse these rule IDs in their findings.
 
 ## Record
