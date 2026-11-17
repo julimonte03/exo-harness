@@ -76,7 +76,7 @@ Destinos: F3, F4, F5, F6, F7 o "CLI" (reemplazada por un comando del runtime). L
 | core | `knowledge-retrieval` → `context-retrieval` | F4 |
 | core | `parallel-dispatch` | F7 |
 | core | `prompt-hygiene` | F5 (pack `security`) |
-| core | `review` | F5 (pack `quality`) |
+| core | `review` | F5 (pack `quality`); en F7 pasa a `pre-commit-review` (D-40) |
 | core | `skill-creator` | F7 |
 | core | `skill-improver` | F7 |
 | core | `skill-registry` | CLI (`arnes registry`, F1) |

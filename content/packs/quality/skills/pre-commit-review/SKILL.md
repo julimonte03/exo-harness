@@ -1,5 +1,5 @@
 ---
-name: review
+name: pre-commit-review
 description: >-
   Reviews what is about to be committed, read-only: the staged diff (or the
   working diff when nothing is staged), checked for scope, debug leftovers,
@@ -16,7 +16,7 @@ metadata:
   exo-permissions: read-only
 ---
 
-# review
+# pre-commit-review
 
 ## Result
 
@@ -108,7 +108,7 @@ When nothing is wrong, say so in one line and end with `Result: ready to commit`
 Inside an SDD change, add this skill to the AI Usage Record once (`.exo/shared/capability-attribution.md`); later runs do not duplicate it:
 
 ```bash
-exo change record <change> --add capabilities_used '{"name": "review", "type": "skill", "activation": "auto", "resolution": "fallback-registry"}'
+exo change record <change> --add capabilities_used '{"name": "pre-commit-review", "type": "skill", "activation": "auto", "resolution": "fallback-registry"}'
 ```
 
 In a subagent (the implementer commits during apply), list it in the envelope notes instead: subagents never run `exo change record`.

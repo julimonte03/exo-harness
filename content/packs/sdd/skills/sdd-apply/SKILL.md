@@ -53,7 +53,7 @@ Permissions are denied by default (section G).
 Section A, with these skills (`.exo/shared/phase-skill-map.md`, row apply), each `SKILL.md` read in full:
 
 - **Required:** `code-generation`, `secure-coding-baseline`, `work-unit-commits`, and the stack router. Without a stack router, follow the commands and conventions in `.exo/context.md`.
-- **Conditional:** `review` before each commit; `prompt-hygiene` when logs, tickets or production data go to the model; `frontend-design` when the change touches UI.
+- **Conditional:** `pre-commit-review` before each commit; `prompt-hygiene` when logs, tickets or production data go to the model; `frontend-design` when the change touches UI.
 - **Degraded:** a skill from a pack that is not installed degrades as `.exo/shared/skill-resolver.md` says. For example: `security/secure-coding-baseline not installed — applying inline criteria`, then validate and encode untrusted input at the boundary, use parameterized queries, keep secrets out of code and logs, check authorization on every entry point and fail closed.
 - `code-generation` and `work-unit-commits` ship in `core`, which `sdd` requires. If one is missing, the installation is incomplete: say so, suggest `exo doctor`, and return `status: blocked`.
 
