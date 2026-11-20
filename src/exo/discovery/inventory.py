@@ -472,7 +472,7 @@ def build(project: Path, fileset: files_mod.FileSet | None = None) -> dict[str, 
             entry["files"] += 1
             entry["lines"] += item.lines
     readable = [f.path for f in fileset.files if not f.sensitive]
-    reader = files_mod.TextReader(project)
+    reader = files_mod.TextReader(project, fileset.contents)
     manifests, frameworks = _manifests(reader, readable)
     if any(PurePosixPath(p).name.startswith("tsconfig") for p in readable):
         frameworks.add("typescript")

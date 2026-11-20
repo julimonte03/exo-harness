@@ -116,7 +116,8 @@ def _chunks(paths: list[str], lines: dict[str, int], budget: int) -> list[list[s
 def _tests_by_file(project: Path, fileset: files_mod.FileSet) -> dict[str, set[str]]:
     """Archivo de producción -> tests que lo importan."""
     readable = [f.path for f in fileset.files if not f.sensitive]
-    reader = files_mod.TextReader(project)  # sus avisos ya los dan el inventario y el grafo
+    # Sus avisos ya los dan el inventario y el grafo.
+    reader = files_mod.TextReader(project, fileset.contents)
     index = graph.Index.build(project, readable, reader)
     found: dict[str, set[str]] = {}
     for item in fileset.files:

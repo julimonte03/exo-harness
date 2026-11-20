@@ -278,3 +278,38 @@ def test_los_archivos_del_lock_no_se_analizan(tmp_path: Path) -> None:
     paths = [f.path for f in files.list_files(root).files]
     assert "src/app.py" in paths
     assert not any(p.startswith(".claude/") for p in paths), paths
+
+
+def test_el_lector_lee_cada_archivo_una_vez(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """F8: lo que ya leyó la lista no se vuelve a abrir, y lo demás se abre una sola vez."""
+    from exo.core import fsutil
+
+    _write(tmp_path, "a.py", "x = 1\n")
+    real = fsutil.read_bytes
+    opened: list[str] = []
+
+    def counting(path: Path) -> bytes:
+        opened.append(Path(path).name)
+        return real(path)
+
+    monkeypatch.setattr(fsutil, "read_bytes", counting)
+    latin1 = b"caf" + bytes([0xE9]) + b"\n"
+    reader = files.TextReader(tmp_path, {"b.py": latin1})
+    assert reader.text("a.py") == reader.text("a.py") == "x = 1\n"
+    assert reader.text("b.py") == "caf" + chr(0xFFFD) + "\n"  # b.py no existe en disco
+    assert reader.text("no-existe.py") == reader.raw("no-existe.py").decode() == ""
+    assert opened == ["a.py", "no-existe.py"]
+    assert reader.warnings == [files.not_utf8("b.py")]
+    # Los avisos son de cada lector, aunque compartan los bytes.
+    assert files.TextReader(tmp_path, {"b.py": latin1}).warnings == []
+
+
+@needs_git
+def test_la_lista_guarda_los_bytes_de_lo_que_analiza(repo: Path) -> None:
+    found = files.list_files(repo)
+    analyzed = {f.path for f in found.files if not f.sensitive}
+    assert set(found.contents) == analyzed
+    assert found.contents["src/app/main.py"] == (repo / "src/app/main.py").read_bytes()
+    assert ".env" not in found.contents and "big/huge.txt" not in found.contents

@@ -447,7 +447,7 @@ def build(project: Path, fileset: files_mod.FileSet | None = None) -> dict[str, 
     project = Path(project)
     fileset = fileset or files_mod.list_files(project)
     readable = [f.path for f in fileset.files if not f.sensitive]
-    reader = files_mod.TextReader(project)
+    reader = files_mod.TextReader(project, fileset.contents)
     index = Index.build(project, readable, reader)
     code = [f for f in fileset.files if f.category == "code"]
     modules: dict[str, dict[str, Any]] = {}

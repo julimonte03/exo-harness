@@ -19,6 +19,9 @@
 - **Archivos de credenciales** (`.env`, claves): se listan por nombre y nunca se leen.
 - **Texto que no es UTF-8:** se lee con caracteres de reemplazo y queda un aviso
   (`TextReader`). Nunca se le pide a la persona que lo cambie: es código del proyecto.
+- **Una lectura por comando** (F8): `list_files` guarda los bytes de lo que analiza en
+  `FileSet.contents`, y los `TextReader` de los pasos siguientes (inventario, grafo, plan)
+  los toman de ahí. Cada archivo se abre una sola vez aunque lo usen varios pasos.
 """
 
 from __future__ import annotations
@@ -27,6 +30,7 @@ import fnmatch
 import os
 import posixpath
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
@@ -172,6 +176,9 @@ class FileSet:
     excluded: dict[str, int] = field(default_factory=dict)
     git: bool = True
     warnings: list[str] = field(default_factory=list)
+    # Los bytes tal como están en disco de cada archivo analizado (hasta 1 MB cada uno),
+    # para que los pasos siguientes no vuelvan a abrirlos (`TextReader(project, contents)`).
+    contents: dict[str, bytes] = field(default_factory=dict, repr=False, compare=False)
 
     def by_category(self, category: str) -> list[SourceFile]:
         return [f for f in self.files if f.category == category]
@@ -223,17 +230,30 @@ def not_utf8(rel: str) -> str:
 
 
 class TextReader:
-    """Lee archivos del proyecto sin fallar nunca y junta los que no eran UTF-8."""
+    """Lee archivos del proyecto sin fallar nunca y junta los que no eran UTF-8.
 
-    def __init__(self, project: Path) -> None:
+    Cada archivo se lee una vez: de `known` (los bytes que ya leyó `list_files`, que no se
+    modifican) o del disco la primera vez que se pide. Los avisos son de cada lector: el
+    inventario y el grafo leen lo mismo y avisan cada uno lo suyo.
+    """
+
+    def __init__(self, project: Path, known: Mapping[str, bytes] | None = None) -> None:
         self.project = Path(project)
         self.lossy: set[str] = set()
+        self._known: Mapping[str, bytes] = known if known is not None else {}
+        self._read: dict[str, bytes] = {}
 
     def raw(self, rel: str) -> bytes:
-        try:
-            return fsutil.read_bytes(self.project / rel)
-        except OSError:
-            return b""
+        data = self._known.get(rel)
+        if data is None:
+            data = self._read.get(rel)
+        if data is None:
+            try:
+                data = fsutil.read_bytes(self.project / rel)
+            except OSError:
+                data = b""
+            self._read[rel] = data
+        return data
 
     def text(self, rel: str) -> str:
         text, lossy = decode(self.raw(rel))
@@ -480,7 +500,8 @@ def list_files(project: Path, *, include_untracked: bool = False) -> FileSet:
             if path.stat().st_size > 2 * MAX_BYTES:
                 reason = "large"
             else:
-                data = to_lf(fsutil.read_bytes(path))
+                raw = fsutil.read_bytes(path)
+                data = to_lf(raw)
                 head = data[:_SNIFF]
                 if len(data) > MAX_BYTES:
                     reason = "large"
@@ -500,6 +521,7 @@ def list_files(project: Path, *, include_untracked: bool = False) -> FileSet:
                             lines=count_lines(data),
                         )
                     )
+                    result.contents[rel] = raw
                     continue
         if reason not in _UNCOUNTED:
             counts[reason] = counts.get(reason, 0) + 1
