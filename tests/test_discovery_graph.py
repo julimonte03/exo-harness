@@ -300,6 +300,119 @@ def test_strip_comments_respeta_los_strings() -> None:
     assert clean.count("\n") == text.count("\n")
 
 
+BACKSLASH = chr(92)
+
+
+def _strip_reference(text: str) -> str:
+    """La versión carácter por carácter de F6, contra la que se compara la de F8."""
+    out: list[str] = []
+    index, size = 0, len(text)
+    quote: str | None = None
+    while index < size:
+        char = text[index]
+        if quote:
+            out.append(char)
+            if char == BACKSLASH and index + 1 < size:
+                out.append(text[index + 1])
+                index += 2
+                continue
+            if char == quote:
+                quote = None
+            index += 1
+            continue
+        if char in "'\"`":
+            quote = char
+            out.append(char)
+            index += 1
+            continue
+        if text.startswith("//", index):
+            end = text.find("\n", index)
+            index = size if end < 0 else end
+            continue
+        if text.startswith("/*", index):
+            end = text.find("*/", index + 2)
+            stop = size if end < 0 else end + 2
+            out.append("\n" * text.count("\n", index, stop))
+            index = stop
+            continue
+        out.append(char)
+        index += 1
+    return "".join(out)
+
+
+def test_strip_comments_da_lo_mismo_que_la_version_de_f6() -> None:
+    """F8 la pasó a una regex (era el 20 % de `structure`): mismos bytes en todo caso."""
+    import random
+
+    cases = [
+        "",
+        "/*/ x */ y",
+        "/* sin cerrar\n\n",
+        "'sin cerrar // no es comentario\n",
+        "a = '" + BACKSLASH,
+        "s = " + '"' + BACKSLASH + '"' + "// x" + '"' + " // y\nz",
+        "`linea\n${x} // dentro`/* c */ // d\r\nfin",
+    ]
+    rng = random.Random(8)
+    alphabet = ["'", '"', "`", BACKSLASH, "/", "*", "\n", "\r", "a", " ", "x"]
+    cases += ["".join(rng.choices(alphabet, k=rng.randint(0, 40))) for _ in range(5000)]
+    for text in cases:
+        assert graph.strip_comments(text) == _strip_reference(text), repr(text)
+
+
+def test_los_imports_de_python_se_buscan_solo_entre_sentencias() -> None:
+    """F8: no hace falta recorrer cada expresión del árbol; los imports son sentencias."""
+    import ast
+
+    source = """
+import a
+from . import b
+if X:
+    import c
+elif Y:
+    from d import e
+else:
+    import f
+try:
+    import g
+except ImportError:
+    import h
+else:
+    import i
+finally:
+    import j
+for _ in []:
+    import k
+else:
+    import l
+while False:
+    import m
+with ctx():
+    import n
+match x:
+    case 1:
+        import o
+class P:
+    import q
+    def r(self):
+        import s
+async def t():
+    async with ctx():
+        import u
+    async for _ in it():
+        import v
+lambda: __import__("w")
+"""
+    tree = ast.parse(source)
+    walked = {
+        (n.lineno, n.col_offset)
+        for n in ast.walk(tree)
+        if isinstance(n, (ast.Import, ast.ImportFrom))
+    }
+    found = {(n.lineno, n.col_offset) for n in graph.import_nodes(tree)}
+    assert found == walked and len(found) == 18
+
+
 def test_mermaid_y_escritura_idempotente(tmp_path: Path) -> None:
     root = _repo(tmp_path, {"a/x.py": "import b.y\n", "b/y.py": "", "b/__init__.py": ""})
     _, wrote = graph.write(root)

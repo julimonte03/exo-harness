@@ -21,6 +21,7 @@ import json
 import posixpath
 import re
 import warnings
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -41,6 +42,18 @@ _JS_SPECIFIERS = (
     re.compile(r"\brequire\s*\(\s*(['\"`])([^'\"`$]+)\1\s*\)"),
 )
 _JAVA_IMPORT = re.compile(r"^\s*import\s+(static\s+)?([\w.]+?)(\.\*)?\s*;", re.MULTILINE)
+# Para `strip_comments`: un string ('…', "…" o `…`, con escapes y quizás sin cerrar), un
+# comentario de línea o uno de bloque (quizás sin cerrar). Lo que no es nada de eso queda.
+_JS_TOKEN = re.compile(
+    r"'(?:\\[\s\S]|[^'\\])*'?"
+    r'|"(?:\\[\s\S]|[^"\\])*"?'
+    r"|`(?:\\[\s\S]|[^`\\])*`?"
+    r"|//[^\n]*"
+    r"|/\*[\s\S]*?(?:\*/|\Z)"
+)
+# Las listas de sentencias de un nodo. Un import es una sentencia: para encontrarlos no
+# hace falta recorrer las expresiones, que son la mayor parte del árbol.
+_STATEMENT_LISTS = ("body", "orelse", "finalbody", "handlers", "cases")
 
 
 @dataclass
@@ -131,6 +144,21 @@ def _py_resolve_absolute(dotted: str, names: list[str], index: Index) -> set[str
     return set()
 
 
+def import_nodes(tree: ast.AST) -> Iterator[ast.Import | ast.ImportFrom]:
+    """Los `import` y `from … import` del árbol, a cualquier profundidad (dentro de un
+    `if`, un `try`, una función o una clase), sin recorrer las expresiones."""
+    pending = [tree]
+    while pending:
+        node = pending.pop()
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            yield node
+            continue
+        for name in _STATEMENT_LISTS:
+            children = getattr(node, name, None)
+            if isinstance(children, list):
+                pending.extend(children)
+
+
 def python_imports(path: str, source: bytes, index: Index) -> tuple[set[str], set[str]]:
     """(archivos del proyecto importados, paquetes externos) de un archivo Python."""
     resolved: set[str] = set()
@@ -142,7 +170,7 @@ def python_imports(path: str, source: bytes, index: Index) -> tuple[set[str], se
             warnings.simplefilter("ignore")
             tree = ast.parse(source)
         statements: list[tuple[int, str, list[str]]] = []
-        for node in ast.walk(tree):
+        for node in import_nodes(tree):
             if isinstance(node, ast.Import):
                 statements += [(0, alias.name, []) for alias in node.names]
             elif isinstance(node, ast.ImportFrom):
@@ -178,41 +206,23 @@ def python_imports(path: str, source: bytes, index: Index) -> tuple[set[str], se
 # -- JS/TS ----------------------------------------------------------------------------------
 
 
+def _without_comment(match: re.Match[str]) -> str:
+    token = match.group()
+    if token.startswith("//"):
+        return ""
+    if token.startswith("/*"):
+        return "\n" * token.count("\n")  # las líneas siguen en su lugar
+    return token
+
+
 def strip_comments(text: str) -> str:
-    """El texto sin comentarios `//` y `/* */`, respetando strings y template literals."""
-    out: list[str] = []
-    index, size = 0, len(text)
-    quote: str | None = None
-    while index < size:
-        char = text[index]
-        if quote:
-            out.append(char)
-            if char == "\\" and index + 1 < size:
-                out.append(text[index + 1])
-                index += 2
-                continue
-            if char == quote:
-                quote = None
-            index += 1
-            continue
-        if char in "'\"`":
-            quote = char
-            out.append(char)
-            index += 1
-            continue
-        if text.startswith("//", index):
-            end = text.find("\n", index)
-            index = size if end < 0 else end
-            continue
-        if text.startswith("/*", index):
-            end = text.find("*/", index + 2)
-            stop = size if end < 0 else end + 2
-            out.append("\n" * text.count("\n", index, stop))
-            index = stop
-            continue
-        out.append(char)
-        index += 1
-    return "".join(out)
+    """El texto sin comentarios `//` y `/* */`, respetando strings y template literals.
+
+    Un string abre con su comilla y cierra con la misma (un escape saltea el carácter
+    siguiente); uno sin cerrar llega hasta el final. Con una regex en vez de un recorrido
+    carácter por carácter (F8): da lo mismo y es varias veces más rápido.
+    """
+    return _JS_TOKEN.sub(_without_comment, text)
 
 
 def _loose_json(text: str) -> Any:
