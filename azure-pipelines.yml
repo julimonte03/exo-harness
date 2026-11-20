@@ -1,4 +1,6 @@
-# CI del motor (ADR-0008). Para validar PRs en Azure Repos, configurá la política
+# Ejemplo de CI del motor para Azure Pipelines (ADR-0008). La CI que corre es la de
+# GitHub Actions (.github/workflows/ci.yml, ADR-0017); este archivo no se mantiene en
+# paridad. Para validar PRs en Azure Repos, configurá la política
 # de rama "Build validation" de main apuntando a este pipeline: el bloque `pr:`
 # del YAML no aplica a Azure Repos.
 # Usa agentes hospedados por Microsoft; para un pool propio, cambiá `pool`.
