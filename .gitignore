@@ -23,3 +23,6 @@ htmlcov/
 # Sistema
 .DS_Store
 Thumbs.db
+
+# Referencia privada del sistema original (D-46): vive solo en local, nunca en el repo
+docs/referencia/

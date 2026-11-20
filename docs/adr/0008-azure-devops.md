@@ -1,6 +1,6 @@
 # ADR-0008 — Azure DevOps para repos y CI
 
-- **Estado:** Aceptada
+- **Estado:** Aceptada; reemplazada en parte por ADR-0017 (2026-11-19). El repo y la CI del motor pasaron a GitHub y GitHub Actions, y `azure-pipelines.yml` queda como ejemplo. Lo de los proyectos ya lo había generalizado ADR-0014 (D-30).
 - **Fecha:** 2026-10-30
 - **Decisión:** D-16 (`docs/plan/04-DECISIONES.md`)
 

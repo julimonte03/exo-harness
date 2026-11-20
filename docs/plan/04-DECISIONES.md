@@ -122,6 +122,7 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 
 ### D-17 — Overlays de persona
 - **Default:** se posponen a F8 como opcionales.
+- **Estado:** Decidida por el dueño, 2026-11-19: entran en F8. El diseño está en ADR-0018 (propuesta) y se confirma antes del código.
 
 ### D-18 — Licencia de las skills de origen `ecc`
 - **Contexto:** 14 skills del reporte dicen venir de un catálogo externo adaptado.
@@ -134,6 +135,11 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 
 ### D-22 — Distribución pública
 - **Default:** repo privado hasta M2; después instaladores por `curl`/`irm` y `uvx`. PyPI y marketplaces de agentes, opcionales en F8.
+- **Estado:** Decidida por el dueño (ADR-0017), 2026-11-19:
+  - repo **público** en GitHub, `https://github.com/julimonte03/exo-harness`;
+  - `main` y las ramas de fase se subieron al empezar F8; los tags y los releases, al cierre;
+  - instaladores por `curl`/`irm` y `uvx` desde ese repo;
+  - PyPI entra en F8; los marketplaces de agentes, no.
 
 ## Surgidas durante la construcción
 
@@ -215,6 +221,7 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 - **Contexto:** el criterio 8 de F6 pide adoptar un repo real de 20 a 50 mil líneas y medir una cobertura de módulos ≥ 80 %.
 - **Opciones:** (a) un repo público que se descarga; (b) uno que ya tenga el dueño; (c) diferirla.
 - **Estado:** Decidida por el dueño, 2026-11-16: (c), a F8, junto con el resto de las pruebas de escala.
+- **F8** (del dueño), 2026-11-19: sobre el propio exo, que tiene 17 mil líneas de código más 13 mil de tests. Se adopta una copia, con los datos aislados.
 
 ### D-36 — `exo uninstall` y lo que produjo la ingeniería inversa
 - **Contexto:** `uninstall` borra toda la carpeta del motor. `discovery/` y `context.md` son conocimiento del proyecto, no instalación del motor.
@@ -261,3 +268,24 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 ### D-44 — Escaneo de dependencias en Python
 - **Contexto:** `security-scan-jkp` cubre Java, Kotlin y Python, pero vive en el pack `java`. Un proyecto solo Python no lo recibe por la sugerencia de stack.
 - **Estado:** Decidida (ADR-0016), 2026-11-17: queda en `java`, como dice el plan. Su fila de degradación en el mapa trae el criterio inline para Python (pip-audit u OSV-Scanner), así un proyecto solo Python escanea igual.
+
+### D-45 — CI del motor
+- **Contexto:** ADR-0008 ponía la CI en Azure Pipelines, pero el repo quedó en GitHub (D-22), que no corre `azure-pipelines.yml`.
+- **Estado:** Decidida por el dueño (ADR-0017), 2026-11-19: GitHub Actions, con Windows, macOS y Linux y Python 3.10 a 3.13. `azure-pipelines.yml` queda como ejemplo para quien use Azure.
+
+### D-46 — Limpieza antes del primer push
+- **Contexto:** el repo iba a ser público. Los commits tenían el email de trabajo del dueño, y `docs/referencia/` era la transcripción del sistema original, con contenido propio de la organización de origen.
+- **Estado:** Decidida por el dueño, 2026-11-19. Antes del primer push se reescribió toda la historia con `git filter-repo`:
+  - el autor de todos los commits pasó al noreply de GitHub del dueño;
+  - `docs/referencia/` salió de toda la historia (queda en local, ignorada por git);
+  - todo lo que nombraba a la organización de origen o a sus herramientas pasó a un término genérico, en todas las versiones y en los mensajes.
+
+  El pedido del dueño fue dejarlo "limpio de ese contexto, así es agnóstico".
+
+### D-47 — Copilot para la v1.0
+- **Contexto:** el criterio 1 de la v1.0 pide Claude Code y Copilot, y en esta máquina no había Copilot CLI.
+- **Estado:** Decidida por el dueño, 2026-11-19: se instala Copilot CLI acá y el dueño inicia sesión. Con él se corren los escenarios de la v1.0 y los checklists de Copilot pendientes desde F2.
+
+### D-48 — Idioma de la documentación de usuario
+- **Contexto:** el repo es público. Los docs del plan están en español, y lo que se instala, en inglés (ADR-0011).
+- **Estado:** Decidida (ADR-0017), 2026-11-19: los docs para quien usa el motor van en inglés, como lo instalado: README, QUICK-START, las guías, troubleshooting, CONTRIBUTING y CHANGELOG. El plan, los ADRs y los docstrings siguen en español.

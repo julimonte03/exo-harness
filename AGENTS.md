@@ -1,6 +1,6 @@
 # AGENTS.md — Desarrollo del motor `exo`
 
-Este repo construye un motor de desarrollo gobernado por proyecto y agnóstico de agente. El plan vive en `docs/plan/` y manda sobre todo lo demás. `docs/referencia/` es la transcripción del sistema original: es referencia, no especificación; si contradice al plan, gana el plan.
+Este repo construye un motor de desarrollo gobernado por proyecto y agnóstico de agente. El plan vive en `docs/plan/` y manda sobre todo lo demás. La transcripción del sistema original es privada: vive solo en local, en `docs/referencia/` (ignorada por git, D-46), y nunca se sube. Es referencia, no especificación; si contradice al plan, gana el plan.
 
 **Nombre:** el plan usa `arnes` como nombre de trabajo; el motor se llama `exo` (D-01, `docs/adr/0001-nombre-y-layout.md`). Donde el plan dice `arnes`, `.arnes/`, `ARNES_` o `arnes-`, leé `exo`, `.exo/`, `EXO_` y `exo-`.
 
