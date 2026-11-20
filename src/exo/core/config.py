@@ -374,7 +374,10 @@ def _v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 def _v2_to_v3(raw: dict[str, Any]) -> dict[str, Any]:
-    """ADR-0014: sale el perfil de organización; los gates, los datos y la revisión toman su default."""
+    """ADR-0014: sale el perfil de organización.
+
+    Los gates, los datos y la revisión toman su default.
+    """
     out = dict(raw)
     governance = out.get("governance")
     if isinstance(governance, dict):
