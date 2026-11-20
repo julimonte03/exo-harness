@@ -56,6 +56,7 @@ addopts = [
 markers = [
     "agent_e2e: usa agentes reales o red; excluido de la suite normal",
     "installer: corre los instaladores de verdad (red); usar pytest -m installer --no-cov",
+    "perf: metas de rendimiento de F8; corre en la suite normal y falla con el doble de la meta",
 ]
 
 [tool.coverage.run]
