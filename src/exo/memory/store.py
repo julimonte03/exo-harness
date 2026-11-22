@@ -16,9 +16,10 @@ from __future__ import annotations
 import hashlib
 import re
 import sqlite3
+import threading
 import unicodedata
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -66,8 +67,27 @@ _WORD = re.compile(r"[^\W_]+")
 _BM25 = "bm25(observations_fts, 4.0, 1.0, 2.0)"
 
 
+_last_stamp: datetime | None = None
+_stamp_lock = threading.Lock()
+
+
+def _clock() -> datetime:
+    return datetime.now(timezone.utc)
+
+
 def now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="microseconds")
+    """Hora UTC en microsegundos, estrictamente creciente dentro del proceso.
+
+    En Windows antes de Python 3.13 el reloj avanza de a unos 15 ms: dos escrituras
+    seguidas tendrían la misma hora, y un merge no sabría cuál es la más reciente.
+    """
+    global _last_stamp
+    with _stamp_lock:
+        current = _clock()
+        if _last_stamp is not None and current <= _last_stamp:
+            current = _last_stamp + timedelta(microseconds=1)
+        _last_stamp = current
+    return current.isoformat(timespec="microseconds")
 
 
 def _fold(text: str) -> str:
