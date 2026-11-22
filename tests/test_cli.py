@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import runpy
 import subprocess
 import sys
@@ -125,7 +126,9 @@ def test_un_comando_desconocido_sigue_dando_el_error_de_argparse(
         main(["no-existe"])
     assert exc.value.code == 2
     err = capsys.readouterr().err
-    assert "invalid choice: 'no-existe'" in err and "'sync'" in err
+    # Las comillas de las opciones cambiaron dentro de 3.12 (`'sync'` antes, `sync` después).
+    assert re.search(r"invalid choice: '?no-existe'?", err), err
+    assert re.search(r"choose from .*\bsync\b", err), err
 
 
 _LOADED = (

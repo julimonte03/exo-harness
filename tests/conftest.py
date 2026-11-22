@@ -21,6 +21,47 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
 
 
+# GitHub acepta hasta 10 anotaciones de error por paso.
+MAX_ANNOTATIONS = 10
+ANNOTATION_LINES = 15
+
+
+def _escape(text: str, *, prop: bool = False) -> str:
+    """Escapa un valor para un comando de workflow de GitHub Actions."""
+    text = text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    return text.replace(":", "%3A").replace(",", "%2C") if prop else text
+
+
+def annotation(report: pytest.CollectReport | pytest.TestReport) -> str:
+    """El `::error` de un test que falló: archivo, línea, nombre y el final del error."""
+    location = getattr(report, "location", None)
+    path = (location[0] if location else report.nodeid.split("::")[0]).replace("\\", "/")
+    line = (location[1] or 0) + 1 if location else 1
+    tail = "\n".join(report.longreprtext.strip().splitlines()[-ANNOTATION_LINES:])
+    title = _escape(report.nodeid, prop=True)
+    return f"::error file={_escape(path, prop=True)},line={line},title={title}::{_escape(tail)}"
+
+
+def pytest_terminal_summary(
+    terminalreporter: pytest.TerminalReporter, exitstatus: int, config: pytest.Config
+) -> None:
+    """En GitHub Actions, cada test que falló sale como anotación de la corrida.
+
+    Las anotaciones se leen con la API pública sin autenticación; los logs no (D-45).
+    """
+    if os.environ.get("GITHUB_ACTIONS") != "true":
+        return
+    stats = terminalreporter.stats
+    reports = [r for key in ("failed", "error") for r in stats.get(key, []) if r.failed]
+    for report in reports[:MAX_ANNOTATIONS]:
+        terminalreporter.write_line(annotation(report))
+    if exitstatus != 0 and not reports:
+        terminalreporter.write_line(
+            f"::error title=pytest::exit status {exitstatus} with no failed test "
+            "(coverage under the threshold, or an internal error)"
+        )
+
+
 @pytest.fixture(autouse=True)
 def _datos_de_usuario_aislados(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
     """Ningún test toca la carpeta de datos real ni la memoria real del usuario.
