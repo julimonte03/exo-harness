@@ -4,7 +4,9 @@
 
 Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron con el comando exacto, la CI está verde en los tres sistemas operativos y el PR de la fase está mergeado.
 
-**Mientras no haya repo remoto** (decisión del dueño, 2026-10-30): la fase se cierra en local. La suite y el lint se corren en Windows y en Linux (Ubuntu en WSL, sobre un clon limpio), y la rama se mergea a `main` con `git merge --no-ff`, sin push. La CI (Azure Pipelines, `azure-pipelines.yml`, incluido macOS) y el PR quedan diferidos (ADR-0008). Cuando exista el remoto, se suben `main` y las ramas, y se verifica la CI de cada fase cerrada así.
+**Hasta F7, sin repo remoto** (decisión del dueño, 2026-10-30): las fases se cerraron en local. La suite y el lint se corrieron en Windows y en Linux (Ubuntu en WSL, sobre un clon limpio), y la rama se mergeó a `main` con `git merge --no-ff`, sin push. La CI y el PR quedaron diferidos (ADR-0008).
+
+**Desde F8** (D-22, D-45): el repo es público en GitHub y la CI corre en GitHub Actions, con Windows, macOS y Linux y Python 3.10 a 3.13 (`.github/workflows/ci.yml`). `main` y las ramas de F0 a F7 se subieron el 2026-11-19. `azure-pipelines.yml` queda como ejemplo, sin paridad.
 
 ## Estado por fase
 
@@ -46,7 +48,7 @@ Entorno: Windows 11, venv `.venv` con Python 3.14.5. La suite también se corri�
 |---|---|---|---|
 | 1 | El paquete se instala y responde | `pip install -e ".[dev]"`; `exo --version`; `python -m exo --version` | OK: los dos imprimen `exo 0.0.1` |
 | 2 | Tests y lint verdes | `pytest`; `ruff check .` | OK: 8 passed, cobertura 96.55 % (umbral 80 %); ruff "All checks passed!" |
-| 3 | CI verde en los 3 SO | Sin remoto: `pip install -e ".[dev]"`, `exo --version`, `python -m exo --version`, `pytest`, `ruff check .` en Windows y en Ubuntu (WSL) | **Parcial**: Windows OK (3.14.5 y 3.10.20) y Linux OK (3.12.3; 8 passed, 96.55 %, versión `exo 0.0.1` por las dos vías). macOS y el run de GitHub Actions (`.github/workflows/ci.yml`) quedan diferidos hasta tener remoto |
+| 3 | CI verde en los 3 SO | Sin remoto: `pip install -e ".[dev]"`, `exo --version`, `python -m exo --version`, `pytest`, `ruff check .` en Windows y en Ubuntu (WSL) | **Parcial**: Windows OK (3.14.5 y 3.10.20) y Linux OK (3.12.3; 8 passed, 96.55 %, versión `exo 0.0.1` por las dos vías). macOS y el run de GitHub Actions (`.github/workflows/ci.yml`) quedan diferidos hasta tener remoto. **F8:** `ci.yml` existe desde F8 y la CI corre los tres sistemas (D-45) |
 | 4 | Nombre centralizado | `pytest --no-cov tests/test_meta.py` | OK: 3 passed. Prueba a mano: un módulo temporal con `".exo/config.json"` hace fallar el test con `_tmp_probe.py:1`, y se revirtió |
 | 5 | Matriz de agentes completa | Revisión de `docs/agent-matrix.md` (script que cuenta las filas 1–8 por tabla) | OK: 8 tablas (Claude Code, Copilot CLI, VS Code, cloud agent, Cursor, Codex, Gemini, Devin), cada una con las filas 1–8, URL o `[No verificado]` |
 | 6 | Decisiones registradas | `ls docs/adr`; `grep "Decidida" docs/plan/04-DECISIONES.md` | OK: ADR-0001 a 0004; D-01, D-02, D-03 y D-15 decididas |
