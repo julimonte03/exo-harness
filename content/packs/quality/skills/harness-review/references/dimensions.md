@@ -40,15 +40,18 @@ A `TODO` that the change adds without an owner or a ticket is a Low finding. Nev
 
 | Look for | Reference |
 |---|---|
-| Untrusted input in a query, a shell command or a template | OWASP A03:2021 Injection |
-| Untrusted input in a file path | OWASP A01:2021 Broken Access Control (CWE-22) |
-| A new entry point without an authorization check | OWASP A01:2021 Broken Access Control |
-| A new entry point without authentication, or weak session handling | OWASP A07:2021 Identification and Authentication Failures |
-| Credentials in code, config or tests | CWE-798; `.exo/shared/data-protection.md` |
-| Deserialization of untrusted data | OWASP A08:2021 Software and Data Integrity Failures |
-| Stack traces or internals shown to users | OWASP A05:2021 Security Misconfiguration |
-| Secrets or personal data in logs | OWASP A09:2021 Security Logging and Monitoring Failures |
-| A new or upgraded dependency | OWASP A06:2021 Vulnerable and Outdated Components |
+| Untrusted input in a query, a shell command or a template | OWASP A05:2025 Injection (CWE-89, CWE-78, CWE-1336) |
+| Untrusted input in a file path | OWASP A01:2025 Broken Access Control (CWE-22) |
+| A new entry point without an authorization check | OWASP A01:2025 Broken Access Control (CWE-862) |
+| A new entry point without authentication, or weak session handling | OWASP A07:2025 Authentication Failures (CWE-306, CWE-384) |
+| Credentials in code, config or tests | OWASP A07:2025 Authentication Failures (CWE-798); `.exo/shared/data-protection.md` |
+| Deserialization of untrusted data | OWASP A08:2025 Software or Data Integrity Failures (CWE-502) |
+| Stack traces or internals shown to users | OWASP A10:2025 Mishandling of Exceptional Conditions (CWE-209) |
+| An error swallowed, or a failure that lets the request through | OWASP A10:2025 Mishandling of Exceptional Conditions (CWE-755, CWE-636) |
+| Secrets or personal data in logs | OWASP A09:2025 Security Logging and Alerting Failures (CWE-532) |
+| A new or upgraded dependency | OWASP A03:2025 Software Supply Chain Failures |
+
+The category of a finding comes from its CWE in `.exo/shared/owasp-2025.md`.
 
 Anything that needs more than reading the diff (data flows across modules, the threat model, the full OWASP review) goes to `security-code-review`.
 

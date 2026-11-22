@@ -3,9 +3,10 @@ name: security-code-review
 description: >-
   Reviews a diff for security vulnerabilities, read-only: injection, broken
   authentication and authorization, exposed secrets, unsafe deserialization,
-  SSRF, path traversal, XSS, risky dependencies and sensitive data in logs.
-  Every finding has a severity, its path:line and its OWASP Top 10 2021 or CWE
-  rule, from a stable checklist that judge-security reuses. In the SDD verify
+  SSRF, path traversal, XSS, risky dependencies, sensitive data in logs and
+  errors that fail open. Every finding has a severity, its path:line, its CWE
+  and its OWASP Top 10:2025 category, from a stable checklist that
+  judge-security reuses. In the SDD verify
   phase from Tier 3 it writes the security_review gate; outside the cycle it
   reviews a PR or a branch and answers with the same content. Use it when a
   change reaches verify in Tier 3 or 4, or whenever someone asks for a
@@ -23,7 +24,7 @@ metadata:
 
 ## Result
 
-- A list of findings, each with a severity, its `path:line`, what is wrong with a suggested fix as text, and its rule: the check ID of `references/review-checklist.md` with its OWASP Top 10 2021 category and CWE.
+- A list of findings, each with a severity, its `path:line`, what is wrong with a suggested fix as text, and its rule: the check ID of `references/review-checklist.md` with its CWE and the OWASP Top 10:2025 category of that CWE, from `.exo/shared/owasp-2025.md`.
 - In an SDD change, when the tier has the gate: `<change-root>/gates/security_review.md`, started from `.exo/shared/templates/gate.md`, and `exo speclint <change-root>` passes.
 - Outside the cycle: the same content (Verdict, Findings, Approval) in the answer. No file is written.
 
@@ -62,20 +63,22 @@ A gate always runs its skill: in a tier that has `security_review`, this review 
 
 Walk each category. The items, their signals and what is not a finding are in `references/review-checklist.md`.
 
-| Category | What | OWASP 2021 | Main CWEs |
+| Category | What | OWASP 2025 | Main CWEs |
 |---|---|---|---|
-| SCR-INJ | Injection: SQL, NoSQL, OS command, LDAP, XPath, template and expression | A03:2021 | CWE-89, CWE-943, CWE-78, CWE-94 |
-| SCR-AUTHN | Broken authentication: entry points without authentication, tokens, sessions, brute force | A07:2021 | CWE-306, CWE-287, CWE-347, CWE-384 |
-| SCR-AUTHZ | Broken authorization: missing or wrong checks, object-level access, tenancy, CSRF, mass assignment | A01:2021 | CWE-862, CWE-863, CWE-639, CWE-352 |
-| SCR-SECRET | Exposed secrets: in code, config, URLs, responses or client bundles | A07:2021, A01:2021 | CWE-798, CWE-540, CWE-598 |
-| SCR-DESER | Unsafe deserialization and XML external entities | A08:2021, A05:2021 | CWE-502, CWE-611 |
-| SCR-SSRF | Server-side request forgery | A10:2021 | CWE-918 |
-| SCR-PATH | Path traversal and unsafe file handling | A01:2021, A04:2021 | CWE-22, CWE-434 |
-| SCR-XSS | Cross-site scripting | A03:2021 | CWE-79 |
-| SCR-DEP | Risky dependencies | A06:2021, A08:2021 | CWE-1104, CWE-829, CWE-494 |
-| SCR-LOG | Sensitive data in logs, log injection, missing security logs | A09:2021 | CWE-532, CWE-117, CWE-778 |
-| SCR-CRYPTO | Weak cryptography and randomness | A02:2021 | CWE-327, CWE-330, CWE-916, CWE-319 |
-| SCR-ERR | Errors that leak details or fail open | A04:2021 | CWE-209, CWE-636 |
+| SCR-INJ | Injection: SQL, NoSQL, OS command, LDAP, XPath, template and expression | A05:2025 Injection | CWE-89, CWE-943, CWE-78, CWE-94 |
+| SCR-AUTHN | Broken authentication: entry points without authentication, tokens, sessions, brute force | A07:2025 Authentication Failures | CWE-306, CWE-287, CWE-384, CWE-307 |
+| SCR-AUTHZ | Broken authorization: missing or wrong checks, object-level access, tenancy, CSRF, mass assignment | A01:2025 Broken Access Control | CWE-862, CWE-863, CWE-639, CWE-352 |
+| SCR-SECRET | Exposed secrets: in code, config, URLs, responses or client bundles | A07:2025 Authentication Failures, A01:2025 Broken Access Control | CWE-798, CWE-540, CWE-200 |
+| SCR-DESER | Unsafe deserialization and XML external entities | A08:2025 Software or Data Integrity Failures, A02:2025 Security Misconfiguration | CWE-502, CWE-611 |
+| SCR-SSRF | Server-side request forgery | A01:2025 Broken Access Control | CWE-918 |
+| SCR-PATH | Path traversal and unsafe file handling | A01:2025 Broken Access Control, A06:2025 Insecure Design | CWE-22, CWE-434 |
+| SCR-XSS | Cross-site scripting | A05:2025 Injection | CWE-79 |
+| SCR-DEP | Risky dependencies | A03:2025 Software Supply Chain Failures, A08:2025 Software or Data Integrity Failures | CWE-1395, CWE-1104, CWE-1357, CWE-494 |
+| SCR-LOG | Sensitive data in logs, log injection, missing security logs | A09:2025 Security Logging and Alerting Failures | CWE-532, CWE-117, CWE-778 |
+| SCR-CRYPTO | Weak cryptography and randomness | A04:2025 Cryptographic Failures | CWE-327, CWE-330, CWE-916, CWE-319 |
+| SCR-ERR | Exceptional conditions: errors that leak details, fail open, are swallowed or go unchecked | A10:2025 Mishandling of Exceptional Conditions | CWE-209, CWE-636, CWE-755, CWE-252 |
+
+The column names the categories most checks of a group fall in. A finding takes the category of its own CWE from `.exo/shared/owasp-2025.md`, written with its year, and the checklist marks the checks whose CWE falls elsewhere (a token without signature verification, CWE-347, is `A04:2025 Cryptographic Failures`).
 
 ## Confirm before reporting
 
@@ -115,8 +118,8 @@ ESCALATED: one Critical finding open (order lookup without an ownership check).
 
 | Severity | File:line | Finding | Rule/OWASP |
 |---|---|---|---|
-| Critical | src/orders/api.py:57 | GET /orders/{id} loads any order by ID; the caller's ownership is never checked. Filter by the session's customer ID | SCR-AUTHZ-2, A01:2021, CWE-639 |
-| Medium | src/orders/api.py:91 | The 500 response returns the exception text. Return a generic message and log the detail | SCR-ERR-1, A04:2021, CWE-209 |
+| Critical | src/orders/api.py:57 | GET /orders/{id} loads any order by ID; the caller's ownership is never checked. Filter by the session's customer ID | SCR-AUTHZ-2, A01:2025, CWE-639 |
+| Medium | src/orders/api.py:91 | The 500 response returns the exception text. Return a generic message and log the detail | SCR-ERR-1, A10:2025, CWE-209 |
 
 ## Approval
 
@@ -125,7 +128,7 @@ Source: skill security-code-review
 ```
 
 - With no findings, the table has one row: `| None | — | No findings | — |`.
-- The Rule/OWASP column always carries the check ID, then the OWASP category and the CWE, so `judge-security` and the person can trace it.
+- The Rule/OWASP column always carries the check ID, then the OWASP Top 10:2025 category with its year and the CWE, so `judge-security` and the person can trace it.
 - `Requires tech_lead approval` is `yes` when the verdict is `ESCALATED` or a Critical or High finding stays open, and `no` otherwise.
 - In verify, list the same findings in `verify-record.md`, Issues Found (severity, `path:line`, impact, fix), so the verify Verdict counts them.
 

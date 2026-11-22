@@ -2,9 +2,9 @@
 name: judge-security
 description: >-
   Advisory, read-only security judge: reviews a design, a diff or a whole
-  change with the criteria of security-code-review and the OWASP Top 10:2021,
+  change with the criteria of security-code-review and the OWASP Top 10:2025,
   checks the threats and mitigations of the design, and returns JSEC-n
-  findings with severity, path:line and the OWASP or CWE item, plus an
+  findings with severity, path:line, the CWE and the OWASP item, plus an
   APPROVED or ESCALATED verdict. It never fixes anything. Runs in the
   sdd-judge subagent: in design and verify from Tier 3, and as one of the two
   blind judges of judgment-day in Tier 4. Use it also when someone wants an
@@ -46,27 +46,27 @@ The findings of one review in the format of the `sdd-judge` subagent: a Verdict 
 Only security; other judges cover correctness, product and UI.
 
 1. **`security-code-review`** (pack `security`). Read its `SKILL.md` in full: from the delegation, or resolved as `.exo/shared/skill-resolver.md` says. Apply its criteria to what you review; do not repeat them here and do not invent others.
-2. **OWASP Top 10:2021**, the edition of the `security` pack: every category that applies to the change. Cite the ID with its edition in each finding (`OWASP A01:2021`), never the bare number, and the CWE when it helps (`CWE-89`).
+2. **OWASP Top 10:2025:** every category that applies to the change. Each finding takes the category of its CWE from `.exo/shared/owasp-2025.md`, which lists the categories and what each covers. Cite the ID with its year (`OWASP A01:2025`), never the bare number, with the CWE next to it when there is one (`OWASP A01:2025 (CWE-639)`).
 3. **In design:** every new entry point, trust boundary, sensitive data flow and money flow has its threats (STRIDE) and a mitigation in Risks & Mitigations. Use the criteria of `threat-modeling` (pack `security`) when it is installed.
 4. **In verify and judgment:** every mitigation in Risks & Mitigations is implemented and has a test.
 5. **Data protection:** no credentials, and no personal data outside what a waiver allows, in code, tests, fixtures, logs or messages (`.exo/shared/data-protection.md`).
 
 ### When security-code-review is not installed
 
-Say `security/security-code-review not installed — applying inline criteria` in your envelope notes, and apply this minimum instead of criterion 1:
+Say `security/security-code-review not installed — applying inline criteria` in your envelope notes, and apply this minimum instead of criterion 1, in this order. What each category covers, and the category of each CWE, is in `.exo/shared/owasp-2025.md`; this list is only what to check in a change.
 
-| OWASP Top 10:2021 | Look for |
+| OWASP Top 10:2025 | Look for |
 |---|---|
-| A01:2021 Broken Access Control | Every new entry point checks, on the server, who the caller is and what they may touch; deny by default; no identifier from the client trusted without an ownership check; no path traversal |
-| A02:2021 Cryptographic Failures | Sensitive data encrypted in transit and at rest with current algorithms from a vetted library; no home-made cryptography or hard-coded keys; passwords stored with a slow, salted hash |
-| A03:2021 Injection | Untrusted input never concatenated into SQL, shell commands, queries of any kind, templates or HTML; parameterized queries, safe APIs and output encoding for the context |
-| A04:2021 Insecure Design | The mitigations of Risks & Mitigations are in place; limits on rates, sizes and amounts where abuse is possible |
-| A05:2021 Security Misconfiguration | No debug mode, default credentials, verbose errors, permissive CORS or missing security headers in what ships |
-| A06:2021 Vulnerable and Outdated Components | New or upgraded dependencies are maintained, pinned and from the expected source; name them for the dependency audit |
-| A07:2021 Identification and Authentication Failures | Sessions and tokens expire and end on logout; secrets compared in constant time; repeated failed attempts limited |
-| A08:2021 Software and Data Integrity Failures | No deserialization of untrusted data into objects; updates, plugins and pipeline steps come from trusted, verified sources |
-| A09:2021 Security Logging and Monitoring Failures | Security events (sign-in, permission changes, failures) are logged, and the logs carry no secrets or personal data |
-| A10:2021 Server-Side Request Forgery | A URL that comes from a user is checked against an allow list before the server fetches it |
+| A01:2025 Broken Access Control | Every new entry point checks, on the server, who the caller is and what they may touch; deny by default; no identifier from the client trusted without an ownership check; no path traversal; a URL that comes from a user is checked against an allow list before the server fetches it |
+| A02:2025 Security Misconfiguration | No debug mode, permissive CORS, missing security headers or XML external entities in what ships |
+| A03:2025 Software Supply Chain Failures | New or upgraded dependencies are maintained, pinned through the lockfile, from the expected source and without known vulnerabilities; name them for the dependency audit |
+| A04:2025 Cryptographic Failures | Sensitive data encrypted in transit and at rest with current algorithms from a vetted library; no home-made cryptography or hard-coded keys; passwords stored with a slow, salted hash |
+| A05:2025 Injection | Untrusted input never concatenated into SQL, shell commands, queries of any kind, templates or HTML; parameterized queries, safe APIs and output encoding for the context |
+| A06:2025 Insecure Design | The mitigations of Risks & Mitigations are in place; limits on rates, sizes and amounts where abuse is possible |
+| A07:2025 Authentication Failures | Sessions and tokens expire and end on logout; secrets compared in constant time; repeated failed attempts limited; no default or hard-coded credentials |
+| A08:2025 Software or Data Integrity Failures | No deserialization of untrusted data into objects; updates, plugins and pipeline steps come from trusted sources with an integrity check |
+| A09:2025 Security Logging and Alerting Failures | Security events (sign-in, permission changes, failures) are logged and can raise an alert, and the logs carry no secrets or personal data |
+| A10:2025 Mishandling of Exceptional Conditions | Errors fail closed; no swallowed exceptions or unchecked results on a security path; error messages and debug output show no internals |
 
 ## Findings
 
@@ -76,7 +76,7 @@ Say `security/security-code-review not installed — applying inline criteria` i
   - High: a missing authorization check behind sign-in, a mitigation of Risks & Mitigations missing, weak cryptography for sensitive data, personal data in logs.
   - Medium: a missing layer of defense (a rate limit, a security header), errors that reveal internals, an unpinned dependency.
   - Low: hardening suggestions.
-- **Criterion:** the OWASP ID, the CWE, the rule of `security-code-review`, or the risk of `design.md` it leaves open. A defect inherited from the design is a finding against `design.md` (`no cascade: design.md`).
+- **Criterion:** the OWASP Top 10:2025 ID with its year and the CWE, the rule of `security-code-review`, or the risk of `design.md` it leaves open. A defect inherited from the design is a finding against `design.md` (`no cascade: design.md`).
 - **Finding and fix:** describe the weakness and the fix as text. Never write a working exploit or attack payload, and never copy a secret or personal data: point at the `path:line`.
 
 ## Later rounds of judgment-day
@@ -101,8 +101,8 @@ ESCALATED
 
 | ID | Severity | path:line | Finding | Criterion | Suggested fix |
 |---|---|---|---|---|---|
-| JSEC-1 | High | src/export/views.py:31 | The export reads any account by the identifier in the URL, without checking that it belongs to the caller | OWASP A01:2021 (CWE-639) | Load the account through the caller's session and return 404 when it is not theirs |
-| JSEC-2 | Medium | src/auth/login.py:40 | Failed sign-ins are not limited, although design.md lists brute force as a risk | OWASP A07:2021; design.md Risks & Mitigations | Apply the lockout that design.md describes and add its test |
+| JSEC-1 | High | src/export/views.py:31 | The export reads any account by the identifier in the URL, without checking that it belongs to the caller | OWASP A01:2025 (CWE-639) | Load the account through the caller's session and return 404 when it is not theirs |
+| JSEC-2 | Medium | src/auth/login.py:40 | Failed sign-ins are not limited, although design.md lists brute force as a risk | OWASP A07:2025 (CWE-307); design.md Risks & Mitigations | Apply the lockout that design.md describes and add its test |
 
 ## Not reviewed
 
@@ -130,7 +130,7 @@ next: none
 Never run these yourself. The orchestrator records each finding as a followup (in judgment-day, each confirmed finding), the verdict, and the judge in `capabilities_used` (`.exo/shared/judge-common.md`, section F):
 
 ```bash
-exo change record <change> --followup '{"id": "JSEC-1", "judge": "judge-security", "rule": "OWASP A01:2021", "severity": "high", "summary": "The export does not check that the account belongs to the caller; load it through the session", "location": "src/export/views.py:31"}'
+exo change record <change> --followup '{"id": "JSEC-1", "judge": "judge-security", "rule": "OWASP A01:2025 (CWE-639)", "severity": "high", "summary": "The export does not check that the account belongs to the caller; load it through the session", "location": "src/export/views.py:31"}'
 exo change record <change> --add judges_invoked '{"name": "judge-security", "result": "escalated: JSEC-1 open"}'
 exo change record <change> --add capabilities_used '{"name": "judge-security", "type": "judge", "activation": "auto", "resolution": "paths-injected"}'
 ```

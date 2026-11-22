@@ -2,7 +2,7 @@
 name: secure-coding-baseline
 description: >-
   The minimum secure coding rules for every line of code the agent writes or
-  changes, each tied to its OWASP Top 10 2021 category or CWE: validate and
+  changes, each tied to its CWE and OWASP Top 10:2025 category: validate and
   encode untrusted input at the boundary, parameterized queries,
   authentication and authorization on every entry point, fail closed, secrets
   from the environment or a secret manager, no secrets or personal data in
@@ -35,20 +35,20 @@ metadata:
 
 ## The rules
 
-Each rule has a stable ID. Cite it in findings, follow-ups and gate rows. The detailed checks of each rule are in `references/checklist.md`.
+Each rule has a stable ID. Cite it in findings, follow-ups and gate rows. The detailed checks of each rule are in `references/checklist.md`, each with its CWE; the OWASP Top 10:2025 category of a CWE comes from `.exo/shared/owasp-2025.md`.
 
-| ID | Rule | OWASP 2021 / CWE |
+| ID | Rule | OWASP 2025 / CWE |
 |---|---|---|
-| SCB-1 | **Validate and encode untrusted input at the boundary.** Everything from outside the process is untrusted: request fields, headers, cookies, files, messages, environment, third-party responses. Validate type, length, range and format against an allow-list on the server, and reject what fails. Encode output for the context it lands in (HTML, attribute, URL, JavaScript, shell, log) with the framework's encoder. | A03:2021 Injection; CWE-20, CWE-79, CWE-116 |
-| SCB-2 | **Parameterized queries.** Bind parameters for SQL and NoSQL queries, LDAP filters and similar interpreters. Run processes with an argument list, never through a shell with interpolated input. No query or command built by concatenation or string formatting. | A03:2021 Injection; CWE-89, CWE-78, CWE-90 |
-| SCB-3 | **Authentication and authorization on every entry point.** Every route, handler, consumer, scheduled job and CLI command that reads or changes data checks who calls and whether that caller may act on that specific object, on the server, deny by default. | A01:2021 Broken Access Control (CWE-862, CWE-863, CWE-639); A07:2021 (CWE-306) |
-| SCB-4 | **Fail closed.** On an error, a timeout, missing configuration or an unknown state, deny and stop. An exception inside a security check means "denied", never "allowed". | CWE-636 |
-| SCB-5 | **Secrets from the environment or a secret manager.** Never in code, tests, committed config, URLs or error messages. Read them at runtime by name; document the name, never the value. | A07:2021 (CWE-798); A02:2021 (CWE-321) |
-| SCB-6 | **No secrets or personal data in logs.** Log what happened and a non-personal reference (an internal request ID), never tokens, passwords, card or account numbers, national IDs, emails or free text written by people. Neutralize line breaks in logged input. Security events (failed logins, denied access) are logged, without the data. | A09:2021 (CWE-532, CWE-117, CWE-778); CWE-359 |
-| SCB-7 | **Safe deserialization.** Never deserialize untrusted data with a format that can create arbitrary types (native object serialization, unsafe YAML loaders, polymorphic type handling). Use data-only formats with a schema, and turn off XML external entities. | A08:2021 (CWE-502); A05:2021 (CWE-611) |
-| SCB-8 | **Cryptography only with vetted libraries.** Use the platform's or a well-known library's high-level API; never your own algorithm or mode. No MD5 or SHA-1 for security, passwords with a slow adaptive hash (Argon2, bcrypt, scrypt, PBKDF2), tokens from a cryptographically secure random generator, TLS with certificate validation on. | A02:2021 (CWE-327, CWE-330, CWE-916); A07:2021 (CWE-295) |
-| SCB-9 | **Errors that leak nothing.** The caller gets a generic message and a reference; stack traces, queries, file paths, versions and internal names stay in the server log, which follows SCB-6. | A04:2021 (CWE-209) |
-| SCB-10 | **Dependency hygiene.** Add a dependency only when the plan names it: maintained, from the official registry, pinned through the lockfile, without known high or critical vulnerabilities. Never download and run code without an integrity check. | A06:2021 (CWE-1104); A08:2021 (CWE-494, CWE-829) |
+| SCB-1 | **Validate and encode untrusted input at the boundary.** Everything from outside the process is untrusted: request fields, headers, cookies, files, messages, environment, third-party responses. Validate type, length, range and format against an allow-list on the server, and reject what fails. Encode output for the context it lands in (HTML, attribute, URL, JavaScript, shell, log) with the framework's encoder. | A05:2025 Injection (CWE-20, CWE-79, CWE-116) |
+| SCB-2 | **Parameterized queries.** Bind parameters for SQL and NoSQL queries, LDAP filters and similar interpreters. Run processes with an argument list, never through a shell with interpolated input. No query or command built by concatenation or string formatting. | A05:2025 Injection (CWE-89, CWE-78, CWE-90) |
+| SCB-3 | **Authentication and authorization on every entry point.** Every route, handler, consumer, scheduled job and CLI command that reads or changes data checks who calls and whether that caller may act on that specific object, on the server, deny by default. | A01:2025 Broken Access Control (CWE-862, CWE-863, CWE-639); A07:2025 Authentication Failures (CWE-306) |
+| SCB-4 | **Fail closed.** On an error, a timeout, missing configuration or an unknown state, deny and stop. An exception inside a security check means "denied", never "allowed". | A10:2025 Mishandling of Exceptional Conditions (CWE-636, CWE-755) |
+| SCB-5 | **Secrets from the environment or a secret manager.** Never in code, tests, committed config, URLs or error messages. Read them at runtime by name; document the name, never the value. | A07:2025 Authentication Failures (CWE-798); A04:2025 Cryptographic Failures (CWE-321) |
+| SCB-6 | **No secrets or personal data in logs.** Log what happened and a non-personal reference (an internal request ID), never tokens, passwords, card or account numbers, national IDs, emails or free text written by people. Neutralize line breaks in logged input. Security events (failed logins, denied access) are logged, without the data. | A09:2025 Security Logging and Alerting Failures (CWE-532, CWE-117, CWE-778); A01:2025 Broken Access Control (CWE-359) |
+| SCB-7 | **Safe deserialization.** Never deserialize untrusted data with a format that can create arbitrary types (native object serialization, unsafe YAML loaders, polymorphic type handling). Use data-only formats with a schema, and turn off XML external entities. | A08:2025 Software or Data Integrity Failures (CWE-502); A02:2025 Security Misconfiguration (CWE-611) |
+| SCB-8 | **Cryptography only with vetted libraries.** Use the platform's or a well-known library's high-level API; never your own algorithm or mode. No MD5 or SHA-1 for security, passwords with a slow adaptive hash (Argon2, bcrypt, scrypt, PBKDF2), tokens from a cryptographically secure random generator, TLS with certificate validation on. | A04:2025 Cryptographic Failures (CWE-327, CWE-330, CWE-916); A07:2025 Authentication Failures (CWE-295) |
+| SCB-9 | **Errors that leak nothing.** The caller gets a generic message and a reference; stack traces, queries, file paths, versions and internal names stay in the server log, which follows SCB-6. | A10:2025 Mishandling of Exceptional Conditions (CWE-209) |
+| SCB-10 | **Dependency hygiene.** Add a dependency only when the plan names it: maintained, from the official registry, pinned through the lockfile, without known high or critical vulnerabilities. Never download and run code without an integrity check. | A03:2025 Software Supply Chain Failures (CWE-1104, CWE-1395, CWE-1357); A08:2025 Software or Data Integrity Failures (CWE-494) |
 
 ## While you write code
 
@@ -70,7 +70,7 @@ Runs when the tier's gates in `.exo/config.json` (`governance.gates`) include `s
 
 1. Get the diff from the merge base: `git diff <target branch>...HEAD`, plus `git status` to confirm nothing is left uncommitted.
 2. Make a **read-only pass**: change nothing while it runs. Read each changed file around its hunks, follow each new input to its sinks, and check every added or modified line against SCB-1 to SCB-10 with `references/checklist.md`.
-3. Each finding gets a severity, the `path:line`, what is wrong with a suggested fix, and its rule (`SCB-n` with its OWASP or CWE ID). Never copy a secret or personal data into a finding: point at the location.
+3. Each finding gets a severity, the `path:line`, what is wrong with a suggested fix, and its rule (`SCB-n` with its CWE and the OWASP Top 10:2025 category of that CWE, written with its year). Never copy a secret or personal data into a finding: point at the location.
 4. **Fix loop.** A finding in code this change wrote goes back to its task: test first, fix inside the plan, commit, then repeat the pass. A finding the plan cannot fix (it needs a file, a dependency or a decision outside the plan) stays in the gate, and the apply returns `needs-input`.
 5. Write the gate from the template.
 
@@ -100,8 +100,8 @@ ESCALATED: one High finding stays open; it needs a dependency outside the plan.
 
 | Severity | File:line | Finding | Rule/OWASP |
 |---|---|---|---|
-| High | src/reports/export.py:88 | The PDF renderer fetches any URL in the template; restrict it to the asset folder (needs the renderer option the plan does not include) | SCB-1, A10:2021, CWE-918 |
-| Medium | src/reports/api.py:41 | The error response includes the exception text; return a generic message and log the detail | SCB-9, A04:2021, CWE-209 |
+| High | src/reports/export.py:88 | The PDF renderer fetches any URL in the template; restrict it to the asset folder (needs the renderer option the plan does not include) | SCB-1, A01:2025, CWE-918 |
+| Medium | src/reports/api.py:41 | The error response includes the exception text; return a generic message and log the detail | SCB-9, A10:2025, CWE-209 |
 
 ## Approval
 

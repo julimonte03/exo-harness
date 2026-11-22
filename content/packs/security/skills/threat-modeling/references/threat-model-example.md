@@ -80,12 +80,12 @@ APPROVED: six threats, each mitigated in the plan; TM-2 keeps a Medium residual 
 
 | Severity | File:line | Finding | Rule/OWASP |
 |---|---|---|---|
-| Low | src/invoices/api.py:34 | TM-1: cross-customer download by ID; owner filter and its test | Information disclosure, A01:2021, CWE-639 |
-| Medium | src/invoices/parser.py (planned) | TM-2: memory exhaustion with a crafted PDF; size, page and time limits, a slow file can still delay the queue | Denial of service, CWE-400 |
-| Low | src/invoices/api.py:52 | TM-3: non-PDF content served inline; content check, generated name, download disposition | Tampering, A04:2021, CWE-434 |
-| Low | src/invoices/worker.py (planned) | TM-4: forged customer ID in the message; worker reads it from the stored record | Spoofing, A08:2021, CWE-345 |
-| Low | src/invoices/worker.py (planned) | TM-5: invoice content in error logs; log ID and error type only | Information disclosure, A09:2021, CWE-532 |
-| Low | src/invoices/api.py:60 | TM-6: no proof of upload; audit entry on upload | Repudiation, A09:2021, CWE-778 |
+| Low | src/invoices/api.py:34 | TM-1: cross-customer download by ID; owner filter and its test | Information disclosure, A01:2025, CWE-639 |
+| Medium | src/invoices/parser.py (planned) | TM-2: memory exhaustion with a crafted PDF; size, page and time limits, a slow file can still delay the queue | Denial of service, A06:2025, CWE-770 |
+| Low | src/invoices/api.py:52 | TM-3: non-PDF content served inline; content check, generated name, download disposition | Tampering, A06:2025, CWE-434 |
+| Low | src/invoices/worker.py (planned) | TM-4: forged customer ID in the message; worker reads it from the stored record | Spoofing, A08:2025, CWE-345 |
+| Low | src/invoices/worker.py (planned) | TM-5: invoice content in error logs; log ID and error type only | Information disclosure, A09:2025, CWE-532 |
+| Low | src/invoices/api.py:60 | TM-6: no proof of upload; audit entry on upload | Repudiation, A09:2025, CWE-778 |
 
 ## Approval
 

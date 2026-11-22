@@ -21,7 +21,7 @@ from test_speclint import VERIFY
 FOLLOWUP = {
     "id": "JSEC-1",
     "judge": "judge-security",
-    "rule": "A03:2021",
+    "rule": "A05:2025",
     "severity": "high",
     "summary": "User input reaches the SQL query unescaped",
     "location": "src/auth/login.py:42",

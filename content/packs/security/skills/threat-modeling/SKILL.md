@@ -101,7 +101,7 @@ The questions per STRIDE category, the rating matrix and the patterns are in `re
 
 ## The threat_model gate
 
-One row per threat. Severity is the **residual** risk; File:line is the element's code (`path:line`), or the file of Modules / Files followed by `(planned)` when it does not exist yet; Finding is the threat and its mitigation; Rule/OWASP is the STRIDE category with the OWASP category or CWE that fits.
+One row per threat. Severity is the **residual** risk; File:line is the element's code (`path:line`), or the file of Modules / Files followed by `(planned)` when it does not exist yet; Finding is the threat and its mitigation; Rule/OWASP is the STRIDE category with the CWE that fits and its OWASP Top 10:2025 category, written with its year, from `.exo/shared/owasp-2025.md`.
 
 ```markdown
 # Gate: threat_model
@@ -116,8 +116,8 @@ APPROVED: every threat has a mitigation in the plan; TM-2 keeps a Medium residua
 
 | Severity | File:line | Finding | Rule/OWASP |
 |---|---|---|---|
-| Low | src/invoices/api.py:34 | TM-1: cross-customer read by ID; mitigated by the owner filter and its test | Information disclosure, A01:2021, CWE-639 |
-| Medium | src/invoices/parser.py (planned) | TM-2: memory exhaustion with a crafted PDF; mitigated by size, page and time limits, a slow parse can still delay the queue | Denial of service, CWE-400 |
+| Low | src/invoices/api.py:34 | TM-1: cross-customer read by ID; mitigated by the owner filter and its test | Information disclosure, A01:2025, CWE-639 |
+| Medium | src/invoices/parser.py (planned) | TM-2: memory exhaustion with a crafted PDF; mitigated by size, page and time limits, a slow parse can still delay the queue | Denial of service, A06:2025, CWE-770 |
 
 ## Approval
 

@@ -37,7 +37,7 @@ Each finding has:
 | `id` | `J<judge code>-<n>`, unique in the change. Never reuse a number. The codes are in the table below. |
 | `severity` | Critical (data loss, a security hole, the main flow broken), High (a requirement or scenario not met, a mitigation missing), Medium (an edge case or error path), Low (readability, naming). For an artifact before code (a proposal, a spec, a plan), High means it misses something the next stage needs, and Critical means it would build the wrong thing. |
 | `location` | `path:line` when it points at code |
-| `rule` | The rule, OWASP or WCAG item, requirement ID or scenario ID it breaks. An OWASP item always carries its edition, because the numbers moved between editions (`OWASP A03:2021` and `OWASP A05:2025` are both Injection): the `security` pack and the judges that reuse it cite the Top 10:2021; the scanners and reviewers of the stack packs, the Top 10:2025, taking the category of each CWE from `.exo/shared/owasp-2025.md`, which also gives the 2021 equivalent. |
+| `rule` | The rule, OWASP or WCAG item, requirement ID or scenario ID it breaks. An OWASP item is a Top 10:2025 category written with its year, never a bare number, because the numbers moved between editions (Injection is `OWASP A05:2025`, and it was number 3 in 2021), with the CWE next to it when there is one (`OWASP A05:2025 (CWE-89)`). Every skill takes the category of each CWE from `.exo/shared/owasp-2025.md`, which also translates an older 2021 citation. |
 | `summary` | What is wrong, and a suggested fix as text |
 
 | Code | Judge |
