@@ -7,15 +7,36 @@ build-backend = "hatchling.build"
 # (ADR-0001). El paquete importable y el CLI se llaman `exo`.
 name = "exo-harness"
 dynamic = ["version"]
-description = "Motor de desarrollo gobernado por proyecto, agnóstico del agente de IA."
+# En inglés: es lo que se lee en PyPI (D-48).
+description = "Project-governed development engine, agnostic of the AI coding agent."
+# Falta `readme = "README.md"`: hatchling no arma el paquete si el archivo no existe,
+# y README.md llega con la documentación de F8. Hasta entonces, `twine check --strict`
+# del release falla a propósito (falta la descripción larga).
 requires-python = ">=3.10"
 authors = [{ name = "Julian Monte" }]
+# Sin `license`: el repo todavía no tiene archivo LICENSE (decisión del dueño).
 classifiers = [
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 # Núcleo solo con biblioteca estándar (invariante 4 de 02-ARQUITECTURA §2.13, ADR-0002).
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/julimonte03/exo-harness"
+Repository = "https://github.com/julimonte03/exo-harness"
+Issues = "https://github.com/julimonte03/exo-harness/issues"
+Changelog = "https://github.com/julimonte03/exo-harness/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6"]
