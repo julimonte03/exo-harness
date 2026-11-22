@@ -1,10 +1,14 @@
-"""Instaladores de un comando (criterio 1 de F2). Marca `installer`: fuera de la suite normal.
+"""Instaladores de un comando (criterio 1 de F2 y distribución de F8). Marca `installer`.
 
 Se corren con `pytest -m installer --no-cov`. Instalan de verdad (necesitan red
 para bajar hatchling), pero en carpetas temporales y sin tocar el PATH real:
 en Windows el PATH se lee y se escribe en una clave temporal de HKCU
 (`EXO_INSTALL_ENV_SUBKEY`); en Linux y macOS, en los archivos de inicio de un
 HOME temporal.
+
+Desde el clon (`sh install.sh`, `install.ps1 -File`) instalan el árbol de trabajo.
+Por pipe (`curl … | sh`, `irm … | iex`) instalan desde un remoto simulado con la
+forma de GitHub, servido en 127.0.0.1 (`tests/_remote.py`): nada va a GitHub.
 """
 
 from __future__ import annotations
@@ -19,17 +23,36 @@ from pathlib import Path
 
 import pytest
 
+import _remote
 from exo import _meta
 
 pytestmark = pytest.mark.installer
 REPO = Path(__file__).resolve().parents[1]
 TIMEOUT = 900
 MARK = f"# added by {_meta.DIST_NAME}"
+PS = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass"]
+POSIX_ONLY = pytest.mark.skipif(sys.platform == "win32", reason="install.sh es para Linux y macOS")
+WINDOWS_ONLY = pytest.mark.skipif(sys.platform != "win32", reason="install.ps1 es para Windows")
+
+# URLs que el instalador remoto rechaza antes de bajar nada: solo https (y file:// o
+# http a loopback, que no salen de la máquina), sin credenciales ni hosts disfrazados.
+INSECURE_URLS = [
+    "http://example.com/owner/exo-harness",
+    "git://example.com/owner/exo-harness",
+    "ftp://example.com/owner/exo-harness",
+    "https://token@example.com/owner/exo-harness",
+    "http://127.0.0.1.example.com/owner/exo-harness",
+    "http://127.0.0.1:80@example.com/owner/exo-harness",
+    "https://example.com/owner/exo-harness?x=1",
+]
+# Refs que cambiarían la URL o el requisito de pip.
+BAD_REFS = ["main;touch pwned", "--upload-pack=touch pwned", "v1..v2", "a b", "x@{1}", "main#egg=other"]
 
 
 def _env(tmp_path: Path, *, no_uv: bool) -> dict[str, str]:
     env = dict(os.environ)
-    env.pop("EXO_INSTALL_NO_PATH", None)
+    for name in ("EXO_INSTALL_NO_PATH", "EXO_REF", "EXO_REPO_URL"):
+        env.pop(name, None)
     env.update(
         {
             "EXO_DATA_DIR": str(tmp_path / "datos"),
@@ -47,10 +70,43 @@ def _env(tmp_path: Path, *, no_uv: bool) -> dict[str, str]:
     return env
 
 
-def _run(cmd: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=TIMEOUT)
+def _remote_env(tmp_path: Path, url: str, *, no_uv: bool, ref: str | None = None) -> dict[str, str]:
+    env = {**_env(tmp_path, no_uv=no_uv), "EXO_REPO_URL": url}
+    if ref is not None:
+        env["EXO_REF"] = ref
+    return env
+
+
+def _exec(
+    cmd: list[str], env: dict[str, str], stdin: str | None = None
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        cmd,
+        env=env,
+        input=stdin,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=TIMEOUT,
+    )
+
+
+def _run(
+    cmd: list[str], env: dict[str, str], stdin: str | None = None
+) -> subprocess.CompletedProcess[str]:
+    result = _exec(cmd, env, stdin)
     assert result.returncode == 0, f"{cmd}\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
     return result
+
+
+def _script(name: str) -> str:
+    """El script tal como lo baja `curl`, para pasarlo por stdin a `sh -s`."""
+    return (REPO / name).read_text(encoding="utf-8")
+
+
+def _irm_iex(url: str) -> list[str]:
+    """`irm <url> | iex`, como lo corre quien instala en Windows."""
+    return [*PS, "-Command", f"irm '{url}' | iex"]
 
 
 def _modes() -> list[bool]:
@@ -58,6 +114,10 @@ def _modes() -> list[bool]:
     if shutil.which("uv"):
         modes.append(False)
     return modes
+
+
+def _mode_id(no_uv: bool) -> str:
+    return "venv" if no_uv else "uv"
 
 
 @pytest.fixture
@@ -82,8 +142,26 @@ def _user_path(subkey: str) -> tuple[str, int]:
     return value, kind
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="install.ps1 es para Windows")
-@pytest.mark.parametrize("no_uv", _modes(), ids=lambda v: "venv" if v else "uv")
+@pytest.fixture(scope="module")
+def _remoto_servido(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_remote.Remote]:
+    remote = _remote.build(tmp_path_factory.mktemp("remoto"), REPO, _meta.VERSION)
+    with _remote.serve(remote) as served:
+        yield served
+
+
+@pytest.fixture
+def remoto(_remoto_servido: _remote.Remote) -> _remote.Remote:
+    """El remoto simulado, con `v<VERSION>` como último release y sin pedidos anotados."""
+    _remoto_servido.latest = _remoto_servido.tag
+    _remoto_servido.requests.clear()
+    return _remoto_servido
+
+
+# -- Desde el clon --------------------------------------------------------------------------------
+
+
+@WINDOWS_ONLY
+@pytest.mark.parametrize("no_uv", _modes(), ids=_mode_id)
 def test_install_ps1(tmp_path: Path, no_uv: bool, path_key: str) -> None:
     import winreg
 
@@ -91,7 +169,7 @@ def test_install_ps1(tmp_path: Path, no_uv: bool, path_key: str) -> None:
     original = _user_path(path_key)
     project = tmp_path / "proyecto"
     project.mkdir()
-    shell = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]
+    shell = [*PS, "-File"]
     _run([*shell, str(REPO / "install.ps1"), "-Init", str(project)], env)
     bin_dir = tmp_path / "datos" / "venv" / "Scripts" if no_uv else tmp_path / "uv-bin"
     exe = bin_dir / f"{_meta.NAME}.exe"
@@ -120,8 +198,8 @@ def _venv_works() -> bool:
     return probe.returncode == 0
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="install.sh es para Linux y macOS")
-@pytest.mark.parametrize("no_uv", _modes(), ids=lambda v: "venv" if v else "uv")
+@POSIX_ONLY
+@pytest.mark.parametrize("no_uv", _modes(), ids=_mode_id)
 def test_install_sh(tmp_path: Path, no_uv: bool) -> None:
     if no_uv and not _venv_works():
         pytest.skip("este Python no trae ensurepip (falta python3-venv)")
@@ -153,15 +231,13 @@ def test_install_sh(tmp_path: Path, no_uv: bool) -> None:
     assert (home / ".bashrc").read_text(encoding="utf-8") == ""
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="install.sh es para Linux y macOS")
+@POSIX_ONLY
 def test_install_sh_no_pisa_otro_exo(tmp_path: Path) -> None:
     env = _env(tmp_path, no_uv=True)
     other = Path(env["HOME"]) / ".local" / "bin" / _meta.NAME
     other.parent.mkdir(parents=True)
     other.write_text("#!/bin/sh\necho otra herramienta\n", encoding="utf-8")
-    result = subprocess.run(
-        ["sh", str(REPO / "install.sh")], env=env, capture_output=True, text=True, timeout=TIMEOUT
-    )
+    result = _exec(["sh", str(REPO / "install.sh")], env)
     assert result.returncode == 1
     assert "does not belong to this engine" in result.stderr
     assert other.read_text(encoding="utf-8") == "#!/bin/sh\necho otra herramienta\n"
@@ -174,8 +250,207 @@ def test_install_sh_con_uv_no_pisa_otro_exo(tmp_path: Path) -> None:
     other = tmp_path / "uv-bin" / _meta.NAME
     other.parent.mkdir(parents=True)
     other.write_text("#!/bin/sh\necho otra herramienta\n", encoding="utf-8")
-    result = subprocess.run(
-        ["sh", str(REPO / "install.sh")], env=env, capture_output=True, text=True, timeout=TIMEOUT
-    )
+    result = _exec(["sh", str(REPO / "install.sh")], env)
     assert result.returncode != 0
     assert other.read_text(encoding="utf-8") == "#!/bin/sh\necho otra herramienta\n"
+
+
+# -- Por pipe, desde el remoto simulado (F8) -------------------------------------------------------
+
+
+@pytest.mark.parametrize("script", ["install.ps1", "uninstall.ps1"])
+def test_ps1_en_ascii_sin_bom(script: str) -> None:
+    """`irm | iex` no tolera un BOM, y PowerShell 5.1 lee un archivo sin BOM en la página
+    de códigos ANSI: los scripts de Windows van en ASCII puro."""
+    assert (REPO / script).read_bytes().isascii()
+
+
+@POSIX_ONLY
+def test_install_sh_help_por_pipe(tmp_path: Path) -> None:
+    result = _run(["sh", "-s", "--", "--help"], _env(tmp_path, no_uv=True), _script("install.sh"))
+    assert "Usage:" in result.stdout
+    assert "EXO_REF" in result.stdout
+
+
+@POSIX_ONLY
+@pytest.mark.parametrize("no_uv", _modes(), ids=_mode_id)
+def test_install_sh_remoto_ultimo_release(tmp_path: Path, no_uv: bool, remoto: _remote.Remote) -> None:
+    """Sin EXO_REF, el último release: sin uv, su wheel verificado; con uv, git en el tag."""
+    if no_uv and not _venv_works():
+        pytest.skip("este Python no trae ensurepip (falta python3-venv)")
+    env = _remote_env(tmp_path, remoto.url, no_uv=no_uv)
+    home = Path(env["HOME"])
+    result = _run(["sh", "-s"], env, _script("install.sh"))
+    bin_dir = home / ".local" / "bin" if no_uv else tmp_path / "uv-bin"
+    exe = bin_dir / _meta.NAME
+    assert _run([str(exe), "--version"], env).stdout.strip() == f"{_meta.NAME} {_meta.VERSION}"
+    assert f"{remoto.path}/releases/latest" in remoto.requests
+    if no_uv:
+        assert f"{remoto.path}/releases/download/{remoto.tag}/{remoto.wheel}" in remoto.requests
+        assert f"Verified {remoto.wheel} against SHA256SUMS." in result.stdout
+        assert not remoto.git_fetched()
+    else:
+        assert remoto.git_fetched()
+    assert (home / ".profile").read_text(encoding="utf-8") == f'export PATH="{bin_dir}:$PATH" {MARK}\n'
+    # El desinstalador también corre por pipe.
+    _run(["sh", "-s"], env, _script("uninstall.sh"))
+    assert not exe.exists()
+    assert not (home / ".profile").exists()
+
+
+@POSIX_ONLY
+def test_install_sh_remoto_sin_releases_instala_main(tmp_path: Path, remoto: _remote.Remote) -> None:
+    """Sin releases, `main` desde git (con pip: no hay SHA256SUMS para una rama)."""
+    if not _venv_works():
+        pytest.skip("este Python no trae ensurepip (falta python3-venv)")
+    remoto.latest = None
+    env = _remote_env(tmp_path, remoto.url, no_uv=True)
+    result = _run(["sh", "-s", "--", "--no-path"], env, _script("install.sh"))
+    assert "has no releases yet: installing the main branch" in result.stderr
+    assert f"{remoto.path}/releases/download/main/SHA256SUMS" in remoto.requests
+    assert remoto.git_fetched()
+    exe = Path(env["HOME"]) / ".local" / "bin" / _meta.NAME
+    assert _run([str(exe), "--version"], env).stdout.strip() == f"{_meta.NAME} {_meta.VERSION}"
+    assert not (Path(env["HOME"]) / ".profile").exists()
+
+
+@POSIX_ONLY
+def test_install_sh_remoto_ref_por_file(tmp_path: Path, remoto: _remote.Remote) -> None:
+    """EXO_REF elige la rama, y el repo puede ser un file:// (un espejo local)."""
+    no_uv = not shutil.which("uv")
+    if no_uv and not _venv_works():
+        pytest.skip("este Python no trae ensurepip (falta python3-venv)")
+    env = {**_remote_env(tmp_path, remoto.file_url, no_uv=no_uv, ref="main"), "EXO_INSTALL_NO_PATH": "1"}
+    result = _run(["sh", "-s"], env, _script("install.sh"))
+    assert f"from {remoto.file_url} at main" in result.stdout
+    bin_dir = Path(env["HOME"]) / ".local" / "bin" if no_uv else tmp_path / "uv-bin"
+    exe = bin_dir / _meta.NAME
+    assert _run([str(exe), "--version"], env).stdout.strip() == f"{_meta.NAME} {_meta.VERSION}"
+    assert remoto.requests == []
+
+
+@POSIX_ONLY
+def test_install_sh_remoto_checksum_distinto_no_instala(tmp_path: Path, remoto: _remote.Remote) -> None:
+    env = _remote_env(tmp_path, remoto.url, no_uv=True, ref=_remote.BAD_TAG)
+    result = _exec(["sh", "-s"], env, _script("install.sh"))
+    assert result.returncode == 1
+    assert f"Checksum mismatch for {remoto.wheel}" in result.stderr
+    assert not (tmp_path / "datos" / "venv").exists()
+    assert not (Path(env["HOME"]) / ".local" / "bin" / _meta.NAME).exists()
+
+
+@POSIX_ONLY
+@pytest.mark.parametrize("url", INSECURE_URLS)
+def test_install_sh_remoto_solo_https(tmp_path: Path, url: str) -> None:
+    env = _remote_env(tmp_path, url, no_uv=True)
+    result = _exec(["sh", "-s"], env, _script("install.sh"))
+    assert result.returncode == 1
+    assert "EXO_REPO_URL" in result.stderr
+    assert not (tmp_path / "datos").exists()
+
+
+@POSIX_ONLY
+@pytest.mark.parametrize("ref", BAD_REFS)
+def test_install_sh_remoto_rechaza_refs_raros(tmp_path: Path, ref: str) -> None:
+    # Bajado suelto, fuera de un clon: también instala desde el remoto.
+    script = tmp_path / "bajado" / "install.sh"
+    script.parent.mkdir()
+    shutil.copy2(REPO / "install.sh", script)
+    env = _remote_env(tmp_path, "https://example.invalid/owner/exo-harness", no_uv=True, ref=ref)
+    result = _exec(["sh", str(script)], env)
+    assert result.returncode == 1
+    assert "Not a valid tag, branch or commit" in result.stderr
+
+
+@WINDOWS_ONLY
+@pytest.mark.parametrize("no_uv", _modes(), ids=_mode_id)
+def test_install_ps1_remoto_ultimo_release(
+    tmp_path: Path, no_uv: bool, path_key: str, remoto: _remote.Remote
+) -> None:
+    """Sin EXO_REF, el último release: sin uv, su wheel verificado; con uv, git en el tag."""
+    env = {**_remote_env(tmp_path, remoto.url, no_uv=no_uv), "EXO_INSTALL_ENV_SUBKEY": path_key}
+    original = _user_path(path_key)
+    result = _run(_irm_iex(remoto.raw("install.ps1")), env)
+    bin_dir = tmp_path / "datos" / "venv" / "Scripts" if no_uv else tmp_path / "uv-bin"
+    exe = bin_dir / f"{_meta.NAME}.exe"
+    assert _run([str(exe), "--version"], env).stdout.strip() == f"{_meta.NAME} {_meta.VERSION}"
+    assert f"{remoto.path}/releases/latest" in remoto.requests
+    if no_uv:
+        assert f"{remoto.path}/releases/download/{remoto.tag}/{remoto.wheel}" in remoto.requests
+        assert f"Verified {remoto.wheel} against SHA256SUMS." in result.stdout
+        assert not remoto.git_fetched()
+    else:
+        assert remoto.git_fetched()
+    assert _user_path(path_key)[0] == f"{original[0]};{bin_dir}"
+    # El desinstalador también corre por pipe.
+    _run(_irm_iex(remoto.raw("uninstall.ps1")), env)
+    assert not exe.exists()
+    assert _user_path(path_key) == original
+
+
+@WINDOWS_ONLY
+def test_install_ps1_remoto_sin_releases_instala_main(tmp_path: Path, remoto: _remote.Remote) -> None:
+    """Sin releases, `main` desde git (con pip: no hay SHA256SUMS para una rama)."""
+    remoto.latest = None
+    env = {**_remote_env(tmp_path, remoto.url, no_uv=True), "EXO_INSTALL_NO_PATH": "1"}
+    result = _run(_irm_iex(remoto.raw("install.ps1")), env)
+    assert "has no releases yet: installing the main branch" in result.stdout
+    assert f"{remoto.path}/releases/download/main/SHA256SUMS" in remoto.requests
+    assert remoto.git_fetched()
+    exe = tmp_path / "datos" / "venv" / "Scripts" / f"{_meta.NAME}.exe"
+    assert _run([str(exe), "--version"], env).stdout.strip() == f"{_meta.NAME} {_meta.VERSION}"
+
+
+@WINDOWS_ONLY
+def test_install_ps1_remoto_ref_por_file(tmp_path: Path, remoto: _remote.Remote) -> None:
+    """EXO_REF elige la rama, y el repo puede ser un file:// (un espejo local)."""
+    no_uv = not shutil.which("uv")
+    env = {**_remote_env(tmp_path, remoto.file_url, no_uv=no_uv, ref="main"), "EXO_INSTALL_NO_PATH": "1"}
+    result = _run(_irm_iex(remoto.raw("install.ps1")), env)
+    assert f"from {remoto.file_url} at main" in result.stdout
+    bin_dir = tmp_path / "datos" / "venv" / "Scripts" if no_uv else tmp_path / "uv-bin"
+    exe = bin_dir / f"{_meta.NAME}.exe"
+    assert _run([str(exe), "--version"], env).stdout.strip() == f"{_meta.NAME} {_meta.VERSION}"
+    assert remoto.requests == ["/raw/install.ps1"]
+
+
+@WINDOWS_ONLY
+def test_install_ps1_remoto_checksum_distinto_no_instala(tmp_path: Path, remoto: _remote.Remote) -> None:
+    env = {
+        **_remote_env(tmp_path, remoto.url, no_uv=True, ref=_remote.BAD_TAG),
+        "EXO_INSTALL_NO_PATH": "1",
+    }
+    result = _exec(_irm_iex(remoto.raw("install.ps1")), env)
+    assert result.returncode != 0
+    assert f"Checksum mismatch for {remoto.wheel}" in result.stdout + result.stderr
+    assert not (tmp_path / "datos" / "venv").exists()
+
+
+def _ps1_suelto(tmp_path: Path) -> Path:
+    """install.ps1 bajado suelto, fuera de un clon: también instala desde el remoto."""
+    script = tmp_path / "bajado" / "install.ps1"
+    script.parent.mkdir()
+    shutil.copy2(REPO / "install.ps1", script)
+    return script
+
+
+@WINDOWS_ONLY
+@pytest.mark.parametrize("url", INSECURE_URLS)
+def test_install_ps1_remoto_solo_https(tmp_path: Path, url: str) -> None:
+    env = {**_remote_env(tmp_path, url, no_uv=True), "EXO_INSTALL_NO_PATH": "1"}
+    result = _exec([*PS, "-File", str(_ps1_suelto(tmp_path))], env)
+    assert result.returncode != 0
+    assert "EXO_REPO_URL" in result.stdout + result.stderr
+    assert not (tmp_path / "datos").exists()
+
+
+@WINDOWS_ONLY
+@pytest.mark.parametrize("ref", BAD_REFS)
+def test_install_ps1_remoto_rechaza_refs_raros(tmp_path: Path, ref: str) -> None:
+    env = {
+        **_remote_env(tmp_path, "https://example.invalid/owner/exo-harness", no_uv=True, ref=ref),
+        "EXO_INSTALL_NO_PATH": "1",
+    }
+    result = _exec([*PS, "-File", str(_ps1_suelto(tmp_path))], env)
+    assert result.returncode != 0
+    assert "Not a valid tag, branch or commit" in result.stdout + result.stderr
