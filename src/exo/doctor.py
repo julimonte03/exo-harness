@@ -139,19 +139,33 @@ def _config(project: Path) -> Check:
 CLAUDE_AGENTS_MD = (2, 1, 281)
 
 
+def _lock_version(data: lock.Lock) -> str | None:
+    """Aviso si el lock lo escribió otra versión del motor (F8)."""
+    written = data.engine_version or "an unknown version"
+    if data.engine_version == _meta.VERSION:
+        return None
+    if lock.newer_than_engine(data.engine_version):
+        return (
+            f"the lock was written by {_meta.NAME} {written}, newer than this engine "
+            f"({_meta.VERSION}); upgrade {_meta.NAME}"
+        )
+    return f"the lock was written by {_meta.NAME} {written}; run `{_meta.NAME} update`"
+
+
 def _install(project: Path) -> Check:
     data = lock.read(project)
     if data is None:
         return Check("install", "info", f"the engine is not installed in {project.resolve()}")
+    problems = [p for p in (_lock_version(data),) if p]
     drift = lock.drift(project, data)
     if drift:
         listed = ", ".join(f"{d.entry.path} ({d.status})" for d in drift[:5])
         more = f" and {len(drift) - 5} more" if len(drift) > 5 else ""
-        return Check(
-            "install",
-            "warn",
-            f"manual changes to generated files: {listed}{more}; see `{_meta.NAME} status`",
+        problems.append(
+            f"manual changes to generated files: {listed}{more}; see `{_meta.NAME} status`"
         )
+    if problems:
+        return Check("install", "warn", "; ".join(problems))
     return Check("install", "ok", f"{len(data.files)} managed units, no manual changes")
 
 
