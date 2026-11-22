@@ -1,6 +1,6 @@
 # ADR-0018 — Overlays de persona
 
-- **Estado:** Propuesta (se confirma antes del código, D-17)
+- **Estado:** Aceptada (el dueño confirmó el diseño el 2026-11-22, D-17)
 - **Fecha:** 2026-11-19
 - **Decisiones:** D-17 (`docs/plan/04-DECISIONES.md`)
 
