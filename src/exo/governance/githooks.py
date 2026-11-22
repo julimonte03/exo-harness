@@ -21,6 +21,7 @@ no está en el PATH, avisan y no bloquean: la CI, con `exo check`, es el gate re
 from __future__ import annotations
 
 import os
+import re
 import stat
 from dataclasses import dataclass
 from pathlib import Path
@@ -159,6 +160,104 @@ def activate(project: Path) -> list[str]:
     if not git.config_set(project, HOOKS_PATH, wanted):
         return [f"could not set {HOOKS_PATH}; run `git config {HOOKS_PATH} {wanted}`"]
     return [f"git hooks active in this clone ({HOOKS_PATH} = {wanted})"]
+
+
+# Variables de git que cambian qué repo o qué config se usa: con ellas no se adivina.
+_GIT_ENV = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_COMMON_DIR",
+    "GIT_CONFIG_COUNT",
+    "GIT_CONFIG_PARAMETERS",
+)
+_SECTION = re.compile(r'^\[\s*([A-Za-z0-9.-]+)(\s+"[^"]*")?\s*\](.*)$')
+_ENTRY = re.compile(r"^([A-Za-z][A-Za-z0-9-]*)\s*(?:=\s*(.*))?$")
+
+
+def _local_config(project: Path) -> tuple[Path, Path] | None:
+    """(raíz del clon, archivo de config local), buscando `.git` en el disco, sin git.
+
+    Entiende un clon normal y un worktree (`.git` es un archivo con `gitdir:`; la config
+    vive en el directorio común). None si algo no es lo esperado.
+    """
+    if any(os.environ.get(name) for name in _GIT_ENV):
+        return None
+    start = Path(project).resolve()
+    for folder in (start, *start.parents):
+        dot = folder / ".git"
+        if dot.is_dir():
+            return folder, dot / "config"
+        if not dot.is_file():
+            continue
+        text = _read(dot).strip()
+        if not text.startswith("gitdir:"):
+            return None
+        gitdir = Path(text[len("gitdir:") :].strip())
+        gitdir = gitdir if gitdir.is_absolute() else folder / gitdir
+        if (gitdir / "config.worktree").exists():
+            return None  # una config por worktree puede pisar la común
+        common = gitdir
+        pointer = gitdir / "commondir"
+        if pointer.is_file():
+            target = Path(_read(pointer).strip())
+            common = target if target.is_absolute() else gitdir / target
+        return folder, common / "config"
+    return None
+
+
+def _local_hooks_path(config_file: Path) -> tuple[bool, str | None]:
+    """`(seguro, valor)` de `core.hooksPath` en un archivo de config de git.
+
+    Un parser chico, a propósito conservador: con includes, comillas, escapes o una
+    línea que no entiende, devuelve `(False, None)` y el llamador pregunta a git.
+    """
+    try:
+        text = config_file.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False, None
+    section, value = "", None
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line[0] in "#;":
+            continue
+        header = _SECTION.match(line)
+        if header:
+            name = header.group(1).lower()
+            if name in ("include", "includeif") or header.group(3).strip():
+                return False, None
+            section = name if header.group(2) is None else f"{name}.<sub>"
+            continue
+        if section != "core":
+            continue
+        entry = _ENTRY.match(line)
+        if entry is None:
+            return False, None
+        if entry.group(1).lower() == "hookspath":
+            found = (entry.group(2) or "").strip()
+            if not found or any(ch in found for ch in "\"\\;#"):
+                return False, None
+            value = found
+    return True, value
+
+
+def settled(project: Path, cfg: dict) -> bool:
+    """¿Los hooks ya están como deben en este clon? Sin lanzar git (F8).
+
+    Para un `sync` sin cambios: con los scripts del motor (`core.hooksPath`), prendidos
+    y ya activos en la config local, o apagados y sin apuntar a los del motor, no hay nada
+    que recalcular. husky y pre-commit no lanzan git al sincronizar. Ante la duda, False.
+    """
+    if mechanism(project) != "hooks-path":
+        return False
+    found = _local_config(project)
+    if found is None:
+        return False
+    top, config_file = found
+    known, value = _local_hooks_path(config_file)
+    if not known:
+        return False
+    wanted = expected_path(project, top)
+    return value == wanted if enabled(cfg) else value != wanted
 
 
 def _hooks_dir(project: Path) -> Path | None:

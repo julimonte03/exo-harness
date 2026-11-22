@@ -21,7 +21,7 @@ import exo
 from exo import _meta, doctor
 from exo.cli import main
 from exo.core import config
-from exo.governance import githooks, hookrun
+from exo.governance import git, githooks, hookrun
 from exo.installer import project
 
 needs_git = pytest.mark.skipif(shutil.which("git") is None, reason="requiere git")
@@ -248,6 +248,94 @@ def test_apagarlos_y_desinstalar_revierte_hooks_path(repo: Path) -> None:
     assert _git(repo, "config", "core.hooksPath").stdout.strip() == f"{_meta.PROJECT_DIR}/githooks"
     project.uninstall(repo)
     assert _git(repo, "config", "core.hooksPath", check=False).stdout.strip() == ""
+
+
+# -- F8: un sync sin cambios no lanza git ------------------------------------------------------
+
+
+@pytest.fixture
+def git_calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, ...]]:
+    """Cuenta las llamadas a git del motor (no las de `_git` de los tests)."""
+    calls: list[tuple[str, ...]] = []
+    real = git.run
+
+    def counting(project_dir: Path, *args: str, **kwargs):
+        calls.append(args)
+        return real(project_dir, *args, **kwargs)
+
+    monkeypatch.setattr(git, "run", counting)
+    return calls
+
+
+@needs_git
+def test_un_sync_sin_cambios_con_los_hooks_activos_no_lanza_git(
+    repo: Path, git_calls: list[tuple[str, ...]]
+) -> None:
+    result = project.sync(repo)
+    assert result.engine.changed is False
+    assert git_calls == []
+    # Un clon nuevo, sin core.hooksPath: aunque nada cambie, se activan.
+    _git(repo, "config", "--unset", "core.hooksPath")
+    result = project.sync(repo)
+    assert result.engine.changed is False and git_calls
+    assert _git(repo, "config", "core.hooksPath").stdout.strip() == f"{_meta.PROJECT_DIR}/githooks"
+    assert any("git hooks active" in note for note in result.notes)
+
+
+@needs_git
+def test_apagados_y_sin_cambios_tampoco_lanza_git(
+    repo: Path, git_calls: list[tuple[str, ...]]
+) -> None:
+    cfg = config.load(repo).config
+    cfg["governance"]["githooks"] = False
+    config.save(repo, cfg)
+    project.sync(repo)
+    assert git_calls  # se apagaron: eso sí necesita git
+    git_calls.clear()
+    assert project.sync(repo).engine.changed is False
+    assert git_calls == []
+
+
+@needs_git
+def test_en_un_worktree_tambien_se_lee_la_config_sin_git(
+    repo: Path, tmp_path: Path, git_calls: list[tuple[str, ...]]
+) -> None:
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "chore: base")
+    other = tmp_path / "otro-arbol"
+    _git(repo, "worktree", "add", "-q", "-b", "feat/x", str(other))
+    git_calls.clear()
+    result = project.sync(other)
+    assert result.engine.changed is False
+    assert git_calls == []
+
+
+def test_settled_sin_repo_o_con_dudas_dice_que_no(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg = config.defaults()
+    assert githooks.settled(tmp_path, cfg) is False  # sin repo: hay que avisar
+    (tmp_path / ".git").mkdir()
+    folder = f"{_meta.PROJECT_DIR}/githooks"
+    (tmp_path / ".git" / "config").write_text(f"[core]\n\thooksPath = {folder}\n", encoding="utf-8")
+    assert githooks.settled(tmp_path, cfg) is True
+    off = config.defaults()
+    off["governance"]["githooks"] = False
+    assert githooks.settled(tmp_path, off) is False
+    for doubtful in (
+        f'[core]\n\thooksPath = "{folder}"\n',
+        f"[include]\n\tpath = otro\n[core]\n\thooksPath = {folder}\n",
+        f"[core] hooksPath = {folder}\n",
+    ):
+        (tmp_path / ".git" / "config").write_text(doubtful, encoding="utf-8")
+        assert githooks.settled(tmp_path, cfg) is False, doubtful
+    (tmp_path / ".git" / "config").write_text(
+        f"[core]\n\thookspath = otra\n# comentario\n[CORE]\n\tHooksPath = {folder}\n",
+        encoding="utf-8",
+    )
+    assert githooks.settled(tmp_path, cfg) is True
+    monkeypatch.setenv("GIT_DIR", str(tmp_path / ".git"))
+    assert githooks.settled(tmp_path, cfg) is False
 
 
 @needs_git

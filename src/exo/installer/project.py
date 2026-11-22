@@ -227,7 +227,12 @@ def _dropped(root: Path, ctx: Context, ops: list[Op], previous: lock.Lock | None
 
 
 def _githooks(project: Path, cfg: dict[str, Any], result: engine.Result) -> list[str]:
-    """Activa o desactiva los git hooks en este clon, después de aplicar (D-21)."""
+    """Activa o desactiva los git hooks en este clon, después de aplicar (D-21).
+
+    Si no hubo nada que aplicar y ya están como deben, no se lanza git (F8).
+    """
+    if not result.changed and githooks.settled(project, cfg):
+        return []
     if not githooks.enabled(cfg):
         return ["git hooks turned off in this clone"] if githooks.deactivate(project) else []
     if githooks.mechanism(project) == "husky":
