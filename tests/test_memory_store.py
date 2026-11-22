@@ -62,6 +62,54 @@ def test_esquema_mas_nuevo_da_error_claro(tmp_path: Path) -> None:
         MemoryStore(path)
 
 
+def test_un_paso_de_migracion_inyectado_corre_una_vez_y_conserva_los_datos(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """F8: el mecanismo de migraciones de la memoria, con un esquema 2 de prueba."""
+    path = tmp_path / "memory.db"
+    with MemoryStore(path) as store:
+        saved = _save(store, "Antes de migrar", "Dato del esquema 1.")
+    calls: list[int] = []
+
+    def v1_to_v2(conn: sqlite3.Connection) -> None:
+        calls.append(1)
+        conn.execute("ALTER TABLE observations ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0")
+
+    monkeypatch.setattr(db, "SCHEMA_VERSION", 2)
+    monkeypatch.setattr(db, "MIGRATIONS", {1: v1_to_v2})
+    with MemoryStore(path) as store:
+        assert store.get(saved).title == "Antes de migrar"
+    with MemoryStore(path) as store:
+        assert store.stats().schema_version == 2
+    assert calls == [1]
+    conn = sqlite3.connect(path)
+    columns = [row[1] for row in conn.execute("PRAGMA table_info(observations)")]
+    conn.close()
+    assert "pinned" in columns
+
+
+def test_un_paso_que_falla_deja_la_base_como_estaba(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "memory.db"
+    MemoryStore(path).close()
+
+    def broken(conn: sqlite3.Connection) -> None:
+        conn.execute("CREATE TABLE pinned (id INTEGER)")
+        raise sqlite3.OperationalError("disco lleno")
+
+    monkeypatch.setattr(db, "SCHEMA_VERSION", 2)
+    monkeypatch.setattr(db, "MIGRATIONS", {1: broken})
+    with pytest.raises(sqlite3.OperationalError, match="disco lleno"):
+        MemoryStore(path)
+    conn = sqlite3.connect(path)
+    version = conn.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone()[0]
+    tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master")}
+    conn.close()
+    assert version == "1"
+    assert "pinned" not in tables
+
+
 # -- guardar y leer ---------------------------------------------------------------------
 
 

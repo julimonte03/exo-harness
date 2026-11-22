@@ -12,11 +12,17 @@ quedó vacío: así `init` + `uninstall` deja el proyecto como estaba.
 `drift()` compara el estado actual con el lock y devuelve lo que alguien
 editó a mano: el motor no lo pisa sin `--force` (invariante 13 de
 `docs/plan/02-ARQUITECTURA.md` §2.13).
+
+El esquema se migra al leer, como la config (`core/config.py`): `MIGRATIONS[n]`
+lleva un lock del esquema n al n + 1, y el lock migrado se guarda en la próxima
+escritura. Un lock de un esquema más nuevo que el del motor no se toca: lo
+escribió un `exo` más nuevo.
 """
 
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -27,6 +33,9 @@ from exo.core import filemerge, fsutil, structmerge
 SCHEMA = 1
 FILENAME = "lock.json"
 KINDS = ("file", "mirror", "block", "key", "item")
+
+# MIGRATIONS[n] convierte un dict del esquema n al n + 1.
+MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {}
 
 
 class LockError(ValueError):
@@ -145,6 +154,25 @@ def _created(raw: Any, index: int) -> Created:
     return Created(path, file, tuple(containers))
 
 
+def _migrate(raw: dict[str, Any], path: Path) -> dict[str, Any]:
+    """Lleva el lock al esquema actual con los pasos de `MIGRATIONS`."""
+    schema = raw.get("schema")
+    if isinstance(schema, bool) or not isinstance(schema, int) or schema < 1:
+        raise LockError(f"{path}: invalid schema {schema!r} (an integer from 1 to {SCHEMA})")
+    if schema > SCHEMA:
+        raise LockError(
+            f"{path}: the lock uses schema {schema} and this engine understands up to "
+            f"{SCHEMA} (a newer {_meta.NAME} wrote it); upgrade {_meta.NAME} and retry"
+        )
+    while schema < SCHEMA:
+        step = MIGRATIONS.get(schema)
+        if step is None:
+            raise LockError(f"{path}: no migration from schema {schema} to {schema + 1}")
+        raw = step(raw)
+        schema += 1
+    return raw
+
+
 def read(project: Path) -> Lock | None:
     path = lock_path(project)
     try:
@@ -155,8 +183,7 @@ def read(project: Path) -> Lock | None:
         raise LockError(f"{path}: not valid JSON ({exc})") from exc
     if not isinstance(raw, dict):
         raise LockError(f"{path}: the root must be an object")
-    if raw.get("schema") != SCHEMA:
-        raise LockError(f"{path}: unsupported schema {raw.get('schema')!r} (expected {SCHEMA})")
+    raw = _migrate(raw, path)
     files = raw.get("files", [])
     if not isinstance(files, list):
         raise LockError(f"{path}: files must be a list")
