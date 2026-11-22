@@ -5,6 +5,7 @@ from __future__ import annotations
 import builtins
 import io
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -443,6 +444,77 @@ def test_lock_corrupto_da_error_sin_traceback(tmp_path: Path, capsys: pytest.Cap
     for argv in (["sync"], ["add-agent", "cursor"]):
         assert main([*argv, "--project", str(tmp_path)]) == 1
         assert "lock.json" in capsys.readouterr().err
+
+
+HELLO = ".claude/skills/hello-exo"
+
+
+def test_sync_informa_las_huerfanas_y_solo_las_borra_con_prune(
+    tmp_path: Path, synthetic_content: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """F8: una skill que el contenido ya no trae no se borra sin `--prune`."""
+    _init(tmp_path)
+    shutil.rmtree(synthetic_content / "packs" / "core" / "skills" / "hello-exo")
+    capsys.readouterr()
+    assert main(["sync", "--project", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert f"orphan\t{HELLO}/ (2 files)" in out
+    assert f"`{_meta.NAME} sync --prune`" in out
+    assert "remove\t" not in out
+    assert (tmp_path / HELLO / "SKILL.md").is_file()
+    assert main(["sync", "--project", str(tmp_path), "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["orphans"] == [f"{HELLO}/SKILL.md", f"{HELLO}/references/guide.md"]
+    assert payload["changed"] is False
+    assert main(["sync", "--project", str(tmp_path), "--prune", "--dry-run"]) == 0
+    assert f"remove\t{HELLO}/SKILL.md" in capsys.readouterr().out
+    assert (tmp_path / HELLO / "SKILL.md").is_file()
+    assert main(["sync", "--project", str(tmp_path), "--prune"]) == 0
+    assert "snapshot before the changes" in capsys.readouterr().out
+    assert not (tmp_path / HELLO).exists()
+    assert main(["sync", "--project", str(tmp_path)]) == 0
+    assert "orphan" not in capsys.readouterr().out
+
+
+def test_un_pack_que_se_saca_de_la_config_se_borra_sin_prune(
+    tmp_path: Path, synthetic_content: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Lo que la persona deja de pedir no es una huérfana: se da de baja como siempre."""
+    _init(tmp_path, "--packs", "core,sdd")
+    assert (tmp_path / ".claude" / "skills" / "demo-phase" / "SKILL.md").is_file()
+    cfg = config.load(tmp_path).config
+    cfg["packs"] = ["core"]
+    config.save(tmp_path, cfg)
+    capsys.readouterr()
+    assert main(["sync", "--project", str(tmp_path)]) == 0
+    assert "orphan" not in capsys.readouterr().out
+    assert not (tmp_path / ".claude" / "skills" / "demo-phase").exists()
+    assert not (tmp_path / ".claude" / "agents" / "demo-explorer.md").exists()
+    assert (tmp_path / HELLO / "SKILL.md").is_file()
+
+
+def test_init_con_menos_packs_los_saca_sin_prune(tmp_path: Path, synthetic_content: Path) -> None:
+    _init(tmp_path, "--packs", "core,sdd")
+    assert _init(tmp_path, "--packs", "core") == 0
+    assert not (tmp_path / ".claude" / "skills" / "demo-phase").exists()
+
+
+def test_remove_agent_no_borra_huerfanas_ajenas(
+    tmp_path: Path, synthetic_content: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`remove-agent` borra lo del agente; una huérfana del contenido sigue esperando `--prune`."""
+    _init(tmp_path)
+    assert main(["add-agent", "cursor", "--project", str(tmp_path)]) == 0
+    shutil.rmtree(synthetic_content / "packs" / "core" / "skills" / "hello-exo")
+    capsys.readouterr()
+    assert main(["remove-agent", "cursor", "--project", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert not (tmp_path / ".agents" / "skills" / "demo-phase").exists()
+    # hello-exo ya no está en el contenido: es huérfana también en la carpeta de cursor.
+    assert sorted(p.name for p in (tmp_path / ".agents" / "skills").iterdir()) == ["hello-exo"]
+    assert (tmp_path / HELLO / "SKILL.md").is_file()
+    assert f"orphan\t{HELLO}/ (2 files)" in out
+    assert "orphan\t.agents/skills/hello-exo/ (2 files)" in out
 
 
 def test_force_dry_run_con_algo_sin_resolver_no_dice_que_aplico(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

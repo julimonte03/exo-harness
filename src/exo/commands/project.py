@@ -30,6 +30,9 @@ def _csv(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
+_PRUNE_HELP = "also delete orphaned skills and subagents (takes a snapshot first)"
+
+
 def register(sub: argparse._SubParsersAction) -> None:
     init = sub.add_parser(
         "init",
@@ -81,8 +84,16 @@ def register(sub: argparse._SubParsersAction) -> None:
     init.add_argument("--yes", action="store_true", help="never prompt")
     init.set_defaults(handler=_init)
 
-    sync = sub.add_parser("sync", help="regenerate the engine files from the config and the lock")
+    sync = sub.add_parser(
+        "sync",
+        help="regenerate the engine files from the config and the lock",
+        description=(
+            "Skills and subagents that the content no longer ships (orphans) are reported "
+            "and kept; --prune deletes them."
+        ),
+    )
     _common(sync)
+    sync.add_argument("--prune", action="store_true", help=_PRUNE_HELP)
     sync.set_defaults(handler=_sync)
 
     status = sub.add_parser("status", help="agents, packs and manual changes to generated files")
@@ -118,15 +129,46 @@ _LABELS = {
 }
 
 
-def _payload(result: engine.Result) -> dict[str, Any]:
+def _payload(result: engine.Result, renamed: dict[str, str] | None = None) -> dict[str, Any]:
     return {
         "applied": result.applied,
         "changed": result.changed,
         "snapshot": result.snapshot,
         "actions": [vars(a) for a in result.actions],
         "conflicts": [vars(c) for c in result.conflicts],
+        "orphans": [a.path for a in result.orphans],
+        "renamed": dict(renamed or {}),
         "warnings": result.warnings,
     }
+
+
+def _group_key(action: engine.Action) -> str:
+    """Una skill se muestra como su carpeta: `.claude/skills/<nombre>/`."""
+    parts = action.path.split("/")
+    if action.kind == "mirror" and len(parts) >= 4:
+        return "/".join(parts[:3]) + "/"
+    return action.path
+
+
+def _grouped(
+    actions: list[engine.Action], renamed: dict[str, str], *, word: str = "renamed to"
+) -> list[str]:
+    """Una línea por skill (o por archivo), con la cantidad de archivos y el renombre."""
+    groups: dict[str, list[engine.Action]] = {}
+    for action in actions:
+        groups.setdefault(_group_key(action), []).append(action)
+    lines = []
+    for key, items in groups.items():
+        notes = []
+        if key.endswith("/"):
+            notes.append(f"{len(items)} file{'' if len(items) == 1 else 's'}")
+        other = next((renamed[a.path] for a in items if a.path in renamed), None)
+        if other is not None:
+            shown = "/".join(other.split("/")[:3]) + "/" if key.endswith("/") else other
+            notes.append(f"{word} {shown}")
+        notes += sorted({a.detail for a in items if a.detail})
+        lines.append(key + (f" ({', '.join(notes)})" if notes else ""))
+    return lines
 
 
 def _conflict_label(conflict: engine.Conflict, args: argparse.Namespace) -> str:
@@ -137,13 +179,18 @@ def _conflict_label(conflict: engine.Conflict, args: argparse.Namespace) -> str:
     return "would force" if args.dry_run else "forced"
 
 
-def _report(result: engine.Result, args: argparse.Namespace, extra: dict[str, Any]) -> int:
+def _report(
+    result: engine.Result,
+    args: argparse.Namespace,
+    extra: dict[str, Any],
+    renamed: dict[str, str] | None = None,
+) -> int:
     """Imprime el resultado. Sale con 1 si hubo conflictos sin `--force`, o si quedaron
-    conflictos que `--force` no resuelve."""
+    conflictos que `--force` no resuelve. Las huérfanas se informan, sin cambiar el código."""
     failed = bool(result.conflicts) and not args.force
     code = 1 if failed or result.unresolved else 0
     if args.json:
-        emit_json({**extra, **_payload(result)})
+        emit_json({**extra, **_payload(result, renamed)})
         return code
     for key, value in extra.items():
         if key == "notes":
@@ -175,6 +222,8 @@ def _report(result: engine.Result, args: argparse.Namespace, extra: dict[str, An
         print("dry-run: nothing was written")
     for action, path in writes if (args.dry_run or len(writes) <= 30) else []:
         print(f"{action}\t{path}")
+    for line in _grouped(result.orphans, renamed or {}):
+        print(f"orphan\t{line}")
     if not result.changed:
         print("no changes")
     else:
@@ -186,6 +235,11 @@ def _report(result: engine.Result, args: argparse.Namespace, extra: dict[str, An
     if result.unresolved:
         done = "would be applied" if args.dry_run else "was applied"
         print(f"the rest {done}; fix the ones marked 'unresolved' by hand and retry.")
+    if result.orphans:
+        print(
+            f"orphaned: {len(result.orphans)} files that this content no longer ships were kept "
+            f"(your agents may still use them); delete them with `{_meta.NAME} sync --prune`"
+        )
     return code
 
 
@@ -274,6 +328,7 @@ def _init(args: argparse.Namespace) -> int:
         result.engine,
         args,
         {"agents": result.agents, "packs": result.packs, "notes": result.notes},
+        result.renamed,
     )
 
 
@@ -299,13 +354,14 @@ def _sync(args: argparse.Namespace) -> int:
     try:
         if project.current_agents(root) is None:
             return _not_installed(root)
-        result = project.sync(root, force=args.force, dry_run=args.dry_run)
+        result = project.sync(root, force=args.force, dry_run=args.dry_run, prune=args.prune)
     except (project.ProjectError, ValueError, OSError) as exc:
         return error(str(exc))
     return _report(
         result.engine,
         args,
         {"agents": result.agents, "packs": result.packs, "notes": result.notes},
+        result.renamed,
     )
 
 
@@ -327,7 +383,9 @@ def _change_agents(args: argparse.Namespace, add: bool) -> int:
         result = project.sync(root, agents=agents, force=args.force, dry_run=args.dry_run)
     except (project.ProjectError, ValueError, OSError) as exc:
         return error(str(exc))
-    return _report(result.engine, args, {"agents": result.agents, "notes": result.notes})
+    return _report(
+        result.engine, args, {"agents": result.agents, "notes": result.notes}, result.renamed
+    )
 
 
 def _add_agent(args: argparse.Namespace) -> int:

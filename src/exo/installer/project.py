@@ -7,6 +7,11 @@ comando pide cambiar algo (agentes, packs, MCP o tickets), se valida antes de
 tocar nada y va en la misma transacción que el resto, con su snapshot. Si la
 config existe pero no se puede usar, se aborta: con los defaults se borraría
 lo de los agentes que tiene configurados.
+
+Las huérfanas (skills y subagentes que el contenido ya no trae) no se borran sin
+`prune` (F8). Lo que deja de pedirse porque la persona sacó un agente o un pack sí:
+son las copias que el contenido actual todavía generaría con los agentes y packs
+del lock, es decir, de la última instalación.
 """
 
 from __future__ import annotations
@@ -23,8 +28,9 @@ from exo import _meta, adapters, content, packs, paths
 from exo.adapters.base import Context
 from exo.core import config, fsutil, lock, snapshots
 from exo.governance import githooks, hosts
-from exo.installer import engine
+from exo.installer import engine, renames
 from exo.installer.bundle import build_bundle
+from exo.installer.ops import Op, Unit, unit_of, unit_of_entry
 
 DEFAULT_PACKS = ("core", "sdd", "quality", "security")
 
@@ -45,6 +51,8 @@ class SyncResult:
     packs: list[str]
     notes: list[str] = field(default_factory=list)
     config_written: bool = False
+    # Huérfana (o la que se borró con prune) -> su nombre nuevo, si es un renombre conocido.
+    renamed: dict[str, str] = field(default_factory=dict)
 
 
 def normalize_agents(agents: Iterable[str]) -> tuple[str, ...]:
@@ -106,6 +114,7 @@ def sync(
     claude_md: bool = False,
     force: bool = False,
     dry_run: bool = False,
+    prune: bool = False,
 ) -> SyncResult:
     project = Path(project).resolve()
     loaded, cfg, base_notes = _base_config(project)
@@ -144,15 +153,21 @@ def sync(
     if explicit and (loaded.source is None or normalized != loaded.config):
         extra[f"{_meta.PROJECT_DIR}/{config.FILENAME}"] = config.dumps(normalized)
     ctx = Context(project, bundle, targets, normalized, claude_md="always" if claude_md else "auto")
+    ops = adapters.plan_all(ctx)
+    previous = lock.read(project)
     result = engine.apply(
         project,
-        adapters.plan_all(ctx),
+        ops,
         agents=list(targets),
         packs=list(bundle.packs),
         force=force,
         dry_run=dry_run,
         extra=extra,
+        prune=prune,
+        dropped=_dropped(root, ctx, ops, previous),
     )
+    gone = [a.path for a in result.actions if a.action in ("orphan", "remove")]
+    renamed = renames.find(gone, {op.path for op in ops})
     notes = [*base_notes, *loaded.warnings, *adapters.GENERIC.notes(ctx)]
     if result.applied and not dry_run:
         notes += _githooks(project, normalized, result)
@@ -162,7 +177,35 @@ def sync(
             "set review.publish_command (examples in the ci-and-review contract)"
         )
     written = result.applied and bool(extra)
-    return SyncResult(result, list(targets), list(bundle.packs), notes, written)
+    return SyncResult(result, list(targets), list(bundle.packs), notes, written, renamed)
+
+
+def _dropped(root: Path, ctx: Context, ops: list[Op], previous: lock.Lock | None) -> set[Unit]:
+    """Las copias de contenido que se dejan de pedir porque cambió el pedido, no el contenido.
+
+    Son las que el contenido actual todavía genera con los agentes y packs del lock: si
+    ya no se piden, es porque la persona sacó un agente o un pack (por un comando o a mano
+    en la config). Las demás son huérfanas y esperan `prune`. Solo se planifica de nuevo
+    si hay candidatas y el pedido cambió.
+    """
+    if previous is None:
+        return set()
+    planned = {unit_of(op) for op in ops}
+    candidates = {
+        unit_of_entry(e) for e in previous.files if e.kind in engine.ORPHAN_KINDS
+    } - planned
+    if not candidates:
+        return set()
+    available = [p for p in previous.packs if (root / "packs" / p / packs.MANIFEST).is_file()]
+    try:
+        targets = normalize_agents(previous.agents)
+        bundle = build_bundle(root, available) if available else None
+    except ValueError:
+        return set()
+    if bundle is None or (targets == ctx.targets and bundle.packs == ctx.bundle.packs):
+        return set()
+    before = Context(ctx.project, bundle, targets, ctx.config, claude_md=ctx.claude_md)
+    return candidates & {unit_of(op) for op in adapters.plan_all(before)}
 
 
 def _githooks(project: Path, cfg: dict[str, Any], result: engine.Result) -> list[str]:
@@ -249,7 +292,9 @@ def uninstall(project: Path, *, force: bool = False, dry_run: bool = False) -> U
         name = f"{project.name}-{stamp}-{fsutil.sha256_bytes(archive)[:12]}.tar.gz"
         backup = paths.user_data_dir() / "uninstall-backups" / name
         fsutil.write_atomic(backup, archive)
-    result = engine.apply(project, [], agents=[], packs=[], force=force, dry_run=dry_run)
+    result = engine.apply(
+        project, [], agents=[], packs=[], force=force, dry_run=dry_run, prune=True
+    )
     if result.applied and not dry_run:
         githooks.deactivate(project)
     also_removed = _human_files_in(project, motor_dir, data)

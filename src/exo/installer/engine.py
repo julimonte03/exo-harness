@@ -5,11 +5,19 @@ Flujo (`docs/plan/fases/F2-adaptadores-e-instalador.md`):
 1. Unifica las operaciones repetidas entre adaptadores.
 2. Compara cada unidad con el lock y con el disco: alta, cambio, sin cambios,
    adopción (ya estaba igual y es del humano: no se registra) o conflicto.
-3. Lo que está en el lock y ya no se pide, se da de baja.
+3. Lo que está en el lock y ya no se pide, se da de baja. Salvo las
+   **huérfanas** (F8): copias de contenido (`mirror`: skills y subagentes) que el
+   contenido ya no trae. El equipo puede estar usándolas, así que sin `prune` se
+   conservan, con su entrada del lock, y se informan (`orphan`). Las que deja de
+   pedir el propio pedido (`dropped`: un agente o un pack que se quitan) se dan
+   de baja igual. Lo demás (archivos propios del motor, bloques, claves e ítems)
+   se da de baja siempre.
 4. Conflictos: sin `force` no se escribe **nada** y se informan. Con `force`
    se pisa lo editado a mano sobre lo generado; lo que `force` no resuelve
    (un archivo del humano, marcadores rotos, una ruta que pasa por un link)
-   queda como está, con su entrada del lock, y se informa igual.
+   queda como está, con su entrada del lock, y se informa igual. Con `partial`
+   (`exo update`) se aplica el resto y lo que choca queda como está, como con
+   `force` lo que este no resuelve.
 5. Sin cambios: no escribe ni crea snapshot. Con `dry_run`: solo informa.
 6. Si no, snapshot de las rutas afectadas (con el lock), aplicación atómica
    archivo por archivo y lock al final. Si algo falla a mitad de camino, se
@@ -31,6 +39,7 @@ from __future__ import annotations
 import json
 import os
 import stat
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -52,6 +61,8 @@ from exo.installer.ops import (
 )
 
 WRITES = ("create", "update", "remove")
+# Las huérfanas: lo único que no se borra sin `prune` (ver el docstring del módulo).
+ORPHAN_KINDS = ("mirror",)
 _LOCK_REL = f"{_meta.PROJECT_DIR}/{lock.FILENAME}"
 _HUMAN = (
     "already exists with different content and the engine did not generate it; "
@@ -65,7 +76,7 @@ class ApplyError(ValueError):
 
 @dataclass(frozen=True)
 class Action:
-    action: str  # create | update | remove | adopt | forget | skip
+    action: str  # create | update | remove | adopt | forget | skip | orphan
     path: str
     kind: str
     detail: str = ""
@@ -96,6 +107,11 @@ class Result:
     def unresolved(self) -> list[Conflict]:
         """Conflictos que ni `force` resuelve."""
         return [c for c in self.conflicts if not c.forceable]
+
+    @property
+    def orphans(self) -> list[Action]:
+        """Huérfanas que quedaron en el disco y en el lock (sin `prune`)."""
+        return [a for a in self.actions if a.action == "orphan"]
 
 
 # -- estado actual ------------------------------------------------------------
@@ -237,6 +253,19 @@ def _undo_created(project: Path, created: lock.Created, kind: str) -> None:
         _prune_dirs(project, target)
 
 
+def _orphan(project: Path, entry: lock.LockEntry) -> Action | None:
+    """La huérfana que se conserva, o None si ya no existe (se olvida). Nunca escribe."""
+    try:
+        fsutil.join_within(project, entry.path)
+        current = lock.current_hash(project, entry)
+    except (fsutil.UnsafePathError, OSError) as exc:
+        return Action("orphan", entry.path, entry.kind, f"cannot be read ({exc})")
+    if current is None:
+        return None
+    detail = "" if current == entry.sha256 else "modified by hand"
+    return Action("orphan", entry.path, entry.kind, detail)
+
+
 def _rollback(project: Path, name: str, error: BaseException) -> ApplyError:
     """Vuelve al snapshot tomado antes de escribir y borra los directorios que quedaron vacíos."""
     try:
@@ -263,9 +292,16 @@ def apply(
     force: bool = False,
     dry_run: bool = False,
     extra: dict[str, bytes] | None = None,
+    prune: bool = False,
+    dropped: Collection[Unit] = (),
+    partial: bool = False,
 ) -> Result:
     """Aplica `ops` contra el lock. `extra` son archivos fuera del lock (la config del
-    proyecto) que se escriben en la misma transacción y entran en el snapshot."""
+    proyecto) que se escriben en la misma transacción y entran en el snapshot.
+
+    `prune` borra también las huérfanas; `dropped` son las unidades que el pedido saca
+    a propósito (se dan de baja sin `prune`). Con `partial`, los conflictos no frenan
+    el resto (ver el docstring del módulo)."""
     project = Path(project).resolve()
     ops = merge_duplicates(ops)
     previous = lock.read(project)
@@ -347,6 +383,15 @@ def apply(
     for unit, entry in old.items():
         if unit in planned:
             continue
+        if entry.kind in ORPHAN_KINDS and not prune and unit not in dropped:
+            orphan = _orphan(project, entry)
+            if orphan is None:
+                result.actions.append(Action("forget", entry.path, entry.kind, "no longer existed"))
+                forgotten.append(entry)
+            else:
+                result.actions.append(orphan)
+                keep(unit)
+            continue
         try:
             fsutil.join_within(project, entry.path)  # no seguir links al quitar
             current = lock.current_hash(project, entry, strict=True)
@@ -424,7 +469,7 @@ def apply(
         [c for path, c in created.items() if path in kept],
     )
     result.lock_changed = lock.dumps(new_lock) != _current_lock_bytes(project)
-    if (result.conflicts and not force) or dry_run:
+    if (result.conflicts and not (force or partial)) or dry_run:
         return result
     affected = {op.path for op in writes} | {e.path for e in removals} | set(extra_writes)
     affected |= {made.path for made, _ in undo}
