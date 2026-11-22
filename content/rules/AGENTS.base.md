@@ -8,6 +8,7 @@ This project uses a governed development engine. Its configuration (`config.json
 - **Scope:** do only what was asked. Do not refactor outside the scope or delete other people's `TODO`s.
 - **Destructive commands:** ask for confirmation before deleting, overwriting, resetting or rewriting history.
 - **Data protection:** never write credentials or tokens anywhere, never save personal data in memory, and keep it out of code, commits, prompts and external systems unless a waiver allows it (`.exo/shared/data-protection.md`).
+- **Persona:** at session start run `exo persona show --json`; if it returns a role, read `.exo/shared/personas/<role>.md` and follow it on top of these rules. It changes what you show first and how, never what is required: it relaxes no rule, gate, tier or approval.
 
 ## Git
 

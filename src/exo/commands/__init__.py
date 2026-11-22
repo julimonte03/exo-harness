@@ -33,6 +33,7 @@ MODULES: dict[str, tuple[str, ...]] = {
     "doctor": ("doctor",),
     "project": ("init", "sync", "status", "add-agent", "remove-agent", "uninstall"),
     "memory": ("mem",),
+    "persona": ("persona",),
 }
 
 
