@@ -118,23 +118,23 @@ check_ref() {
     esac
 }
 
-# Baja $1 a $2 solo por el protocolo de EXO_REPO_URL, también en las redirecciones.
+# Baja $1 a $2. Con curl, solo por el protocolo de EXO_REPO_URL, también en las
+# redirecciones; wget no tiene cómo restringirlas (su --https-only es para el modo
+# recursivo), pero la URL inicial ya pasó por check_repo_url.
 fetch() {
     if command -v curl >/dev/null 2>&1; then
         curl --proto "=$SCHEME" --proto-redir "=$SCHEME" -fsSL -o "$2" "$1"
-    elif [ "$SCHEME" = https ]; then
-        wget -q --https-only -O "$2" "$1"
     else
         wget -q -O "$2" "$1"
     fi
 }
 
-# Adónde redirige $1, sin seguir la redirección.
+# Adónde redirige $1, sin seguir la redirección (con GET, como curl).
 redirect_of() {
     if command -v curl >/dev/null 2>&1; then
         curl --proto "=$SCHEME" -fsS -o /dev/null -w '%{redirect_url}' "$1"
     else
-        wget -S --spider --max-redirect=0 "$1" 2>&1 |
+        wget -S --max-redirect=0 -O /dev/null "$1" 2>&1 |
             sed -n 's/^ *[Ll]ocation: *\([^ ]*\).*/\1/p' | tr -d '\r' | tail -n 1
     fi
 }
