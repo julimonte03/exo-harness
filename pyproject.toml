@@ -1,5 +1,6 @@
 [build-system]
-requires = ["hatchling>=1.24"]
+# 1.27: `license` como expresión SPDX y `license-files` (PEP 639).
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
@@ -14,7 +15,9 @@ description = "Project-governed development engine, agnostic of the AI coding ag
 # del release falla a propósito (falta la descripción larga).
 requires-python = ">=3.10"
 authors = [{ name = "Julian Monte" }]
-# Sin `license`: el repo todavía no tiene archivo LICENSE (decisión del dueño).
+# MIT (decisión del dueño, 2026-11-22): el código es suyo y open source.
+license = "MIT"
+license-files = ["LICENSE"]
 classifiers = [
     "Environment :: Console",
     "Intended Audience :: Developers",

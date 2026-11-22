@@ -289,3 +289,8 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 ### D-48 — Idioma de la documentación de usuario
 - **Contexto:** el repo es público. Los docs del plan están en español, y lo que se instala, en inglés (ADR-0011).
 - **Estado:** Decidida (ADR-0017), 2026-11-19: los docs para quien usa el motor van en inglés, como lo instalado: README, QUICK-START, las guías, troubleshooting, CONTRIBUTING y CHANGELOG. El plan, los ADRs y los docstrings siguen en español.
+
+### D-49 — Licencia
+- **Contexto:** el repo es público en la cuenta personal del dueño y no tenía licencia. Sin licencia, el código queda con todos los derechos reservados: se ve pero no se puede usar, y PyPI no declara ninguna.
+- **Opciones:** MIT (permisiva y corta); Apache-2.0 (permisiva, con concesión de patentes); sin licencia.
+- **Estado:** Decidida por el dueño, 2026-11-22: el código es suyo y open source. Va con MIT (`LICENSE`, `license = "MIT"` en `pyproject.toml`, PEP 639); el copyright queda a su nombre.
