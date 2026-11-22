@@ -53,6 +53,8 @@ class SyncResult:
     config_written: bool = False
     # Huérfana (o la que se borró con prune) -> su nombre nuevo, si es un renombre conocido.
     renamed: dict[str, str] = field(default_factory=dict)
+    # (esquema en disco, esquema actual) si la config se migró al leerla.
+    config_migration: tuple[int, int] | None = None
 
 
 def normalize_agents(agents: Iterable[str]) -> tuple[str, ...]:
@@ -115,7 +117,11 @@ def sync(
     force: bool = False,
     dry_run: bool = False,
     prune: bool = False,
+    partial: bool = False,
+    save_migrated: bool = False,
 ) -> SyncResult:
+    """`partial` y `save_migrated` son de `exo update`: aplicar lo que no choca con lo
+    editado, y guardar la config si se migró al leerla."""
     project = Path(project).resolve()
     loaded, cfg, base_notes = _base_config(project)
     explicit = agents is not None or packs is not None or mcp is not None or tickets is not None
@@ -150,8 +156,11 @@ def sync(
     if invalid:
         raise ProjectError("invalid values for the config: " + " | ".join(invalid))
     extra: dict[str, bytes] = {}
-    if explicit and (loaded.source is None or normalized != loaded.config):
-        extra[f"{_meta.PROJECT_DIR}/{config.FILENAME}"] = config.dumps(normalized)
+    config_rel = f"{_meta.PROJECT_DIR}/{config.FILENAME}"
+    migrated = loaded.migrated_from
+    asked = explicit and (loaded.source is None or normalized != loaded.config)
+    if asked or (save_migrated and migrated is not None):
+        extra[config_rel] = config.dumps(normalized)
     ctx = Context(project, bundle, targets, normalized, claude_md="always" if claude_md else "auto")
     ops = adapters.plan_all(ctx)
     previous = lock.read(project)
@@ -165,6 +174,7 @@ def sync(
         extra=extra,
         prune=prune,
         dropped=_dropped(root, ctx, ops, previous),
+        partial=partial,
     )
     gone = [a.path for a in result.actions if a.action in ("orphan", "remove")]
     renamed = renames.find(gone, {op.path for op in ops})
@@ -176,8 +186,16 @@ def sync(
             f"the repo lives on {host_note} (review.host); to publish the gates as PR comments, "
             "set review.publish_command (examples in the ci-and-review contract)"
         )
+    if migrated is not None and config_rel not in extra:
+        notes.append(
+            f"{config_rel} is still on schema {migrated} (read as {config.CURRENT_SCHEMA}); "
+            f"`{_meta.NAME} update --apply` saves it migrated"
+        )
     written = result.applied and bool(extra)
-    return SyncResult(result, list(targets), list(bundle.packs), notes, written, renamed)
+    migration = (migrated, config.CURRENT_SCHEMA) if migrated is not None else None
+    return SyncResult(
+        result, list(targets), list(bundle.packs), notes, written, renamed, migration
+    )
 
 
 def _dropped(root: Path, ctx: Context, ops: list[Op], previous: lock.Lock | None) -> set[Unit]:

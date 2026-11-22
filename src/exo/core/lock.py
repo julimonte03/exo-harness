@@ -22,6 +22,7 @@ escribió un `exo` más nuevo.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -86,6 +87,21 @@ class Drift:
 
 def lock_path(project: Path) -> Path:
     return Path(project) / _meta.PROJECT_DIR / FILENAME
+
+
+_VERSION = re.compile(r"^(\d+)\.(\d+)\.(\d+)")
+
+
+def version_key(version: str) -> tuple[int, ...] | None:
+    """`1.2.3-rc1` -> (1, 2, 3); None si no empieza con una versión semver."""
+    match = _VERSION.match(version or "")
+    return tuple(int(n) for n in match.groups()) if match else None
+
+
+def newer_than_engine(version: str) -> bool:
+    """¿`version` (la que escribió un lock) es más nueva que este motor?"""
+    theirs, mine = version_key(version), version_key(_meta.VERSION)
+    return theirs is not None and mine is not None and theirs > mine
 
 
 def hash_block_content(content: str) -> str:

@@ -1,4 +1,4 @@
-"""`exo init`, `sync`, `status`, `add-agent`, `remove-agent` y `uninstall`."""
+"""`exo init`, `sync`, `update`, `status`, `add-agent`, `remove-agent` y `uninstall`."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from exo import _meta, content, packs
 from exo.adapters import KNOWN_AGENTS, detect
 from exo.commands._output import emit_json, error, usage_error
 from exo.core import config, tickets
-from exo.installer import engine, project, stack, wizard
+from exo.installer import engine, project, stack, update, wizard
 
 
 def _common(parser: argparse.ArgumentParser, *, writes: bool = True) -> None:
@@ -95,6 +95,26 @@ def register(sub: argparse._SubParsersAction) -> None:
     _common(sync)
     sync.add_argument("--prune", action="store_true", help=_PRUNE_HELP)
     sync.set_defaults(handler=_sync)
+
+    update_cmd = sub.add_parser(
+        "update",
+        help="bring the project files to this engine version (preview by default)",
+        description=(
+            "Shows what this engine version changes in the project: new, modified, renamed "
+            "and orphaned files, and conflicts with your edits. Writes only with --apply. "
+            "Your edits are kept unless you add --force, and orphaned skills and subagents "
+            "are deleted only with --prune (in a terminal, --apply asks)."
+        ),
+    )
+    _common(update_cmd, writes=False)
+    update_cmd.add_argument(
+        "--apply", action="store_true", help="write the changes (takes a snapshot first)"
+    )
+    update_cmd.add_argument(
+        "--force", action="store_true", help="overwrite your edits (takes a snapshot first)"
+    )
+    update_cmd.add_argument("--prune", action="store_true", help=_PRUNE_HELP)
+    update_cmd.set_defaults(handler=_update)
 
     status = sub.add_parser("status", help="agents, packs and manual changes to generated files")
     _common(status, writes=False)
@@ -363,6 +383,127 @@ def _sync(args: argparse.Namespace) -> int:
         {"agents": result.agents, "packs": result.packs, "notes": result.notes},
         result.renamed,
     )
+
+
+def _update(args: argparse.Namespace) -> int:
+    """Vista previa por defecto. Con `--apply` en una terminal y huérfanas sin `--prune`,
+    pregunta si borrarlas; sin terminal, nunca."""
+    root = args.project.resolve()
+    try:
+        if project.current_agents(root) is None:
+            return _not_installed(root)
+        prune = args.prune
+        if args.apply and not prune and not args.json and sys.stdin.isatty():
+            preview = update.update(root, force=args.force)
+            if preview.engine.orphans:
+                print("orphaned (no longer shipped by this version):")
+                for line in _grouped(preview.engine.orphans, preview.sync.renamed):
+                    print(f"  {line}")
+                prune = wizard.yes("Delete them too? The rest of the update is applied anyway.")
+        result = update.update(root, apply=args.apply, force=args.force, prune=prune)
+    except (project.ProjectError, ValueError, OSError) as exc:
+        return error(str(exc))
+    return _update_report(result, args)
+
+
+def _section(title: str, actions: list[engine.Action], renamed: dict[str, str], word: str) -> None:
+    lines = _grouped(actions, renamed, word=word)
+    if lines:
+        print(f"{title}:")
+        for line in lines:
+            print(f"  {line}")
+
+
+def _update_report(result: update.UpdateResult, args: argparse.Namespace) -> int:
+    """Sale con 1 si quedaron conflictos: lo editado que se conservó sin `--force`, o lo que
+    ni `--force` resuelve. Lo demás se aplicó igual."""
+    found = result.engine
+    renamed = result.sync.renamed
+    kept = [c for c in found.conflicts if c.forceable and not args.force]
+    code = 1 if kept or found.unresolved else 0
+    migration = result.sync.config_migration
+    if args.json:
+        emit_json(
+            {
+                "from_version": result.from_version,
+                "to_version": result.to_version,
+                "up_to_date": result.up_to_date,
+                "new": result.paths("create"),
+                "modified": result.paths("update"),
+                "removed": result.paths("remove"),
+                "config_migration": (
+                    {"from": migration[0], "to": migration[1], "saved": result.sync.config_written}
+                    if migration
+                    else None
+                ),
+                "notes": result.sync.notes,
+                **_payload(found, renamed),
+            }
+        )
+        return code
+    for note in result.sync.notes:
+        print(f"note: {note}")
+    for warning in found.warnings:
+        print(f"warning: {warning}")
+    if result.from_version == result.to_version:
+        print(f"engine: {result.to_version} (the lock is already at this version)")
+    else:
+        print(f"engine: {result.from_version or 'unknown version'} -> {result.to_version}")
+    if migration:
+        state = "saved" if result.sync.config_written else "saved with --apply"
+        if found.applied and not result.sync.config_written:
+            state = "not saved"
+        print(f"config: schema {migration[0]} -> {migration[1]} ({state})")
+
+    def of(action: str) -> list[engine.Action]:
+        return [
+            a for a in found.actions if a.action == action and a.detail != update.OUTSIDE_THE_LOCK
+        ]
+
+    back = {new: old for old, new in renamed.items()}
+    _section("new", of("create"), back, "renamed from")
+    _section("modified", of("update"), {}, "")
+    _section("removed", of("remove"), renamed, "renamed to")
+    title = "orphaned (no longer shipped; kept until you prune them)"
+    _section(title, found.orphans, renamed, "renamed to")
+    for conflict in found.conflicts:
+        if not conflict.forceable:
+            label = "unresolved"
+        elif args.force:
+            label = "forced" if args.apply else "would force"
+        else:
+            label = "kept"
+        print(f"{label}: {conflict.path} ({conflict.kind}): {conflict.reason}")
+    if not args.apply:
+        if result.up_to_date:
+            print(f"up to date: nothing to change for {_meta.NAME} {result.to_version}")
+        else:
+            print(f"preview: nothing was written; apply it with `{_meta.NAME} update --apply`")
+    elif not found.changed:
+        print("no changes")
+    else:
+        writes = list(
+            dict.fromkeys((a.action, a.path) for a in found.actions if a.action in engine.WRITES)
+        )
+        counts = {name: sum(action == name for action, _ in writes) for name in engine.WRITES}
+        summary = ", ".join(f"{n} {name}" for name, n in counts.items() if n)
+        print(f"done: {summary or 'lock only'}")
+        if found.snapshot:
+            print(f"snapshot before the changes: {found.snapshot}")
+    if kept:
+        files = f"{len(kept)} file{'' if len(kept) == 1 else 's'}"
+        print(
+            f"kept your edits in {files}; overwrite them with "
+            f"`{_meta.NAME} update --apply --force` (takes a snapshot first)"
+        )
+    if found.unresolved:
+        print("fix the ones marked 'unresolved' by hand and retry.")
+    if found.orphans:
+        print(
+            f"orphaned: {len(found.orphans)} files kept (your agents may still use them); "
+            f"delete them with `{_meta.NAME} update --apply --prune`"
+        )
+    return code
 
 
 def _change_agents(args: argparse.Namespace, add: bool) -> int:

@@ -135,6 +135,16 @@ def _valid(ask: Ask, out: Out, prompt: str, parse: Callable[[str], Any], hint: s
             out(f"invalid value: {answer!r}{detail}; {hint}")
 
 
+def yes(question: str, *, ask: Ask | None = None) -> bool:
+    """Sí o no, con "no" por defecto (también si no hay respuesta)."""
+    ask = ask or _input
+    try:
+        answer = ask(f"{question} [y/N]: ")
+    except EOFError:
+        return False
+    return answer.strip().lower() in ("y", "yes", "s", "si", "sí")
+
+
 def confirm(summary: list[str], *, ask: Ask | None = None, out: Out | None = None) -> bool:
     ask = ask or _input
     out = out or print

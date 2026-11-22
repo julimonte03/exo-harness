@@ -66,6 +66,8 @@ class LoadResult:
     # viene de los defaults. Quien escribe a partir de la config tiene que abortar.
     fallback: bool = False
     invalid: list[str] = field(default_factory=list)  # campos que volvieron a su default
+    # El esquema del archivo, si se migró al leerlo: `exo update --apply` lo guarda migrado.
+    migrated_from: int | None = None
 
 
 def defaults() -> dict[str, Any]:
@@ -450,7 +452,14 @@ def load(project: Path) -> LoadResult:
     if migrated is None:
         return LoadResult(defaults(), warnings, path, fallback=True)
     cfg, field_warnings, invalid = validate(migrated)
-    return LoadResult(cfg, warnings + field_warnings, path, invalid=invalid)
+    original = raw.get("schema", 1)
+    return LoadResult(
+        cfg,
+        warnings + field_warnings,
+        path,
+        invalid=invalid,
+        migrated_from=original if original != CURRENT_SCHEMA else None,
+    )
 
 
 def dumps(cfg: dict[str, Any]) -> bytes:
