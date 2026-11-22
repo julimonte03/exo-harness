@@ -147,7 +147,11 @@ _LOADED = (
     [
         (["--version"], None, ("exo.memory", "exo.discovery", "exo.installer", "exo.sdd")),
         (["version"], "version", ("exo.memory", "exo.discovery", "exo.validate", "exo.sdd")),
-        (["sync", "--help"], "project", ("exo.memory.store", "exo.validate", "exo.sdd.check")),
+        (
+            ["sync", "--help"],
+            "project",
+            ("exo.memory.store", "exo.validate", "exo.sdd.check", "exo.sdd.speclint", "exo.sdd.record"),
+        ),
         (["mem", "--help"], "memory", ("exo.installer", "exo.discovery", "exo.adapters")),
     ],
 )

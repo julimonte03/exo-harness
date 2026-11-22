@@ -283,6 +283,7 @@ def _rollback(project: Path, name: str, error: BaseException) -> ApplyError:
 # -- plan y aplicación ----------------------------------------------------------
 
 
+@fsutil.link_cache()  # cada ruta gestionada se verifica una vez por corrida
 def apply(
     project: Path,
     ops: list[Op],

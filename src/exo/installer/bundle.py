@@ -17,17 +17,19 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from exo import packs
+from exo import packs, sdd
 from exo.core import fsutil
-from exo.sdd import record, speclint
 
 RULES_FILE = Path("rules") / "AGENTS.base.md"
 SHARED_DIR = "shared"
 ENGINE_SHARED_PACK = "core"
 # Archivos del runtime que se instalan con el pack: (carpeta en shared/, origen, patrón).
+# Son `speclint.TEMPLATES_DIR` y `record.SCHEMAS_DIR` (un test lo verifica), sin importar
+# esos módulos: `exo sync` no necesita el validador de artefactos (F8).
+_SDD_DIR = Path(sdd.__file__).resolve().parent
 ENGINE_SHARED = (
-    ("templates", speclint.TEMPLATES_DIR, "*.md"),
-    ("schemas", record.SCHEMAS_DIR, "*.json"),
+    ("templates", _SDD_DIR / "templates", "*.md"),
+    ("schemas", _SDD_DIR / "schemas", "*.json"),
 )
 
 

@@ -28,6 +28,14 @@ def test_bundle_del_contenido_real() -> None:
     assert bundle.rules.startswith("# Project rules")
 
 
+def test_las_carpetas_del_runtime_son_las_de_speclint_y_record() -> None:
+    """El bundle arma las rutas sin importar speclint ni record (F8); tienen que ser las mismas."""
+    from exo.installer import bundle
+
+    folders = {name: source for name, source, _pattern in bundle.ENGINE_SHARED}
+    assert folders == {"templates": speclint.TEMPLATES_DIR, "schemas": record.SCHEMAS_DIR}
+
+
 def test_solo_core_no_trae_lo_de_sdd() -> None:
     bundle = build_bundle(content.content_root(), ["core"])
     assert bundle.packs == ("core",)
