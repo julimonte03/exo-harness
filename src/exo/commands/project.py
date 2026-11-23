@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -560,16 +561,12 @@ def _status(args: argparse.Namespace) -> int:
     if not info.installed:
         print(f"the engine is not installed; run `{_meta.NAME} init`")
         return 0
-    print(f"agents: {', '.join(info.agents)}")
-    print(f"packs: {', '.join(info.packs)}")
-    print(f"engine: {_meta.VERSION} (lock written by {info.lock_version})")
-    print(f"managed files: {info.files}")
-    for item in drift:
-        print(f"manual change: {item['path']} ({item['kind']}): {item['status']}")
-    if not drift:
-        print("no manual changes to generated files")
-    for warning in info.warnings:
-        print(f"warning: {warning}")
+    # Diferido: `sync` y los demás comandos del módulo no cargan la observabilidad.
+    from exo import status_view
+
+    style = status_view.Style(color=status_view.use_color(sys.stdout, os.environ))
+    for line in status_view.render(status_view.gather(args.project, info), style):
+        print(line)
     return 0
 
 
