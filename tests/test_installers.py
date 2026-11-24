@@ -376,6 +376,56 @@ def test_install_sh_remoto_release_sin_sha256sums_no_pasa_a_git(
 
 
 @POSIX_ONLY
+@pytest.mark.skipif(not shutil.which("curl"), reason="sin curl")
+def test_install_sh_remoto_redireccion_a_otro_protocolo_no_instala(
+    tmp_path: Path, remoto: _remote.Remote
+) -> None:
+    """El wheel redirige de http a https: curl no sigue un salto a otro protocolo (TM-3)."""
+    env = _remote_env(tmp_path, remoto.url, no_uv=True, ref=_remote.REDIRECT_TAG)
+    result = _exec(["sh", "-s"], env, _script("install.sh"))
+    assert result.returncode == 1
+    # El error de curl con --proto-redir; sin él, seguiría el salto y la conexión se rechazaría.
+    assert 'Protocol "https"' in result.stderr
+    assert f"{remoto.path}/releases/download/{_remote.REDIRECT_TAG}/{remoto.wheel}" in remoto.requests
+    assert not remoto.git_fetched()
+    assert not (tmp_path / "datos" / "venv").exists()
+
+
+def _path_sin_curl(tmp_path: Path) -> tuple[str, Path]:
+    """Un PATH con los programas del de esta sesión, menos curl, y un wget falso que anota
+    cada llamada en el archivo que devuelve y falla."""
+    bin_dir = tmp_path / "sin-curl"
+    bin_dir.mkdir()
+    log = tmp_path / "wget.log"
+    wget = bin_dir / "wget"
+    wget.write_text(f'#!/bin/sh\necho "$*" >> "{log}"\nexit 1\n', encoding="utf-8")
+    wget.chmod(0o755)
+    for folder in os.environ.get("PATH", "").split(os.pathsep):
+        if not os.path.isdir(folder):
+            continue
+        for entry in os.scandir(folder):
+            link = bin_dir / entry.name
+            if entry.name == "curl" or os.path.lexists(link):
+                continue
+            if entry.is_file() and os.access(entry.path, os.X_OK):
+                link.symlink_to(entry.path)
+    return str(bin_dir), log
+
+
+@POSIX_ONLY
+def test_install_sh_remoto_https_sin_curl_no_baja_con_wget(tmp_path: Path) -> None:
+    """wget sigue redirecciones a cualquier protocolo: con https, sin curl no baja nada (TM-3)."""
+    path, log = _path_sin_curl(tmp_path)
+    url = "https://example.invalid/owner/exo-harness"
+    env = {**_remote_env(tmp_path, url, no_uv=True, ref="v1.0.0"), "PATH": path}
+    result = _exec(["sh", "-s"], env, _script("install.sh"))
+    assert result.returncode == 1
+    assert "curl is required" in result.stderr
+    assert "Cannot verify release v1.0.0" in result.stderr
+    assert not log.exists()
+
+
+@POSIX_ONLY
 @pytest.mark.parametrize("url", INSECURE_URLS)
 def test_install_sh_remoto_solo_https(tmp_path: Path, url: str) -> None:
     env = _remote_env(tmp_path, url, no_uv=True)
@@ -475,6 +525,26 @@ def test_install_ps1_remoto_release_sin_sha256sums_no_pasa_a_git(
     assert result.returncode != 0
     assert _dice(result, f"Cannot verify release {_remote.NO_SUMS_TAG}")
     assert f"{remoto.path}/releases/download/{_remote.NO_SUMS_TAG}/SHA256SUMS" in remoto.requests
+    assert not remoto.git_fetched()
+    assert not (tmp_path / "datos" / "venv").exists()
+
+
+@WINDOWS_ONLY
+def test_install_ps1_remoto_redireccion_a_otro_protocolo_no_instala(
+    tmp_path: Path, remoto: _remote.Remote
+) -> None:
+    """El wheel redirige de http a https: se rechaza el salto antes de pedirlo (TM-3)."""
+    env = {
+        **_remote_env(tmp_path, remoto.url, no_uv=True, ref=_remote.REDIRECT_TAG),
+        "EXO_INSTALL_NO_PATH": "1",
+    }
+    result = _exec(_irm_iex(remoto.raw("install.ps1")), env)
+    assert result.returncode != 0
+    wheel = f"{remoto.path}/releases/download/{_remote.REDIRECT_TAG}/{remoto.wheel}"
+    target = f"{remoto.redirect_to}{wheel}"
+    # El chequeo del instalador; sin él, .NET seguiría el salto y la conexión se rechazaría.
+    assert _dice(result, f"redirected to {target}, which is not http; refusing it.")
+    assert wheel in remoto.requests
     assert not remoto.git_fetched()
     assert not (tmp_path / "datos" / "venv").exists()
 

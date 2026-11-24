@@ -57,8 +57,6 @@ param(
     $RepoUrl = if ($env:EXO_REPO_URL) { $env:EXO_REPO_URL.TrimEnd('/') } else { 'https://github.com/julimonte03/exo-harness' }
 
     $ErrorActionPreference = 'Stop'
-    # La barra de progreso de Invoke-WebRequest hace lentisimas las descargas en 5.1.
-    $ProgressPreference = 'SilentlyContinue'
     $Dist = 'exo-harness'
     $NoPath = $NoPath -or ($env:EXO_INSTALL_NO_PATH -eq '1')
     $Extras = if ($WithVector) { '[vector]' } else { '' }
@@ -168,18 +166,37 @@ param(
     }
 
     function Save-Url {
-        # Baja $Url a $Path solo por el protocolo de EXO_REPO_URL, tambien despues de
-        # las redirecciones (5.1 da la URI final en ResponseUri; 7, en RequestMessage).
+        # Baja $Url a $Path solo por el protocolo de EXO_REPO_URL, tambien en cada
+        # redireccion. .NET las sigue a cualquier protocolo y la URI final no muestra
+        # los saltos del medio (https, http, https): se siguen a mano, de a una, y la
+        # que cambia de protocolo se rechaza antes de pedirla. HttpWebRequest anda
+        # igual en PowerShell 5.1 y 7, y File.Create toma la ruta tal cual.
         param([string]$Url, [string]$Path)
-        $response = Invoke-WebRequest -UseBasicParsing -Uri $Url -OutFile $Path -PassThru
-        $final = $response.BaseResponse.ResponseUri
-        if (-not $final -and $response.BaseResponse.RequestMessage) {
-            $final = $response.BaseResponse.RequestMessage.RequestUri
+        $current = $Url
+        for ($hops = 0; $hops -le 10; $hops++) {
+            $request = [System.Net.WebRequest]::Create($current)
+            # Con file:// no hay redirecciones: FileWebRequest no tiene AllowAutoRedirect.
+            if ($request -is [System.Net.HttpWebRequest]) { $request.AllowAutoRedirect = $false }
+            $response = $request.GetResponse()
+            try {
+                $status = if ($response -is [System.Net.HttpWebResponse]) { [int]$response.StatusCode } else { 200 }
+                if ($status -lt 300) {
+                    $out = [System.IO.File]::Create($Path)
+                    try { $response.GetResponseStream().CopyTo($out) } finally { $out.Dispose() }
+                    return
+                }
+                $location = $response.Headers['Location']
+                if (-not $location) { throw "$current answered $status without a Location." }
+                $next = New-Object System.Uri -ArgumentList ([System.Uri]$current), $location
+            } finally {
+                $response.Close()
+            }
+            if ($next.Scheme -ne $Scheme) {
+                throw "$current redirected to $($next.AbsoluteUri), which is not $Scheme; refusing it."
+            }
+            $current = $next.AbsoluteUri
         }
-        if ($final -and $final.Scheme -ne $Scheme) {
-            Remove-Item -LiteralPath $Path -Force
-            throw "$Url redirected to $final, which is not $Scheme; refusing it."
-        }
+        throw "Too many redirects from $Url."
     }
 
     function Get-Redirect {

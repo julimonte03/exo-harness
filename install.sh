@@ -29,7 +29,7 @@ runs `uv tool install` from git (needs git). Without uv it creates a venv in the
 user data folder and installs the release wheel after checking it against the
 SHA256SUMS of the release (a branch or a commit installs from git; a release
 whose SHA256SUMS cannot be downloaded installs nothing); that needs Python 3.10
-or later.
+or later, and curl to download from https.
 
 It puts `exo` on the PATH if missing and says so: in ~/.profile, in
 ~/.bash_profile if it exists, in ~/.bashrc with bash and in ~/.zshrc with zsh.
@@ -119,12 +119,17 @@ check_ref() {
     esac
 }
 
-# Baja $1 a $2. Con curl, solo por el protocolo de EXO_REPO_URL, también en las
-# redirecciones; wget no tiene cómo restringirlas (su --https-only es para el modo
-# recursivo), pero la URL inicial ya pasó por check_repo_url.
+# Baja $1 a $2 solo por el protocolo de EXO_REPO_URL, también en cada redirección:
+# curl lo controla con --proto y --proto-redir. wget sigue redirecciones a cualquier
+# protocolo y no tiene cómo restringirlas (su --https-only es para el modo
+# recursivo): un salto a http dejaría cambiar el wheel y su SHA256SUMS. Por eso, con
+# https, sin curl no se baja nada; wget queda para http a loopback (un espejo local).
 fetch() {
     if command -v curl >/dev/null 2>&1; then
         curl --proto "=$SCHEME" --proto-redir "=$SCHEME" -fsSL -o "$2" "$1"
+    elif [ "$SCHEME" = https ]; then
+        echo "curl is required to download $1: wget follows redirects to http, where the download could be swapped. Install curl and retry." >&2
+        return 1
     else
         wget -q -O "$2" "$1"
     fi

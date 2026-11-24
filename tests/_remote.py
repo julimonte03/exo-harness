@@ -8,7 +8,9 @@ Sirve por http en 127.0.0.1, sin salir de la máquina:
   releases (`Remote.latest = None`), a `releases`, como GitHub;
 - `/<owner>/<repo>/releases/download/<tag>/`: el wheel y su `SHA256SUMS`. El release
   `BAD_TAG` trae un `SHA256SUMS` que no coincide con su wheel, y `NO_SUMS_TAG`, que
-  también es un tag de git, trae el wheel sin `SHA256SUMS`;
+  también es un tag de git, trae el wheel sin `SHA256SUMS`. En `REDIRECT_TAG` el
+  `SHA256SUMS` está y el wheel redirige (302) a otro protocolo: a `https://` en un
+  puerto de 127.0.0.1 que rechaza las conexiones (`Remote.redirect_to`);
 - `/raw/<script>`: los instaladores del árbol de trabajo, como
   raw.githubusercontent.com (texto en UTF-8).
 
@@ -23,6 +25,7 @@ import hashlib
 import http.server
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import threading
@@ -35,6 +38,7 @@ OWNER = "owner"
 NAME = "exo-harness"
 BAD_TAG = "v0.0.0-bad"
 NO_SUMS_TAG = "v0.0.0-nosums"
+REDIRECT_TAG = "v0.0.0-redirect"
 SCRIPTS = ("install.sh", "install.ps1", "uninstall.sh", "uninstall.ps1")
 
 
@@ -48,6 +52,9 @@ class Remote:
     port: int = 0
     latest: str | None = None
     requests: list[str] = field(default_factory=list)
+    # Adónde redirige el wheel de REDIRECT_TAG: si un cliente siguiera el salto, la
+    # conexión se rechaza enseguida, sin colgarse ni llegar a nada real.
+    redirect_to: str = ""
 
     @property
     def url(self) -> str:
@@ -84,12 +91,19 @@ class _Handler(http.server.SimpleHTTPRequestHandler):
             target = f"{remote.url}/releases"
             if remote.latest:
                 target += f"/tag/{remote.latest}"
-            self.send_response(302)
-            self.send_header("Location", target)
-            self.send_header("Content-Length", "0")
-            self.end_headers()
+            self._redirect(target)
+            return
+        redirected = f"{remote.path}/releases/download/{REDIRECT_TAG}/"
+        if self.path.startswith(redirected) and not self.path.endswith("/SHA256SUMS"):
+            self._redirect(remote.redirect_to + self.path)
             return
         super().do_GET()
+
+    def _redirect(self, target: str) -> None:
+        self.send_response(302)
+        self.send_header("Location", target)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def guess_type(self, path: str | os.PathLike[str]) -> str:
         if str(path).endswith((".sh", ".ps1")):
@@ -180,6 +194,8 @@ def build(base: Path, repo: Path, version: str) -> Remote:
     # Un release sin SHA256SUMS: si el instalador pasara a git, el tag está y se instalaría.
     _release(bare, NO_SUMS_TAG, wheel, digest)
     (bare / "releases" / "download" / NO_SUMS_TAG / "SHA256SUMS").unlink()
+    # Su wheel no se sirve: el handler lo redirige a otro protocolo.
+    _release(bare, REDIRECT_TAG, wheel, digest)
 
     raw = root / "raw"
     raw.mkdir()
@@ -195,6 +211,10 @@ def serve(remote: Remote) -> Iterator[Remote]:
     server = _Server(("127.0.0.1", 0), handler)
     server.remote = remote
     remote.port = server.server_address[1]
+    # Un puerto tomado sin listen(): nadie más lo usa y rechaza cada conexión.
+    refused = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    refused.bind(("127.0.0.1", 0))
+    remote.redirect_to = f"https://127.0.0.1:{refused.getsockname()[1]}"
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
@@ -203,3 +223,4 @@ def serve(remote: Remote) -> Iterator[Remote]:
         server.shutdown()
         server.server_close()
         thread.join()
+        refused.close()
