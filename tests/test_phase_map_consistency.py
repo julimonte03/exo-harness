@@ -78,8 +78,9 @@ PHASES = {PHASE_SKILL[phase]: where for phase, where in _who_runs().items()}
 ORCHESTRATION = ("sdd-orchestrator", "sdd-continue", "sdd-ff")
 TOOLS = {
     "sdd-explorer": {"Read", "Grep", "Glob"},
-    "sdd-implementer": {"Read", "Grep", "Glob", "Edit", "Write", "Bash"},
-    "sdd-verifier": {"Read", "Grep", "Glob", "Bash"},
+    # Bash y PowerShell: en Copilot CLI sobre Windows, Bash solo no da shell (F8, TM-40).
+    "sdd-implementer": {"Read", "Grep", "Glob", "Edit", "Write", "Bash", "PowerShell"},
+    "sdd-verifier": {"Read", "Grep", "Glob", "Bash", "PowerShell"},
     "sdd-judge": {"Read", "Grep", "Glob"},
     # Pack discovery (F6): solo lectura; devuelven texto y el orquestador escribe.
     "re-extractor": {"Read", "Grep", "Glob"},
