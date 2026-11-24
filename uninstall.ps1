@@ -85,9 +85,11 @@ param([switch]$NoPath)
         }
     }
 
+    # Siempre -LiteralPath: con -Path, un [, ] o * de EXO_DATA_DIR es un comodin y
+    # podria borrar el venv de otra carpeta.
     $Venv = Join-Path $DataDir 'venv'
-    if (Test-Path $Venv) {
-        Remove-Item -Recurse -Force $Venv
+    if (Test-Path -LiteralPath $Venv) {
+        Remove-Item -LiteralPath $Venv -Recurse -Force
         $removed = $true
     }
 

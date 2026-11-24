@@ -439,6 +439,53 @@ def test_install_ps1_remoto_checksum_distinto_no_instala(tmp_path: Path, remoto:
     assert not (tmp_path / "datos" / "venv").exists()
 
 
+def _carpeta_ajena(tmp_path: Path) -> Path:
+    """`datos1\\venv`, de otro dueño: `datos[1]` leído como comodín calza con `datos1` (TM-8)."""
+    other = tmp_path / "datos1" / "venv"
+    other.mkdir(parents=True)
+    (other / "ajeno.txt").write_text("no es del motor\n", encoding="utf-8")
+    return other
+
+
+@WINDOWS_ONLY
+def test_uninstall_ps1_carpeta_de_datos_con_corchetes(tmp_path: Path) -> None:
+    """Borra el venv de la carpeta de datos tal como está escrita, sin comodines."""
+    data = tmp_path / "datos[1]"
+    (data / "venv" / "Scripts").mkdir(parents=True)
+    (data / "venv" / "Scripts" / "python.exe").write_bytes(b"")
+    other = _carpeta_ajena(tmp_path)
+    env = {**_env(tmp_path, no_uv=True), "EXO_DATA_DIR": str(data), "EXO_INSTALL_NO_PATH": "1"}
+    result = _run([*PS, "-File", str(REPO / "uninstall.ps1")], env)
+    assert "Uninstalled" in result.stdout
+    assert not (data / "venv").exists()
+    assert (other / "ajeno.txt").read_text(encoding="utf-8") == "no es del motor\n"
+
+
+@WINDOWS_ONLY
+def test_install_ps1_remoto_carpeta_de_datos_con_corchetes(
+    tmp_path: Path, path_key: str, remoto: _remote.Remote
+) -> None:
+    """Instala y desinstala con `[1]` en EXO_DATA_DIR, sin tocar la carpeta que calza."""
+    data = tmp_path / "datos[1]"
+    other = _carpeta_ajena(tmp_path)
+    env = {
+        **_remote_env(tmp_path, remoto.url, no_uv=True),
+        "EXO_DATA_DIR": str(data),
+        "EXO_INSTALL_ENV_SUBKEY": path_key,
+    }
+    original = _user_path(path_key)
+    _run(_irm_iex(remoto.raw("install.ps1")), env)
+    bin_dir = data / "venv" / "Scripts"
+    exe = bin_dir / f"{_meta.NAME}.exe"
+    assert _run([str(exe), "--version"], env).stdout.strip() == f"{_meta.NAME} {_meta.VERSION}"
+    assert _user_path(path_key)[0] == f"{original[0]};{bin_dir}"
+    assert (data / "path-entry.txt").is_file()
+    _run(_irm_iex(remoto.raw("uninstall.ps1")), env)
+    assert not (data / "venv").exists()
+    assert _user_path(path_key) == original
+    assert (other / "ajeno.txt").read_text(encoding="utf-8") == "no es del motor\n"
+
+
 def _ps1_suelto(tmp_path: Path) -> Path:
     """install.ps1 bajado suelto, fuera de un clon: también instala desde el remoto."""
     script = tmp_path / "bajado" / "install.ps1"

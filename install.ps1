@@ -305,8 +305,9 @@ param(
         if ($Downloads) { Remove-Item -LiteralPath $Downloads -Recurse -Force -ErrorAction SilentlyContinue }
     }
 
+    # -LiteralPath: con -Path, un [, ] o * de EXO_DATA_DIR se lee como comodin.
     $Exe = Join-Path $BinDir 'exo.exe'
-    if (-not (Test-Path $Exe)) { throw "The installation did not produce $Exe" }
+    if (-not (Test-Path -LiteralPath $Exe)) { throw "The installation did not produce $Exe" }
 
     if (-not $NoPath) {
         $userPath = Get-UserPath
