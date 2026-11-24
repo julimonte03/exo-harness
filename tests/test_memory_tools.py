@@ -188,8 +188,11 @@ def test_mcp_lista_y_llama_tools_de_memoria(ctx: registry.Context) -> None:
 
 
 def test_mcp_stdout_protegido_de_lo_que_imprime_una_tool(
-    ctx: registry.Context, monkeypatch: pytest.MonkeyPatch
+    ctx: registry.Context, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Invariante 9. `_mcp` le pasa a `serve` su propio stream de salida, así que la
+    respuesta sale limpia haya o no redirect: lo que lo prueba es adónde fue el `print`
+    (auditoría de la adopción de exo, F8)."""
     real = registry.get("mem_stats")
 
     def noisy(context, args):
@@ -206,3 +209,6 @@ def test_mcp_stdout_protegido_de_lo_que_imprime_una_tool(
         {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "mem_stats"}},
     )
     assert reply["result"]["isError"] is False
+    printed = capsys.readouterr()
+    assert "barra de progreso" in printed.err
+    assert "barra de progreso" not in printed.out  # el stdout real del proceso es del protocolo
