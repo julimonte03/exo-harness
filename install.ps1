@@ -234,7 +234,12 @@ param(
         } catch {
             throw "Could not download $base/${name}: $($_.Exception.Message)"
         }
-        $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $wheel).Hash.ToLowerInvariant()
+        # Con .NET y no con Get-FileHash: lanzado desde pwsh, Windows PowerShell 5.1 hereda
+        # el PSModulePath de PowerShell 7 y puede no encontrar esa funcion.
+        $sha = [System.Security.Cryptography.SHA256]::Create()
+        $stream = [System.IO.File]::OpenRead($wheel)
+        try { $digest = $sha.ComputeHash($stream) } finally { $stream.Dispose(); $sha.Dispose() }
+        $actual = -join ($digest | ForEach-Object { $_.ToString('x2') })
         if ($actual -ne $expected) {
             throw "Checksum mismatch for ${name}: SHA256SUMS says $expected, the download is $actual. Nothing was installed; retry, and report it if it happens again."
         }

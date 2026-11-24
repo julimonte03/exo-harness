@@ -265,6 +265,19 @@ def test_ps1_en_ascii_sin_bom(script: str) -> None:
     assert (REPO / script).read_bytes().isascii()
 
 
+# Funciones (no cmdlets compilados) de Microsoft.PowerShell.Utility en Windows PowerShell 5.1:
+# lanzado desde pwsh hereda el PSModulePath de PowerShell 7 y no las encuentra. Pasó en el
+# runner de Windows de GitHub Actions con Get-FileHash (F8).
+_PS51_FRAGILE = ("Get-FileHash", "New-TemporaryFile", "New-Guid", "Format-Hex")
+
+
+@pytest.mark.parametrize("script", ["install.ps1", "uninstall.ps1"])
+def test_ps1_sin_funciones_que_fallan_desde_pwsh(script: str) -> None:
+    lines = (REPO / script).read_text(encoding="ascii").splitlines()
+    code = "\n".join(line for line in lines if not line.lstrip().startswith("#"))
+    assert [name for name in _PS51_FRAGILE if name in code] == []
+
+
 @POSIX_ONLY
 def test_install_sh_help_por_pipe(tmp_path: Path) -> None:
     result = _run(["sh", "-s", "--", "--help"], _env(tmp_path, no_uv=True), _script("install.sh"))
