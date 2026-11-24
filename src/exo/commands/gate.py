@@ -31,9 +31,21 @@ def register(sub: argparse._SubParsersAction) -> None:
     )
     publish.add_argument("--change", help="change name (default: the only active change)")
     publish.add_argument("--dry-run", action="store_true", help="print, never run the command")
+    publish.add_argument(
+        "--approve-command",
+        action="store_true",
+        help="approve review.publish_command on this machine and run it (asked in a terminal)",
+    )
     publish.add_argument("--project", type=Path, default=Path("."), help="project root")
     publish.add_argument("--json", action="store_true", help="JSON output")
     publish.set_defaults(handler=_publish)
+
+
+def _confirm(command: str) -> bool:
+    print("This project runs this command in a shell, once per gate:")
+    print(f"  {command}")
+    answer = input("Approve it on this machine and run it? [y/N] ")
+    return answer.strip().lower() in ("y", "yes", "s", "si", "sí")
 
 
 def _publish(args: argparse.Namespace) -> int:
@@ -45,7 +57,17 @@ def _publish(args: argparse.Namespace) -> int:
             return usage_error(f"pass --change (active changes: {names})")
         name = active[0].name
     try:
-        results = gates.publish(args.project, name, dry_run=args.dry_run)
+        try:
+            results = gates.publish(
+                args.project, name, dry_run=args.dry_run, approve=args.approve_command
+            )
+        except gates.CommandNotApproved as exc:
+            if args.json or not sys.stdin.isatty():
+                raise
+            if not _confirm(exc.command):
+                print("cancelled: nothing was run")
+                return 1
+            results = gates.publish(args.project, name, approve=True)
     except (gates.GateError, ValueError, OSError) as exc:
         return error(str(exc))
     failed = [r for r in results if r.status == "failed"]

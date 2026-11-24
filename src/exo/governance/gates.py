@@ -23,6 +23,7 @@ from pathlib import Path
 
 from exo import _meta
 from exo.core import config
+from exo.governance import approvals
 from exo.sdd import observability, speclint
 
 _TIMEOUT = 120
@@ -92,12 +93,29 @@ def collect(project: Path, change: str) -> list[GateText]:
     return sorted(texts, key=lambda t: t.name)
 
 
-def publish(project: Path, change: str, *, dry_run: bool = False) -> list[Published]:
+class CommandNotApproved(GateError):
+    """El `publish_command` de la config no está aprobado en esta máquina (TM-21)."""
+
+    def __init__(self, command: str) -> None:
+        super().__init__(approvals.explain(command))
+        self.command = command
+
+
+def publish(
+    project: Path, change: str, *, dry_run: bool = False, approve: bool = False
+) -> list[Published]:
+    """Publica o imprime los gates. El comando corre solo si está aprobado en esta máquina
+    (`approve` lo aprueba antes); si no, `CommandNotApproved` y no se ejecuta nada."""
     project = Path(project)
     texts = collect(project, change)
     command = config.load(project).config["review"]["publish_command"]
     if dry_run or not command:
         return [Published(t.name, "printed", "", t.body, t.path) for t in texts]
+    if texts:
+        if approve:
+            approvals.approve(command)
+        elif not approvals.is_approved(command):
+            raise CommandNotApproved(command)
     results: list[Published] = []
     for text in texts:
         handle, body_path = tempfile.mkstemp(prefix=f"{_meta.NAME}-gate-", suffix=".md")

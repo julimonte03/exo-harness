@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -128,7 +129,7 @@ def test_criterio_4_el_comando_propio_se_llama_una_vez_por_gate(tmp_path: Path) 
     cfg = config.defaults()
     cfg["review"]["publish_command"] = f'"{Path(sys.executable).as_posix()}" "{script.as_posix()}"'
     config.save(tmp_path, cfg)
-    results = gates.publish(tmp_path, "add-login")
+    results = gates.publish(tmp_path, "add-login", approve=True)
     assert [r.status for r in results] == ["sent", "sent"]
     lines = log.read_text().splitlines()
     assert lines == [
@@ -148,8 +149,96 @@ def test_un_comando_que_falla_se_informa(
         f'"{Path(sys.executable).as_posix()}" -c "raise SystemExit(3)"'
     )
     config.save(tmp_path, cfg)
-    assert main(["gate", "publish", "--change", "add-login", "--project", str(tmp_path)]) == 1
+    argv = ["gate", "publish", "--change", "add-login", "--project", str(tmp_path)]
+    assert main([*argv, "--approve-command"]) == 1
     assert "code_review" in capsys.readouterr().err
+
+
+# -- solo comandos aprobados en esta máquina (threat model, TM-21) ----------------------------
+
+
+@pytest.fixture(autouse=True)
+def _aprobaciones_por_test(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Cada test arranca sin comandos aprobados."""
+    from exo import paths
+
+    monkeypatch.setenv(paths.ENV_DATA_DIR, str(tmp_path / "datos-usuario"))
+
+
+def _marker_command(tmp_path: Path) -> tuple[str, Path]:
+    marker = tmp_path / "corrio.txt"
+    script = tmp_path / "marca.py"
+    script.write_text(
+        f"import pathlib\npathlib.Path({str(marker)!r}).write_text('si')\n", encoding="utf-8"
+    )
+    return f'"{Path(sys.executable).as_posix()}" "{script.as_posix()}"', marker
+
+
+def test_un_comando_sin_aprobar_no_corre(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _change(tmp_path, {"gates/code_review.md": gate("code_review")})
+    command, marker = _marker_command(tmp_path)
+    cfg = config.defaults()
+    cfg["review"]["publish_command"] = command
+    config.save(tmp_path, cfg)
+    with pytest.raises(gates.CommandNotApproved, match="approve-command"):
+        gates.publish(tmp_path, "add-login")
+    assert not marker.exists()
+
+    argv = ["gate", "publish", "--change", "add-login", "--project", str(tmp_path)]
+    assert main(argv) == 1  # sin TTY no pregunta: se niega y dice cómo aprobarlo
+    err = capsys.readouterr().err
+    assert command in err and "--approve-command" in err
+    assert not marker.exists()
+
+    assert main([*argv, "--approve-command"]) == 0
+    assert marker.exists()
+    marker.unlink()
+    assert main(argv) == 0  # ya aprobado en esta máquina
+    assert marker.exists()
+
+    marker.unlink()
+    cfg["review"]["publish_command"] = command + " --otro"  # otro comando: otra aprobación
+    config.save(tmp_path, cfg)
+    assert main(argv) == 1
+    assert not marker.exists()
+    # --dry-run nunca ejecuta y no necesita aprobación.
+    assert main([*argv, "--dry-run"]) == 0
+
+
+@pytest.mark.parametrize(("answer", "code", "ran"), [("y", 0, True), ("n", 1, False)])
+def test_en_una_terminal_pregunta(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    answer: str,
+    code: int,
+    ran: bool,
+) -> None:
+    _change(tmp_path, {"gates/code_review.md": gate("code_review")})
+    command, marker = _marker_command(tmp_path)
+    cfg = config.defaults()
+    cfg["review"]["publish_command"] = command
+    config.save(tmp_path, cfg)
+    asked: list[str] = []
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda prompt: asked.append(prompt) or answer)
+    argv = ["gate", "publish", "--change", "add-login", "--project", str(tmp_path)]
+    assert main(argv) == code
+    assert marker.exists() is ran
+    assert asked and command in capsys.readouterr().out
+
+
+def test_aprobaciones_ilegibles(tmp_path: Path) -> None:
+    from exo import paths
+    from exo.governance import approvals
+
+    folder = Path(os.environ[paths.ENV_DATA_DIR])
+    folder.mkdir(parents=True)
+    (folder / approvals.FILE_NAME).write_text("{roto", encoding="utf-8")
+    with pytest.raises(approvals.ApprovalError, match=approvals.FILE_NAME):
+        approvals.is_approved("echo hola")
 
 
 def test_sin_comando_se_imprime(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

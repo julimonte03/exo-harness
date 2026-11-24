@@ -17,11 +17,13 @@ CI is the real gate. `exo doctor` says whether the hooks are active on a machine
 The pipeline needs Python 3.10 or later, the engine installed, and enough git history for `--base` to find the merge base (full history, or at least the target branch fetched). Run the project's own tests in the same pipeline: the engine does not replace them.
 
 ```sh
-pip install "exo-harness @ git+<engine repository URL>"   # or from your internal package index
+pip install "exo-harness @ git+<engine repository URL>@<release tag>"   # or from your internal package index
 exo check --base origin/<target branch>
 ```
 
 Exit code 0 is green; anything else fails the pipeline. Add `--json` for machine-readable output.
+
+Pin the engine to a release tag (`@v1.0.0`) or to a version of your package index: without one, CI installs whatever the engine's default branch has that day, and the pipeline changes without a review.
 
 ### GitHub Actions [Not verified]
 
@@ -39,7 +41,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install "exo-harness @ git+<engine repository URL>"
+      - run: pip install "exo-harness @ git+<engine repository URL>@<release tag>"
       - run: exo check --base "origin/${{ github.base_ref }}"
 ```
 
@@ -55,7 +57,7 @@ steps:
   - task: UsePythonVersion@0
     inputs:
       versionSpec: "3.12"
-  - script: pip install "exo-harness @ git+<engine repository URL>"
+  - script: pip install "exo-harness @ git+<engine repository URL>@<release tag>"
     displayName: Install the engine
   - script: |
       target="${SYSTEM_PULLREQUEST_TARGETBRANCH#refs/heads/}"
@@ -76,7 +78,7 @@ exo-check:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   script:
-    - pip install "exo-harness @ git+<engine repository URL>"
+    - pip install "exo-harness @ git+<engine repository URL>@<release tag>"
     - git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
     - exo check --base "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
 ```
@@ -92,6 +94,7 @@ exo-check:
 - **Without `review.publish_command`** (the default), it prints the texts. Paste each one as a PR comment, or put them in the PR description.
 - **With it**, it runs the command once per gate, from the project root, in the system shell (`sh` on Linux and macOS, `cmd` on Windows), with these variables in the environment: `EXO_GATE` (the gate name), `EXO_GATE_MARKER`, `EXO_GATE_BODY` (the path to a file with the text) and `EXO_CHANGE`. The command must edit the PR comment that carries the marker, or create it when there is none: one comment per gate, never a new one on each run.
 - `--dry-run` never runs the command. Nothing reaches the host until the project sets the command, with `exo init --publish-command "<command>"` or by editing `review.publish_command`.
+- **The command runs only if this machine approved it.** The approval is the SHA256 of the exact command, kept in the user's data folder, never in the repo. In a terminal, `exo gate publish` shows the command and asks; without one, it refuses and names the command: review it, then run `exo gate publish --approve-command`. A different command, even by one space, asks again. An agent never approves it for the person: it asks them to run it. In CI, pass `--approve-command` only in a trusted pipeline (see the next point).
 - **In CI, the command comes from the branch under review** (its `.exo/config.json`) and runs in a shell: never run `exo gate publish` with a write token on pull requests from forks or under `pull_request_target`. Publish from a trusted pipeline, or from the person's machine.
 
 Keep the command a single call to a script in the repo, such as `sh scripts/publish-gate.sh`. Example scripts:
