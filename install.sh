@@ -251,6 +251,13 @@ add_path_line() {
     echo "Added $BIN_DIR to the PATH in $1."
 }
 
+# Crea la carpeta de datos, y las que le falten, solo para el dueño (0700): guarda la
+# memoria sin redactar y los backups de desinstalación (TM-27), como
+# paths.private_dir del motor. Una que ya existe no se toca: puede no ser del motor.
+private_data_dir() {
+    [ -d "$DATA_DIR" ] || (umask 077 && mkdir -p "$DATA_DIR")
+}
+
 cleanup() {
     if [ -n "$TMP" ]; then
         rm -rf "$TMP"
@@ -318,6 +325,7 @@ main() {
         fi
         PY=$(find_python)
         echo "Installing $DIST into $VENV..."
+        private_data_dir
         if ! "$PY" -m venv "$VENV"; then
             echo "Could not create the venv: install the python3-venv package or install uv." >&2
             exit 1
@@ -335,7 +343,7 @@ main() {
         *":$BIN_DIR:"*) ;;
         *)
             if [ "$NO_PATH" != 1 ]; then
-                mkdir -p "$DATA_DIR"
+                private_data_dir
                 add_path_line "$HOME/.profile"
                 if [ -f "$HOME/.bash_profile" ]; then
                     add_path_line "$HOME/.bash_profile"

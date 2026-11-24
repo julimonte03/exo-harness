@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import stat
 import subprocess
 import sys
 import uuid
@@ -318,6 +319,24 @@ def test_install_sh_remoto_ultimo_release(tmp_path: Path, no_uv: bool, remoto: _
     _run(["sh", "-s"], env, _script("uninstall.sh"))
     assert not exe.exists()
     assert not (home / ".profile").exists()
+
+
+@POSIX_ONLY
+def test_install_sh_remoto_carpeta_de_datos_privada(tmp_path: Path, remoto: _remote.Remote) -> None:
+    """Sin uv, la carpeta de datos y las que le faltan se crean en 0700 aunque el umask
+    sea 022; una que ya existe no se toca (TM-27)."""
+    if not _venv_works():
+        pytest.skip("este Python no trae ensurepip (falta python3-venv)")
+    shared = tmp_path / "compartida"
+    shared.mkdir()
+    shared.chmod(0o755)
+    data = shared / "nueva" / "datos"
+    env = {**_remote_env(tmp_path, remoto.url, no_uv=True), "EXO_DATA_DIR": str(data)}
+    _run(["sh", "-c", "umask 022 && exec sh -s"], env, _script("install.sh"))
+    assert (data / "path-entry.txt").is_file()
+    assert stat.S_IMODE(data.stat().st_mode) == 0o700
+    assert stat.S_IMODE(data.parent.stat().st_mode) == 0o700
+    assert stat.S_IMODE(shared.stat().st_mode) == 0o755
 
 
 @POSIX_ONLY
