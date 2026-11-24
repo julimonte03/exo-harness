@@ -7,8 +7,9 @@
     GitHub: the latest release, or the tag, branch or commit in EXO_REF. With uv it
     runs `uv tool install` from git (needs git). Without uv it creates a venv in
     %LOCALAPPDATA%\exo-harness\venv and installs the release wheel after checking it
-    against the SHA256SUMS of the release (a branch or a commit installs from git);
-    that needs Python 3.10 or later.
+    against the SHA256SUMS of the release (a branch or a commit installs from git;
+    a release whose SHA256SUMS cannot be downloaded installs nothing); that needs
+    Python 3.10 or later.
 
     It puts `exo` on the user PATH (says so when it adds it and keeps the registry
     value type), runs `exo doctor` and, with -Init, adopts a project. Running it
@@ -216,11 +217,20 @@ param(
     function Get-VerifiedWheel {
         # Baja el wheel del release $Ref a $Dir y lo verifica contra el SHA256SUMS del
         # mismo release. Devuelve su ruta, o nada si $Ref no tiene SHA256SUMS (es una
-        # rama o un commit, no un release). Si no coincide, no instala nada.
+        # rama o un commit, no un release). Si no coincide, no instala nada. Un release
+        # (v y un digito, como los tags que publica release.yml) no pasa a git si su
+        # SHA256SUMS no baja: seria instalar sin checksum lo que se pidio verificado.
         param([string]$Ref, [string]$Dir)
         $base = "$RepoUrl/releases/download/$Ref"
         $sums = Join-Path $Dir 'SHA256SUMS'
-        try { Save-Url "$base/SHA256SUMS" $sums } catch { return $null }
+        try {
+            Save-Url "$base/SHA256SUMS" $sums
+        } catch {
+            if ($Ref -cmatch '^v[0-9]') {
+                throw "Cannot verify release ${Ref}: could not download $base/SHA256SUMS ($($_.Exception.Message)). Nothing was installed. Check the connection and that the release exists in $RepoUrl/releases, then retry."
+            }
+            return $null
+        }
         $lines = @(Get-Content -LiteralPath $sums | Where-Object { $_ -match '^[0-9A-Fa-f]{64} [ *][A-Za-z0-9._+-]+\.whl$' })
         if ($lines.Count -ne 1) {
             throw "The SHA256SUMS of release $Ref should list exactly one wheel; it lists $($lines.Count)."

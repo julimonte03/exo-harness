@@ -109,6 +109,15 @@ def _irm_iex(url: str) -> list[str]:
     return [*PS, "-Command", f"irm '{url}' | iex"]
 
 
+def _dice(result: subprocess.CompletedProcess[str], text: str) -> bool:
+    """Si la salida contiene `text`. Sin espacios ni saltos de los dos lados: PowerShell
+    corta un error largo al ancho de la consola, entre palabras o en medio de una."""
+    def squash(value: str) -> str:
+        return "".join(value.split())
+
+    return squash(text) in squash(result.stdout + result.stderr)
+
+
 def _modes() -> list[bool]:
     modes = [True]
     if shutil.which("uv"):
@@ -353,6 +362,20 @@ def test_install_sh_remoto_checksum_distinto_no_instala(tmp_path: Path, remoto: 
 
 
 @POSIX_ONLY
+def test_install_sh_remoto_release_sin_sha256sums_no_pasa_a_git(
+    tmp_path: Path, remoto: _remote.Remote
+) -> None:
+    """Un release sin `SHA256SUMS` no se instala desde git sin checksum (TM-6)."""
+    env = _remote_env(tmp_path, remoto.url, no_uv=True, ref=_remote.NO_SUMS_TAG)
+    result = _exec(["sh", "-s"], env, _script("install.sh"))
+    assert result.returncode == 1
+    assert f"Cannot verify release {_remote.NO_SUMS_TAG}" in result.stderr
+    assert f"{remoto.path}/releases/download/{_remote.NO_SUMS_TAG}/SHA256SUMS" in remoto.requests
+    assert not remoto.git_fetched()
+    assert not (tmp_path / "datos" / "venv").exists()
+
+
+@POSIX_ONLY
 @pytest.mark.parametrize("url", INSECURE_URLS)
 def test_install_sh_remoto_solo_https(tmp_path: Path, url: str) -> None:
     env = _remote_env(tmp_path, url, no_uv=True)
@@ -436,6 +459,23 @@ def test_install_ps1_remoto_checksum_distinto_no_instala(tmp_path: Path, remoto:
     result = _exec(_irm_iex(remoto.raw("install.ps1")), env)
     assert result.returncode != 0
     assert f"Checksum mismatch for {remoto.wheel}" in result.stdout + result.stderr
+    assert not (tmp_path / "datos" / "venv").exists()
+
+
+@WINDOWS_ONLY
+def test_install_ps1_remoto_release_sin_sha256sums_no_pasa_a_git(
+    tmp_path: Path, remoto: _remote.Remote
+) -> None:
+    """Un release sin `SHA256SUMS` no se instala desde git sin checksum (TM-6)."""
+    env = {
+        **_remote_env(tmp_path, remoto.url, no_uv=True, ref=_remote.NO_SUMS_TAG),
+        "EXO_INSTALL_NO_PATH": "1",
+    }
+    result = _exec(_irm_iex(remoto.raw("install.ps1")), env)
+    assert result.returncode != 0
+    assert _dice(result, f"Cannot verify release {_remote.NO_SUMS_TAG}")
+    assert f"{remoto.path}/releases/download/{_remote.NO_SUMS_TAG}/SHA256SUMS" in remoto.requests
+    assert not remoto.git_fetched()
     assert not (tmp_path / "datos" / "venv").exists()
 
 

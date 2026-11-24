@@ -7,7 +7,8 @@ Sirve por http en 127.0.0.1, sin salir de la máquina:
 - `/<owner>/<repo>/releases/latest`: redirige a `releases/tag/<tag>` o, si no hay
   releases (`Remote.latest = None`), a `releases`, como GitHub;
 - `/<owner>/<repo>/releases/download/<tag>/`: el wheel y su `SHA256SUMS`. El release
-  `BAD_TAG` trae un `SHA256SUMS` que no coincide con su wheel;
+  `BAD_TAG` trae un `SHA256SUMS` que no coincide con su wheel, y `NO_SUMS_TAG`, que
+  también es un tag de git, trae el wheel sin `SHA256SUMS`;
 - `/raw/<script>`: los instaladores del árbol de trabajo, como
   raw.githubusercontent.com (texto en UTF-8).
 
@@ -33,6 +34,7 @@ from pathlib import Path
 OWNER = "owner"
 NAME = "exo-harness"
 BAD_TAG = "v0.0.0-bad"
+NO_SUMS_TAG = "v0.0.0-nosums"
 SCRIPTS = ("install.sh", "install.ps1", "uninstall.sh", "uninstall.ps1")
 
 
@@ -155,6 +157,7 @@ def build(base: Path, repo: Path, version: str) -> Remote:
     _git(snap, env, "commit", "-q", "--no-verify", "-m", "foto del árbol de trabajo")
     tag = f"v{version}"
     _git(snap, env, "tag", tag)
+    _git(snap, env, "tag", NO_SUMS_TAG)
     root = base / "remoto"
     bare = root / OWNER / NAME
     # --no-local: un solo pack, que el protocolo dumb baja de una vez.
@@ -174,6 +177,9 @@ def build(base: Path, repo: Path, version: str) -> Remote:
     digest = hashlib.sha256(wheel.read_bytes()).hexdigest()
     _release(bare, tag, wheel, digest)
     _release(bare, BAD_TAG, wheel, "0" * 64)
+    # Un release sin SHA256SUMS: si el instalador pasara a git, el tag está y se instalaría.
+    _release(bare, NO_SUMS_TAG, wheel, digest)
+    (bare / "releases" / "download" / NO_SUMS_TAG / "SHA256SUMS").unlink()
 
     raw = root / "raw"
     raw.mkdir()

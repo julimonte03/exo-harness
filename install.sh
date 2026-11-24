@@ -27,8 +27,9 @@ Run from a clone, it installs that clone. Piped from curl, it installs from
 GitHub: the latest release, or the tag, branch or commit in EXO_REF. With uv it
 runs `uv tool install` from git (needs git). Without uv it creates a venv in the
 user data folder and installs the release wheel after checking it against the
-SHA256SUMS of the release (a branch or a commit installs from git); that needs
-Python 3.10 or later.
+SHA256SUMS of the release (a branch or a commit installs from git; a release
+whose SHA256SUMS cannot be downloaded installs nothing); that needs Python 3.10
+or later.
 
 It puts `exo` on the PATH if missing and says so: in ~/.profile, in
 ~/.bash_profile if it exists, in ~/.bashrc with bash and in ~/.zshrc with zsh.
@@ -201,14 +202,22 @@ remote_spec() {
     fi
     check_ref "$REF"
     # Sin uv, el wheel del release, verificado. Una rama o un commit no tienen
-    # SHA256SUMS en releases/download: se instalan desde git.
+    # SHA256SUMS en releases/download: se instalan desde git. Un release (v y un
+    # dígito, como los tags que publica release.yml) no pasa a git si su SHA256SUMS
+    # no baja: sería instalar sin checksum lo que se pidió verificado.
     if [ "$USE_UV" = 0 ]; then
         TMP=$(mktemp -d 2>/dev/null || mktemp -d -t "$DIST")
-        if fetch "$EXO_REPO_URL/releases/download/$REF/SHA256SUMS" "$TMP/SHA256SUMS" 2>/dev/null; then
+        SUMS="$EXO_REPO_URL/releases/download/$REF/SHA256SUMS"
+        if fetch "$SUMS" "$TMP/SHA256SUMS" 2>"$TMP/fetch.log"; then
             verified_wheel "$REF"
             SPEC="$WHEEL$EXTRAS"
             return 0
         fi
+        case "$REF" in
+            v[0-9]*)
+                cat "$TMP/fetch.log" >&2
+                die "Cannot verify release $REF: could not download $SUMS. Nothing was installed. Check the connection and that the release exists in $EXO_REPO_URL/releases, then retry." ;;
+        esac
     fi
     if ! command -v git >/dev/null 2>&1; then
         if [ "$USE_UV" = 1 ]; then
