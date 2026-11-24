@@ -102,7 +102,7 @@ def copilot_command(
     command = [
         *launcher,
         "-p",
-        prompt,
+        prompt + COPILOT_NOTE,
         "--output-format",
         "json",
         "--no-ask-user",
@@ -134,10 +134,22 @@ def copilot_home(target: Path, env: Mapping[str, str], home: Path) -> Path:
     return target
 
 
+# Copilot CLI 1.0.114 toma la primera palabra después de `git` como el subcomando: con
+# `shell(git:*)` permitido, `git --no-pager log` igual queda denegado en una corrida sin
+# persona (verificado en F8, también con `shell(git --no-pager:*)`). El pager va apagado por
+# entorno y el pedido lo avisa.
+COPILOT_NOTE = (
+    "\n\nShell note for this unattended run: run git with the subcommand first (`git diff`, "
+    "`git log`), never with options before it such as `git --no-pager`; the pager is already "
+    "off (GIT_PAGER=cat), and a command with options before the subcommand is denied."
+)
+
+
 def copilot_env(base: dict[str, str], copilot_dir: Path, model: str | None) -> dict[str, str]:
     env = dict(base)
     env["COPILOT_HOME"] = str(copilot_dir)
     env["COPILOT_AUTO_UPDATE"] = "false"
+    env["GIT_PAGER"] = "cat"
     if not model:  # en auto, el perfil que prioriza la calidad
         env.setdefault("COPILOT_AUTO_TIER", "intelligence")
     return env

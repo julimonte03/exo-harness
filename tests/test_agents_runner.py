@@ -16,7 +16,8 @@ def test_comando_de_copilot_con_permisos_y_sin_python_por_defecto(tmp_path: Path
     command = agents.copilot_command(
         ["copilot"], "hola", python=False, usage=tmp_path / "u.json", logs=tmp_path / "logs"
     )
-    assert command[:3] == ["copilot", "-p", "hola"]
+    assert command[:2] == ["copilot", "-p"]
+    assert command[2] == "hola" + agents.COPILOT_NOTE and "git --no-pager" in command[2]
     assert {"--no-ask-user", "--disable-builtin-mcps"} <= set(command)
     allowed = [command[i + 1] for i, a in enumerate(command) if a == "--allow-tool"]
     denied = [command[i + 1] for i, a in enumerate(command) if a == "--deny-tool"]
@@ -57,6 +58,7 @@ def test_copilot_home_aislado(tmp_path: Path) -> None:
     ]
     env = agents.copilot_env({"PATH": "x"}, target, model=None)
     assert env["COPILOT_HOME"] == str(target) and env["COPILOT_AUTO_TIER"] == "intelligence"
+    assert env["GIT_PAGER"] == "cat"
     assert "COPILOT_AUTO_TIER" not in agents.copilot_env({}, target, model="m-1")
     # Sin config.json (nunca inició sesión): igual arma el settings.
     empty = agents.copilot_home(tmp_path / "otro", {"COPILOT_HOME": str(tmp_path / "nada")}, home)
