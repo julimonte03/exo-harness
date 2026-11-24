@@ -161,7 +161,7 @@ fi
 
 - Require a PR to merge into each protected branch (`governance.protected_branches`), and forbid force pushes and deletion.
 - Require the CI check of section B to pass before merging.
-- Make the `tech_lead` role an effective approver. `exo codeowners` prints CODEOWNERS lines that give the specs folder and `.exo/` to the `tech_lead` entries of `governance.roles`; add them to the project's CODEOWNERS file.
+- Make the `tech_lead` role an effective approver. `exo codeowners` prints CODEOWNERS lines that give the `tech_lead` entries of `governance.roles` the specs folder, `.exo/`, and what the agents read or git runs (`AGENTS.md`, `CLAUDE.md`, `.claude/`, `.agents/`, `.mcp.json`, `.husky/`, `.pre-commit-config.yaml`, `.gitattributes`); add them to the project's CODEOWNERS file. A change to the rules, the skills, the agent permissions or the hooks changes what every clone does, so it needs their review.
   - **GitHub:** a branch protection rule or ruleset with "Require review from Code Owners".
   - **GitLab:** code owner approval on the protected branch, or merge request approval rules.
   - **Azure DevOps:** Azure Repos does not read CODEOWNERS. Add an "Automatically included reviewers" branch policy with path filters (`/specs/*`, `/.exo/*`) and the tech leads as required reviewers.

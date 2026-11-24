@@ -57,6 +57,18 @@ def _p0(args: argparse.Namespace) -> int:
     return 0 if passed == total else 1
 
 
+_AGENT_AND_HOOK_PATHS = (
+    "AGENTS.md",
+    "CLAUDE.md",
+    ".claude/",
+    ".agents/",
+    ".mcp.json",
+    ".husky/",
+    ".pre-commit-config.yaml",
+    ".gitattributes",
+)
+
+
 def _codeowners(args: argparse.Namespace) -> int:
     cfg = config.load(args.project).config
     leads = cfg["governance"]["roles"].get("tech_lead") or []
@@ -73,6 +85,9 @@ def _codeowners(args: argparse.Namespace) -> int:
         "# Effective only with the host's branch protection requiring code-owner review.",
         f"/{specs_dir}/ {people}",
         f"/{_meta.PROJECT_DIR}/ {people}",
+        # Lo que leen los agentes (reglas, skills, subagentes, permisos, MCP) y lo que ejecuta
+        # git: un cambio ahí cambia lo que hace cada clon (threat model, TM-16 y TM-39).
+        *(f"/{path} {people}" for path in _AGENT_AND_HOOK_PATHS),
     ]
     sys.stdout.write("\n".join(lines) + "\n")
     return 0
