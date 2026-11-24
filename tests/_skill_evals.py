@@ -326,6 +326,9 @@ def claude_command(claude: str, prompt: str, tools: str, max_turns: int) -> list
         *ISOLATION_FLAGS,
         "--allowedTools",
         tools,
+        # `Bash(git:*)` cubre git push: el agente nunca publica (threat model, M-17).
+        "--disallowedTools",
+        "Bash(git push:*) PowerShell(git push:*)",
         "--max-turns",
         str(max_turns),
     ]
@@ -337,6 +340,14 @@ def runner_env(data: Path, base: Mapping[str, str]) -> dict[str, str]:
     env = dict(base)
     env["EXO_DATA_DIR"] = str(data)
     env["EXO_MEMORY_DB"] = str(Path(data) / "memory.db")
+    # Un `git config --global` del agente escribe acá y no en el de la persona (M-17); la
+    # identidad de los commits es la del repo de prueba (`_git.init_repo`).
+    gitconfig = Path(data) / "gitconfig"
+    gitconfig.parent.mkdir(parents=True, exist_ok=True)
+    if not gitconfig.exists():
+        gitconfig.write_text("", encoding="utf-8")
+    env["GIT_CONFIG_GLOBAL"] = str(gitconfig)
+    env["GIT_CONFIG_NOSYSTEM"] = "1"
     key = "PATH"
     if os.name == "nt":  # en Windows la variable puede llamarse `Path`
         key = next((k for k in env if k.upper() == "PATH"), "PATH")

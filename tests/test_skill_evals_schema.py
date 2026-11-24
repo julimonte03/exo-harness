@@ -199,6 +199,17 @@ def test_el_comando_de_claude_aisla_la_config_de_usuario() -> None:
     assert command[command.index("--allowedTools") + 1] == "Read Skill"
     assert command[command.index("--max-turns") + 1] == "40"
     assert command[command.index("--output-format") + 1] == "stream-json"
+    # M-17: el agente no publica nada, aunque `Bash(git:*)` lo permitiría.
+    denied = command[command.index("--disallowedTools") + 1]
+    assert "Bash(git push:*)" in denied and "PowerShell(git push:*)" in denied
+
+
+def test_el_entorno_aisla_la_config_global_de_git(tmp_path: Path) -> None:
+    """M-17 (threat model, TM-47): un `git config --global` del agente no toca el de la persona."""
+    env = evals.runner_env(tmp_path / "data", {"PATH": "/usr/bin"})
+    gitconfig = Path(env["GIT_CONFIG_GLOBAL"])
+    assert gitconfig.parent == tmp_path / "data" and gitconfig.is_file()
+    assert env["GIT_CONFIG_NOSYSTEM"] == "1"
 
 
 def test_el_entorno_aisla_los_datos_y_antepone_el_bin_del_interprete(tmp_path: Path) -> None:
