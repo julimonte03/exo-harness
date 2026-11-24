@@ -35,6 +35,7 @@ En la prueba de F0 (`docs/spikes/agent-probe.md`), Claude Code respondió `MCP s
   - **A verificar:** que la política de la organización no bloquee también los hooks ni esas reglas de permiso.
   - **Resultado de F2:**
     - Claude Code recibe `Bash(exo:*)` y `PowerShell(exo:*)`. Las reglas aplican recién cuando el workspace es confiable; `exo doctor` lo avisa (`docs/checklists/F2-agentes.md`).
+    - **Actualizado en F8 (threat model, TM-21):** el permiso ya no es `exo:*`, sino un ítem por subcomando de los que las skills corren solas (`AGENT_COMMANDS` en `src/exo/adapters/claude_code.py`). Con `exo:*`, un agente con prompt injection podía reescribir `review.publish_command` con `exo init --publish-command` y ejecutarlo con `exo gate publish` sin preguntar. Lo que cambia la instalación, borra o exporta memoria, o ejecuta un comando configurado lo aprueba la persona. `exo sync` reemplaza el permiso viejo en los proyectos instalados.
     - En Copilot queda diferido: no se verificó una regla de permiso a nivel de proyecto que Copilot lea, y la licencia todavía no está confirmada. Hasta entonces, Copilot puede pedir confirmación para ejecutar `exo`. Se revisa con el checklist manual de F2.
 - **F3:**
   - La memoria se usa con `exo mem …`. La skill `memory-protocol` y `AGENTS.base.md` dicen cuándo guardar y cuándo buscar.

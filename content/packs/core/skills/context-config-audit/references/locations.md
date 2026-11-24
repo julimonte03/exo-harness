@@ -54,7 +54,7 @@ The project-level configuration files that `context-config-audit` reads, and whi
 `.exo/lock.json` lists them. With Claude Code and Copilot as targets, for example:
 - the `core` block of `AGENTS.md`, and the `@AGENTS.md` import at the start of an existing `CLAUDE.md`;
 - the skills in `.claude/skills/` or `.agents/skills/`, and the subagents in `.claude/agents/`;
-- the `Bash(exo:*)` and `PowerShell(exo:*)` items of `permissions.allow` in `.claude/settings.json`;
+- the `Bash(exo <command>:*)` and `PowerShell(exo <command>:*)` items of `permissions.allow` in `.claude/settings.json`, one per engine command an agent may run without asking (reading, checking and recording; never `init`, `sync`, `update`, `uninstall` or `gate publish`);
 - the `exo` entry of `.mcp.json`, only when the engine's MCP server is enabled;
 - the files in `.exo/`.
 

@@ -2,10 +2,12 @@
 
 - Skills en `.claude/skills/` (Claude Code no lee `.agents/skills/`).
 - Subagentes en `.claude/agents/`.
-- Permiso para ejecutar el CLI del motor sin preguntar (`permissions.allow` de
-  `.claude/settings.json`, por Bash y por PowerShell), porque las tools se usan por
-  terminal (ADR-0005). Claude Code aplica estas reglas recién cuando el usuario
-  acepta la confianza del workspace.
+- Permiso para ejecutar sin preguntar los subcomandos del motor que las skills corren
+  solas (`permissions.allow` de `.claude/settings.json`, por Bash y por PowerShell),
+  porque las tools se usan por terminal (ADR-0005). Claude Code aplica estas reglas
+  recién cuando el usuario acepta la confianza del workspace. Lo que cambia la
+  instalación, borra o exporta memoria, o ejecuta un comando configurado
+  (`gate publish`) queda afuera: lo aprueba la persona (threat model, TM-21).
 - `CLAUDE.md`: Claude Code ≥ 2.1.281 lee `AGENTS.md` si no hay `CLAUDE.md`, así
   que no se crea; si ya existe, se le agrega al principio el import `@AGENTS.md`
   (ADR-0007). Con `claude_md="always"` se crea igual.
@@ -26,9 +28,43 @@ from exo.adapters.base import (
 from exo.installer.ops import MergeBlock, MergeKey, MergeListItem, Op
 
 OWNER = "adapter:claude-code"
+# Lo que las skills corren solas: leer, chequear y registrar en el change o la memoria.
+# Afuera queda lo que cambia la config o los archivos gestionados (init, sync, update,
+# uninstall, restore, inject, registry), borra, reindexa o exporta memoria, o ejecuta un
+# comando configurado (`gate publish` corre `review.publish_command`). Con `exo:*`, un
+# agente con prompt injection podía reescribir ese comando con `init --publish-command` y
+# ejecutarlo sin preguntar (TM-21, docs/seguridad/threat-model-motor.md).
+AGENT_COMMANDS = (
+    "change",
+    "check",
+    "speclint",
+    "specs",
+    "fitness",
+    "discover",
+    "skills",
+    "doctor",
+    "status",
+    "validate",
+    "p0",
+    "codeowners",
+    "hook",
+    "version",
+    "persona show",
+    "mem save",
+    "mem search",
+    "mem get",
+    "mem list",
+    "mem context",
+    "mem session",
+    "mem stats",
+)
 # En Windows, Claude Code puede ejecutar por su herramienta de PowerShell además de Bash
 # (verificado en docs/checklists/F2-agentes.md).
-PERMISSIONS = (f"Bash({_meta.NAME}:*)", f"PowerShell({_meta.NAME}:*)")
+PERMISSIONS = tuple(
+    f"{tool}({_meta.NAME} {command}:*)"
+    for tool in ("Bash", "PowerShell")
+    for command in AGENT_COMMANDS
+)
 
 
 class ClaudeCodeAdapter:
