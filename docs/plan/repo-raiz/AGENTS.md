@@ -20,7 +20,7 @@ Este repo construye un motor de desarrollo gobernado por proyecto y agnóstico d
 8. SQLite es la fuente de verdad de la memoria; los índices son derivados.
 9. Servidor MCP: stdout solo JSON-RPC, logs a stderr.
 10. Ingeniería inversa: solo lectura sobre el código del proyecto analizado.
-11. Nada sale a servicios remotos sin habilitación explícita en la config.
+11. Nada sale a servicios remotos sin habilitación explícita: en la config del proyecto (por ejemplo `review.publish_command`, que además se aprueba por máquina), o en la base de la memoria para los embeddings remotos (`exo mem reindex --allow-remote`, ADR-0009), porque la memoria es una por usuario.
 12. Todo nombre visible del motor sale de `src/arnes/_meta.py`.
 
 ## Código

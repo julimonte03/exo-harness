@@ -34,7 +34,7 @@ Este archivo muestra que cada pieza del reporte transcripto tiene un destino: un
 | §7.2 | `branch-pr` y comentarios únicos por gate | `branch-pr` (F4) + gates como artefacto y `arnes gate publish` (F5) |
 | §7.3 | RACI y roles | `governance.roles` + CODEOWNERS (F5) |
 | §7.4 | Controles P0 | S2 (F1), resto (F5); `arnes p0` (F5, D-32). S1 salió con ADR-0009 |
-| §7.5 | Matriz DPA | Datos en `content/shared/dpa-matrix.md`, perfil `legacy-profile` (F5) |
+| §7.5 | Matriz DPA | Sin perfil de organización (ADR-0014): la matriz genérica en `content/packs/core/shared/data-protection.md` y los detectores en `data_protection.pii` (F5) |
 | §7.6 | Threat model lite | Actualizado con las superficies nuevas: `docs/seguridad/threat-model-motor.md` (F8) |
 | §7.7 | AI Usage Record | Esquema (F4), verificación en `arnes check` (F4, F5) |
 | §7.8 | Jueces advisory | Código y seguridad (F5), resto (F7) |

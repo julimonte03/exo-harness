@@ -64,7 +64,7 @@ Como cualquiera puede saltear hooks locales con `--no-verify`, **la CI es el gat
 
 **Roles.** `governance.roles` en la config y plantilla `CODEOWNERS` para que `tech_lead` sea aprobador efectivo. Igual que en el reporte (§7.3), el motor no verifica roles: la garantía real es CODEOWNERS + branch protection, y se documenta cómo configurarlos.
 
-**Matriz DPA como datos** en `content/shared/dpa-matrix.md` con el perfil `legacy-profile` (niveles Público, Interno, Restringido, Crítico y destinos memoria, LLM, GitHub y Jira, §7.5).
+**Matriz DPA como datos** en `content/shared/dpa-matrix.md` con el perfil `legacy-profile` (niveles Público, Interno, Restringido, Crítico y destinos memoria, LLM, GitHub y Jira, §7.5). **Actualizado por ADR-0014:** sale el perfil; la matriz genérica de niveles por destino vive en `content/packs/core/shared/data-protection.md` y los detectores en `data_protection.pii` de la config.
 
 **`arnes p0`** (port de `_verify_p0.py`): regresión del escáner sobre un dataset sintético y de S2, más la verificación de que los git hooks están instalados y activos. S1 ya no existe (ADR-0009), así que no tiene regresión (D-32).
 
