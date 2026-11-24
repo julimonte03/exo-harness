@@ -1,0 +1,12 @@
+# Actualizaciones de las actions fijadas por SHA (threat model, M-5): Dependabot abre un PR
+# por versión nueva, con el SHA y el comentario de la versión, y la CI lo prueba.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns:
+          - "*"
