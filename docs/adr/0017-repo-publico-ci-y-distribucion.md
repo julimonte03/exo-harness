@@ -43,7 +43,7 @@ F8 lleva el motor a la v1.0, que tiene que poder instalarse con un comando y est
 - **Instaladores remotos:**
   - `install.sh` e `install.ps1` funcionan desde un clon (como hasta ahora) o por pipe (`curl -fsSL …/install.sh | sh`, `irm …/install.ps1 | iex`);
   - por pipe, instalan con `uv tool install` desde el repo en el ref de `EXO_REF` (por defecto, el último release), o con pip en un venv si no hay uv;
-  - solo usan `https`;
+  - solo usan `https`, con dos excepciones que no salen de la máquina y sirven para un espejo local y para los tests: `file://` y `http` a `127.0.0.1` o `localhost`;
   - cuando bajan un artefacto del release, verifican su `SHA256SUMS`.
 - **Sin instalar:** `uvx --from git+https://github.com/julimonte03/exo-harness exo init`.
 - **Marketplaces de agentes:** quedan fuera de la v1.0.
@@ -58,4 +58,4 @@ F8 lleva el motor a la v1.0, que tiene que poder instalarse con un comando y est
 - **macOS** entra a la CI por primera vez: lo que falle ahí se arregla en F8.
 - **La historia es otra:** un clon anterior a la reescritura no comparte commits con el remoto. No hay clones así, porque el repo era solo local.
 - **PyPI** necesita que el dueño cree el proyecto y configure el *trusted publisher* en pypi.org. Sin eso, el release igual sale en GitHub.
-- **Lo que baja `curl … | sh` es código que se ejecuta:** el threat model del motor (F8) lo cubre, y el README muestra cómo revisarlo antes de correrlo.
+- **Lo que baja `curl … | sh` es código que se ejecuta:** el threat model del motor (`docs/seguridad/threat-model-motor.md`) lo cubre. El encabezado de cada instalador muestra cómo bajarlo y leerlo antes de correrlo, y el README, que llega con la documentación de F8, lo va a mostrar también.

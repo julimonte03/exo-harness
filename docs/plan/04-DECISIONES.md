@@ -130,7 +130,7 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 - **Estado:** Decidida (ADR-0016), 2026-11-17: el default. Igual no hay cuerpos originales: el reporte solo trae la descripción, el tamaño y las referencias de cada skill.
 
 ### D-20 — Memoria compartida de equipo
-- **Default:** no en la v1. El experimento con Qdrant en servidor (F3) deja la evidencia para decidir. Compartir sigue siendo posible con `mem export`/`mem import` redactado, como en el reporte.
+- **Default:** no en la v1. El experimento con Qdrant en servidor (F3) deja la evidencia para decidir. Compartir sigue siendo posible con `mem export`/`mem import`, que el reporte redactaba; en este motor el export sale sin redactar (D-24).
 - **Estado:** Decidida (ADR-0009), 2026-11-13: no en la v1. La memoria es por máquina de usuario y F3 no incluye Qdrant. Compartir sigue siendo posible con `mem export`/`mem import`, sin redactar (D-24).
 
 ### D-22 — Distribución pública
