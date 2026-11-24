@@ -23,9 +23,19 @@ ENV_KEY = f"{_meta.ENV_PREFIX}EMBEDDINGS_API_KEY"
 _LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Un 3xx queda como HTTPError: urllib reenvía `Authorization` al destino de una
+    redirección, así que la clave y el texto nunca van a otra dirección (threat model,
+    TM-29)."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[no-untyped-def]  # noqa: ANN001
+        return None
+
+
 # Sin proxies: para un servicio local, un proxy del sistema (HTTP_PROXY o el del registro de
 # Windows) sacaría el texto de las memorias de la máquina (invariante 11).
-_DIRECT = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+_DIRECT = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect)
+_REMOTE = urllib.request.build_opener(_NoRedirect)
 
 
 def _post(
@@ -42,10 +52,17 @@ def _post(
         method="POST",
     )
     try:
-        opener = _DIRECT.open if direct else urllib.request.urlopen
+        opener = _DIRECT.open if direct else _REMOTE.open
         with opener(request, timeout=TIMEOUT) as response:  # noqa: S310
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
+        if 300 <= exc.code < 400:
+            target = exc.headers.get("Location", "?") if exc.headers else "?"
+            raise ProviderError(
+                f"{url} answered with a redirect ({exc.code}) to {target}; redirects are not "
+                "followed, so the key and the memory text never reach another address: point "
+                "the URL at the final address"
+            ) from exc
         raise ProviderError(f"{url} returned {exc.code}: {exc.reason}") from exc
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         raise ProviderError(f"could not connect to {url} ({exc})") from exc
@@ -113,6 +130,13 @@ class OpenAICompatibleProvider(_Http):
             raise ProviderError("openai-compatible is remote: it needs --allow-remote")
         self.model = model or self.DEFAULT_MODEL
         self.url = os.environ.get(ENV_URL, "https://api.openai.com/v1")
+        parts = urlsplit(self.url)
+        local = parts.scheme == "http" and (parts.hostname or "") in _LOCAL_HOSTS
+        if parts.scheme != "https" and not local:
+            # La clave viaja en cada pedido: en claro, cualquiera en el camino la lee.
+            raise ProviderError(
+                f"{ENV_URL} must be an https:// URL (http:// only for this machine): {self.url}"
+            )
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         key = os.environ.get(ENV_KEY)
