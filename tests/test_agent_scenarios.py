@@ -38,6 +38,7 @@ import _agents as agents
 import _skill_evals as evals
 from _git import init_repo
 from exo.core import config
+from exo.sdd import speclint
 
 pytestmark = pytest.mark.agent_e2e
 
@@ -274,7 +275,12 @@ def check_cycle(
         failed.append(f"missing artifacts: {missing}")
     if isinstance(tier, int) and tier >= 2:
         gates = config.load(project).config["governance"]["gates"].get(str(tier), [])
-        absent = [g for g in gates if not (change / "gates" / f"{g}.md").is_file()]
+        # Como `exo check`: el contract_check vive en verify-record.md (sdd/check.py).
+        absent = [
+            g
+            for g in gates
+            if g != speclint.CONTRACT_GATE and not (change / "gates" / f"{g}.md").is_file()
+        ]
         facts["gates"] = gates
         if absent:
             failed.append(f"missing gates for Tier {tier}: {absent}")
