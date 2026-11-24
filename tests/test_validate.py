@@ -139,6 +139,13 @@ BASE = "packs/core/skills/base/SKILL.md"
             ),
             "duplicate subagent",
         ),
+        (
+            _put(
+                "packs/sdd/agents/sdd-runner.md",
+                "---\nname: sdd-runner\ndescription: x\ntools: Read, Bash\n---\n",
+            ),
+            "add PowerShell",
+        ),
     ],
 )
 def test_cada_violacion_da_un_error_especifico(
@@ -148,6 +155,20 @@ def test_cada_violacion_da_un_error_especifico(
     mutate(root)
     messages = _messages(root)
     assert any(fragment in m for m in messages), messages
+
+
+@pytest.mark.parametrize(
+    "tools",
+    ["Read, Bash, PowerShell", "[Read, bash, powershell]", "Read, Grep", "execute"],
+)
+def test_subagente_con_shell_en_los_dos_agentes(tmp_path: Path, tools: str) -> None:
+    """Copilot CLI 1.0.114 en Windows no le da shell a un subagente con `Bash` solo (F8)."""
+    root = _base(tmp_path)
+    _write(
+        root / "packs" / "sdd" / "agents" / "sdd-runner.md",
+        f"---\nname: sdd-runner\ndescription: x\ntools: {tools}\n---\n",
+    )
+    assert _messages(root) == []
 
 
 def test_secretos_dentro_de_bloques_de_codigo_no_cuentan(tmp_path: Path) -> None:

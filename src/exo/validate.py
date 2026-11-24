@@ -677,11 +677,34 @@ class _Validator:
                     continue
                 if not isinstance(data.get("description"), str) or not data["description"].strip():
                     self.error(path, 0, "subagent is missing description")
+                self.check_subagent_shell(path, data.get("tools"))
                 self.subagents.setdefault(name, []).append(self.rel(path))
         for name, paths in self.subagents.items():
             if len(paths) > 1:
                 for rel in paths:
                     self.report.errors.append(Finding(rel, 0, f"duplicate subagent: {name}"))
+
+    def check_subagent_shell(self, path: Path, tools: object) -> None:
+        """Un subagente con shell la declara para los dos agentes que leen `.claude/agents/`.
+
+        Claude Code usa `Bash` (y `PowerShell` en Windows); GitHub Copilot CLI 1.0.114 en
+        Windows no le da shell a un subagente que declara solo `Bash`, aunque su
+        documentación lo trate como alias (verificado en F8). Con `PowerShell`, sí.
+        """
+        if isinstance(tools, str):
+            names = tools.split(",")
+        elif isinstance(tools, list):
+            names = [str(t) for t in tools]
+        else:
+            return
+        lowered = {name.strip().lower() for name in names}
+        if "bash" in lowered and "powershell" not in lowered:
+            self.error(
+                path,
+                0,
+                "tools lists Bash but not PowerShell: GitHub Copilot CLI on Windows gives a "
+                "subagent no shell with Bash alone; add PowerShell",
+            )
 
     def check_rules(self) -> None:
         path = self.root / RULES_FILE

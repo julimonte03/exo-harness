@@ -1,7 +1,7 @@
 ---
 name: sdd-implementer
 description: Implements an SDD change inside its frozen plan, tests first, ticking the task boxes and committing each work unit. The orchestrator calls it for the apply phase once the plan is approved, and again to fix what a needs-rework verdict found.
-tools: Read, Grep, Glob, Edit, Write, Bash
+tools: Read, Grep, Glob, Edit, Write, Bash, PowerShell
 ---
 
 # sdd-implementer
