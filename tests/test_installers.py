@@ -494,6 +494,24 @@ def test_install_ps1_remoto_ultimo_release(
 
 
 @WINDOWS_ONLY
+@pytest.mark.parametrize("no_uv", _modes(), ids=_mode_id)
+def test_install_ps1_con_la_salida_redirigida(
+    tmp_path: Path, no_uv: bool, remoto: _remote.Remote
+) -> None:
+    """`... *> install.log`: con la salida redirigida, PowerShell 5.1 convierte el stderr de
+    uv o de pip (su progreso) en errores, y el 'Stop' del script cortaba la instalación
+    (lo encontró el checklist cronometrado de F8)."""
+    env = {**_remote_env(tmp_path, remoto.url, no_uv=no_uv), "EXO_INSTALL_NO_PATH": "1"}
+    log = tmp_path / "install.log"
+    script = f"& ([scriptblock]::Create((irm '{remoto.raw('install.ps1')}'))) *> '{log}'"
+    result = _exec([*PS, "-Command", script], env)
+    assert result.returncode == 0, log.read_text(encoding="utf-16", errors="replace")
+    bin_dir = tmp_path / "datos" / "venv" / "Scripts" if no_uv else tmp_path / "uv-bin"
+    exe = bin_dir / f"{_meta.NAME}.exe"
+    assert _run([str(exe), "--version"], env).stdout.strip() == f"{_meta.NAME} {_meta.VERSION}"
+
+
+@WINDOWS_ONLY
 def test_install_ps1_remoto_sin_releases_instala_main(tmp_path: Path, remoto: _remote.Remote) -> None:
     """Sin releases, `main` desde git (con pip: no hay SHA256SUMS para una rama)."""
     remoto.latest = None

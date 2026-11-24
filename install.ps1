@@ -100,9 +100,21 @@ param(
     }
 
     function Invoke-Checked {
-        param([string]$Exe, [string[]]$Arguments)
-        & $Exe @Arguments
-        if ($LASTEXITCODE -ne 0) { throw "Failed: $Exe $($Arguments -join ' ')" }
+        # Corre un ejecutable y manda su codigo de salida. Con la salida redirigida
+        # (`*> install.log`), PowerShell 5.1 convierte su stderr (el progreso de uv o de
+        # pip) en errores, y con 'Stop' cortaria una instalacion que salio bien.
+        param([string]$Exe, [string[]]$Arguments, [string]$Failure = '')
+        $previous = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            & $Exe @Arguments
+        } finally {
+            $ErrorActionPreference = $previous
+        }
+        if ($LASTEXITCODE -ne 0) {
+            if ($Failure) { throw $Failure }
+            throw "Failed: $Exe $($Arguments -join ' ')"
+        }
     }
 
     function Get-UserPath {
@@ -350,12 +362,10 @@ param(
         }
     }
 
-    & $Exe doctor
-    if ($LASTEXITCODE -ne 0) { throw 'exo doctor found errors; check the output above.' }
+    Invoke-Checked $Exe @('doctor') 'exo doctor found errors; check the output above.'
 
     if ($Init) {
-        & $Exe init --project $Init --yes
-        if ($LASTEXITCODE -ne 0) { throw "exo init failed in $Init" }
+        Invoke-Checked $Exe @('init', '--project', $Init, '--yes') "exo init failed in $Init"
     }
     Write-Host "Done: $Exe"
 }
