@@ -8,10 +8,12 @@ snapshots) corren en un directorio temporal y no tocan el proyecto.
 from __future__ import annotations
 
 import json
+import os
 import platform
 import re
 import shutil
 import sqlite3
+import stat
 import subprocess
 import sys
 import sysconfig
@@ -359,6 +361,25 @@ def _githooks(project: Path) -> Check:
     return Check("githooks", found.status, found.detail)
 
 
+def _data_dir(project: Path) -> Check:
+    """La carpeta de datos tiene la memoria sin redactar: en POSIX, solo para el dueño (TM-27)."""
+    folder = paths.user_data_dir()
+    if not folder.is_dir():
+        detail = f"{folder} does not exist yet; the engine creates it private"
+        return Check("data-dir", "info", detail)
+    if os.name == "nt":
+        return Check("data-dir", "ok", f"{folder} (per user on Windows)")
+    mode = stat.S_IMODE(folder.stat().st_mode)
+    if mode & 0o077:
+        return Check(
+            "data-dir",
+            "warn",
+            f"{folder} can be read by other users (mode {mode:o}); it holds your memory, "
+            f"unredacted: run `chmod 700 {folder}`",
+        )
+    return Check("data-dir", "ok", f"{folder} (mode {mode:o})")
+
+
 CHECKS: tuple[Callable[[Path], Check], ...] = (
     _python,
     _platform,
@@ -378,8 +399,10 @@ CHECKS: tuple[Callable[[Path], Check], ...] = (
     _memory,
     _memory_semantic,
     _memory_config,
+    _data_dir,
 )
 _NAMES = {
+    _data_dir: "data-dir",
     _selftest_filemerge: "filemerge",
     _selftest_snapshots: "snapshots",
     _memory_fts5: "memory-fts5",

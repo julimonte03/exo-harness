@@ -16,8 +16,9 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from exo import _meta
+from exo import _meta, paths
 from exo.commands._output import emit_json, error
+from exo.core import fsutil
 from exo.memory import embeddings, exchange
 from exo.memory.model import SEARCH_MODES
 from exo.memory.store import MemoryStore
@@ -172,7 +173,8 @@ def _export(args: argparse.Namespace) -> int:
         sys.stdout.buffer.flush()
         return 0
     try:
-        args.output.write_bytes(text.encode("utf-8"))
+        # Sin redactar (ADR-0009): solo para el dueño en POSIX (threat model, TM-27).
+        fsutil.write_atomic(args.output, text.encode("utf-8"), mode=paths.PRIVATE_FILE)
     except OSError as exc:
         return error(f"could not write {args.output} ({exc})")
     print(f"exported {count} {noun} to {args.output}", file=sys.stderr)

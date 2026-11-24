@@ -313,8 +313,8 @@ def uninstall(project: Path, *, force: bool = False, dry_run: bool = False) -> U
         archive = snapshots.build_archive(project, roots)
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         name = f"{project.name}-{stamp}-{fsutil.sha256_bytes(archive)[:12]}.tar.gz"
-        backup = paths.user_data_dir() / "uninstall-backups" / name
-        fsutil.write_atomic(backup, archive)
+        backup = paths.private_dir(paths.user_data_dir() / "uninstall-backups") / name
+        fsutil.write_atomic(backup, archive, mode=paths.PRIVATE_FILE)
     result = engine.apply(
         project, [], agents=[], packs=[], force=force, dry_run=dry_run, prune=True
     )

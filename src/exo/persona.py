@@ -67,7 +67,9 @@ def write(role: str) -> bool:
     if role not in ROLES:
         raise PersonaError(f"unknown role {role!r} (valid: {', '.join(ROLES)})")
     data = json.dumps({"schema": SCHEMA, "persona": role}, indent=2) + "\n"
-    return fsutil.write_if_changed(file_path(), data.encode("utf-8"))
+    target = file_path()
+    paths.private_dir(target.parent)
+    return fsutil.write_if_changed(target, data.encode("utf-8"), mode=paths.PRIVATE_FILE)
 
 
 def clear() -> bool:

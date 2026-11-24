@@ -68,7 +68,9 @@ def approve(command: str) -> bool:
     stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
     data["commands"][key] = {"command": command, "approved_at": stamp}
     text = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
-    return fsutil.write_if_changed(file_path(), text.encode("utf-8"))
+    target = file_path()
+    paths.private_dir(target.parent)
+    return fsutil.write_if_changed(target, text.encode("utf-8"), mode=paths.PRIVATE_FILE)
 
 
 def explain(command: str) -> str:
