@@ -150,7 +150,7 @@ def test_un_comando_que_falla_se_informa(
     )
     config.save(tmp_path, cfg)
     argv = ["gate", "publish", "--change", "add-login", "--project", str(tmp_path)]
-    assert main([*argv, "--approve-command"]) == 1
+    assert main([*argv, "--approve-command", cfg["review"]["publish_command"]]) == 1
     assert "code_review" in capsys.readouterr().err
 
 
@@ -192,7 +192,12 @@ def test_un_comando_sin_aprobar_no_corre(
     assert command in err and "--approve-command" in err
     assert not marker.exists()
 
-    assert main([*argv, "--approve-command"]) == 0
+    # El texto tiene que ser el de la config: la persona ve lo que aprueba (M-1, punto 4).
+    assert main([*argv, "--approve-command", "otro comando"]) == 1
+    assert "does not match" in capsys.readouterr().err and not marker.exists()
+    assert main(argv) == 1  # y no quedó aprobado
+    capsys.readouterr()
+    assert main([*argv, "--approve-command", command]) == 0
     assert marker.exists()
     marker.unlink()
     assert main(argv) == 0  # ya aprobado en esta máquina

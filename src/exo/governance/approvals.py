@@ -77,7 +77,7 @@ def explain(command: str) -> str:
     """Qué hacer con un comando sin aprobar (para los mensajes del CLI)."""
     return (
         f"review.publish_command is not approved on this machine:\n  {command}\n"
-        "It runs in a shell once per gate. If you trust it, approve it with "
-        f"`{_meta.NAME} gate publish --approve-command` (or answer yes in a terminal); "
-        "a different command asks again"
+        "It runs in a shell once per gate. If you trust it, approve exactly that text with "
+        f"`{_meta.NAME} gate publish --approve-command '<the command>'` (or answer yes in a "
+        "terminal); a different command asks again"
     )

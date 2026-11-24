@@ -8,6 +8,7 @@ from pathlib import Path
 
 from exo import _meta
 from exo.commands._output import emit_json, error, usage_error
+from exo.core import config
 from exo.governance import gates
 from exo.sdd import observability
 
@@ -33,8 +34,11 @@ def register(sub: argparse._SubParsersAction) -> None:
     publish.add_argument("--dry-run", action="store_true", help="print, never run the command")
     publish.add_argument(
         "--approve-command",
-        action="store_true",
-        help="approve review.publish_command on this machine and run it (asked in a terminal)",
+        metavar="COMMAND",
+        help=(
+            "approve on this machine exactly this command, which must be review.publish_command, "
+            "and run it (without the flag, a terminal asks)"
+        ),
     )
     publish.add_argument("--project", type=Path, default=Path("."), help="project root")
     publish.add_argument("--json", action="store_true", help="JSON output")
@@ -56,11 +60,20 @@ def _publish(args: argparse.Namespace) -> int:
             names = ", ".join(c.name for c in active) or "none"
             return usage_error(f"pass --change (active changes: {names})")
         name = active[0].name
+    approve = False
+    if args.approve_command is not None and not args.dry_run:
+        # El texto exacto: quien aprueba el pedido del agente ve el comando, y un pipeline fija
+        # cuál acepta (un PR que cambia publish_command no coincide). Threat model, M-1.
+        configured = config.load(args.project).config["review"]["publish_command"]
+        if args.approve_command != configured:
+            return error(
+                "--approve-command does not match review.publish_command; nothing was approved "
+                f"or run. The configured command is:\n  {configured}"
+            )
+        approve = True
     try:
         try:
-            results = gates.publish(
-                args.project, name, dry_run=args.dry_run, approve=args.approve_command
-            )
+            results = gates.publish(args.project, name, dry_run=args.dry_run, approve=approve)
         except gates.CommandNotApproved as exc:
             if args.json or not sys.stdin.isatty():
                 raise
