@@ -132,7 +132,7 @@ fitness_signal:       # optional: only when the evidence contradicts the tier
 ## H. Execution mode
 
 - **Interactive (default, `sdd.mode: interactive`):** after each phase, show the summary and ask "Adjust anything or continue?". Do not start the next phase without an answer.
-- **Automatic (`sdd.mode: auto`, or when the person asks for it in the conversation):** continue phase by phase, and still stop on `needs-input`, `blocked`, a downgrade, `judgment-day` and before the PR.
+- **Automatic (`sdd.mode: auto`, or when the person asks for it in the conversation):** continue phase by phase, and still stop on `needs-input`, `blocked`, a downgrade, `judgment-day`, a third rework round and before the PR. Judge findings are decided by severity, and a re-verify reviews the fix (the Judges section of the verify phase skill).
 - Artifacts are written in English. Talk to the person in their language.
 
 ## I. JSON in the terminal

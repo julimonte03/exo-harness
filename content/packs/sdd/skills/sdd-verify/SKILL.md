@@ -119,6 +119,11 @@ The verifier does not run the judges. After it answers, the orchestrator runs `j
 
 Each judge gets the first free ID of its prefix (from `exo change followups <change> --status all`), and the orchestrator records each finding with `exo change record <change> --followup '<json>'` (`.exo/shared/judge-common.md`, section F). The person decides on each finding: one to fix sends the change back to apply and then to verify again, and is marked with `--fixed <id>` once fixed; a dismissed one goes to `dismissed_followups` with its `id`. The change does not go to archive while a finding is undecided.
 
+**Automatic mode** (`.exo/shared/sdd-phase-common.md`, section H), so the rework converges:
+- **By severity:** a Critical or High finding goes back to apply. A Medium or Low finding stays an open followup: that is its decision, it does not send the change back, and `pr.md` lists it under the known followups. The person can still fix it later.
+- **A re-verify reviews the fix:** the judges get the diff since their last pass and the open findings, and say whether each one is fixed. A new finding on code the round did not change is a followup, and it sends the change back only if it is Critical or High.
+- **At most two rework rounds:** after the second `needs-rework` of the same change, stop and ask the person with the remaining findings, as with `needs-input`. In an unattended run, leave the gates as they are and report.
+
 **A risk the `tech_lead` accepts.** When the `tech_lead` role decides not to fix an open Critical or High issue or gate finding, the orchestrator records that decision (`dismissed_followups` with the finding's `id`, or a decision with `"by": "human"`) and passes it to the next verify as data, not as a conclusion. The verifier keeps the finding in Issues Found, marked `accepted by tech_lead` with the reference, and it does not block `ready`; the gate that reported it stays `ESCALATED` with `Requires tech_lead approval: yes`, so the PR shows it.
 
 ## After the verifier answers

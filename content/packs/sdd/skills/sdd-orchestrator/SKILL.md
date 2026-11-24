@@ -64,7 +64,7 @@ For each phase of the tier, in order (`.exo/shared/phase-skill-map.md`, Phases p
    - `needs-input`: ask the person exactly what the envelope says, then run the phase again. When it carries a canvas edit, follow the SPDD overlay below first.
    - `blocked`: stop and explain; do not work around it.
 5. **Record** what the phase used, from the envelope notes when it ran in a subagent: `exo change record <change> --add capabilities_used ...` for every skill, subagent, judge and command, with its activation and resolution (skill:ai-usage-record). Only when the envelope says `status: ok`, also `--add skills_used '"<phase skill>"'` and `--phase-done <phase>`: the next phase is derived from that log, so never log a phase that did not finish.
-6. **Gate.** Interactive mode: show a short summary of the artifacts and ask "Adjust anything or continue?". Automatic mode: go on, but still stop on `needs-input`, `blocked`, a downgrade, judgment-day and before the PR.
+6. **Gate.** Interactive mode: show a short summary of the artifacts and ask "Adjust anything or continue?". Automatic mode: go on, but still stop on `needs-input`, `blocked`, a downgrade, judgment-day, a third rework round and before the PR; judge findings are decided by severity (skill:sdd-verify, Judges).
 7. Update the change's state memory (`.exo/shared/memory-convention.md`) and, when the change has `context-anchor.md`, add to the anchor the decisions, assumptions and questions a subagent listed in its notes (skill:context-anchoring).
 
 ## Tier rules
