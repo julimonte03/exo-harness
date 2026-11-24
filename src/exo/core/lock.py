@@ -208,11 +208,22 @@ def read(project: Path) -> Lock | None:
         raise LockError(f"{path}: created must be a list")
     return Lock(
         engine_version=str(raw.get("engine_version", "")),
-        agents=[str(a) for a in raw.get("agents", [])],
-        packs=[str(p) for p in raw.get("packs", [])],
+        agents=_names(raw, "agents", path),
+        packs=_names(raw, "packs", path),
         files=[_entry(item, i) for i, item in enumerate(files)],
         created=[_created(item, i) for i, item in enumerate(created)],
     )
+
+
+def _names(raw: dict[str, Any], key: str, path: Path) -> list[str]:
+    """`agents` o `packs`: una lista de nombres. Un `null` o un texto suelto es un lock roto."""
+    value = raw.get(key, [])
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        raise LockError(
+            f"{path}: {key} must be a list of names; restore the project from a snapshot "
+            f"(`{_meta.NAME} backups list`, then `{_meta.NAME} restore <name>`)"
+        )
+    return list(value)
 
 
 def _serialize(entry: LockEntry) -> dict[str, Any]:

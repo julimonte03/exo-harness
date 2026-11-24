@@ -216,6 +216,11 @@ def test_created_por_archivo_ida_y_vuelta(tmp_path: Path) -> None:
         ('"created": [{"path": "../x", "file": true}]', "unsafe"),
         ('"created": [{"path": "x", "containers": [1]}]', "containers"),
         ('"created": {"x": true}', "created"),
+        # F8 (auditoría de la adopción de exo): antes, un TypeError o letras sueltas.
+        ('"agents": null', "agents must be a list of names"),
+        ('"packs": null', "packs must be a list of names"),
+        ('"agents": "claude-code"', "agents must be a list of names"),
+        ('"agents": [1, 2]', "agents must be a list of names"),
     ],
 )
 def test_item_o_created_invalidos(tmp_path: Path, payload: str, fragment: str) -> None:
