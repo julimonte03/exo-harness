@@ -17,7 +17,8 @@ from test_speclint import PROPOSAL, SPEC, TEST_SPEC, VERIFY
 
 LOW = {d: 0 for d in fitness.DIMENSIONS}
 MEDIUM = {**LOW, "blast_radius": 2}  # Tier 2
-CRITICAL = {**LOW, "reversibility": 3}  # Tier 4
+CRITICAL = {**LOW, "reversibility": 3}  # Tier 3 por FM-02 (era Tier 4 en la 1.0)
+HIGH = {**LOW, "blast_radius": 3}  # Tier 3 por FM-11
 AWS = "AKIA" + "Q" * 16
 
 
@@ -174,14 +175,28 @@ def test_los_gates_se_piden_recien_despues_del_verify(tmp_path: Path) -> None:
     assert check.check(tmp_path).ok
 
 
-def test_tier_4_exige_judgment_day(tmp_path: Path) -> None:
-    tier4 = {
+def _tier3(**extra: str) -> dict[str, str]:
+    return {
         **COMPLETE,
-        "design.md": "x",
         "tasks.md": "- [x] 1. a\n",
-        **{f"gates/{g}.md": gate(g) for g in config.DEFAULT_GATES["4"] if g != "contract_check"},
+        **{f"gates/{g}.md": gate(g) for g in config.DEFAULT_GATES["3"] if g != "contract_check"},
+        **extra,
     }
-    tier4.pop("design.md")
+
+
+@pytest.mark.parametrize("evidence", [CRITICAL, HIGH], ids=["FM-02", "FM-11"])
+def test_tier_3_exige_judgment_day_y_los_gates_unidos(tmp_path: Path, evidence: dict) -> None:
+    """D-52: todo Tier 3 pide judgment-day y los gates del 3 y el 4 de la 1.0."""
+    _change(tmp_path, "grande", evidence, _tier3(**{"design.md": "x"}))
+    messages = _errors(check.check(tmp_path))
+    assert any("Tier 3 needs an approved judgment-day" in m for m in messages)
+    folder = tmp_path / "specs" / "grande"
+    (folder / "gates" / "secure_coding_check.md").unlink()
+    assert any("secure_coding_check" in m for m in _errors(check.check(tmp_path)))
+
+
+def test_tier_3_exige_judgment_day(tmp_path: Path) -> None:
+    tier4 = _tier3()
     _change(tmp_path, "grande", CRITICAL, tier4)
     messages = _errors(check.check(tmp_path))
     assert any("judgment-day" in m for m in messages)
