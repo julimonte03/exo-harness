@@ -230,9 +230,8 @@ def test_el_permiso_del_proyecto_no_suma_tools_a_las_corridas() -> None:
     """F8R2-20: `--setting-sources project,local` carga `.claude/settings.json`, con el
     `permissions.allow` que escribe exo. Sea que Claude Code lo aplique o no en `-p`, no
     suma nada: cada regla está dentro de las tools de los evals y de los escenarios."""
-    from exo.adapters import claude_code
-
     import _agents as agents
+    from exo.adapters import claude_code
     from test_skill_evals import TOOLS
 
     assert claude_code.PERMISSIONS
