@@ -1,16 +1,16 @@
 ---
 name: judgment-day
 description: >-
-  Runs the mandatory final review of a Tier 4 change after verify: two blind
+  Runs the mandatory final review of a Tier 3 change after verify: two blind
   judges in parallel (judge-code-reviewer and judge-security), confirmed
   findings fixed by whoever implemented the change, and a new round of
   judging, up to three rounds, until the outcome is APPROVED or ESCALATED to
   the person. Records every confirmed finding as a followup and the outcome
-  in the AI Usage Record, which exo check requires in Tier 4; the person
-  approves explicitly. Use it when a Tier 4 change has a ready verify, when
+  in the AI Usage Record, which exo check requires in Tier 3; the person
+  approves explicitly. Use it when a Tier 3 change has a ready verify, when
   exo change status says the next phase is judgment, or when the person asks
   for a judgment day. Triggers: "judgment day", "run judgment day", "final
-  review", "adversarial review", "blind judges", "approve the Tier 4 change".
+  review", "adversarial review", "blind judges", "approve the Tier 3 change".
 metadata:
   exo-pack: quality
   exo-execution: inline
@@ -24,11 +24,11 @@ metadata:
 
 - Up to three rounds, each with two independent findings reports (`JCR-n` and `JSEC-n`), the confirmed findings, and the fixes made by whoever implemented the change.
 - An outcome: `APPROVED` (no confirmed Critical or High finding left open) or `ESCALATED` (one is still open after the third round, or the person did not approve).
-- Every confirmed finding in `<change-root>/followups.json`, and the outcome in the AI Usage Record. `exo check` and `exo change status` accept a Tier 4 change only with `{"name": "judgment-day", "result": "approved"}` in `judges_invoked`: exactly the string `approved`, recorded after the person's explicit approval. Any other text (`APPROVED`, `approved with notes`) does not count.
+- Every confirmed finding in `<change-root>/followups.json`, and the outcome in the AI Usage Record. `exo check` and `exo change status` accept a Tier 3 change only with `{"name": "judgment-day", "result": "approved"}` in `judges_invoked`: exactly the string `approved`, recorded after the person's explicit approval. Any other text (`APPROVED`, `approved with notes`) does not count.
 
 ## When
 
-- **Tier 4, always,** after a verify whose Verdict is `ready`: `exo change status <change> --json` gives `next_phase: judgment`, and `sdd-archive` does not run without an approved judgment day.
+- **Tier 3, always,** after a verify whose Verdict is `ready`: `exo change status <change> --json` gives `next_phase: judgment`, and `sdd-archive` does not run without an approved judgment day.
 - A verify that is not `ready`, or no Judgment Day Handoff: stop with `status: blocked` and `next: verify`.
 - Automatic mode stops here too (`.exo/shared/sdd-phase-common.md`, section H): only the person approves.
 - In a lower tier the person may ask for it; it is then advisory, and nothing requires it.
@@ -47,7 +47,7 @@ The judges never fix. As coordinator you do not fix either: you coordinate, cons
 
 ## Start: the handoff
 
-1. Read `verify-record.md`, section Judgment Day Handoff: the riskiest files, the risks of `design.md` to check again, and what the verifier could not verify. `N/A` or empty in Tier 4 means the verify is incomplete: stop with `next: verify`.
+1. Read `verify-record.md`, section Judgment Day Handoff: the riskiest files, the risks of `design.md` to check again, and what the verifier could not verify. `N/A` or empty in Tier 3 means the verify is incomplete: stop with `next: verify`.
 2. Gather what the judges will read: `spec.md`, `design.md` (Risks & Mitigations), `tasks.md`, `test-spec.md` and the diff (`git diff <base>...HEAD`). `sdd-judge` cannot run git: pass the diff text, or the list of changed files when the diff is too long.
 3. Take the next free number of each prefix from `exo change followups <change> --status all`.
 
@@ -84,7 +84,7 @@ Show the person the confirmed findings, by severity:
 
 ### 4. Fix and verify again
 
-- The fix goes to whoever implemented the change: `sdd-apply` in `sdd-implementer`, with the accepted findings as its input, inside the plan. It runs the tests and, in Tier 4, the `secure_coding_check` gate again over the new diff.
+- The fix goes to whoever implemented the change: `sdd-apply` in `sdd-implementer`, with the accepted findings as its input, inside the plan. It runs the tests and, in Tier 3, the `secure_coding_check` gate again over the new diff.
 - A fix that needs to change the spec or the design is outside the plan: stop with `status: blocked` and, as `next`, the phase that owns that artifact.
 - Then `sdd-verify` runs again, so that `verify-record.md` and the gates describe the final code. The next round starts from its new Judgment Day Handoff.
 

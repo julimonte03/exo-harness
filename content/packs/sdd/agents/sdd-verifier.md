@@ -1,6 +1,6 @@
 ---
 name: sdd-verifier
-description: Verifies an implemented SDD change in a fresh context, checking the code against the spec delta, the design and the tasks and running the project's tests, without changing any file. The orchestrator calls it for the verify phase, after apply and before archive, and always in a fresh context in Tier 3 and 4.
+description: Verifies an implemented SDD change in a fresh context, checking the code against the spec delta, the design and the tasks and running the project's tests, without changing any file. The orchestrator calls it for the verify phase, after apply and before archive, and always in a fresh context in Tier 3.
 tools: Read, Grep, Glob, Bash, PowerShell
 ---
 

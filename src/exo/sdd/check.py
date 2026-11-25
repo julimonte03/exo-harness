@@ -7,8 +7,8 @@ y el chequeo del PR lo tiene que seguir viendo):
 - speclint sobre la carpeta del change;
 - `ai-usage-record.json` presente, legible, válido contra su esquema y con el
   `change_name` de la carpeta;
-- el tier de `fitness-assessment.json` (si falta o no se lee, Tier 4 y error);
-- los artefactos que exige el tier (D-27).
+- el tier de `fitness-assessment.json` (si falta o no se lee, Tier 3 y error);
+- los artefactos que exige el tier (D-27, D-52).
 
 Desde que hay `verify-record.md` (o el change está archivado), además:
 
@@ -18,7 +18,11 @@ Desde que hay `verify-record.md` (o el change está archivado), además:
   verifica roles, §7.3);
 - los gates condicionales (ADR-0016): con `canvas.md`, `prompt_spec_review`; y todo
   gate presente que el tier no exige se revisa igual;
-- en Tier 4, `judgment-day` aprobado en el AI Usage Record.
+- en Tier 3, `judgment-day` aprobado en el AI Usage Record (D-52).
+
+Un change archivado cuyo assessment es del esquema 1 (la 1.0, con cuatro tiers) se
+valida solo por estructura: registro, artefactos y speclint, sin los gates ni el
+`judgment-day` de las reglas nuevas, que no existían cuando se archivó (D-52).
 
 También: la config válida, el escaneo de secretos y datos personales de lo que
 agrega el diff contra `--base` (con los waivers vigentes) y las specs de
@@ -41,13 +45,14 @@ from exo.core import config, fsutil
 from exo.governance.git import EMPTY_TREE
 from exo.sdd import changes, observability, record, speclint, specs
 
-# Artefactos obligatorios por tier (D-27). `spec.md` en Tier 1 es opcional: solo avisa.
+# Artefactos obligatorios por tier (D-27, D-52). `spec.md` en Tier 1 es opcional: solo avisa.
 REQUIRED: dict[int, tuple[str, ...]] = {
     1: ("proposal.md",),
     2: ("proposal.md", "spec.md", "test-spec.md"),
     3: ("proposal.md", "spec.md", "design.md", "tasks.md", "test-spec.md"),
-    4: ("proposal.md", "spec.md", "design.md", "tasks.md", "test-spec.md"),
 }
+# Esquema de `fitness-assessment.json` de la 1.0: un archivado con él se valida por estructura.
+LEGACY_ASSESSMENT_SCHEMA = 1
 NO_DISK = ("memory", "none")
 _SAFE_REF = re.compile(r"^[A-Za-z0-9._/@{}^~:+-]+$")
 _GIT_TIMEOUT = 30
@@ -293,14 +298,19 @@ def _judgment_day(project: Path, change: observability.Change) -> list[Finding]:
             "error",
             change.path,
             0,
-            "Tier 4 needs an approved judgment-day: judges_invoked has no "
+            "Tier 3 needs an approved judgment-day: judges_invoked has no "
             '{"name": "judgment-day", "result": "approved"}',
         )
     ]
 
 
-def _readiness(project: Path, change: observability.Change, tier: int, cfg: dict) -> list[Finding]:
-    """Lo que se exige desde el verify: veredicto listo, gates y judgment-day."""
+def _readiness(
+    project: Path, change: observability.Change, tier: int, cfg: dict, legacy: bool = False
+) -> list[Finding]:
+    """Lo que se exige desde el verify: veredicto listo, gates y judgment-day.
+
+    `legacy`: archivado con un assessment de la 1.0; solo se revisa el veredicto.
+    """
     folder = project / change.path
     verify = folder / "verify-record.md"
     if not verify.is_file():
@@ -322,14 +332,20 @@ def _readiness(project: Path, change: observability.Change, tier: int, cfg: dict
                 f"the verify says {result or 'nothing readable'}: the change is not ready",
             )
         )
+    if legacy:
+        return found
     found += _gates(project, change, tier, cfg)
-    if tier == 4:
+    if tier == 3:
         found += _judgment_day(project, change)
     return found
 
 
 def _check_change(
-    project: Path, change: observability.Change, cfg: dict | None = None, fast: bool = False
+    project: Path,
+    change: observability.Change,
+    cfg: dict | None = None,
+    fast: bool = False,
+    fork: str | None = None,
 ) -> ChangeCheck:
     folder = project / change.path
     tier = changes.read_tier(folder)
@@ -351,7 +367,7 @@ def _check_change(
                 "error",
                 change.path,
                 0,
-                f"no fitness-assessment.json: it {problem}, so the tier is unknown and Tier 4 "
+                f"no fitness-assessment.json: it {problem}, so the tier is unknown and Tier 3 "
                 f"rules apply; run `{_meta.NAME} fitness classify --change {change.name}`",
             )
         )
@@ -373,9 +389,52 @@ def _check_change(
                 "(D-27); otherwise write the delta",
             )
         )
+    legacy = source == "assessment" and _legacy_archived(project, change, fork)
+    if legacy:
+        item.findings.append(
+            Finding(
+                "warning",
+                change.path,
+                0,
+                f"archived with a fitness-assessment.json from {_meta.NAME} 1.0 (four tiers): "
+                "checked by structure only, without the gates and judgment-day of the "
+                "three-tier rules",
+            )
+        )
     if cfg is not None:
-        item.findings += _readiness(project, change, effective, cfg)
+        item.findings += _readiness(project, change, effective, cfg, legacy)
     return item
+
+
+def _legacy_archived(project: Path, change: observability.Change, fork: str | None) -> bool:
+    """Un change archivado con la 1.0: se valida solo por estructura (D-52).
+
+    Su assessment dice `"schema": 1` de forma explícita (la 1.0 siempre lo escribía).
+    Con `--base` (`fork`), además, ese archivo ya estaba archivado en el punto de
+    partida, en la misma ruta y con los mismos bytes: un archivado nuevo del diff
+    nunca es de la 1.0, aunque diga `schema: 1`, así que pasa por las reglas nuevas.
+    """
+    if not change.archived:
+        return False
+    rel = f"{change.path}/{changes.ASSESSMENT}"
+    path = project / rel
+    data = changes.read_assessment_file(path)
+    schema = data.get("schema") if data is not None else None
+    if isinstance(schema, bool) or schema != LEGACY_ASSESSMENT_SCHEMA:
+        return False
+    if fork is None:
+        return True
+    return _show(project, fork, rel) == fsutil.read_bytes(path)
+
+
+def _show(project: Path, commit: str, rel: str) -> bytes | None:
+    """Los bytes de `rel` en `commit`, o None si no está (o git no lo puede leer)."""
+    command = ["git", "-C", str(project), "show", f"{commit}:{rel}"]
+    try:
+        result = subprocess.run(command, capture_output=True, timeout=_GIT_TIMEOUT, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return result.stdout if result.returncode == 0 else None
 
 
 def _scan_diff(project: Path, fork: str, cfg: dict, head: str | None = None) -> list[Finding]:
@@ -424,8 +483,9 @@ def check(
         for problem in loaded.invalid
     ]
     # Con `--base` el diff se escanea siempre: no depende de la persistencia ni de `--change`.
-    if base is not None:
-        result.diff = _scan_diff(project, fork_point(project, base, head or "HEAD"), cfg, head)
+    fork = fork_point(project, base, head or "HEAD") if base is not None else None
+    if fork is not None:
+        result.diff = _scan_diff(project, fork, cfg, head)
     persistence = loaded.config["sdd"]["persistence"]
     if persistence in NO_DISK:
         result.notes.append(
@@ -454,7 +514,7 @@ def check(
     else:
         selected = active
     for change in selected:
-        result.changes.append(_check_change(project, change, cfg, fast))
+        result.changes.append(_check_change(project, change, cfg, fast, fork))
     if fast:
         return result
     for path in cap_files:

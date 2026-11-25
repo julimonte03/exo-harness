@@ -37,7 +37,7 @@ An entry with the same `name` and `type` counts as already recorded: the first a
 |---|---|
 | `skills_used` | names of the skills read in full while working on the change |
 | `knowledge_used` | sources consulted before making claims: `{"source": "code" \| "docs" \| "memory" \| "mcp", "ref": "<path:line, URL or memory id>"}` |
-| `judges_invoked` | `{"name": "judge-security", "result": "<short outcome>"}`; the Tier 4 review is `{"name": "judgment-day", "result": "approved"}` once the person approves it, or `"escalated: <why>"` |
+| `judges_invoked` | `{"name": "judge-security", "result": "<short outcome>"}`; the Tier 3 review is `{"name": "judgment-day", "result": "approved"}` once the person approves it, or `"escalated: <why>"` |
 | `decisions` | `{"summary": "...", "rationale": "...", "by": "human" \| "agent"}`, including every tier change |
 | `dismissed_followups` | findings the person decided not to fix, and the ones automatic mode deferred: `{"judge", "rule", "reason"}` and optionally `id` |
 | `gates` | gate results: `{"name", "status": "pass" \| "fail" \| "waived" \| "skipped"}`; `pass` for APPROVED, `fail` for ESCALATED, `waived` once the `tech_lead` accepts it |
@@ -50,7 +50,7 @@ An entry with the same `name` and `type` counts as already recorded: the first a
 `.exo/shared/sdd-status-contract.md` derives the next phase from these entries, so record them exactly and only when the phase returned `status: ok`:
 
 - `phases_done`: `exo change record <change> --phase-done <phase>`.
-- `judges_invoked`: the `judgment-day` result in Tier 4.
+- `judges_invoked`: the `judgment-day` result in Tier 3.
 - `skills_used`: the phase skill and the skills it loaded.
 
 ## Findings

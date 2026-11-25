@@ -122,7 +122,7 @@ A review date (monthly at first, then quarterly): compare the SLI with user comp
 ## Inside an SDD change
 
 - **Spec and design:** return the targets as text for the phase that owns the artifact: non-functional requirements in the format of `.exo/shared/sdd-phase-common.md`, section C, for `sdd-spec` to number (`CAP-<capability>-NFR-n`), for example "99.9% of checkout requests over a rolling 30 days are answered without a server error". Never write into the change root yourself.
-- **The SLO document:** it is a project document, never a file of the change root: any phase may write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C).
+- **The SLO document:** it is a project document, never a file of the change root: any phase may write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C).
 - **The alert rules** are configuration: the apply phase writes them when the plan lists them.
 
 ## Return

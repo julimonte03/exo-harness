@@ -25,14 +25,27 @@ from typing import Any
 from exo import _meta
 from exo.core import fsutil, scan, tickets
 
-CURRENT_SCHEMA = 3
+CURRENT_SCHEMA = 4
 FILENAME = "config.json"
 
 SDD_PERSISTENCE = ("filesystem", "memory", "hybrid", "none")
 SDD_MODES = ("interactive", "auto")
 REVIEW_HOSTS = ("github", "azure-devops", "gitlab", "other")
-TIERS = ("1", "2", "3", "4")
+TIERS = ("1", "2", "3")
+# D-52 (ADR-0019): tres tiers; los gates del Tier 3 son la unión de los del 3 y el 4 de la 1.0.
 DEFAULT_GATES = {
+    "1": [],
+    "2": ["contract_check", "code_review"],
+    "3": [
+        "contract_check",
+        "code_review",
+        "security_review",
+        "threat_model",
+        "secure_coding_check",
+    ],
+}
+# Los defaults del esquema 3 (cuatro tiers): la migración 3 -> 4 completa con ellos.
+DEFAULT_GATES_V3 = {
     "1": [],
     "2": ["contract_check", "code_review"],
     "3": ["contract_check", "code_review", "security_review", "threat_model"],
@@ -231,15 +244,21 @@ def _schema(value: Any, path: str, col: _Collector, default: Any) -> Any:
 
 
 def _gates(value: Any, path: str, col: _Collector, default: Any) -> Any:
-    """`{tier: [gate, ...]}` con los tiers 1 a 4; un tier que falta toma su default."""
+    """`{tier: [gate, ...]}` con los tiers 1 a 3; un tier que falta toma su default."""
     if not isinstance(value, dict):
-        col.invalid_value(path, "must be an object {tier: [gates]}, with tiers 1 to 4")
+        col.invalid_value(path, "must be an object {tier: [gates]}, with tiers 1 to 3")
         return copy.deepcopy(default)
     out = copy.deepcopy(default)
     names = _text_list(_GATE, "must be a gate name in snake_case, such as code_review")
     for tier, gates in value.items():
         if str(tier) not in TIERS:
-            col.invalid_value(_join(path, str(tier)), "tiers are 1, 2, 3 and 4", "ignored")
+            message = "tiers are 1, 2 and 3"
+            if str(tier) == "4":
+                message += (
+                    " (Tier 4 merged into Tier 3 in schema 4: move these gates to \"3\" "
+                    "as a list of gate names)"
+                )
+            col.invalid_value(_join(path, str(tier)), message, "ignored")
             continue
         out[str(tier)] = names(gates, _join(path, str(tier)), col, default[str(tier)])
     return out
@@ -399,8 +418,34 @@ def _v2_to_v3(raw: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def _v3_to_v4(raw: dict[str, Any]) -> dict[str, Any]:
+    """D-52 (ADR-0019): tres tiers. Los gates del Tier 4 se suman a los del Tier 3.
+
+    Une las dos listas sin repetir, primero las del 3 y en su orden, y borra la
+    clave "4". Un tier que falta toma el default del esquema 3, como lo hacía al
+    leerla. Si alguna de las dos no es una lista de textos, no se toca: la validación
+    lo marca.
+    """
+    out = dict(raw)
+    governance = out.get("governance")
+    gates = governance.get("gates") if isinstance(governance, dict) else None
+    if isinstance(gates, dict) and ("3" in gates or "4" in gates):
+        three = gates.get("3", DEFAULT_GATES_V3["3"])
+        four = gates.get("4", DEFAULT_GATES_V3["4"])
+        if all(isinstance(g, list) and all(isinstance(x, str) for x in g) for g in (three, four)):
+            merged = {k: v for k, v in gates.items() if k != "4"}
+            merged["3"] = list(dict.fromkeys([*three, *four]))
+            out["governance"] = {**governance, "gates": merged}
+    out["schema"] = 4
+    return out
+
+
 # MIGRATIONS[n] convierte un dict del esquema n al n + 1.
-MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {1: _v1_to_v2, 2: _v2_to_v3}
+MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
+    1: _v1_to_v2,
+    2: _v2_to_v3,
+    3: _v3_to_v4,
+}
 
 
 def validate(raw: dict[str, Any]) -> tuple[dict[str, Any], list[str], list[str]]:

@@ -112,4 +112,4 @@ Never the project's code, tests, configuration or docs. A needed change is a bac
 
 - Walk the capabilities with the person, one at a time. They confirm or correct each one. Change `Status: as-is` to `Status: as-is-validated` only with their explicit approval, and record their corrections in the spec.
 - The adoption gaps go to `.exo/discovery/adoption-backlog.md`, one item per gap, with its evidence and a suggested tier. Each item becomes an SDD change (`sdd-new`) only when the person confirms it.
-- For critical capabilities (Tier 3 or 4 components), propose characterization tests first: they pin today's behavior before anything changes.
+- For critical capabilities (Tier 3 components), propose characterization tests first: they pin today's behavior before anything changes.

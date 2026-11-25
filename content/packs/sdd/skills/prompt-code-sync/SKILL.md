@@ -48,7 +48,7 @@ A canvas edit always names the section, the item, the old text, the new text and
 
 ## Before each task
 
-1. **Find what the task implements.** From the task in tasks.md (Tier 3 and 4) or the Scope item (Tier 1 and 2), take its `S-n` and `TM-n`. The Operations that cite them, the Safeguards that touch its files, and every Norm apply.
+1. **Find what the task implements.** From the task in tasks.md (Tier 3) or the Scope item (Tier 1 and 2), take its `S-n` and `TM-n`. The Operations that cite them, the Safeguards that touch its files, and every Norm apply.
 2. **Read them in full** and note them for the envelope: `Task 2: Operations 1, 2, 3; Safeguards 1; Norms 1-4`.
 3. **Check the task against them before any code:** its files are in Structure, and the Operations can be done in the code as it is. A task that needs something the canvas does not say, or says otherwise, is a divergence: classify it first.
 4. **Implement** with skill:sdd-apply, tests first. Each test asserts the observable result of its Operation and, where a test can show it, that the Safeguard holds.

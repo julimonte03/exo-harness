@@ -466,6 +466,11 @@ def _update_report(result: update.UpdateResult, args: argparse.Namespace) -> int
                     if migration
                     else None
                 ),
+                "assessment_migration": (
+                    {"changes": result.sync.assessments, "saved": result.assessments_written}
+                    if result.sync.assessments
+                    else None
+                ),
                 "notes": result.sync.notes,
                 **_payload(found, renamed),
             }
@@ -484,6 +489,13 @@ def _update_report(result: update.UpdateResult, args: argparse.Namespace) -> int
         if found.applied and not result.sync.config_written:
             state = "not saved"
         print(f"config: schema {migration[0]} -> {migration[1]} ({state})")
+    if result.sync.assessments:
+        state = "migrated" if result.assessments_written else "migrated with --apply"
+        if found.applied and not result.assessments_written:
+            state = "not migrated"
+        print(f"risk assessments from {_meta.NAME} 1.0, to three tiers ({state}):")
+        for path in result.sync.assessments:
+            print(f"  {path}")
 
     def of(action: str) -> list[engine.Action]:
         return [

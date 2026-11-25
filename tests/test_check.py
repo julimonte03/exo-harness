@@ -70,22 +70,22 @@ def test_tier_3_incompleto(tmp_path: Path) -> None:
         assert f"Tier 3 requires {name}" in messages
 
 
-def test_sin_clasificacion_es_error_y_aplica_tier_4(tmp_path: Path) -> None:
+def test_sin_clasificacion_es_error_y_aplica_tier_3(tmp_path: Path) -> None:
     _change(tmp_path, "sin-tier", None, {"proposal.md": PROPOSAL})
     result = check.check(tmp_path)
     assert not result.ok
     item = result.changes[0]
-    assert (item.tier, item.tier_source) == (4, "missing")
+    assert (item.tier, item.tier_source) == (3, "missing")
     messages = _findings(result)
-    assert any("no fitness-assessment.json" in m and "Tier 4" in m for m in messages)
-    assert "Tier 4 requires design.md" in messages
+    assert any("no fitness-assessment.json" in m and "Tier 3" in m for m in messages)
+    assert "Tier 3 requires design.md" in messages
 
 
 def test_clasificacion_ilegible(tmp_path: Path) -> None:
     folder = _change(tmp_path, "roto", LOW, {"proposal.md": PROPOSAL})
     (folder / changes.ASSESSMENT).write_text("{ roto", encoding="utf-8")
     item = check.check(tmp_path).changes[0]
-    assert (item.tier, item.tier_source) == (4, "unreadable")
+    assert (item.tier, item.tier_source) == (3, "unreadable")
 
 
 def test_registro_faltante_o_invalido(tmp_path: Path) -> None:
@@ -239,3 +239,94 @@ def test_change_nombrado_lintea_las_capacidades_de_su_delta(tmp_path: Path) -> N
     result = check.check(tmp_path, names=["a"])
     assert [path for path, _ in result.capabilities] == ["specs/capabilities/demo/spec.md"]
     assert any("Purpose" in m for m in _findings(result))
+
+
+# -- D-52: un archivado con assessment de la 1.0 se valida solo por estructura -------------
+
+
+def _legacy_archived(project: Path, schema: int) -> Path:
+    files = {
+        "proposal.md": PROPOSAL,
+        "spec.md": SPEC,
+        "design.md": DESIGN,
+        "tasks.md": TASKS.replace("[ ]", "[x]"),
+        "test-spec.md": TEST_SPEC,
+        "verify-record.md": VERIFY,
+    }
+    folder = _change(project, "viejo", {**LOW, "reversibility": 3}, files)
+    path = folder / changes.ASSESSMENT
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data.update(schema=schema, tier=4 if schema == 1 else 3)
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return _archive(project, folder)
+
+
+def test_archivado_de_la_1_0_sin_gates_ni_judgment_day(tmp_path: Path) -> None:
+    target = _legacy_archived(tmp_path, schema=1)
+    raw = (target / changes.ASSESSMENT).read_bytes()
+    result = check.check(tmp_path, names=["viejo"])
+    assert result.ok, _findings(result)
+    item = result.changes[0]
+    assert (item.tier, item.tier_source) == (3, "assessment")
+    assert any("1.0" in f.message and f.severity == "warning" for f in item.findings)
+    assert (target / changes.ASSESSMENT).read_bytes() == raw
+
+
+def test_archivado_de_la_1_0_igual_exige_estructura(tmp_path: Path) -> None:
+    target = _legacy_archived(tmp_path, schema=1)
+    (target / "design.md").unlink()
+    assert "Tier 3 requires design.md" in _findings(check.check(tmp_path, names=["viejo"]))
+
+
+def test_archivado_del_esquema_actual_exige_gates_y_judgment_day(tmp_path: Path) -> None:
+    _legacy_archived(tmp_path, schema=2)
+    messages = _findings(check.check(tmp_path, names=["viejo"]))
+    assert any("judgment-day" in m for m in messages)
+    assert any("security_review" in m for m in messages)
+
+
+def test_archivado_sin_campo_schema_no_es_de_la_1_0(tmp_path: Path) -> None:
+    """Revisión F9: sin `"schema": 1` explícito no hay validación solo por estructura."""
+    target = _legacy_archived(tmp_path, schema=1)
+    path = target / changes.ASSESSMENT
+    data = json.loads(path.read_text(encoding="utf-8"))
+    del data["schema"]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    messages = _findings(check.check(tmp_path, names=["viejo"]))
+    assert any("judgment-day" in m for m in messages)
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="requiere git")
+def test_base_un_archivado_nuevo_con_schema_1_pasa_por_las_reglas_nuevas(tmp_path: Path) -> None:
+    """Revisión F9: un PR que agrega un archivado con `schema: 1` no se saltea los gates."""
+    _git(tmp_path, "init", "-q")
+    _git(tmp_path, "config", "user.email", "test@example.com")
+    _git(tmp_path, "config", "user.name", "Test")
+    (tmp_path / "README.md").write_text("x\n", encoding="utf-8")
+    _git(tmp_path, "add", "-A")
+    _git(tmp_path, "commit", "-q", "-m", "base")
+    _legacy_archived(tmp_path, schema=1)
+    result = check.check(tmp_path, base="HEAD")
+    assert not result.ok
+    messages = _findings(result)
+    assert any("judgment-day" in m for m in messages)
+    assert not any("checked by structure only" in m for m in _findings(result, "warning"))
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="requiere git")
+def test_base_un_archivado_de_la_1_0_que_ya_estaba_se_valida_por_estructura(tmp_path: Path) -> None:
+    _git(tmp_path, "init", "-q")
+    _git(tmp_path, "config", "user.email", "test@example.com")
+    _git(tmp_path, "config", "user.name", "Test")
+    target = _legacy_archived(tmp_path, schema=1)
+    _git(tmp_path, "add", "-A")
+    _git(tmp_path, "commit", "-q", "-m", "archivado con la 1.0")
+    (target / "proposal.md").write_text(PROPOSAL + "\nTypo fixed.\n", encoding="utf-8")
+    result = check.check(tmp_path, base="HEAD")
+    assert [c.name for c in result.changes] == ["viejo"]
+    assert result.ok, _findings(result)
+    assert any("checked by structure only" in m for m in _findings(result, "warning"))
+    # Si el PR toca el assessment, deja de ser el de la 1.0.
+    path = target / changes.ASSESSMENT
+    path.write_bytes(path.read_bytes() + b"\n")
+    assert not check.check(tmp_path, base="HEAD").ok

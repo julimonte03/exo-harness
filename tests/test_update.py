@@ -105,7 +105,7 @@ def test_criterio_7_update_de_0_2_0_a_1_0_0(
     assert main(["update", "--project", str(root)]) == 1
     out = capsys.readouterr().out
     assert "engine: 0.2.0 -> 1.0.0" in out
-    assert "config: schema 2 -> 3 (saved with --apply)" in out
+    assert "config: schema 2 -> 4 (saved with --apply)" in out
     assert f"  {PCR}/ (1 file, renamed from {REVIEW}/)" in out
     assert f"  {FRESH}/ (1 file)" in out
     assert f"  {HELLO}/" not in out.split("modified:")[1].split("removed:")[0]
@@ -128,7 +128,7 @@ def test_criterio_7_update_de_0_2_0_a_1_0_0(
     assert (root / PCR / "SKILL.md").is_file() and (root / FRESH / "SKILL.md").is_file()
     assert (root / REVIEW / "SKILL.md").is_file() and (root / LEGACY / "SKILL.md").is_file()
     assert lock.read(root).engine_version == "1.0.0"
-    assert _schema_on_disk(root) == 3
+    assert _schema_on_disk(root) == 4
     newest = snapshots.list_snapshots(root)[-1]
     archive = snapshots.read_archive(newest.path.read_bytes())
     assert json.loads(archive.files[f"{_meta.PROJECT_DIR}/config.json"][0])["schema"] == 2
@@ -168,7 +168,8 @@ def test_criterio_7_json_con_la_misma_informacion(
     assert payload["renamed"] == {f"{REVIEW}/SKILL.md": f"{PCR}/SKILL.md"}
     assert payload["removed"] == []
     assert [c["path"] for c in payload["conflicts"]] == [f"{HELLO}/SKILL.md"]
-    assert payload["config_migration"] == {"from": 2, "to": 3, "saved": False}
+    assert payload["config_migration"] == {"from": 2, "to": 4, "saved": False}
+    assert payload["assessment_migration"] is None
 
 
 def test_criterio_7_sin_tty_nunca_pregunta_ni_borra(
@@ -323,7 +324,7 @@ def test_la_config_migrada_conserva_fin_de_linea_bom_sangria_y_orden(
 
     assert main(["update", "--project", str(tmp_path), "--apply"]) == 0
     body, saved = style()
-    assert saved["schema"] == 3
+    assert saved["schema"] == 4
     assert list(saved)[:3] == ["packs", "agents", "schema"]  # el orden de la persona
     assert main(["add-agent", "cursor", "--project", str(tmp_path)]) == 0
     body, saved = style()
@@ -381,3 +382,95 @@ def test_la_tabla_de_renombres_coincide_con_el_contenido() -> None:
     for old, new in renames.RENAMED.items():
         assert new in names, new
         assert old not in names, old
+
+
+# -- F9, criterio 4: los assessments de la 1.0 pasan a tres tiers (D-52) --------------------
+
+
+def _assessment_1_0(project: Path, slug: str, tier: int, archived: bool = False) -> Path:
+    from exo.sdd import changes, fitness
+
+    created = changes.new_change(project, slug)
+    folder = project / created.path
+    evidence = {**dict.fromkeys(fitness.DIMENSIONS, 0), "reversibility": 3 if tier == 4 else 0}
+    if tier == 3:
+        evidence["blast_radius"] = 3
+    data = {
+        "schema": 1,
+        "tier": tier,
+        "rule": "FM-02" if tier == 4 else "FM-11",
+        "matched_rules": ["FM-02"] if tier == 4 else ["FM-11"],
+        "ceremony": "full",
+        "judgment_day": tier == 4,
+        "evidence": evidence,
+        "errors": [],
+        "assessed_at": "2026-11-01T00:00:00Z",
+        "history": [{"tier": tier, "rule": "FM-02", "at": "2026-11-01T00:00:00Z", "change": "initial"}],
+    }
+    (folder / "fitness-assessment.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    (folder / "proposal.md").write_text("# Proposal\n", encoding="utf-8")
+    if archived:
+        target = project / "specs" / "archive" / f"2026-11-02-{slug}"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        folder.rename(target)
+        folder = target
+    return folder
+
+
+def test_f9_criterio_4_migra_los_activos_y_no_toca_los_archivados(
+    tmp_path: Path, synthetic_content: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = tmp_path / "p"
+    root.mkdir()
+    assert main(["init", "--project", str(root), "--agents", "claude-code", "--yes"]) == 0
+    activo4 = _assessment_1_0(root, "activo-4", 4)
+    activo3 = _assessment_1_0(root, "activo-3", 3)
+    archivado = _assessment_1_0(root, "archivado-4", 4, archived=True)
+    raw4 = (activo4 / "fitness-assessment.json").read_bytes()
+    raw_archived = (archivado / "fitness-assessment.json").read_bytes()
+    rel4 = activo4.relative_to(root).as_posix() + "/fitness-assessment.json"
+    rel3 = activo3.relative_to(root).as_posix() + "/fitness-assessment.json"
+    capsys.readouterr()
+
+    # sync avisa y no escribe.
+    assert main(["sync", "--project", str(root)]) == 0
+    assert "2 active change(s) have a fitness-assessment.json" in capsys.readouterr().out
+    assert (activo4 / "fitness-assessment.json").read_bytes() == raw4
+
+    # Vista previa: lo informa sin escribir.
+    assert main(["update", "--project", str(root), "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["assessment_migration"] == {"changes": sorted([rel3, rel4]), "saved": False}
+    assert payload["up_to_date"] is False
+    assert (activo4 / "fitness-assessment.json").read_bytes() == raw4
+
+    # --apply: migra con snapshot, y el archivado queda idéntico byte a byte.
+    assert main(["update", "--project", str(root), "--apply"]) == 0
+    out = capsys.readouterr().out
+    assert "risk assessments from exo 1.0, to three tiers (migrated):" in out.replace(_meta.NAME, "exo")
+    data4 = json.loads((activo4 / "fitness-assessment.json").read_text(encoding="utf-8"))
+    assert (data4["schema"], data4["tier"], data4["migrated_from"], data4["judgment_day"]) == (2, 3, 4, True)
+    data3 = json.loads((activo3 / "fitness-assessment.json").read_text(encoding="utf-8"))
+    assert (data3["schema"], data3["tier"], data3["judgment_day"]) == (2, 3, True)
+    assert "migrated_from" not in data3
+    assert (archivado / "fitness-assessment.json").read_bytes() == raw_archived
+    archive = snapshots.read_archive(snapshots.list_snapshots(root)[-1].path.read_bytes())
+    assert archive.files[rel4][0] == raw4
+
+    # check y change status funcionan con los dos.
+    assert main(["change", "status", "activo-4", "--project", str(root), "--json"]) == 0
+    state = json.loads(capsys.readouterr().out)
+    assert (state["tier"], state["tier_source"]) == (3, "assessment")
+    assert main(["change", "status", "archivado-4", "--project", str(root), "--json"]) == 0
+    state = json.loads(capsys.readouterr().out)
+    assert (state["tier"], state["tier_source"], state["archived"]) == (3, "assessment", True)
+    main(["check", "--project", str(root), "--change", "archivado-4", "--json"])
+    result = json.loads(capsys.readouterr().out)
+    [item] = result["changes"]
+    assert item["tier"] == 3
+    assert any("exo 1.0" in f["message"].replace(_meta.NAME, "exo") for f in item["findings"])
+    assert not any("judgment-day" in f["message"] for f in item["findings"] if f["severity"] == "error")
+
+    # Idempotente: otra corrida no tiene nada que migrar.
+    assert main(["update", "--project", str(root), "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["assessment_migration"] is None

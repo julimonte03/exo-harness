@@ -28,7 +28,7 @@ This project uses a governed development engine. Its configuration (`config.json
 Run them from the terminal, with `--json` when you need to process the output.
 
 - `exo change new|record|status|list`: changes and their AI Usage Record.
-- `exo fitness classify --evidence-json '<json>' --change <change>`: risk tier 1–4 of a change.
+- `exo fitness classify --evidence-json '<json>' --change <change>`: risk tier 1–3 of a change.
 - `exo speclint`, `exo specs list|merge`, `exo check`: artifacts, living specs and the checks before a PR.
 - `exo gate publish`: one PR comment per gate (`.exo/shared/ci-and-review.md`).
 - `exo skills list`, `exo doctor`, `exo p0`: skills, diagnostics and the minimum regression gate.
@@ -37,7 +37,7 @@ Run them from the terminal, with `--json` when you need to process the output.
 
 If the project has the `sdd` pack, any change beyond a trivial fix goes through the SDD cycle: `/sdd-new <what you want>` starts it, `/sdd-continue` runs the next phase, `/sdd-ff` drafts the whole plan, `/sdd-status` shows where each change is.
 
-- **Tier first:** each change is classified 1–4 and its phases and gates follow the tier. An unknown tier is Tier 4; lowering a tier needs the person's literal confirmation.
+- **Tier first:** each change is classified 1–3 and its phases and gates follow the tier. An unknown tier is Tier 3; lowering a tier needs the person's literal confirmation.
 - **Living specs:** approved behavior lives in `specs/capabilities/`; each change writes a delta that is merged when it is archived.
 - **Before the PR:** `exo check --change <change>` and `exo check --base <target branch>` pass (only `--base` scans the diff for secrets); CI runs the second.
 

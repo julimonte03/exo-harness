@@ -26,7 +26,7 @@
 
 ## Judgment Day Handoff
 
-<!-- Tier 4 only: what the judges must look at. "N/A" for Tier 1-3. -->
+<!-- Tier 3 only: what the judges must look at. "N/A" for Tier 1-2. -->
 
 ## Gate summary
 

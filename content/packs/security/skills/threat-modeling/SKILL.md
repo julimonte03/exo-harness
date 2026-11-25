@@ -31,7 +31,7 @@ metadata:
 ## When it runs
 
 - **Design phase, Conditional** (`.exo/shared/phase-skill-map.md`, row design): a new surface, a trust boundary, sensitive data or money.
-- **Always when the tier has the gate:** `threat_model` in the tier's `governance.gates` (`.exo/config.json`; by default Tier 3 and 4). A gate always runs its skill. A change with nothing to model still gets a short model that says why, and an `APPROVED` gate.
+- **Always when the tier has the gate:** `threat_model` in the tier's `governance.gates` (`.exo/config.json`; by default Tier 3). A gate always runs its skill. A change with nothing to model still gets a short model that says why, and an `APPROVED` gate.
 - **Tier 1 and 2** have no design phase. If such a change has one of the triggers, tell the person, or the orchestrator through a `fitness_signal`: the tier may be too low.
 - **Again** whenever the design changes after review, so the model and the gate describe the approved design.
 
@@ -60,7 +60,7 @@ The questions per STRIDE category, the rating matrix and the patterns are in `re
 6. **Threats.** STRIDE per element, for each element that a flow across a boundary reaches. Keep only threats with a concrete path ("a user of tenant A reads tenant B's invoices by changing the ID"), never the generic list.
 7. **Abuse cases.** At least one per entry point that crosses a boundary: `As <attacker>, I <action> through <entry point> to <goal>`. Each one names the threats it exercises.
 8. **Rate** each threat: likelihood and impact give the risk (`references/stride.md`).
-9. **Mitigate.** A concrete control and where it lands: a file of Modules / Files and the test that proves it in the Test Plan. Prefer the controls of skill:secure-coding-baseline and cite their IDs (`SCB-3`). In Tier 4, each threat also gets a negative test (skill:test-strategy).
+9. **Mitigate.** A concrete control and where it lands: a file of Modules / Files and the test that proves it in the Test Plan. Prefer the controls of skill:secure-coding-baseline and cite their IDs (`SCB-3`). In Tier 3, each threat also gets a negative test (skill:test-strategy).
 10. **Residual risk.** Rate the threat again with the mitigation in place (`references/stride.md`, Rating): a mitigation lowers the likelihood, a design change the impact, and only a mitigation that removes the attack path with a test that proves it brings a High impact down to Low. Say what remains and why it is acceptable, or that it is not.
 
 ## Write it into design.md
@@ -132,7 +132,7 @@ Source: skill threat-modeling
 
 ## After the model
 
-- In Tier 3 and 4 the design phase runs `judge-security` afterwards, which reuses these criteria. An accepted finding updates the model and the gate.
+- In Tier 3 the design phase runs `judge-security` afterwards, which reuses these criteria. An accepted finding updates the model and the gate.
 - skill:security-code-review checks in verify that each mitigation that lands in the code is there.
 
 ## Record

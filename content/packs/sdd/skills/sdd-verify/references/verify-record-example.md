@@ -46,7 +46,9 @@ None.
 
 ## Judgment Day Handoff
 
-N/A
+- `src/auth/login.py:40-75`: the lockout counter, the riskiest code.
+- The brute-force risk in design.md, Risks & Mitigations: re-check it once issue 1 is fixed.
+- Not verified: the lockout under concurrent sign-in attempts (no test runs them in parallel).
 
 ## Gate summary
 
@@ -65,4 +67,4 @@ Source: skill
 
 - The Verdict section uses one verdict word only; the reason does not repeat the other two.
 - Every scenario and requirement cited is defined in the delta, so `exo speclint <change-root>` passes.
-- In Tier 4, Judgment Day Handoff would list, for example: `src/auth/login.py:40-75` (the lockout counter, the riskiest code), the brute-force risk of design.md's Risks & Mitigations, and anything the verifier could not check.
+- Tier 3 always fills Judgment Day Handoff, even with `needs-rework`: the riskiest code, the risks of design.md to re-check, and what the verifier could not check. Tiers 1 and 2 write `N/A`.

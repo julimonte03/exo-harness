@@ -9,7 +9,7 @@ description: >-
   one place. Returns JTEAM-n findings with severity and the task or line,
   plus an APPROVED or ESCALATED verdict; it judges the plan, never the
   people, and never edits it. Runs in the sdd-judge subagent in the tasks
-  phase of Tier 4. Use it also when someone wants to know whether a plan is
+  phase of Tier 3. Use it also when someone wants to know whether a plan is
   ready to split across a team. Triggers: "team judge", "can we split this
   plan", "can several developers work on this in parallel", "judge the task
   breakdown", "will we step on each other", "is this plan ready for the
@@ -39,7 +39,7 @@ The findings of one review in the format of the `sdd-judge` subagent: a Verdict 
 
 | Phase | What you review | Against (the stage before) |
 |---|---|---|
-| tasks (Tier 4) | `tasks.md`, and `test-spec.md` for who owns each test | `spec.md` and `design.md` (Modules / Files, Test Plan, Risks & Mitigations) |
+| tasks (Tier 3) | `tasks.md`, and `test-spec.md` for who owns each test | `spec.md` and `design.md` (Modules / Files, Test Plan, Risks & Mitigations) |
 | outside SDD | the plan, breakdown or backlog the person gives | the design or the goal the person gives |
 
 In lower tiers the phase map does not call it; the person may ask for it on any plan.

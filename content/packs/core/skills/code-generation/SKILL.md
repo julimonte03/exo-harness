@@ -26,7 +26,7 @@ Code and tests that do what the frozen plan says and nothing else. Every scenari
 |---|---|
 | 1 | `proposal.md` (Scope and Out of Scope), plus the scenarios of `spec.md` when the change alters behavior |
 | 2 | `proposal.md`, with the delta `spec.md` and `test-spec.md` |
-| 3 and 4 | `tasks.md`, with `spec.md`, `design.md` and `test-spec.md` as reference |
+| 3 | `tasks.md`, with `spec.md`, `design.md` and `test-spec.md` as reference |
 
 - Frozen means approved: start only when the person approved the plan or the orchestrator delegated the apply phase.
 - Read the plan, the delta and `test-spec.md` in full before writing code.
@@ -43,7 +43,7 @@ Code and tests that do what the frozen plan says and nothing else. Every scenari
 
 ## The loop
 
-Go task by task in the order of `tasks.md` (Tier 3 and 4), or scenario by scenario of the scope (Tier 1 and 2). For each scenario:
+Go task by task in the order of `tasks.md` (Tier 3), or scenario by scenario of the scope (Tier 1 and 2). For each scenario:
 
 1. **Red.** Write the test: the `T-n` of `test-spec.md` that covers the scenario or, in Tier 1, a test for it. Run it with its exact command. It must fail for the expected reason, an assertion, not an import or syntax error.
 2. **Green.** Write the minimum code that makes it pass. Run it again.

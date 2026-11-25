@@ -182,10 +182,10 @@ def test_misma_evidencia_no_reescribe(tmp_path: Path) -> None:
     assert (tmp_path / created.path / changes.ASSESSMENT).read_bytes() == raw
 
 
-def test_criterio_7_evidencia_faltante_da_tier_4(tmp_path: Path) -> None:
+def test_criterio_7_evidencia_faltante_da_tier_3(tmp_path: Path) -> None:
     created = changes.new_change(tmp_path, "add-login", now=NOW)
     result = changes.record_assessment(tmp_path, "add-login", {"blast_radius": 0}, now=NOW)
-    assert result.tier == 4
+    assert result.tier == 3
     assert _assessment(tmp_path, created.path)["rule"] == "FM-00"
 
 
@@ -209,11 +209,11 @@ def test_criterio_7_upgrade_automatico_y_downgrade_con_confirmacion_literal(tmp_
     assert last["change"] == "downgrade" and last["confirmation"] == words
 
 
-def test_criterio_7_tier_ilegible_cuenta_como_4(tmp_path: Path) -> None:
+def test_criterio_7_tier_ilegible_cuenta_como_3(tmp_path: Path) -> None:
     created = changes.new_change(tmp_path, "add-login", now=NOW)
     (tmp_path / created.path / changes.ASSESSMENT).write_text("{ roto", encoding="utf-8")
     assert changes.read_tier(tmp_path / created.path) is None
-    assert changes.effective_tier(tmp_path / created.path) == 4
+    assert changes.effective_tier(tmp_path / created.path) == 3
     with pytest.raises(ChangeError, match="--confirm-downgrade"):
         changes.record_assessment(tmp_path, "add-login", LOW, now=LATER)
 
@@ -310,3 +310,116 @@ def test_cli_json_desde_archivo(tmp_path: Path, capsys: pytest.CaptureFixture[st
     assert "no-existe.json" in capsys.readouterr().err
     assert main(["fitness", "classify", "--evidence-file", str(tmp_path / "no.json")]) == 2
     assert main(["fitness", "classify", "--evidence-json", "{}", "--evidence-file", str(evidence)]) == 2
+
+
+# -- D-52: esquema 2 del assessment, lectura tolerante y migración de la 1.0 -------------
+
+
+def _legacy(tier: int, **extra: object) -> dict:
+    return {
+        "schema": 1,
+        "tier": tier,
+        "rule": "FM-01" if tier == 4 else "FM-11",
+        "matched_rules": ["FM-01"] if tier == 4 else ["FM-11"],
+        "ceremony": "full" if tier >= 3 else "light",
+        "judgment_day": tier == 4,
+        "evidence": {**LOW, "security_data_sensitivity": 3} if tier == 4 else LOW,
+        "errors": [],
+        "assessed_at": "2026-11-01T00:00:00Z",
+        "history": [{"tier": tier, "rule": "FM-01", "at": "2026-11-01T00:00:00Z", "change": "initial"}],
+        **extra,
+    }
+
+
+def test_assessment_nuevo_es_del_esquema_2(tmp_path: Path) -> None:
+    created = changes.new_change(tmp_path, "add-login", now=NOW)
+    changes.record_assessment(tmp_path, "add-login", LOW, now=NOW)
+    data = _assessment(tmp_path, created.path)
+    assert data["schema"] == changes.ASSESSMENT_SCHEMA == 2
+    assert "migrated_from" not in data
+
+
+def test_tier_4_viejo_se_lee_como_3_sin_reescribir(tmp_path: Path) -> None:
+    created = changes.new_change(tmp_path, "add-login", now=NOW)
+    path = tmp_path / created.path / changes.ASSESSMENT
+    path.write_text(json.dumps(_legacy(4)), encoding="utf-8")
+    raw = path.read_bytes()
+    assert changes.read_tier(tmp_path / created.path) == 3
+    assert changes.effective_tier(tmp_path / created.path) == 3
+    assert path.read_bytes() == raw
+
+
+def test_migrate_assessment_tier_4_pasa_a_3_con_migrated_from() -> None:
+    migrated = changes.migrate_assessment(_legacy(4), now=LATER)
+    assert migrated is not None
+    assert (migrated["schema"], migrated["tier"], migrated["migrated_from"]) == (2, 3, 4)
+    assert (migrated["ceremony"], migrated["judgment_day"]) == ("full", True)
+    assert migrated["rule"] == "FM-01"
+    assert migrated["history"][0]["tier"] == 4  # la historia no se reescribe
+    last = migrated["history"][-1]
+    assert (last["tier"], last["change"], last["from"]) == (3, "migrated", 4)
+
+
+def test_migrate_assessment_tier_3_adopta_las_reglas_nuevas() -> None:
+    migrated = changes.migrate_assessment(_legacy(3), now=LATER)
+    assert migrated is not None
+    assert (migrated["schema"], migrated["tier"], migrated["judgment_day"]) == (2, 3, True)
+    assert "migrated_from" not in migrated
+    assert migrated["history"][-1]["change"] == "migrated"
+
+
+def test_migrate_assessment_tier_bajo_solo_sube_el_esquema() -> None:
+    migrated = changes.migrate_assessment(_legacy(2), now=LATER)
+    assert migrated is not None
+    assert (migrated["schema"], migrated["tier"], migrated["judgment_day"]) == (2, 2, False)
+    assert len(migrated["history"]) == 1
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"schema": 2, "tier": 3},
+        {"schema": 3, "tier": 3},
+        [1, 2],
+        {"schema": 1, "tier": 9},
+        {"schema": 1, "tier": "4"},
+        {"schema": True, "tier": 4},
+    ],
+)
+def test_migrate_assessment_no_toca_lo_actual_ni_lo_ilegible(data: object) -> None:
+    assert changes.migrate_assessment(data, now=LATER) is None
+
+
+def test_reclasificar_un_migrado_conserva_migrated_from(tmp_path: Path) -> None:
+    created = changes.new_change(tmp_path, "add-login", now=NOW)
+    path = tmp_path / created.path / changes.ASSESSMENT
+    migrated = changes.migrate_assessment(_legacy(4), now=NOW)
+    path.write_text(json.dumps(migrated), encoding="utf-8")
+    high = {**LOW, "reversibility": 3}
+    result = changes.record_assessment(tmp_path, "add-login", high, now=LATER)
+    assert (result.previous, result.comparison, result.written) == (3, "same", True)
+    data = _assessment(tmp_path, created.path)
+    assert (data["schema"], data["tier"], data["migrated_from"]) == (2, 3, 4)
+
+
+def test_reclasificar_igual_un_esquema_1_lo_pasa_al_esquema_2(tmp_path: Path) -> None:
+    """Revisión F9: un assessment del esquema 1 no queda en él por reclasificarse igual."""
+    created = changes.new_change(tmp_path, "add-login", now=NOW)
+    changes.record_assessment(tmp_path, "add-login", LOW, now=NOW)
+    path = tmp_path / created.path / changes.ASSESSMENT
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["schema"] = 1
+    path.write_text(json.dumps(data), encoding="utf-8")
+    result = changes.record_assessment(tmp_path, "add-login", LOW, now=LATER)
+    assert (result.comparison, result.written) == ("same", True)
+    assert _assessment(tmp_path, created.path)["schema"] == 2
+
+
+def test_reclasificar_un_tier_4_sin_migrar_registra_migrated_from(tmp_path: Path) -> None:
+    created = changes.new_change(tmp_path, "add-login", now=NOW)
+    (tmp_path / created.path / changes.ASSESSMENT).write_text(json.dumps(_legacy(4)), encoding="utf-8")
+    high = {**LOW, "reversibility": 3}
+    result = changes.record_assessment(tmp_path, "add-login", high, now=LATER)
+    assert (result.previous, result.comparison) == (3, "same")
+    data = _assessment(tmp_path, created.path)
+    assert (data["schema"], data["tier"], data["migrated_from"]) == (2, 3, 4)

@@ -57,12 +57,12 @@ From `exo change status <change> --json`:
 |---|---|
 | `name`, `epic`, `path`, `ticket_key` | identify the change and its root |
 | `phase` | the last artifact present (`new`, `risk`, `explore`, `propose`, `spec`, `design`, `tasks`, `apply`, `verify`, `archived`) |
-| `tier`, `tier_source` | `assessment`: read from `fitness-assessment.json`. `missing`: no assessment yet, so Tier 4 applies until risk runs. `unreadable`: the file is broken, Tier 4 applies, report it |
+| `tier`, `tier_source` | `assessment`: read from `fitness-assessment.json`. `missing`: no assessment yet, so Tier 3 applies until risk runs. `unreadable`: the file is broken, Tier 3 applies, report it |
 | `artifacts` | the files present |
 | `followups` | counts of `open`, `fixed` and `dismissed` |
 | `warnings` | unreadable JSON files: each one is an inconsistency |
 
-Never present a `missing` or `unreadable` tier as a real tier: write "Tier 4 (no assessment)" or "Tier 4 (unreadable assessment)".
+Never present a `missing` or `unreadable` tier as a real tier: write "Tier 3 (no assessment)" or "Tier 3 (unreadable assessment)".
 
 ### 3. Followups
 
@@ -70,7 +70,7 @@ If `followups.open` is above 0: `exo change followups <change> --json` and list 
 
 ### 4. Missing artifacts
 
-Compare `artifacts` with the mandatory artifacts of the tier (`.exo/shared/sdd-phase-common.md`, section C): Tier 1 `proposal.md`, and `spec.md` only if the change alters behavior; Tier 2 adds `spec.md` and `test-spec.md`; Tier 3 and 4 add `design.md` and `tasks.md`. Every tier also needs `ai-usage-record.json` and `fitness-assessment.json`. Before a PR, `exo check --change <change>` is the authoritative check.
+Compare `artifacts` with the mandatory artifacts of the tier (`.exo/shared/sdd-phase-common.md`, section C): Tier 1 `proposal.md`, and `spec.md` only if the change alters behavior; Tier 2 adds `spec.md` and `test-spec.md`; Tier 3 adds `design.md` and `tasks.md`. Every tier also needs `ai-usage-record.json` and `fitness-assessment.json`. Before a PR, `exo check --change <change>` is the authoritative check.
 
 ### 5. Next phase
 

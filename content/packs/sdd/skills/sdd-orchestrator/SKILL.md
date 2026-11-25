@@ -57,7 +57,7 @@ For each phase of the tier, in order (`.exo/shared/phase-skill-map.md`, Phases p
 2. **Skills.** Required, plus the Conditionals whose trigger applies, at most 5. Resolve each one (`.exo/shared/skill-resolver.md`); a missing one degrades with its sentence and inline criteria.
 3. **Run it where the contract says** (`.exo/shared/sdd-phase-common.md`, section G):
    - inline phases (skill:sdd-propose, skill:sdd-spec, skill:sdd-design, skill:sdd-tasks, skill:sdd-archive) run here, in this session;
-   - skill:sdd-explore in `sdd-explorer`, skill:sdd-apply in `sdd-implementer` (with two or more units in tasks.md, skill:parallel-dispatch first asks the person how to run them and coordinates the implementers), skill:sdd-verify in `sdd-verifier` (fresh context in Tier 3 and 4), judges in `sdd-judge`.
+   - skill:sdd-explore in `sdd-explorer`, skill:sdd-apply in `sdd-implementer` (with two or more units in tasks.md, skill:parallel-dispatch first asks the person how to run them and coordinates the implementers), skill:sdd-verify in `sdd-verifier` (fresh context in Tier 3), judges in `sdd-judge`.
    Build the delegation with the template in `references/delegation-prompt.md`.
 4. **Read the envelope.**
    - `ok`: persist what a subagent returned as text (`exploration.md`, `verify-record.md`, and each gate as `gates/<gate>.md`) in the change root, exactly as returned. A canvas edit in an apply envelope goes to the SPDD overlay below.
@@ -69,19 +69,19 @@ For each phase of the tier, in order (`.exo/shared/phase-skill-map.md`, Phases p
 
 ## Tier rules
 
-- The tier comes from `fitness-assessment.json`. Missing or unreadable means **Tier 4**.
+- The tier comes from `fitness-assessment.json`. Missing or unreadable means **Tier 3**.
 - **Fitness signals.** When an envelope has a `fitness_signal`, re-run skill:risk-tiering with the new evidence.
   - **Upgrade:** automatic. `exo fitness classify --change` records it; tell the person which phases were added.
   - **Downgrade:** never automatic. Tell the person the current tier, the proposed one and why, and ask for an explicit confirmation in their own words. Only then run `exo fitness classify --evidence-json '<json>' --change <change> --confirm-downgrade "<their exact words>"`. Without it, the tier stays.
 - **Every tier change** goes to the record as a decision: `exo change record <change> --add decisions '{"summary": "Tier 2 -> 3: ...", "by": "agent"}'` (`"by": "human"` for a confirmed downgrade).
-- Tier ≥ 2 needs `test-spec.md`. Tier 4 needs a `judgment-day` (skill `judgment-day` of the quality pack; when it is missing, apply its inline criteria with `sdd-judge`) and the person's explicit approval before archive.
-- **Gates.** The gates of the tier are `governance.gates` in `.exo/config.json` (by default none in Tier 1; `contract_check` and `code_review` in Tier 2; plus `security_review` and `threat_model` in Tier 3; plus `secure_coding_check` in Tier 4). A gate always runs its skill (`.exo/shared/phase-skill-map.md`, Gates), even when the skill degrades, and leaves `<change-root>/gates/<gate>.md`; `exo check` fails when one is missing. The conditional gates (`accessibility_review` with UI in the diff, `prompt_spec_review` with `canvas.md`) apply at any tier; `exo check` requires `prompt_spec_review` whenever `canvas.md` exists. A project that lists one in `governance.gates` makes it a gate of that tier: `prompt_spec_review` makes the canvas mandatory there, and `accessibility_review` runs `accessibility-audit` in every verify, `APPROVED` with `N/A: no UI in the diff` when there is none. A gate that is not APPROVED needs the `tech_lead` role: in interactive mode, stop and say so; in automatic mode, go on and flag it in the closing summary.
+- Tier ≥ 2 needs `test-spec.md`. Tier 3 needs a `judgment-day` (skill `judgment-day` of the quality pack; when it is missing, apply its inline criteria with `sdd-judge`) and the person's explicit approval before archive.
+- **Gates.** The gates of the tier are `governance.gates` in `.exo/config.json` (by default none in Tier 1; `contract_check` and `code_review` in Tier 2; plus `security_review`, `threat_model` and `secure_coding_check` in Tier 3). A gate always runs its skill (`.exo/shared/phase-skill-map.md`, Gates), even when the skill degrades, and leaves `<change-root>/gates/<gate>.md`; `exo check` fails when one is missing. The conditional gates (`accessibility_review` with UI in the diff, `prompt_spec_review` with `canvas.md`) apply at any tier; `exo check` requires `prompt_spec_review` whenever `canvas.md` exists. A project that lists one in `governance.gates` makes it a gate of that tier: `prompt_spec_review` makes the canvas mandatory there, and `accessibility_review` runs `accessibility-audit` in every verify, `APPROVED` with `N/A: no UI in the diff` when there is none. A gate that is not APPROVED needs the `tech_lead` role: in interactive mode, stop and say so; in automatic mode, go on and flag it in the closing summary.
 
 ## SPDD overlay
 
 When the change uses it (`.exo/shared/spdd-common.md`, section A), the canvas and its gate are written in this session, never in a subagent:
 
-- **Tier 3 and 4:** skill:sdd-design writes the canvas with skill:reasons-canvas-author and asks for its approval with skill:prompt-spec-review.
+- **Tier 3:** skill:sdd-design writes the canvas with skill:reasons-canvas-author and asks for its approval with skill:prompt-spec-review.
 - **Tier 1 and 2,** which have no design phase: after the last planning phase and before you delegate apply, run skill:reasons-canvas-author, then skill:prompt-spec-review in approval mode, here, with the person. Without an explicit approval the gate is `ESCALATED`, as in design.
 - **A canvas edit from apply.** skill:prompt-code-sync, in `sdd-implementer`, returns the exact edit in the envelope (`.exo/shared/spdd-common.md`, section D). Apply it to `canvas.md` as returned, run `exo speclint <change-root>`, show the person the section before and after, and record it as a decision.
   - **Refactor** (the envelope says `status: ok`): no new approval.
@@ -91,7 +91,7 @@ When the change uses it (`.exo/shared/spdd-common.md`, section A), the canvas an
 
 ## Without subagents
 
-If your agent cannot delegate (`.exo/shared/agent-capabilities.md`), run every phase inline with the same skills and artifacts, and write `Isolation: no isolation (inline)` in each envelope. For the fresh-context verify of Tier 3 and 4, offer the handoff to a new session (`<change-root>/handoff.md`). If the person declines, run it inline and declare it; in Tier 4 that needs their explicit approval, recorded as a decision.
+If your agent cannot delegate (`.exo/shared/agent-capabilities.md`), run every phase inline with the same skills and artifacts, and write `Isolation: no isolation (inline)` in each envelope. For the fresh-context verify of Tier 3, offer the handoff to a new session (`<change-root>/handoff.md`). If the person declines, run it inline and declare it; that needs their explicit approval, recorded as a decision.
 
 ## Before the PR
 

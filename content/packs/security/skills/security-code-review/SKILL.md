@@ -9,7 +9,7 @@ description: >-
   judge-security reuses. In the SDD verify
   phase from Tier 3 it writes the security_review gate; outside the cycle it
   reviews a PR or a branch and answers with the same content. Use it when a
-  change reaches verify in Tier 3 or 4, or whenever someone asks for a
+  change reaches verify in Tier 3, or whenever someone asks for a
   security review of code. Triggers: "security review", "security review this
   PR", "review this diff for vulnerabilities", "is this change secure",
   "AppSec review", "check this code for injection", "OWASP review".
@@ -32,7 +32,7 @@ metadata:
 
 | Situation | What it reviews | Where the result goes |
 |---|---|---|
-| SDD verify, when `security_review` is in the tier's gates (`governance.gates` in `.exo/config.json`; by default Tier 3 and 4) | the diff of the change | the gate file, and the same findings in `verify-record.md`, Issues Found |
+| SDD verify, when `security_review` is in the tier's gates (`governance.gates` in `.exo/config.json`; by default Tier 3) | the diff of the change | the gate file, and the same findings in `verify-record.md`, Issues Found |
 | Someone asks for a security review of a PR, a branch or some files | that diff or those files | the answer |
 | `judge-security` (pack `quality`) reviews a stage | it reuses `references/review-checklist.md` and cites its check IDs | the judge's findings |
 

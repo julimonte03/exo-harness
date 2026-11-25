@@ -65,7 +65,7 @@ Then offer changes; apply only what the person approves.
 
 ### 3. Project wiki
 
-- No `.exo/context.md`: run `project-onboarding` now if the person agrees. Tier 1 changes can start without it; Tier 3 and 4 should not (`.exo/shared/project-wiki-guard.md`).
+- No `.exo/context.md`: run `project-onboarding` now if the person agrees. Tier 1 changes can start without it; Tier 3 should not (`.exo/shared/project-wiki-guard.md`).
 - It exists: read it, and note what looks outdated (commands, areas, owners) for the person.
 
 ### 4. Explain the cycle
@@ -82,7 +82,7 @@ Say it briefly, in the person's language:
   | 3 | adds explore when needed, a refined proposal, design and tasks; verify in fresh context |
   | 4 | Tier 3 plus a mandatory `judgment-day` before archive |
 
-- Missing or unreadable risk evidence means Tier 4. Raising a tier is automatic; lowering it needs the person's own words.
+- Missing or unreadable risk evidence means Tier 3. Raising a tier is automatic; lowering it needs the person's own words.
 - In interactive mode every phase ends with "Adjust anything or continue?". `skill:sdd-status` tells where a change is at any time.
 - At archive, the change's spec delta is merged into the living specs, one file per capability.
 

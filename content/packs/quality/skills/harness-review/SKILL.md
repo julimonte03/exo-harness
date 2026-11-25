@@ -47,7 +47,7 @@ Its findings feed `verify-record.md` (Issues Found, Tests, Out-of-Scope Drift), 
 ## Inputs
 
 1. The diff against the base (`git diff <base>...HEAD`, or the base the delegation names) and the changed files in full, not only their hunks.
-2. The stage before: the proposal's Scope in Tier 1 and 2; `spec.md` and `test-spec.md` from Tier 2; `design.md` and `tasks.md` in Tier 3 and 4.
+2. The stage before: the proposal's Scope in Tier 1 and 2; `spec.md` and `test-spec.md` from Tier 2; `design.md` and `tasks.md` in Tier 3.
 3. `.exo/context.md`: the test, lint and build commands, the conventions, and whether the project has UI.
 4. The tier, from the delegation or from `exo change status <change> --json`.
 

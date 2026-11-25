@@ -82,7 +82,7 @@ Discovery never ran the project's tests (contract, section A). Measuring them is
 
 ## 3. Characterization tests first for critical capabilities
 
-- **Critical:** a capability whose units have criticality words in `plan.json` (authentication, payments, security, personal data), whose FRs the sample marked `critical`, or that the person calls critical. These are the Tier 3 and 4 components.
+- **Critical:** a capability whose units have criticality words in `plan.json` (authentication, payments, security, personal data), whose FRs the sample marked `critical`, or that the person calls critical. These are the Tier 3 components.
 - **For each one, before any other item that touches it,** add an item: characterization tests that pin today's behavior, defects included, starting with the FRs without a scenario and the gaps of the units' Tests sections. They change no behavior, so they can catch whatever a later change breaks.
 
 ## 4. Write the backlog

@@ -46,7 +46,7 @@ metadata:
 | Outside a change | The solution document | You, in the file the person names (default `docs/architecture/<slug>.md`) |
 | A decision that is hard to reverse | A draft decision record | `architecture-decision-record` (pack `design`), after the person approves its text |
 
-- Never write design.md or any other artifact of a phase (`.exo/shared/sdd-phase-common.md`, section C). If the person also wants the full solution document during a change, it is a project document, never a file of the change root: write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C), and `sdd-design` links it from the Architecture Overview.
+- Never write design.md or any other artifact of a phase (`.exo/shared/sdd-phase-common.md`, section C). If the person also wants the full solution document during a change, it is a project document, never a file of the change root: write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C), and `sdd-design` links it from the Architecture Overview.
 - Without `architecture-decision-record`, say `design/architecture-decision-record not installed — applying inline criteria` and apply its row of the map: propose a short record (status, context, decision, alternatives, consequences) for the project's ADR folder, written once the person approves its text.
 
 ## Inputs

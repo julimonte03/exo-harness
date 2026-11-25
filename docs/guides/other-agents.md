@@ -27,7 +27,7 @@ exo add-agent gemini
 
 When Claude Code or Copilot is also a target, the skills go to both `.claude/skills/` and `.agents/skills/`: real copies tracked by the lock, never symlinks, so they work the same on Windows.
 
-**No subagents.** These agents get no subagent files. The skills that ask for a fresh context or for delegation (explore, verify, the judges, the extraction of `/exo-adopt`) run inline, and the agent says so in its answer ("no isolation"). For the fresh-context verify of Tier 3 and 4 changes, the cycle offers a handoff to a new session.
+**No subagents.** These agents get no subagent files. The skills that ask for a fresh context or for delegation (explore, verify, the judges, the extraction of `/exo-adopt`) run inline, and the agent says so in its answer ("no isolation"). For the fresh-context verify of Tier 3 changes, the cycle offers a handoff to a new session.
 
 **No MCP config.** exo writes MCP config only for Claude Code and Copilot. The CLI is the main interface and needs none; if you want the optional MCP server in another agent, register `exo mcp` (stdio) in that agent's own MCP settings.
 

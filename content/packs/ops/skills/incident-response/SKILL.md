@@ -152,7 +152,7 @@ Within five working days for SEV1 and SEV2. Start from `references/postmortem-te
 5. **Actions:** each one removes or detects a cause, with an owner role, a due date and a check that proves it is done. With `tickets.pattern` in `.exo/config.json`, the person files them and gives you the IDs; never invent one.
 6. **Review** with the people involved, then share it as the team usually does.
 
-Inside an SDD change, the postmortem is a project document, never a file of the change root: any phase may write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C); until then, keep it in the answer. Outside one, write it as above, and save what others will need with skill:memory-protocol (`exo mem save --type bugfix` with the symptom, the cause and the fix), without personal data.
+Inside an SDD change, the postmortem is a project document, never a file of the change root: any phase may write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C); until then, keep it in the answer. Outside one, write it as above, and save what others will need with skill:memory-protocol (`exo mem save --type bugfix` with the symptom, the cause and the fix), without personal data.
 
 ## Record
 

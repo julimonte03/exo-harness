@@ -30,10 +30,10 @@ The engine uses no hooks: the rules in `AGENTS.md` and the skills say when to ru
 
 ## Fresh context without subagents
 
-A fresh-context verify (Tier 3 and 4) needs a context that did not write the code. Without subagents:
+A fresh-context verify (Tier 3) needs a context that did not write the code. Without subagents:
 
 1. Write `<change-root>/handoff.md`: the change name, the phase to run (`verify`), the files to read (spec, design, tasks, test-spec, the diff: `git diff <base>`), the test command, and what to return. Nothing else: no conclusions of your own.
 2. Ask the person to open a **new session** of their agent and say: "Run sdd-verify for `<change-name>`; start from `<change-root>/handoff.md`."
 3. The new session runs `sdd-verify` from the handoff file and writes `verify-record.md`. Delete `handoff.md` when the verify is done; it is not an artifact of the change.
 
-If the person prefers not to open a new session, run the verify inline and declare `no isolation`. In Tier 4 that needs their explicit approval, recorded as a decision in the AI Usage Record.
+If the person prefers not to open a new session, run the verify inline and declare `no isolation`. That needs their explicit approval, recorded as a decision in the AI Usage Record.

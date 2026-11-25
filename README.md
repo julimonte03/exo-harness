@@ -5,7 +5,7 @@
 exo puts one set of rules, skills and subagents into your repository and generates, for each AI coding agent your team uses, exactly the files that agent reads. The agent then works through a spec-driven cycle whose ceremony grows with the risk of the change, and calls the `exo` CLI to record what it did, check its artifacts and respect the project's gates.
 
 - **Agent-agnostic.** Dedicated adapters for <!-- exo-count:agents -->2<!-- /exo-count --> agents (Claude Code and GitHub Copilot), plus a base that any agent reading `AGENTS.md` can use (Cursor, Codex, Gemini CLI, Devin and others).
-- **Spec-driven development proportional to risk.** Every change gets a risk tier from 1 to 4; the tier decides the phases, the required artifacts and the gates.
+- **Spec-driven development proportional to risk.** Every change gets a risk tier from 1 to 3; the tier decides the phases, the required artifacts and the gates.
 - **Governance you can enforce.** Git hooks for Conventional Commits, staged secrets and protected branches, and `exo check` for your CI.
 - **Existing codebases too.** `/exo-adopt` recovers as-is specs from code with evidence on every claim, audits their precision and never touches your code.
 - **Safe to install and to remove.** Every generated file is tracked with its hash; your edits are never overwritten without `--force`, a snapshot comes before every change, and `exo uninstall` leaves the project as it was.

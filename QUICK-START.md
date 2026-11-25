@@ -71,7 +71,7 @@ Open Claude Code in the project and accept the workspace trust dialog: until the
 /project-onboarding
 ```
 
-It confirms with you the stack, the build, test and lint commands, the conventions and the owners, and writes `.exo/context.md`, the project wiki the other skills read. In an empty project you can skip it for now; a Tier 3 or 4 change asks for it.
+It confirms with you the stack, the build, test and lint commands, the conventions and the owners, and writes `.exo/context.md`, the project wiki the other skills read. In an empty project you can skip it for now; a Tier 3 change asks for it.
 
 For a guided tour of the whole cycle on a small real improvement, with an explanation before each phase, run `/sdd-onboard` instead of the next step.
 
@@ -88,7 +88,7 @@ The agent:
 1. checks the branch: on `main` it proposes a branch for the change first;
 2. names the change (`add-health-check`), asking for the ticket if the project uses them;
 3. creates it with `exo change new`, which writes `specs/add-health-check/` and its AI Usage Record;
-4. classifies its risk with `exo fitness classify`, from 1 (low) to 4 (critical);
+4. classifies its risk with `exo fitness classify`, from 1 (low) to 3 (high or critical);
 5. drafts `proposal.md` and stops for your approval.
 
 From there, `/sdd-continue` runs the next phase, `/sdd-ff` drafts the rest of the plan at once, and `/sdd-status` shows where every change is. The tier decides the phases:
@@ -97,10 +97,9 @@ From there, `/sdd-continue` runs the next phase, `/sdd-ff` drafts the rest of th
 |---|---|
 | 1 | new, apply, verify (light), archive |
 | 2 | new, spec with a test spec, apply, verify, archive |
-| 3 | new, explore if needed, propose, spec, design, tasks, apply, verify in fresh context, archive |
-| 4 | Tier 3, plus a mandatory `judgment-day` before archive |
+| 3 | new, explore if needed, propose, spec, design, tasks, apply, verify in fresh context, a mandatory `judgment-day`, archive |
 
-The tier also decides the gates: by default none in Tier 1, `contract_check` and `code_review` in Tier 2, plus `security_review` and `threat_model` in Tier 3, and `secure_coding_check` in Tier 4 (`governance.gates` in `.exo/config.json`). A gate that is not approved needs someone with the `tech_lead` role (`governance.roles`).
+The tier also decides the gates: by default none in Tier 1, `contract_check` and `code_review` in Tier 2, plus `security_review`, `threat_model` and `secure_coding_check` in Tier 3 (`governance.gates` in `.exo/config.json`). A gate that is not approved needs someone with the `tech_lead` role (`governance.roles`).
 
 You can follow the change from the terminal as well:
 

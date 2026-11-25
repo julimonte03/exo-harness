@@ -5,7 +5,7 @@ description: >-
   writes test-spec.md, mapping every requirement and every scenario of the spec
   delta to test cases with the exact command that runs each one. Applies strict
   TDD when the project declares it. Use it in the spec phase of Tier 2 and the
-  tasks phase of Tier 3 and 4, or whenever someone asks how to test a change.
+  tasks phase of Tier 3, or whenever someone asks how to test a change.
   Triggers: "test strategy", "test plan", "write the test spec", "what should
   we test", "which tests do we need", "how do we test this", "TDD".
 metadata:
@@ -27,14 +27,14 @@ Outside an SDD change (someone asks how to test something), the same plan goes i
 |---|---|---|
 | 1 | not required | no file: skill:code-generation writes a test for each scenario |
 | 2 | required | the spec phase: `sdd-spec`, with this skill |
-| 3 and 4 | required | the tasks phase: `sdd-tasks`, with this skill |
+| 3 | required | the tasks phase: `sdd-tasks`, with this skill |
 
 This skill owns no phase (`.exo/shared/sdd-phase-common.md`, section C). It writes `test-spec.md` only inside the phase that owns it, and never edits `spec.md`, `design.md` or any other artifact. If the delta cannot be tested as written (a scenario without a clear Then, a requirement without scenarios), stop and return `status: needs-input` saying which one and why.
 
 ## Inputs
 
 1. The delta `spec.md`: its ADDED, MODIFIED and REMOVED requirements and their scenarios.
-2. In Tier 3 and 4, `design.md`, section Test Plan: test-spec.md details it and must not contradict it.
+2. In Tier 3, `design.md`, section Test Plan: test-spec.md details it and must not contradict it.
 3. The tier: `exo change status <change> --json`.
 4. `.exo/context.md`: the test commands (Commands) and whether strict TDD applies (Conventions).
 5. The existing tests next to the code that changes: framework, layout, fixtures, naming. Follow them.
@@ -45,8 +45,7 @@ This skill owns no phase (`.exo/shared/sdd-phase-common.md`, section C). It writ
 |---|---|
 | 1 | Unit tests for the behavior that changes. For a bug, a regression test that fails before the fix. |
 | 2 | A unit test for each scenario; integration tests where the change crosses a boundary the project owns (database, HTTP, files, queues). |
-| 3 | Tier 2, plus contract tests for every public interface that changes (API, event, CLI) and the error and edge cases of each scenario. |
-| 4 | Tier 3, plus a negative test for each risk in `design.md`, section Risks & Mitigations, and end-to-end tests of the critical path. |
+| 3 | Tier 2, plus contract tests for every public interface that changes (API, event, CLI), the error and edge cases of each scenario, a negative test for each risk in `design.md`, section Risks & Mitigations, and end-to-end tests of the critical path. |
 
 - Use the lowest level that proves the scenario. Go up a level only when the behavior lives in the integration.
 - Unit: one behavior, no I/O. Integration: the real collaborators the project owns (a test database, temporary files), with fakes only for third parties. End-to-end: through the user's entry point; few and stable.
@@ -114,6 +113,6 @@ exo speclint <change-root>
 ```
 
 - It passes when `test-spec.md` has its three sections with content and every requirement ID and scenario it cites exists.
-- Then check what speclint does not: every requirement and scenario of the delta appears in Traceability, and, in Tier 3 and 4, the cases agree with the Test Plan of `design.md`.
+- Then check what speclint does not: every requirement and scenario of the delta appears in Traceability, and, in Tier 3, the cases agree with the Test Plan of `design.md`.
 
 Record this skill in the change's AI Usage Record (skill:ai-usage-record).

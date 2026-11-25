@@ -4,7 +4,7 @@ description: >-
   Turns an approved SDD design into the frozen implementation plan: tasks.md,
   an ordered checklist of small tasks that each name their files, tests and
   scenarios, with a size forecast against a budget of about 400 changed lines;
-  and test-spec.md, the test cases and their traceability. A Tier 3 and 4
+  and test-spec.md, the test cases and their traceability. A Tier 3
   phase that runs inline, after sdd-design and before sdd-apply. Use it when
   the person asks to plan or break down the work, write tasks.md or the test
   spec, estimate the size of a change, or runs /sdd-tasks, and when the
@@ -32,8 +32,8 @@ metadata:
 
 ## Before you start
 
-1. Run `exo change status <change> --json` for the tier, the phase and the artifacts. An unknown tier is Tier 4.
-2. Tasks is a Tier 3 and 4 phase. In Tier 2 there is no tasks.md and `sdd-spec` writes test-spec.md; in Tier 1 neither exists. Say so if the person asks for this phase in those tiers.
+1. Run `exo change status <change> --json` for the tier, the phase and the artifacts. An unknown tier is Tier 3.
+2. Tasks is a Tier 3 phase. In Tier 2 there is no tasks.md and `sdd-spec` writes test-spec.md; in Tier 1 neither exists. Say so if the person asks for this phase in those tiers.
 3. design.md must exist and `exo speclint <change-root>` must pass.
 4. Load the skills (section A): `test-strategy` (Required) and `parallel-dispatch` when two or more units are independent; at most 5, each `SKILL.md` read in full. Both ship in the `core` pack, which `sdd` requires: if one is missing, the installation is incomplete. Say so, suggest `exo doctor`, and return `status: blocked`.
 5. Read proposal.md, spec.md, design.md (Modules / Files, Test Plan, Risks & Mitigations) and `.exo/context.md` (how to build and test, whether TDD is strict).
@@ -91,7 +91,7 @@ Follow `test-strategy` and the template's three sections:
 - The test names match the Test Plan of design.md and the tasks.
 - If test-spec.md already exists because `sdd-spec` wrote it while the change was Tier 2, complete it instead of starting over.
 
-## Judge (Tier 4)
+## Judge (Tier 3)
 
 Run `judge-team` as its own read-only delegation to `sdd-judge`, with `## Skills to load before work` and its `SKILL.md` path, the change root, tasks.md and test-spec.md, the stage before it (spec.md and design.md), and the first free `JTEAM` ID (from `exo change followups <change> --status all`). When it is not installed, say `quality/judge-team not installed — applying inline criteria` and pass its inline criteria from `.exo/shared/phase-skill-map.md` (Inline criteria for skills not installed), copied as they are. Without subagents, run it inline after writing the plan and say "no isolation".
 

@@ -38,7 +38,7 @@ It is not the review of the whole change (skill:harness-review, in verify) and i
 
 1. `git status`: what is staged, unstaged and untracked.
 2. `git diff --staged`. If nothing is staged, `git diff`, and say that you reviewed the working diff. Open the changed files where a hunk needs context.
-3. The unit: the task of `tasks.md` (Tier 3 and 4), the proposal's Scope (Tier 1 and 2), or what the person asked for outside SDD.
+3. The unit: the task of `tasks.md` (Tier 3), the proposal's Scope (Tier 1 and 2), or what the person asked for outside SDD.
 4. The proposed commit message, when there is one.
 5. `.exo/config.json`: `tickets.pattern`, `tickets.example` and `governance.protected_branches`. Inside an SDD change, its `ticket_key` (`exo change ai-usage <change> --json`).
 

@@ -136,7 +136,7 @@ Show the diagram and the note. Then save it, after the person agrees, in this or
 2. In the folder where the project keeps diagrams (`docs/diagrams/`, `docs/architecture/` or similar).
 3. With none, `docs/diagrams/<slug>.md`: the title, the diagram block, the legend and the source line.
 
-**Inside an SDD change,** each artifact has an owner (`.exo/shared/sdd-phase-common.md`, section C): return the diagram as text to the phase that owns the document (for example `sdd-design` for design.md, Architecture Overview). A diagram file of its own is a project document, never a file of the change root: any phase may write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C). Never edit another phase's artifact.
+**Inside an SDD change,** each artifact has an owner (`.exo/shared/sdd-phase-common.md`, section C): return the diagram as text to the phase that owns the document (for example `sdd-design` for design.md, Architecture Overview). A diagram file of its own is a project document, never a file of the change root: any phase may write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C). Never edit another phase's artifact.
 
 A complete example, with its note, is in `references/examples.md`.
 

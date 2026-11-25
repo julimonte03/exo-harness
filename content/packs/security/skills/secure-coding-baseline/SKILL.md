@@ -8,7 +8,7 @@ description: >-
   from the environment or a secret manager, no secrets or personal data in
   logs, safe deserialization, vetted cryptography, errors that leak nothing,
   and dependency hygiene. Required in the SDD apply phase of every tier; in
-  Tier 4 it also runs the secure_coding_check gate, a read-only review of the
+  Tier 3 it also runs the secure_coding_check gate, a read-only review of the
   diff against these rules. Use it whenever you write or change code, and when
   someone asks whether code follows secure coding practice. Triggers: "secure
   coding", "write this securely", "is this code secure", "secure coding
@@ -24,7 +24,7 @@ metadata:
 ## Result
 
 - The code written or changed in this session follows the ten rules below. Any rule you cannot follow is visible: a question to the person or a follow-up, never a silent gap.
-- In Tier 4, `<change-root>/gates/secure_coding_check.md`, started from `.exo/shared/templates/gate.md`, and `exo speclint <change-root>` passes.
+- In Tier 3, `<change-root>/gates/secure_coding_check.md`, started from `.exo/shared/templates/gate.md`, and `exo speclint <change-root>` passes.
 - Outside an SDD change, the rules apply to what you write. When someone asks you to check code against them, the gate content goes in the answer and no file is written.
 
 ## When it applies
@@ -54,15 +54,15 @@ Each rule has a stable ID. Cite it in findings, follow-ups and gate rows. The de
 
 1. Before each task, find the entry points and the sinks it touches: where input comes in (routes, consumers, files) and where it ends up (queries, commands, file paths, HTML, outbound requests, deserializers, logs).
 2. Follow the project's existing security helpers first: its validation layer, its authorization middleware, its ORM, its logger with masking. A new helper only when the plan names it.
-3. Write the negative test next to the positive one when a rule is in play: the rejected input, the denied caller, the error that says nothing. In Tier 4, skill:test-strategy already asks for a negative test per risk of `design.md`.
+3. Write the negative test next to the positive one when a rule is in play: the rejected input, the denied caller, the error that says nothing. In Tier 3, skill:test-strategy already asks for a negative test per risk of `design.md`.
 4. Test data is synthetic (`.exo/shared/data-protection.md`, section C): placeholders such as `${DB_PASSWORD}` or `<your-token>`, `example.com` addresses, published test card numbers.
 5. When the data the code handles is personal data or credentials, or it leaves the system, apply skill:data-classification. When logs, tickets or production data have to reach the model, apply skill:prompt-hygiene first.
 
 **When a rule cannot be followed** (the legacy layer only accepts a raw query, the plan forgets an authorization check, a needed library is not in the plan): stop before writing the code and return `status: needs-input` with the rule ID, the reason and what you propose. Never weaken a rule to finish a task.
 
-## The secure_coding_check gate (Tier 4)
+## The secure_coding_check gate (Tier 3)
 
-Runs when the tier's gates in `.exo/config.json` (`governance.gates`) include `secure_coding_check`, which by default is Tier 4. A gate always runs its skill.
+Runs when the tier's gates in `.exo/config.json` (`governance.gates`) include `secure_coding_check`, which by default is Tier 3. A gate always runs its skill.
 
 **When:** after the last apply task, over the full diff of the change; and again every time apply runs after a `needs-rework`, so the gate describes the diff that goes to the PR. `exo check` requires the file once `verify-record.md` exists.
 

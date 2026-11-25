@@ -27,7 +27,7 @@ Every reviewable unit of the change is one commit: a Conventional Commits messag
 
 ## The unit
 
-- **Tier 3 and 4:** one task of `tasks.md`. Join tasks only when they cannot pass their tests apart.
+- **Tier 3:** one task of `tasks.md`. Join tasks only when they cannot pass their tests apart.
 - **Tier 1 and 2:** one coherent part: a scenario with its test and code, a refactor the plan asked for that prepares it, the docs update.
 - **The change's artifacts** (`proposal.md`, `spec.md`, `design.md`, `tasks.md`, `test-spec.md`, `verify-record.md`, `ai-usage-record.json`) belong to the change: commit them in their own `docs` unit, or with the unit they describe.
 - Each commit leaves the build and the tests green: run the test command before committing.

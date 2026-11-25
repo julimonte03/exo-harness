@@ -84,9 +84,9 @@ def test_a3_evidencia_mal_formada_no_se_registra(tmp_path: Path, evidence: objec
     assert not (tmp_path / "specs" / "x" / changes.ASSESSMENT).exists()
 
 
-def test_a3_evidencia_incompleta_si_se_registra_como_tier_4(tmp_path: Path) -> None:
+def test_a3_evidencia_incompleta_si_se_registra_como_tier_3(tmp_path: Path) -> None:
     changes.new_change(tmp_path, "x", now=NOW)
-    assert changes.record_assessment(tmp_path, "x", {"blast_radius": 0}, now=NOW).tier == 4
+    assert changes.record_assessment(tmp_path, "x", {"blast_radius": 0}, now=NOW).tier == 3
 
 
 def test_a3_json_roto_por_cli_sale_con_2_sin_registrar(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -248,7 +248,7 @@ def test_b1_fase_siguiente_en_tier_1_y_rework(tmp_path: Path) -> None:
     assert _phase(tmp_path)[0] == "archive"
 
 
-def test_b1_fase_siguiente_en_tier_3_y_4(tmp_path: Path) -> None:
+def test_b1_fase_siguiente_en_tier_3(tmp_path: Path) -> None:
     changes.new_change(tmp_path, "x", now=NOW)
     changes.record_assessment(tmp_path, "x", {**LOW, "blast_radius": 3}, now=NOW)
     folder = tmp_path / "specs" / "x"
@@ -268,8 +268,9 @@ def test_b1_fase_siguiente_en_tier_3_y_4(tmp_path: Path) -> None:
     _write(folder / "tasks.md", "- [x] 1. a\n- [x] 2. b\n")
     assert _phase(tmp_path)[0] == "verify"
     _write(folder / "verify-record.md", "# Verify\n\n## Verdict\nready\n")
-    assert _phase(tmp_path)[0] == "archive"
-    changes.record_assessment(tmp_path, "x", {**LOW, "reversibility": 3}, now=NOW)  # Tier 4
+    # D-52: todo Tier 3 pasa por judgment-day, lo haya decidido FM-11 o FM-02.
+    assert _phase(tmp_path) == ("judgment", "Tier 3 needs an approved judgment-day before archive")
+    changes.record_assessment(tmp_path, "x", {**LOW, "reversibility": 3}, now=NOW)
     assert _phase(tmp_path)[0] == "judgment"
     changes.update_record(tmp_path, "x", add=[("judges_invoked", {"name": "judgment-day", "result": "approved"})])
     assert _phase(tmp_path)[0] == "archive"

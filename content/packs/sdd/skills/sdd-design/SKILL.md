@@ -4,7 +4,7 @@ description: >-
   Writes the technical design of an SDD change (design.md): architecture,
   modules and files, data shapes, sequence of operations, error handling, a
   Test Plan that maps every scenario S-n of the spec delta to a named test,
-  migration, and risks with their mitigations. A Tier 3 and 4 phase that runs
+  migration, and risks with their mitigations. A Tier 3 phase that runs
   inline, after sdd-spec and before sdd-tasks. Use it when the person asks to
   design the change, write or update design.md, decide how a change will be
   built, or runs /sdd-design, and when the orchestrator reaches the design
@@ -22,20 +22,20 @@ metadata:
 
 - `<change-root>/design.md`, started from `.exo/shared/templates/design.md`, with its 8 sections in order and none of them empty.
 - A Test Plan that names one test for every `S-n` of the spec delta.
-- `exo speclint <change-root>` passes, the Tier 3 and 4 judges have run, and the person approved the design.
+- `exo speclint <change-root>` passes, the Tier 3 judges have run, and the person approved the design.
 - The phase ends with the envelope of `.exo/shared/sdd-phase-common.md`, section D, with `next: tasks`.
 
 ## What it writes and what it never touches
 
-- **Writes** only `<change-root>/design.md` and, when the tier's gates include `threat_model` (Tier 3 and 4 by default), `<change-root>/gates/threat_model.md` through `threat-modeling`; plus the memory mirror in `hybrid` and `memory` persistence (section C).
+- **Writes** only `<change-root>/design.md` and, when the tier's gates include `threat_model` (Tier 3 by default), `<change-root>/gates/threat_model.md` through `threat-modeling`; plus the memory mirror in `hybrid` and `memory` persistence (section C).
 - **With the SPDD overlay** (see SPDD canvas), also `<change-root>/canvas.md` through `reasons-canvas-author` and `<change-root>/gates/prompt_spec_review.md` through `prompt-spec-review`. With `context-anchoring`, `<change-root>/context-anchor.md`.
 - **Never touches** proposal.md, spec.md, exploration.md, the living specs or the code. If an earlier artifact is wrong (a scenario too vague to test, a requirement that contradicts the code), stop and return `status: needs-input` saying what is wrong: the fix belongs to the phase that owns that file.
 - **Project documents outside the change root:** a decision record, a diagram or a solution document that a Conditional asks for lives in the project's docs. Write each one only after the person approves its text, and list it in Modules / Files, so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C). The same holds for a runbook, an SLO or another project document that a skill of a later phase will write: list it here.
 
 ## Before you start
 
-1. Run `exo change status <change> --json` for the tier, the phase and the artifacts. An unknown tier is Tier 4.
-2. Design is a Tier 3 and 4 phase (`.exo/shared/phase-skill-map.md`, Phases per tier). In Tier 1 or 2, say so and ask the person before writing a design. Never change the tier yourself: when the evidence says the change is riskier, send a `fitness_signal`.
+1. Run `exo change status <change> --json` for the tier, the phase and the artifacts. An unknown tier is Tier 3.
+2. Design is a Tier 3 phase (`.exo/shared/phase-skill-map.md`, Phases per tier). In Tier 1 or 2, say so and ask the person before writing a design. Never change the tier yourself: when the evidence says the change is riskier, send a `fitness_signal`.
 3. `spec.md` must exist and pass `exo speclint <change-root>/spec.md`. If it does not, return `needs-input`.
 4. Load the skills (`.exo/shared/sdd-phase-common.md`, section A): the stack router and `threat-modeling` (Required, see Threat model and gate), and the Conditionals below whose trigger applies, at most 5. Read each `SKILL.md` in full. Without a stack router, follow the commands and conventions in `.exo/context.md`.
 5. Read the earlier artifacts as the retrieval mode says (section B): proposal.md, spec.md, exploration.md when present, `.exo/context.md`, and the living specs that the delta modifies or removes (`<specs_dir>/capabilities/<capability>/spec.md`).
@@ -75,11 +75,11 @@ One line per scenario: the scenario, the test file and test name in the project'
 
 ## Threat model and gate
 
-`threat-modeling` is Required in every design whose tier lists the gate `threat_model` in `governance.gates` (Tier 3 and 4 by default; `.exo/shared/phase-skill-map.md`, Gates). Its threats, each with its mitigation and residual risk, go to Risks & Mitigations, and its gate to `<change-root>/gates/threat_model.md`, started from `.exo/shared/templates/gate.md`. When the skill is not installed, say the degradation sentence and still write both from its inline criteria: `exo check` requires the gate.
+`threat-modeling` is Required in every design whose tier lists the gate `threat_model` in `governance.gates` (Tier 3 by default; `.exo/shared/phase-skill-map.md`, Gates). Its threats, each with its mitigation and residual risk, go to Risks & Mitigations, and its gate to `<change-root>/gates/threat_model.md`, started from `.exo/shared/templates/gate.md`. When the skill is not installed, say the degradation sentence and still write both from its inline criteria: `exo check` requires the gate.
 
 ## SPDD canvas (optional overlay)
 
-When `.exo/shared/spdd-common.md`, section A, says the overlay applies (Tier 3 or 4 with domain logic worth fixing before the code, the person asks for it, or the tier lists `prompt_spec_review` in `governance.gates`), record the choice and, once design.md passes speclint:
+When `.exo/shared/spdd-common.md`, section A, says the overlay applies (Tier 3 with domain logic worth fixing before the code, the person asks for it, or the tier lists `prompt_spec_review` in `governance.gates`), record the choice and, once design.md passes speclint:
 
 1. Run skill:reasons-canvas-author: it writes `<change-root>/canvas.md` from the spec, design.md and the threat model.
 2. `exo speclint <change-root>` passes for the canvas too: its seven sections, and IDs that exist.
@@ -100,7 +100,7 @@ Apply each one whose trigger holds (`.exo/shared/phase-skill-map.md`, row design
 
 For example: `design/architecture-decision-record not installed — applying inline criteria`.
 
-## Judges (Tier 3 and 4)
+## Judges (Tier 3)
 
 Once design.md passes speclint, run the design judges, each one as its own read-only delegation to `sdd-judge`, never inside this context:
 

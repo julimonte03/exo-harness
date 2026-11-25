@@ -24,10 +24,10 @@ from typing import Any
 
 from exo import _meta
 from exo.core import config, fsutil, jsonschema, tickets
-from exo.sdd import fitness, observability, record
+from exo.sdd import assessment, fitness, observability, record
 
 ASSESSMENT = observability.ASSESSMENT
-ASSESSMENT_SCHEMA = 1
+ASSESSMENT_SCHEMA = assessment.SCHEMA
 LIST_FIELDS = (
     "skills_used",
     "knowledge_used",
@@ -350,12 +350,7 @@ def fix_followup(project: Path, change: str, followup_id: str) -> RecordUpdate:
 # -- fitness-assessment.json ----------------------------------------------------------------
 
 
-def _read_assessment(path: Path) -> dict[str, Any] | None:
-    try:
-        data = json.loads(fsutil.read_bytes(path).decode("utf-8"))
-    except (FileNotFoundError, UnicodeDecodeError, json.JSONDecodeError):
-        return None
-    return data if isinstance(data, dict) else None
+_read_assessment = assessment.read
 
 
 def read_tier(folder: Path) -> int | None:
@@ -364,8 +359,23 @@ def read_tier(folder: Path) -> int | None:
     return tier if source == "assessment" else None
 
 
+# Lo liviano vive en `assessment` (lo usan sync y update); acá, con los nombres de siempre.
+read_assessment_file = assessment.read
+dump_assessment = assessment.dump
+migrate_assessment = assessment.migrate
+
+
+def assessment_schema(folder: Path) -> int | None:
+    """El esquema de `fitness-assessment.json` (sin campo, 1), o None si falta o no se lee."""
+    data = _read_assessment(Path(folder) / ASSESSMENT)
+    if data is None:
+        return None
+    schema = data.get("schema", 1)
+    return schema if isinstance(schema, int) and not isinstance(schema, bool) else None
+
+
 def effective_tier(folder: Path) -> int:
-    """Tier desconocido o ilegible es Tier 4 (§6.3)."""
+    """Tier desconocido o ilegible es Tier 3 (§6.3)."""
     tier = read_tier(folder)
     return fitness.FAILSAFE_TIER if tier is None else tier
 
@@ -388,7 +398,7 @@ def record_assessment(
     if malformed:
         raise ChangeError(
             "the evidence is malformed (" + "; ".join(malformed) + "), so nothing was recorded: "
-            "fix it and run again. A missing dimension is fine: it gives Tier 4 (FM-00)"
+            "fix it and run again. A missing dimension is fine: it gives Tier 3 (FM-00)"
         )
     decision = fitness.classify(evidence)
     exists = path.exists()
@@ -406,8 +416,11 @@ def record_assessment(
                 '--confirm-downgrade "<their exact words>"'
             )
     payload = decision.to_dict()
-    unchanged = old is not None and {k: old.get(k) for k in payload} == json.loads(
-        json.dumps(payload)
+    # Un assessment de otro esquema se reescribe aunque la decisión sea la misma (D-52).
+    unchanged = (
+        old is not None
+        and old.get("schema") == ASSESSMENT_SCHEMA
+        and {k: old.get(k) for k in payload} == json.loads(json.dumps(payload))
     )
     if comparison == "same" and unchanged:
         return Assessment(decision.tier, previous, comparison, False, rel, decision)
@@ -427,5 +440,10 @@ def record_assessment(
         "assessed_at": stamp,
         "history": [*(history if isinstance(history, list) else []), entry],
     }
+    if old is not None and "migrated_from" in old:
+        data["migrated_from"] = old["migrated_from"]
+    elif old is not None and old.get("schema", 1) == 1 and fitness.legacy_tier(old.get("tier")):
+        # Un Tier 4 de la 1.0 sin migrar que se reclasifica: queda dicho de dónde venía.
+        data["migrated_from"] = old["tier"]
     fsutil.write_atomic(path, _dump(data))
     return Assessment(decision.tier, previous, comparison, True, rel, decision)

@@ -3,7 +3,7 @@
 Use this template for each of the two delegations to `sdd-judge`, in every round: one for `judge-code-reviewer` and one for `judge-security`. Launch both at the same time, and never put one judge's findings in the other's prompt.
 
 ```markdown
-You are the judge `<judge-code-reviewer | judge-security>` in round <n> of the judgment day of the SDD change `<change-name>` (Tier 4).
+You are the judge `<judge-code-reviewer | judge-security>` in round <n> of the judgment day of the SDD change `<change-name>` (Tier 3).
 
 ## Skills to load before work
 
@@ -16,7 +16,7 @@ Report how you resolved each skill (.exo/shared/skill-resolver.md).
 ## Change
 
 - Change root: <specs_dir>/[<epic>/]<change-name>/
-- Phase: judgment. Tier: 4.
+- Phase: judgment. Tier: 3.
 - Start from: verify-record.md, section Judgment Day Handoff.
 - Stage before: spec.md, design.md (Risks & Mitigations), tasks.md, test-spec.md.
 - What to review: <the diff text against <base>, or the list of changed files>

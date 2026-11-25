@@ -40,7 +40,7 @@ import _agents as agents
 import _skill_evals as evals
 from _git import init_repo
 from exo.core import config
-from exo.sdd import speclint
+from exo.sdd import observability, speclint
 
 pytestmark = pytest.mark.agent_e2e
 
@@ -52,8 +52,10 @@ AUTOMATIC = (
     "This is a non-interactive run: I approve every phase in advance, so work in automatic "
     'mode and do not wait for "Adjust anything or continue?". Still follow every rule of the '
     "SDD contracts (tier rules, delegation, fresh-context verify, records, the phase log). Go "
-    "through all the phases the tier requires, up to and including sdd-archive. Commit the "
-    "work in the project's git repository, but do not push and do not open a PR."
+    "through all the phases the tier requires, up to and including sdd-archive. If the tier "
+    "requires judgment-day, run it; I approve its outcome in advance unless it finds a blocking "
+    "issue, so record it as approved only in that case. Commit the work in the project's git "
+    "repository, but do not push and do not open a PR."
 )
 TIER_ARTIFACTS = {
     1: ("proposal.md", "fitness-assessment.json", "verify-record.md", "ai-usage-record.json"),
@@ -80,6 +82,7 @@ class Scenario:
     tier: int | None = None  # el tier mínimo esperado; None en la adopción
     exact_tier: bool = False
     init: tuple[str, ...] = ()
+    evidence: dict[str, int] | None = None  # dimensiones que el assessment tiene que tener
 
 
 SCENARIOS = (
@@ -111,6 +114,27 @@ SCENARIOS = (
         python=True,
         tier=3,
         init=TICKETS,
+    ),
+    # F9, criterio 6 (D-52): seguridad en 3 daba Tier 4 en la 1.0; ahora es Tier 3 con judgment-day.
+    Scenario(
+        id="tier3-security",
+        fixture="toy-python",
+        packs=("core", "sdd", "quality", "security"),
+        prompt=(
+            "/sdd-new Add user accounts: `toy-todo register` and `toy-todo login` with a "
+            "username and a password, so each user sees only their own tasks. Store the "
+            "passwords hashed and never print or log them. These are credentials, so the "
+            "security and data sensitivity of this change is the highest (3).\n\nThe ticket "
+            f"for this change is PROJ-43 (I confirm it); it has no epic. {AUTOMATIC} At the "
+            "end, report the tier and the rule that decided it, the evidence for each "
+            "dimension, every phase you ran and where it ran, the judgment-day outcome, the "
+            "artifacts, and the output of `exo check`."
+        ),
+        python=True,
+        tier=3,
+        exact_tier=True,
+        init=TICKETS,
+        evidence={"security_data_sensitivity": 3},
     ),
     Scenario(
         id="adopt-quick",
@@ -276,10 +300,27 @@ def check_cycle(
         return [f"expected one archived change, found {facts['archived']}"], facts
     change = project / archived[0]["path"]
     try:
-        tier = json.loads((change / "fitness-assessment.json").read_text(encoding="utf-8"))["tier"]
+        assessment = json.loads((change / "fitness-assessment.json").read_text(encoding="utf-8"))
+        tier = assessment["tier"]
     except (OSError, ValueError, KeyError, TypeError):
-        tier = None
+        assessment, tier = {}, None
     facts["tier"] = tier
+    facts["rule"] = assessment.get("rule") if isinstance(assessment, dict) else None
+    evidence = assessment.get("evidence") if isinstance(assessment, dict) else None
+    for dimension, value in (scenario.evidence or {}).items():
+        got = evidence.get(dimension) if isinstance(evidence, dict) else None
+        if got != value:
+            failed.append(f"evidence {dimension} = {got}, expected {value}")
+    if tier == 3:
+        # D-52: todo Tier 3 termina con un judgment-day aprobado en el AI Usage Record.
+        try:
+            usage = json.loads((change / "ai-usage-record.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            usage = {}
+        judges = usage.get("judges_invoked") if isinstance(usage, dict) else None
+        facts["judgment_day"] = observability.judgment_approved(judges)
+        if not facts["judgment_day"]:
+            failed.append("Tier 3 without an approved judgment-day in the AI Usage Record")
     expected = scenario.tier or 0
     wrong = tier != expected if scenario.exact_tier else not isinstance(tier, int) or tier < expected
     if wrong:

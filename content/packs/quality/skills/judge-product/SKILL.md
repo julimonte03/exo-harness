@@ -38,8 +38,8 @@ The findings of one review in the format of the `sdd-judge` subagent: a Verdict 
 
 | Phase | What you review | Against (the stage before) |
 |---|---|---|
-| propose (Tier 3 and 4) | `proposal.md` | the person's request, `exploration.md` when there is one, and `.exo/context.md` |
-| spec (Tier 3 and 4) | `spec.md` (the delta) | `proposal.md` |
+| propose (Tier 3) | `proposal.md` | the person's request, `exploration.md` when there is one, and `.exo/context.md` |
+| spec (Tier 3) | `spec.md` (the delta) | `proposal.md` |
 | outside SDD | the proposal, spec, feature description or user story the person gives | the problem or the ticket the person gives |
 
 ## Criteria

@@ -31,8 +31,8 @@ metadata:
 ## When
 
 - **On request only:** someone wants every angle on a change, a diff, a branch or a set of artifacts before a big decision (a release, a launch, a hard-to-reverse design, a risky merge).
-- It is not in the phase map, owns no gate, and replaces neither the judges of each phase nor skill:judgment-day in Tier 4.
-- **Not for:** a check before committing (skill:pre-commit-review), the review of verify (skill:harness-review), the final Tier 4 review (skill:judgment-day), or a single angle (call that judge directly).
+- It is not in the phase map, owns no gate, and replaces neither the judges of each phase nor skill:judgment-day in Tier 3.
+- **Not for:** a check before committing (skill:pre-commit-review), the review of verify (skill:harness-review), the final Tier 3 review (skill:judgment-day), or a single angle (call that judge directly).
 - It costs up to six reviews plus a moderation. When the target is small, say so and offer the one judge that fits.
 
 ## Contract

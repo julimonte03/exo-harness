@@ -6,7 +6,7 @@ description: >-
   sections (Requirements, Entities, Approach, Structure, Operations, Norms,
   Safeguards) drawn from the spec delta, design.md and the threat model. Part
   of the optional SPDD overlay: it runs in the design phase, after design.md
-  (right before apply in Tier 1 and 2), for Tier 3 and 4 changes with domain
+  (right before apply in Tier 1 and 2), for Tier 3 changes with domain
   logic worth fixing first (business rules, calculations, state machines,
   permissions, money, integration contracts), whenever the person asks for
   it, or when the project requires it in the tier. A section it cannot fill
@@ -34,10 +34,10 @@ The rules of the overlay are in `.exo/shared/spdd-common.md`. When this skill an
 
 ## When
 
-- **Only when the overlay applies** (`.exo/shared/spdd-common.md`, section A): Tier 3 or 4 with domain logic worth fixing before the code; the person asks for it, at any tier; or the tier lists `prompt_spec_review` in `governance.gates`, which makes the canvas mandatory there.
+- **Only when the overlay applies** (`.exo/shared/spdd-common.md`, section A): Tier 3 with domain logic worth fixing before the code; the person asks for it, at any tier; or the tier lists `prompt_spec_review` in `governance.gates`, which makes the canvas mandatory there.
 - **Not** for configuration, copy, styling, dependency bumps, or refactors with no behavior change, unless the tier requires the gate. When in doubt in an interactive run, ask once: "This change has <the rule or calculation>. Do you want a canvas? It adds your approval of the contract before any code." In an unattended run, skip it and say so in the phase notes.
 - **In the design phase** (skill:sdd-design), in this order:
-  1. design.md passes speclint, and the threat model is in Risks & Mitigations (Tier 3 and 4);
+  1. design.md passes speclint, and the threat model is in Risks & Mitigations (Tier 3);
   2. this skill writes canvas.md;
   3. the design judges review design.md and canvas.md together (`.exo/shared/judge-common.md`, section C);
   4. skill:prompt-spec-review asks the person to approve the canvas;
@@ -54,8 +54,8 @@ The rules of the overlay are in `.exo/shared/spdd-common.md`. When this skill an
 
 ## Before you start
 
-1. Run `exo change status <change> --json` for the tier, the phase and the artifacts. An unknown tier is Tier 4.
-2. spec.md and design.md exist (Tier 3 and 4) and `exo speclint <change-root>` passes. Otherwise return `needs-input`.
+1. Run `exo change status <change> --json` for the tier, the phase and the artifacts. An unknown tier is Tier 3.
+2. spec.md and design.md exist (Tier 3) and `exo speclint <change-root>` passes. Otherwise return `needs-input`.
 3. Read in full: spec.md; design.md, every section, with the `### Threat model` of Risks & Mitigations; proposal.md (Scope, Out of Scope); `gates/threat_model.md` when present; `.exo/context.md` (conventions, test command); and the living specs that the delta modifies (`<specs_dir>/capabilities/<capability>/spec.md`).
 4. Read the code the change touches, for Entities and Norms. Read 1 to 3 files inline; for 4 or more, delegate the reading to `sdd-explorer` (`.exo/shared/sdd-phase-common.md`, section G).
 5. If canvas.md already exists, update it. Never start over without saying so.

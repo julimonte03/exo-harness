@@ -44,8 +44,8 @@ Only then. The change touches UI when the diff or `design.md` (Modules / Files) 
 
 | Phase | What you review | Against (the stage before) |
 |---|---|---|
-| design (Tier 3 and 4, UI) | the UI of `design.md` (and `canvas.md` when there is one): components, states, data flows | `spec.md` and `proposal.md`; for `canvas.md`, `design.md` too |
-| verify (Tier 3 and 4, UI) | the UI files of the diff, in full | `spec.md`, `design.md` and `tasks.md` |
+| design (Tier 3, UI) | the UI of `design.md` (and `canvas.md` when there is one): components, states, data flows | `spec.md` and `proposal.md`; for `canvas.md`, `design.md` too |
+| verify (Tier 3, UI) | the UI files of the diff, in full | `spec.md`, `design.md` and `tasks.md` |
 | outside SDD | the UI files or the design the person gives | the ticket or the description the person gives |
 
 ## Criteria

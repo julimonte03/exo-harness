@@ -9,6 +9,9 @@ con tres diferencias:
   (un renombre conocido, como tal) y solo se borran con `prune`.
 - **Config:** si se migró al leerla, se guarda migrada, en la misma transacción y con
   el mismo snapshot que el resto.
+- **Assessments (D-52):** los `fitness-assessment.json` de changes activos que siguen
+  en el esquema de la 1.0 pasan a tres tiers (`changes.migrate_assessment`), en la misma
+  transacción. Los archivados no se tocan.
 
 Un lock escrito por un motor más nuevo no se lleva hacia atrás sin `force`: lo frena
 `project.sync`, igual que en `init`, `sync`, `add-agent` y `remove-agent`.
@@ -45,6 +48,11 @@ class UpdateResult:
             if a.action == action and a.detail != OUTSIDE_THE_LOCK
         )
         return list(dict.fromkeys(found))
+
+    @property
+    def assessments_written(self) -> bool:
+        """Los assessments de la 1.0 se escribieron migrados (D-52)."""
+        return bool(self.sync.assessments) and self.engine.applied
 
     @property
     def up_to_date(self) -> bool:

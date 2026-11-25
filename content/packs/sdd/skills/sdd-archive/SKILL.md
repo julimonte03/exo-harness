@@ -6,7 +6,7 @@ description: >-
   what the merge cannot (the Purpose of a new capability, clashing text), runs
   the wiki checkpoint, moves the change folder to the archive with git mv,
   commits, and prepares the pull request. Runs inline. Use it when the verify
-  Verdict is ready (and, in Tier 4, judgment-day is approved) and the person
+  Verdict is ready (and, in Tier 3, judgment-day is approved) and the person
   asks to archive, close or finish the change, fold its delta into the living
   specs, open its PR, or runs /sdd-archive, and when the orchestrator reaches
   the archive phase.
@@ -37,10 +37,10 @@ metadata:
 
 ## 1. Preconditions
 
-1. `exo change status <change> --json`: the tier and the artifacts. An unknown tier is Tier 4.
+1. `exo change status <change> --json`: the tier and the artifacts. An unknown tier is Tier 3.
 2. The Verdict of verify-record.md is `ready`. Otherwise stop: `next: apply` for `needs-rework`, `next: verify` when there is no record.
-3. In Tier 3 and 4 the record comes from a fresh-context verify (`.exo/shared/project-wiki-guard.md`). If it declares "no isolation", the person chose that (`.exo/shared/agent-capabilities.md`): in Tier 4 their approval must be in `decisions`, and the notes say so.
-4. In Tier 4, an approved `judgment-day` is in the AI Usage Record (`exo change ai-usage <change> --json`, field `judges_invoked`). Without it, stop with `next: judgment`.
+3. In Tier 3 the record comes from a fresh-context verify (`.exo/shared/project-wiki-guard.md`). If it declares "no isolation", the person chose that (`.exo/shared/agent-capabilities.md`): their approval must be in `decisions`, and the notes say so.
+4. In Tier 3, an approved `judgment-day` is in the AI Usage Record (`exo change ai-usage <change> --json`, field `judges_invoked`). Without it, stop with `next: judgment`.
 5. No finding is undecided: `exo change followups <change>` lists no open followups, and every finding in `verify-record.md`, Issues Found, is fixed or dismissed by the person (`.exo/shared/capability-attribution.md`, Findings). In automatic mode, a Medium or Low finding is decided once it is recorded as `deferred to a followup (automatic mode)`: a dismissal with that reason, or a decision that names the issue of Issues Found (skill:sdd-verify, Judges). It does not stop the archive, and `pr.md` lists it under Known followups (step 8).
 6. `exo check --change <change>` passes. An error in an artifact goes back to the phase that owns it.
 7. If a `handoff.md` was left in the change root by a verify, delete it: it is not an artifact.
