@@ -89,6 +89,108 @@ def test_actions_fijadas_por_sha_con_su_version(workflow: Path) -> None:
     assert bad == [], "pin `uses:` to a full commit SHA with the version in a comment"
 
 
+_ITEM = re.compile(r"^(?P<indent>\s*)-\s+\S")
+
+
+def steps(text: str) -> list[tuple[int, str]]:
+    """`(línea, texto)` de cada elemento `- ...` de una lista en bloque, con sus claves."""
+    lines = text.splitlines()
+    found: list[tuple[int, str]] = []
+    for i, line in enumerate(lines):
+        match = _ITEM.match(line)
+        if not match:
+            continue
+        base = len(match.group("indent"))
+        end = i + 1
+        while end < len(lines) and (
+            not lines[end].strip() or len(lines[end]) - len(lines[end].lstrip()) > base
+        ):
+            end += 1
+        found.append((i + 1, "\n".join(lines[i:end])))
+    return found
+
+
+def jobs(text: str) -> dict[str, str]:
+    """Nombre -> texto de cada job de `jobs:` (claves con dos espacios de sangría)."""
+    body = text.split("\njobs:\n", 1)[1]
+    found: dict[str, str] = {}
+    name = None
+    for line in body.splitlines():
+        match = re.match(r"^  (?P<name>[\w-]+):\s*$", line)
+        if match:
+            name = match.group("name")
+            found[name] = ""
+        elif name and (not line.strip() or line.startswith("   ")):
+            found[name] += line + "\n"
+        elif line.strip() and not line.startswith(" "):
+            name = None
+    return found
+
+
+def _uses(step: str, action: str) -> bool:
+    return re.search(rf"^\s*(?:-\s+)?uses:\s*{re.escape(action)}@", step, re.M) is not None
+
+
+def test_el_lector_de_steps_y_jobs() -> None:
+    text = (
+        "on: push\n"
+        "jobs:\n"
+        "  uno:\n"
+        "    steps:\n"
+        "      - uses: actions/checkout@abc # v4\n"
+        "        with:\n"
+        "          persist-credentials: false\n"
+        "\n"
+        "      - name: x\n"
+        "        run: echo\n"
+        "  dos:\n"
+        "    needs: uno\n"
+    )
+    found = steps(text)
+    assert [n for n, _ in found] == [5, 9]
+    assert "persist-credentials: false" in found[0][1] and "run:" not in found[0][1]
+    assert _uses(found[0][1], "actions/checkout") and not _uses(found[1][1], "actions/checkout")
+    assert set(jobs(text)) == {"uno", "dos"} and "needs: uno" in jobs(text)["dos"]
+
+
+@pytest.mark.parametrize("workflow", WORKFLOWS, ids=lambda p: p.name)
+def test_checkout_sin_credenciales_persistidas(workflow: Path) -> None:
+    """F8R2-16: con las credenciales por defecto, el token queda en `.git/config` para todo
+    lo que corre después en el job. Ningún job empuja con git; el release usa `gh` con
+    `GH_TOKEN`."""
+    found = [s for s in steps(workflow.read_text(encoding="utf-8")) if _uses(s[1], "actions/checkout")]
+    assert found, "no checkout"
+    bad = [f"{workflow.name}:{n}" for n, step in found if "persist-credentials: false" not in step]
+    assert bad == [], "add `with: persist-credentials: false` to actions/checkout"
+
+
+@pytest.mark.parametrize("workflow", WORKFLOWS, ids=lambda p: p.name)
+def test_upload_artifact_falla_sin_archivos(workflow: Path) -> None:
+    """F8R2-15: un artefacto vacío no pasa en silencio."""
+    text = workflow.read_text(encoding="utf-8")
+    found = [s for s in steps(text) if _uses(s[1], "actions/upload-artifact")]
+    bad = [f"{workflow.name}:{n}" for n, step in found if "if-no-files-found: error" not in step]
+    assert bad == [], "add `if-no-files-found: error` to actions/upload-artifact"
+
+
+def _workflow(name: str) -> str:
+    return next(p for p in WORKFLOWS if p.name == name).read_text(encoding="utf-8")
+
+
+def test_el_build_de_la_ci_revisa_el_paquete_con_twine() -> None:
+    """F8R2-15: lo mismo que el release, así un README o metadatos rotos fallan en el PR."""
+    build = jobs(_workflow("ci.yml"))["build"]
+    assert "twine check --strict dist/*" in build
+    assert re.search(r"pip install[^\n]*\btwine\b", build)
+
+
+def test_el_release_corre_los_tests_antes_del_build() -> None:
+    """F8R2-11: un tag no publica un build cuya suite falla."""
+    found = jobs(_workflow("release.yml"))
+    assert re.search(r"^\s*run:\s*pytest\b", found["tests"], re.M)
+    assert re.search(r"^    needs:\s*\[?\s*tests\b", found["build"], re.M)
+
+
 def test_dependabot_actualiza_las_actions() -> None:
     config = Path(__file__).resolve().parents[1] / ".github" / "dependabot.yml"
     text = config.read_text(encoding="utf-8")
