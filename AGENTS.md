@@ -62,3 +62,4 @@ exo p0                      # gate de controles P0 (desde F5)
 - Conventional Commits; un commit por unidad de trabajo revisable.
 - Rama por fase: `feat/F<n>-<slug>`. Nunca push directo a `main` ni `--force`.
 - Al cerrar una fase: correr cada criterio de aceptación con el comando exacto y registrar el resultado en `docs/plan/PROGRESO.md`.
+- La rama de la fase llega a `main` solo por un PR, que el dueño abre y mergea en GitHub con la CI en verde (D-51). Nunca un merge local a `main` ni un push a `main`.

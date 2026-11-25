@@ -2,11 +2,11 @@
 
 **Fase activa:** F8, en curso (plan aprobado el 2026-11-19; rama `feat/F8-v1`). Repo público en `https://github.com/julimonte03/exo-harness` (D-22, ADR-0017).
 
-Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron con el comando exacto, la CI está verde en los tres sistemas operativos y el PR de la fase está mergeado.
+Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron con el comando exacto, la CI está verde en los tres sistemas operativos y el PR de la fase está mergeado; desde F8, el dueño lo abre y lo mergea en GitHub (D-51).
 
 **Hasta F7, sin repo remoto** (decisión del dueño, 2026-10-30): las fases se cerraron en local. La suite y el lint se corrieron en Windows y en Linux (Ubuntu en WSL, sobre un clon limpio), y la rama se mergeó a `main` con `git merge --no-ff`, sin push. La CI y el PR quedaron diferidos (ADR-0008).
 
-**Desde F8** (D-22, D-45): el repo es público en GitHub y la CI corre en GitHub Actions, con Windows, macOS y Linux y Python 3.10 a 3.13 (`.github/workflows/ci.yml`). `main` y las ramas de F0 a F7 se subieron el 2026-11-19. `azure-pipelines.yml` queda como ejemplo, sin paridad.
+**Desde F8** (D-22, D-45): el repo es público en GitHub y la CI corre en GitHub Actions, con Windows, macOS y Linux y Python 3.10 a 3.13 (`.github/workflows/ci.yml`). `main` y las ramas de F0 a F7 se subieron el 2026-11-19. `azure-pipelines.yml` queda como ejemplo, sin paridad. Cada fase cierra con un PR de su rama a `main`, que el dueño abre y mergea en GitHub con la CI en verde; nunca hay push directo a `main` (D-51).
 
 ## Estado por fase
 
@@ -20,7 +20,7 @@ Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron 
 | F5 Gobierno y gates | Terminada (local; CI diferida) | `feat/F5-gobierno`, mergeada a `main` en local, sin PR | 2026-11-15 | 2026-11-16 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL); 7 con Claude Code real (Tier 1 y Tier 2), Copilot opcional. Hito M2 (v0.1.0). D-12, D-21 y D-29 a D-32 → ADR-0014 |
 | F6 Ingeniería inversa | Terminada (local; CI diferida) | `feat/F6-ingenieria-inversa`, mergeada a `main` en local, sin PR | 2026-11-16 | 2026-11-17 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL); 3 a 5 con Claude Code real (dos corridas sobre `py-invoices`), Copilot opcional. Criterio 8 diferido a F8 (D-35). Hito M3 (v0.2.0). D-14, D-19 y D-33 a D-37 → ADR-0015 |
 | F7 Packs | Terminada (local; CI diferida) | `feat/F7-packs`, mergeada a `main` en local, sin PR | 2026-11-17 | 2026-11-17 | Criterios 1–4 OK en Windows (3.14 y 3.10) y Linux (WSL); 3 con Claude Code real (117 de 117 evals). 65 skills nuevas, 6 packs nuevos. D-12 (resto), D-18 y D-38 a D-44 → ADR-0016 |
-| F8 Endurecimiento + v1.0 | En curso | `feat/F8-v1` | 2026-11-19 | | D-22, D-35, D-17 y D-45 a D-48 → ADR-0017 y ADR-0018 (propuesta). Historia limpia y primer push (D-46) |
+| F8 Endurecimiento + v1.0 | En curso | `feat/F8-v1`, PR a `main` (D-51) | 2026-11-19 | | D-22, D-35, D-17 y D-45 a D-48 → ADR-0017 y ADR-0018 (aceptada el 2026-11-22). D-49 (licencia MIT), D-50 (cierre con el Tier 3 de Copilot parcial y sus checklists como deuda) y D-51 (cierre por PR). Historia limpia y primer push (D-46) |
 
 Estados: `Pendiente` · `En curso` · `Bloqueada (D-xx)` · `Terminada`.
 

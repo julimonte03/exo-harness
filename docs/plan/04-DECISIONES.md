@@ -122,7 +122,7 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 
 ### D-17 — Overlays de persona
 - **Default:** se posponen a F8 como opcionales.
-- **Estado:** Decidida por el dueño, 2026-11-19: entran en F8. El diseño está en ADR-0018 (propuesta) y se confirma antes del código.
+- **Estado:** Decidida por el dueño, 2026-11-19: entran en F8. El diseño está en ADR-0018, aceptada el 2026-11-22, cuando el dueño lo confirmó antes del código.
 
 ### D-18 — Licencia de las skills de origen `ecc`
 - **Contexto:** 14 skills del reporte dicen venir de un catálogo externo adaptado.
@@ -285,6 +285,7 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 ### D-47 — Copilot para la v1.0
 - **Contexto:** el criterio 1 de la v1.0 pide Claude Code y Copilot, y en esta máquina no había Copilot CLI.
 - **Estado:** Decidida por el dueño, 2026-11-19: se instala Copilot CLI acá y el dueño inicia sesión. Con él se corren los escenarios de la v1.0 y los checklists de Copilot pendientes desde F2.
+- **Resultado (2026-11-25):** se corrieron los escenarios de la v1.0, con el Tier 3 parcial. Los checklists de Copilot de F2 a F7 no se corrieron, porque la cuota de la cuenta se terminó con los escenarios: quedan como deuda (D-50, `docs/checklists/F8-v1.md`).
 
 ### D-48 — Idioma de la documentación de usuario
 - **Contexto:** el repo es público. Los docs del plan están en español, y lo que se instala, en inglés (ADR-0011).
@@ -294,3 +295,12 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 - **Contexto:** el repo es público en la cuenta personal del dueño y no tenía licencia. Sin licencia, el código queda con todos los derechos reservados: se ve pero no se puede usar, y PyPI no declara ninguna.
 - **Opciones:** MIT (permisiva y corta); Apache-2.0 (permisiva, con concesión de patentes); sin licencia.
 - **Estado:** Decidida por el dueño, 2026-11-22: el código es suyo y open source. Va con MIT (`LICENSE`, `license = "MIT"` en `pyproject.toml`, PEP 639); el copyright queda a su nombre.
+
+### D-50 — Cierre de F8 con el Tier 3 de Copilot parcial
+- **Contexto:** el criterio 3 de la v1.0 pide los escenarios con agentes reales. Con Copilot, el Tier 3 hizo todas las fases hasta verify pero no archivó: el verify quedó `blocked` con razón (un riesgo que solo acepta el `tech_lead`), Copilot CLI 1.0.114 con `-p` denegaba los comandos que no eran simples, y la cuenta se quedó sin cuota antes de la última reanudación. Por la misma cuota no se corrieron los checklists de Copilot de F2 a F7 (D-47). La evidencia y las causas están en `docs/checklists/F8-v1.md`.
+- **Opciones:** esperar a tener cuota y repetir el Tier 3 y los checklists; cerrar F8 con lo que hay y dejarlos como deuda.
+- **Estado:** Decidida por el dueño, 2026-11-25 ("Cerrar con lo que hay"): F8 cierra con el Tier 3 de Copilot parcial, y los checklists de Copilot de F2 a F7 quedan como deuda, para cuando haya cuota.
+
+### D-51 — Cierre de cada fase por PR
+- **Contexto:** hasta F7 las fases se cerraban en local, con `git merge --no-ff` a `main` y sin remoto. Desde F8 el repo es público y la CI corre en GitHub Actions (D-22, D-45).
+- **Estado:** Decidida por el dueño, 2026-11-25: desde F8, cada fase termina con un PR de su rama a `main` que el dueño abre y mergea en GitHub con la CI en verde. Nunca hay push directo a `main`.
