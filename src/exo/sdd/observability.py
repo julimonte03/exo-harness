@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from exo.core import config, fsutil
-from exo.sdd import fitness, speclint
+from exo.sdd import fitness
 
 ARCHIVE = "archive"
 CAPABILITIES = "capabilities"
@@ -310,6 +310,9 @@ def next_phase(
         return "tasks", f"Tier {tier} needs tasks.md and test-spec.md"
     result = None
     if "verify-record.md" in has:
+        # Diferido: `sync` y `update` usan este módulo sin cargar speclint (F8R1-16).
+        from exo.sdd import speclint
+
         result = speclint.verdict(_text(folder / "verify-record.md"))
     if result == "needs-rework":
         if (done[-1] if done else None) != "apply":

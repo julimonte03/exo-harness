@@ -24,11 +24,10 @@ from typing import Any
 
 from exo import _meta
 from exo.core import config, fsutil, jsonschema, tickets
-from exo.sdd import fitness, observability, record
+from exo.sdd import assessment, fitness, observability, record
 
 ASSESSMENT = observability.ASSESSMENT
-# 2 desde D-52 (tres tiers). El 1 es de la 1.0: puede traer un tier 4 (ver migrate_assessment).
-ASSESSMENT_SCHEMA = 2
+ASSESSMENT_SCHEMA = assessment.SCHEMA
 LIST_FIELDS = (
     "skills_used",
     "knowledge_used",
@@ -351,12 +350,7 @@ def fix_followup(project: Path, change: str, followup_id: str) -> RecordUpdate:
 # -- fitness-assessment.json ----------------------------------------------------------------
 
 
-def _read_assessment(path: Path) -> dict[str, Any] | None:
-    try:
-        data = json.loads(fsutil.read_bytes(path).decode("utf-8"))
-    except (FileNotFoundError, UnicodeDecodeError, json.JSONDecodeError):
-        return None
-    return data if isinstance(data, dict) else None
+_read_assessment = assessment.read
 
 
 def read_tier(folder: Path) -> int | None:
@@ -365,14 +359,10 @@ def read_tier(folder: Path) -> int | None:
     return tier if source == "assessment" else None
 
 
-def read_assessment_file(path: Path) -> dict[str, Any] | None:
-    """`fitness-assessment.json` como dict, o None si falta o no se puede leer."""
-    return _read_assessment(Path(path))
-
-
-def dump_assessment(data: dict[str, Any]) -> bytes:
-    """Los bytes con los que el motor escribe un assessment."""
-    return _dump(data)
+# Lo liviano vive en `assessment` (lo usan sync y update); acá, con los nombres de siempre.
+read_assessment_file = assessment.read
+dump_assessment = assessment.dump
+migrate_assessment = assessment.migrate
 
 
 def assessment_schema(folder: Path) -> int | None:
@@ -388,36 +378,6 @@ def effective_tier(folder: Path) -> int:
     """Tier desconocido o ilegible es Tier 3 (§6.3)."""
     tier = read_tier(folder)
     return fitness.FAILSAFE_TIER if tier is None else tier
-
-
-def migrate_assessment(data: Any, *, now: datetime | None = None) -> dict[str, Any] | None:
-    """Lleva un `fitness-assessment.json` del esquema 1 (la 1.0, cuatro tiers) al actual.
-
-    D-52: un Tier 4 pasa a 3 y registra `migrated_from: 4`; un Tier 3 adopta las
-    reglas nuevas (`judgment-day` siempre). Los dos suman una entrada `migrated` a la
-    historia, sin reescribir las anteriores. Un Tier 1 o 2 solo cambia de esquema.
-    Devuelve None si no hay nada que migrar: ya es del esquema actual, o no se puede
-    leer (eso lo informa `exo check`, no se adivina).
-    """
-    if not isinstance(data, dict):
-        return None
-    schema = data.get("schema", 1)
-    tier = data.get("tier")
-    if isinstance(schema, bool) or schema != 1:
-        return None
-    if isinstance(tier, bool) or not isinstance(tier, int) or not 1 <= tier <= 4:
-        return None
-    out = {**data, "schema": ASSESSMENT_SCHEMA}
-    if tier >= 3:
-        new = fitness.normalize_tier(tier)
-        out.update(tier=new, ceremony=fitness.CEREMONIES[new], judgment_day=True)
-        if tier != new:
-            out["migrated_from"] = tier
-        history = data.get("history")
-        entry = {"tier": new, "rule": data.get("rule"), "at": _stamp(now), "change": "migrated"}
-        entry["from"] = tier
-        out["history"] = [*(history if isinstance(history, list) else []), entry]
-    return out
 
 
 def record_assessment(

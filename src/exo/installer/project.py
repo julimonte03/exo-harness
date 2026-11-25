@@ -242,15 +242,14 @@ def _legacy_assessments(project: Path) -> dict[str, bytes]:
     Los archivados no se tocan: se leen con tolerancia. Un assessment que no se
     puede leer tampoco: lo informa `exo check`.
     """
-    from exo.sdd import changes, observability
+    from exo.sdd import assessment, observability
 
     found: dict[str, bytes] = {}
     for change in observability.find_changes(project, include_archived=False):
-        rel = f"{change.path}/{changes.ASSESSMENT}"
-        data = changes.read_assessment_file(project / rel)
-        migrated = changes.migrate_assessment(data)
+        rel = f"{change.path}/{observability.ASSESSMENT}"
+        migrated = assessment.migrate(assessment.read(project / rel))
         if migrated is not None:
-            found[rel] = changes.dump_assessment(migrated)
+            found[rel] = assessment.dump(migrated)
     return found
 
 
