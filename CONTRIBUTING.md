@@ -107,7 +107,7 @@ They need `claude` and, for the scenarios, `copilot` installed and signed in. Ea
 
    - `name` equals the folder: kebab-case, up to 64 characters, unique in the whole content.
    - `description` (up to 1024 characters) carries explicit triggers in English: agents pick the skill by it.
-   - Only the standard fields (`name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools`) go at the top; everything of exo's goes in `metadata` with the `exo-` prefix. `exo-execution` is `inline` or `subagent` (with `exo-subagent` naming it); `exo-permissions` is `read-only`, `write-specs` or `write-code`.
+   - Only the standard fields (`name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools`) go at the top; everything of exo's goes in `metadata` with the `exo-` prefix. `exo-execution` is `inline` or `subagent` (with `exo-subagent` naming it). `exo-permissions` says what the skill may do: `read-only`, `write-specs` or `write-code`, optionally followed by `+` and what it adds, such as `read-only+tests`, `read-only+record` or `write-specs+git`; the template of the `skill-creator` skill lists the values in use. `exo validate` checks only that every `metadata` value is a string: these values are for whoever reviews the skill.
    - Up to 500 lines; details go in `references/`, and every `references/...` file it cites must exist.
    - A reference to another skill is written `skill:<name>`, and that skill's pack must be the same one or listed in `requires` or `optional` of the pack's manifest.
    - A contract it cites under `.exo/shared/` must ship in the same pack or in one it requires.

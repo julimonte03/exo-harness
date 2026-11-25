@@ -378,3 +378,21 @@ def test_readme_dice_como_prender_la_busqueda_hibrida() -> None:
     memory = (REPO / "README.md").read_text(encoding="utf-8").split("## Memory", 1)[1]
     memory = memory.split("\n## ", 1)[0]
     assert f"{NAME} mem model pull" in memory and f"{NAME} mem reindex --provider local" in memory
+
+
+def test_contributing_describe_los_permisos_que_usa_el_contenido() -> None:
+    """F8R3-21: CONTRIBUTING listaba tres valores de `exo-permissions`, y el contenido usa
+    compuestos como `read-only+record` o `write-specs+git`."""
+    from exo import content, packs
+
+    key = f"{_meta.BLOCK_PREFIX}-permissions"
+    root = content.content_root()
+    used = {dict(s.metadata).get(key) for s in packs.load_collection(root).skills} - {None}
+    template = root / "packs/core/skills/skill-creator/references/skill-template.md"
+    listed = re.search(rf"{key}: <([^>]+)>", template.read_text(encoding="utf-8"))
+    assert listed and used <= set(listed.group(1).split(" | "))
+    text = (REPO / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    sentence = text.split(f"`{key}` says what the skill may do:", 1)[1].split("\n", 1)[0]
+    bases = set(re.findall(r"`([a-z-]+)`", sentence.split("optionally", 1)[0]))
+    assert {value.split("+", 1)[0] for value in used} == bases
+    assert all(f"`{value}`" in sentence for value in ("read-only+record", "write-specs+git"))

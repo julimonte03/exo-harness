@@ -15,7 +15,7 @@ The delegation prompt gives you:
 - a `## Skills to load before work` block with the exact `SKILL.md` paths: `sdd-apply` and the apply skills (`code-generation`, `secure-coding-baseline`, `work-unit-commits`, the stack router), and maybe skills that are not installed, each with its inline criteria;
 - the change name, the change root, the phase (`apply`) and the tier;
 - the plan: `tasks.md` in Tier 3 and 4, the proposal (with `spec.md` and `test-spec.md` when they exist) in Tier 1 and 2;
-- the exact test command, and in a rework, the issues the person accepted;
+- the exact test command, and in a rework, the issues to fix: the ones the person accepted, or in automatic mode every Critical and High one, by severity;
 - what to return.
 
 If something you need is missing (the plan, the test command), return `status: needs-input` instead of guessing.

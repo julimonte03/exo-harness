@@ -159,7 +159,7 @@ In `hybrid` and `memory` persistence, save the record with the topic key `sdd/<c
 | Verdict | `status` | `next` |
 |---|---|---|
 | `ready` | `ok` | `archive` in Tiers 1 to 3; `judgment` in Tier 4 |
-| `needs-rework` | `ok` | `apply` (skill:sdd-apply fixes the accepted issues) |
+| `needs-rework` | `ok` | `apply` (skill:sdd-apply fixes the accepted issues; in automatic mode, the Critical and High ones) |
 | `blocked` | `blocked` | `verify` once the blocker is gone, or the phase that owns the wrong artifact |
 
 ```yaml

@@ -280,3 +280,19 @@ def test_una_ronda_de_retrabajo_cuenta_tambien_los_hallazgos_de_los_jueces() -> 
     auto = _automatic_mode()
     assert "A rework round is every return from verify to apply" in auto
     assert "Critical or High judge finding" in auto
+
+
+@pytest.mark.parametrize(
+    ("parts", "marker"),
+    [
+        (("sdd", "skills", "sdd-apply", "SKILL.md"), "- **Rework:**"),
+        (("sdd", "agents", "sdd-implementer.md"), "in a rework,"),
+    ],
+    ids=["sdd-apply", "sdd-implementer"],
+)
+def test_en_modo_automatico_el_retrabajo_arregla_los_critical_y_high(
+    parts: tuple[str, ...], marker: str
+) -> None:
+    """F8R3-21: en modo automático nadie acepta los hallazgos uno por uno; decide la severidad."""
+    line = next(line for line in _content(*parts).splitlines() if marker in line)
+    assert "automatic mode" in line and "Critical and High" in line
