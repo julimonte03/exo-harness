@@ -30,7 +30,7 @@ The installer installs the latest release (or the `main` branch while there is n
 - with [uv](https://docs.astral.sh/uv/), it runs `uv tool install` from the git repository (this needs git);
 - without uv, it creates a virtual environment in your user data folder and installs the release wheel after checking it against the release's `SHA256SUMS`; if it cannot download them, it installs nothing. This needs Python 3.10 or later, and `curl` on macOS and Linux.
 
-Then it puts `exo` on your `PATH` (it says so, and you open a new terminal) and runs `exo doctor`. If another program called `exo` is already installed, it stops without touching it. Running the installer again updates exo.
+Then it puts `exo` on your `PATH` (it says so, and you open a new terminal) and runs `exo doctor`. It never overwrites another program called `exo`; it warns if another one comes first on your `PATH`, and `exo doctor` reports it. Running the installer again updates exo.
 
 **Options.** Adopt a project right after installing with `--init DIR` (`-Init DIR` in PowerShell), add the semantic memory extra with `--with-vector` (`-WithVector`), or leave the `PATH` alone with `--no-path` (`-NoPath`):
 

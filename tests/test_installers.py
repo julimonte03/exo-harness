@@ -258,6 +258,43 @@ def test_install_sh_no_pisa_otro_exo(tmp_path: Path) -> None:
     assert not (tmp_path / "datos" / "venv").exists()
 
 
+_OTRO_PRIMERO = "another exo comes first on your PATH"
+
+
+@POSIX_ONLY
+def test_install_sh_avisa_si_otro_exo_va_antes_en_el_path(tmp_path: Path) -> None:
+    """Otro `exo` antes en el PATH gana: el instalador no lo toca, pero avisa con su ruta y
+    termina bien (F8R2-4). Si agrega su carpeta al principio del PATH, el suyo gana y no avisa."""
+    if not _venv_works():
+        pytest.skip("este Python no trae ensurepip (falta python3-venv)")
+    env = _env(tmp_path, no_uv=True)
+    other = tmp_path / "otro-bin" / _meta.NAME
+    other.parent.mkdir()
+    other.write_text("#!/bin/sh\necho otra herramienta\n", encoding="utf-8")
+    other.chmod(0o755)
+    env["PATH"] = f"{other.parent}{os.pathsep}{env['PATH']}"
+    result = _run(["sh", str(REPO / "install.sh"), "--no-path"], env)
+    assert _dice(result, f"{_OTRO_PRIMERO}: {other}")
+    assert other.read_text(encoding="utf-8") == "#!/bin/sh\necho otra herramienta\n"
+    result = _run(["sh", str(REPO / "install.sh")], env)
+    assert _OTRO_PRIMERO not in result.stdout + result.stderr
+
+
+@WINDOWS_ONLY
+def test_install_ps1_avisa_si_otro_exo_va_antes_en_el_path(tmp_path: Path, path_key: str) -> None:
+    """Otro `exo` antes en el PATH gana (install.ps1 agrega su carpeta al final): no lo toca,
+    pero avisa con su ruta y termina bien (F8R2-4)."""
+    env = {**_env(tmp_path, no_uv=True), "EXO_INSTALL_ENV_SUBKEY": path_key}
+    other = tmp_path / "otro-bin" / f"{_meta.NAME}.cmd"
+    other.parent.mkdir()
+    other.write_text("@echo otra herramienta\r\n", encoding="ascii", newline="")
+    env["PATH"] = f"{other.parent}{os.pathsep}{env['PATH']}"
+    result = _run([*PS, "-File", str(REPO / "install.ps1")], env)
+    assert _dice(result, f"{_OTRO_PRIMERO}: {other}")
+    assert other.read_bytes() == b"@echo otra herramienta\r\n"
+    _run([*PS, "-File", str(REPO / "uninstall.ps1")], env)
+
+
 @pytest.mark.skipif(sys.platform == "win32" or not shutil.which("uv"), reason="install.sh con uv")
 def test_install_sh_con_uv_no_pisa_otro_exo(tmp_path: Path) -> None:
     env = _env(tmp_path, no_uv=False)

@@ -33,9 +33,9 @@ or later, and curl to download from https.
 
 It puts `exo` on the PATH if missing and says so: in ~/.profile, in
 ~/.bash_profile if it exists, in ~/.bashrc with bash and in ~/.zshrc with zsh.
-If another `exo` is already installed, it stops without touching it. Then it
-runs `exo doctor` and, with --init, adopts a project. Running it again updates
-the installation.
+It never overwrites another `exo`; it warns if another one comes first on your
+PATH, and `exo doctor` reports it. Then it runs `exo doctor` and, with --init,
+adopts a project. Running it again updates the installation.
 
 Usage:
   sh install.sh [--init DIR] [--with-vector] [--no-path]
@@ -294,6 +294,17 @@ private_data_dir() {
     [ -d "$DATA_DIR" ] || (umask 077 && mkdir -p "$DATA_DIR")
 }
 
+# ADR-0001: hay otra herramienta que se llama exo. El instalador nunca la pisa, pero si
+# está antes en el PATH, escribir `exo` corre esa: se avisa, sin frenar, con su ruta.
+# Se mira el PATH de esta sesión, con la carpeta del motor adelante si se agregó.
+warn_other_exo() {
+    found=$(command -v exo 2>/dev/null || true)
+    if [ -z "$found" ] || [ "$found" = "$EXE" ] || [ "$found" -ef "$EXE" ]; then
+        return 0
+    fi
+    echo "Warning: another exo comes first on your PATH: $found. Typing 'exo' runs that one, not this engine: put $BIN_DIR before it on the PATH, or run $EXE. 'exo doctor' reports it too." >&2
+}
+
 cleanup() {
     if [ -n "$TMP" ]; then
         rm -rf "$TMP"
@@ -403,10 +414,14 @@ main() {
                 esac
                 printf '%s\n' "$BIN_DIR" > "$DATA_DIR/path-entry.txt"
                 echo "Open a new terminal to use 'exo'."
+                # Como la terminal nueva: la carpeta del motor, al principio.
+                PATH="$BIN_DIR:$PATH"
+                export PATH
             fi
             ;;
     esac
 
+    warn_other_exo
     "$EXE" doctor
     if [ -n "$INIT" ]; then
         "$EXE" init --project "$INIT" --yes

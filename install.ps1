@@ -12,8 +12,9 @@
     Python 3.10 or later.
 
     It puts `exo` on the user PATH (says so when it adds it and keeps the registry
-    value type), runs `exo doctor` and, with -Init, adopts a project. Running it
-    again updates the installation.
+    value type), runs `exo doctor` and, with -Init, adopts a project. It never
+    overwrites another `exo`; it warns if another one comes first on your PATH, and
+    `exo doctor` reports it. Running it again updates the installation.
 
     Variables: EXO_REF (tag, branch or commit to install when piped; default: the
     latest release, or main if there is none), EXO_REPO_URL (repository to install
@@ -153,6 +154,18 @@ param(
         param([string]$Entry, [string]$Dir)
         $expanded = [Environment]::ExpandEnvironmentVariables($Entry).TrimEnd('\')
         return $expanded -ieq $Dir.TrimEnd('\')
+    }
+
+    function Get-OtherExo {
+        # ADR-0001: hay otra herramienta que se llama exo. El instalador nunca la pisa,
+        # pero si esta antes en el PATH (el suyo va al final del PATH de usuario),
+        # escribir `exo` corre esa. Devuelve su ruta, o nada si el primero es $Exe. Mira
+        # el PATH de esta sesion, con la carpeta del motor agregada si hacia falta.
+        param([string]$Exe)
+        $first = Get-Command 'exo' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $first) { return $null }
+        if ([System.IO.Path]::GetFullPath($first.Source) -ieq [System.IO.Path]::GetFullPath($Exe)) { return $null }
+        return $first.Source
     }
 
     function Get-RepoScheme {
@@ -380,6 +393,11 @@ param(
         if (-not (($env:Path -split ';') | Where-Object { $_ -and (Test-SameDir $_ $BinDir) })) {
             $env:Path = "$env:Path;$BinDir"
         }
+    }
+
+    $other = Get-OtherExo $Exe
+    if ($other) {
+        Write-Host "Warning: another exo comes first on your PATH: $other. Typing 'exo' runs that one, not this engine: put $BinDir before it on the PATH, or run $Exe. 'exo doctor' reports it too."
     }
 
     Invoke-Checked $Exe @('doctor') 'exo doctor found errors; check the output above.'
