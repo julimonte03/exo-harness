@@ -72,6 +72,9 @@ _FLAGS = re.IGNORECASE | re.MULTILINE
 # Aíslan la corrida de la config de usuario de Claude Code (settings, skills, plugins, hooks,
 # CLAUDE.md) y de todo servidor MCP que no venga de `--mcp-config` (no se pasa ninguno).
 ISOLATION_FLAGS = ("--setting-sources", "project,local", "--strict-mcp-config")
+# El "comando de ssh" de las corridas: no existe, así que git no se puede conectar por ssh
+# aunque algo habilite el protocolo (F8R2-6).
+NO_SSH = "ssh-is-disabled-for-agent-runs"
 
 # Las skills de prioridad 1 y 2 de F7 (F7-packs.md): cada una tiene sus tres casos.
 PRIORITY_1 = (
@@ -326,7 +329,9 @@ def claude_command(claude: str, prompt: str, tools: str, max_turns: int) -> list
         *ISOLATION_FLAGS,
         "--allowedTools",
         tools,
-        # `Bash(git:*)` cubre git push: el agente nunca publica (threat model, M-17).
+        # `Bash(git:*)` cubre git push: el agente nunca publica (threat model, M-17). La regla
+        # es por prefijo y `git -C . push` la saltea: lo que corta de verdad es el entorno,
+        # sin transporte de red para git (`runner_env`).
         "--disallowedTools",
         "Bash(git push:*) PowerShell(git push:*)",
         "--max-turns",
@@ -348,6 +353,11 @@ def runner_env(data: Path, base: Mapping[str, str]) -> dict[str, str]:
         gitconfig.write_text("", encoding="utf-8")
     env["GIT_CONFIG_GLOBAL"] = str(gitconfig)
     env["GIT_CONFIG_NOSYSTEM"] = "1"
+    # Sin transporte de red para git, cualquiera sea el comando (`git -C . push`, `git -c
+    # protocol.allow=always push`): solo `file`, los repos locales de la corrida. Las dos
+    # variables le ganan a la config de git (`protocol.allow`, `core.sshCommand`). F8R2-6.
+    env["GIT_ALLOW_PROTOCOL"] = "file"
+    env["GIT_SSH_COMMAND"] = NO_SSH
     key = "PATH"
     if os.name == "nt":  # en Windows la variable puede llamarse `Path`
         key = next((k for k in env if k.upper() == "PATH"), "PATH")
