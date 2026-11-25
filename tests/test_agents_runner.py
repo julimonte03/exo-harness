@@ -44,25 +44,70 @@ def test_lanzador_de_copilot(tmp_path: Path) -> None:
     assert custom is not None and custom[-1] == str(tmp_path / "x.js")
 
 
-def test_copilot_home_aislado(tmp_path: Path) -> None:
+def _cuenta(tmp_path: Path) -> Path:
     home = tmp_path / "home"
     (home / ".copilot").mkdir(parents=True)
     (home / ".copilot" / "config.json").write_text('{"loggedInUsers": []}', encoding="utf-8")
-    target = agents.copilot_home(tmp_path / "run" / "copilot", {}, home)
-    assert (target / "config.json").read_text(encoding="utf-8") == '{"loggedInUsers": []}'
-    settings = json.loads((target / "settings.json").read_text(encoding="utf-8"))
-    assert settings["ignoredSkillsLocations"] == [
-        str(home / ".agents" / "skills"),
-        str(home / ".claude" / "skills"),
-        str(home / ".copilot" / "skills"),
-    ]
-    env = agents.copilot_env({"PATH": "x"}, target, model=None)
-    assert env["COPILOT_HOME"] == str(target) and env["COPILOT_AUTO_TIER"] == "intelligence"
-    assert env["GIT_PAGER"] == "cat"
-    assert "COPILOT_AUTO_TIER" not in agents.copilot_env({}, target, model="m-1")
+    return home
+
+
+def test_copilot_home_aislado(tmp_path: Path) -> None:
+    home = _cuenta(tmp_path)
+    with agents.copilot_home(tmp_path / "run" / "copilot", {}, home) as target:
+        assert (target / "config.json").read_text(encoding="utf-8") == '{"loggedInUsers": []}'
+        settings = json.loads((target / "settings.json").read_text(encoding="utf-8"))
+        assert settings["ignoredSkillsLocations"] == [
+            str(home / ".agents" / "skills"),
+            str(home / ".claude" / "skills"),
+            str(home / ".copilot" / "skills"),
+        ]
+        env = agents.copilot_env({"PATH": "x"}, target, model=None)
+        assert env["COPILOT_HOME"] == str(target) and env["COPILOT_AUTO_TIER"] == "intelligence"
+        assert env["GIT_PAGER"] == "cat"
+        assert "COPILOT_AUTO_TIER" not in agents.copilot_env({}, target, model="m-1")
     # Sin config.json (nunca inició sesión): igual arma el settings.
-    empty = agents.copilot_home(tmp_path / "otro", {"COPILOT_HOME": str(tmp_path / "nada")}, home)
-    assert not (empty / "config.json").exists() and (empty / "settings.json").is_file()
+    nothing = {"COPILOT_HOME": str(tmp_path / "nada")}
+    with agents.copilot_home(tmp_path / "otro", nothing, home) as empty:
+        assert not (empty / "config.json").exists() and (empty / "settings.json").is_file()
+
+
+def test_copilot_home_se_borra_al_terminar_tambien_si_falla(tmp_path: Path) -> None:
+    """F8R2-9: la copia de `config.json` (la cuenta con sesión) no queda en el basetemp."""
+    home = _cuenta(tmp_path)
+    with agents.copilot_home(tmp_path / "run" / "copilot", {}, home) as target:
+        (target / "session-state").mkdir()  # lo que Copilot deja en su carpeta
+    assert not target.exists()
+    try:
+        with agents.copilot_home(tmp_path / "run2" / "copilot", {}, home) as target:
+            raise RuntimeError("la corrida falló")
+    except RuntimeError:
+        pass
+    assert not target.exists()
+    assert (home / ".copilot" / "config.json").is_file()  # la de la cuenta, intacta
+
+
+def test_el_agente_corre_en_una_rama_propia() -> None:
+    """F8R2-10: fuera de `main`, así `exo check --base main` ve lo que commiteó."""
+    assert agents.scenario_branch("tier1", "copilot") == "feat/tier1-copilot"
+
+
+def test_check_tiene_que_haber_revisado_el_change_archivado() -> None:
+    """F8R2-10: si el agente commitea en `main`, `exo check --base main` revisa 0 archivos y
+    pasa vacío; eso no prueba el ciclo."""
+    change = {"name": "add-version", "path": "specs/changes/archive/2026-11-25-add-version"}
+    seen = {
+        "ok": True,
+        "notes": ["checking what changed against main: 12 files"],
+        "changes": [{"name": "add-version", "path": change["path"], "ok": True}],
+    }
+    assert agents.check_saw(seen, change) == []
+    empty = {"ok": True, "notes": ["checking what changed against main: 0 files"], "changes": []}
+    failed = agents.check_saw(empty, change)
+    assert len(failed) == 1
+    assert "add-version" in failed[0] and "0 files" in failed[0] and "main" in failed[0]
+    other = {**seen, "changes": [{"name": "otro", "path": "specs/changes/otro"}]}
+    assert agents.check_saw(other, change) != []
+    assert agents.check_saw({"_unparsed": "x"}, change) != []
 
 
 def test_lectura_de_copilot() -> None:

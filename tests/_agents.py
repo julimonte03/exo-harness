@@ -11,7 +11,9 @@ Aislamiento:
 - **Copilot CLI:** un `COPILOT_HOME` propio de la corrida, con una copia de `config.json`
   (la cuenta con sesión; el token queda en el almacén de credenciales del sistema) y un
   `settings.json` que ignora las skills personales (`~/.agents/skills`, `~/.claude/skills`
-  y `~/.copilot/skills`), más `--disable-builtin-mcps`. Ver `copilot help config`.
+  y `~/.copilot/skills`), más `--disable-builtin-mcps`. Ver `copilot help config`. La
+  carpeta se borra al terminar cada corrida (`copilot_home` es un context manager).
+- **git, en los dos:** sin transporte de red (`_skill_evals.runner_env`).
 """
 
 from __future__ import annotations
@@ -20,7 +22,8 @@ import json
 import os
 import re
 import shutil
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -121,17 +124,27 @@ def copilot_command(
     return command
 
 
-def copilot_home(target: Path, env: Mapping[str, str], home: Path) -> Path:
-    """Arma un `COPILOT_HOME` para la corrida: la cuenta con sesión y sin skills personales."""
+@contextmanager
+def copilot_home(target: Path, env: Mapping[str, str], home: Path) -> Iterator[Path]:
+    """Un `COPILOT_HOME` para la corrida: la cuenta con sesión y sin skills personales.
+
+    Al salir del bloque, también si la corrida falla, se borra entero: tiene la copia del
+    `config.json` de la cuenta, que no queda en el basetemp de pytest (F8R2-9)."""
     target.mkdir(parents=True, exist_ok=True)
-    source = Path(env.get("COPILOT_HOME") or home / ".copilot")
-    config = source / "config.json"
-    if config.is_file():
-        shutil.copyfile(config, target / "config.json")
-    ignored = [str(home.joinpath(*rel.split("/"))) for rel in _PERSONAL_SKILLS]
-    settings = {"ignoredSkillsLocations": ignored}
-    (target / "settings.json").write_text(json.dumps(settings, indent=2), encoding="utf-8")
-    return target
+    try:
+        source = Path(env.get("COPILOT_HOME") or home / ".copilot")
+        config = source / "config.json"
+        if config.is_file():
+            shutil.copyfile(config, target / "config.json")
+        ignored = [str(home.joinpath(*rel.split("/"))) for rel in _PERSONAL_SKILLS]
+        settings = {"ignoredSkillsLocations": ignored}
+        (target / "settings.json").write_text(json.dumps(settings, indent=2), encoding="utf-8")
+        yield target
+    finally:
+        shutil.rmtree(target, ignore_errors=True)
+        # Si algo quedó abierto (Windows no borra un archivo en uso), al menos la cuenta.
+        with suppress(OSError):
+            (target / "config.json").unlink(missing_ok=True)
 
 
 # Copilot CLI 1.0.114 toma la primera palabra después de `git` como el subcomando: con
@@ -234,6 +247,30 @@ def parse_copilot(lines: Iterable[str]) -> AgentRun:
             usage = event.get("usage")
             run.usage = usage if isinstance(usage, dict) else {}
     return run
+
+
+def scenario_branch(scenario: str, agent: str) -> str:
+    """La rama en la que corre el agente. Fuera de `main`, como en los evals de F7: así
+    `exo check --base main` revisa lo que el agente commiteó (F8R2-10)."""
+    return f"feat/{scenario}-{agent}"
+
+
+def check_saw(check: Mapping[str, Any], change: Mapping[str, Any]) -> list[str]:
+    """Lo que falta para que `exo check --base main --json` pruebe el change archivado: que lo
+    haya revisado. Si el agente commiteó en `main`, el diff contra `main` está vacío y
+    `check` da `ok` sin revisar nada."""
+    checked = check.get("changes")
+    for item in checked if isinstance(checked, list) else []:
+        if isinstance(item, dict) and (
+            item.get("name") == change.get("name") or item.get("path") == change.get("path")
+        ):
+            return []
+    notes = check.get("notes")
+    seen = "; ".join(str(n) for n in notes) if isinstance(notes, list) and notes else "no notes"
+    return [
+        f"exo check --base main did not check the archived change {change.get('name')!r} "
+        f"({seen}): the work is not in the diff against main (did the agent commit on main?)"
+    ]
 
 
 def read_usage(path: Path) -> dict[str, Any]:

@@ -1,12 +1,13 @@
 """Escenarios de la v1.0 con agentes reales (F8, criterios 1 a 3): Claude Code y Copilot CLI.
 
 Marker `agent_e2e`: no corre en la suite normal. Cada caso:
-1. copia el fixture a un repo nuevo e instala exo con el agente y los packs del escenario;
+1. copia el fixture a un repo nuevo, instala exo con el agente y los packs del escenario,
+   commitea en `main` y pasa a una rama `feat/<escenario>-<agente>`;
 2. corre el agente con el pedido, que trae las respuestas por adelantado (modo automático,
-   sin push ni PR);
+   sin push ni PR), con git sin transporte de red (`_skill_evals.runner_env`);
 3. verifica con el motor, no con la respuesta del agente: el change archivado, su tier,
-   los artefactos y gates del tier, `exo speclint` y `exo check`; o, en la adopción,
-   `exo discover status`.
+   los artefactos y gates del tier, `exo speclint` y `exo check --base main`, que tiene
+   que haber revisado ese change; o, en la adopción, `exo discover status`.
 
 Variables (todas opcionales):
 - `EXO_SCENARIOS_AGENTS`: `claude-code,copilot` (por defecto, los dos; se saltea el que no esté);
@@ -23,6 +24,7 @@ cada carpeta el proyecto, `stream.jsonl` y los datos aislados para revisarlos.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import shutil
@@ -187,6 +189,15 @@ def _project(scenario: Scenario, agent: str, root: Path, env: dict[str, str]) ->
         check=True,
         capture_output=True,
     )
+    # Fuera de `main`, como en los evals de F7: `exo check --base main` tiene que ver lo que
+    # el agente commitea (F8R2-10).
+    subprocess.run(
+        ["git", "switch", "-q", "-c", agents.scenario_branch(scenario.id, agent)],
+        cwd=project,
+        env=env,
+        check=True,
+        capture_output=True,
+    )
     return project
 
 
@@ -195,47 +206,51 @@ def _run_agent(
 ) -> tuple[agents.AgentRun, list[str]]:
     failed: list[str] = []
     usage_file = root / "copilot-usage.json"
-    if agent == "claude-code":
-        claude = shutil.which("claude")
-        if claude is None:
-            pytest.skip("requires Claude Code (claude)")
-        command = agents.claude_command(
-            claude, scenario.prompt, python=scenario.python, max_turns=MAX_TURNS
-        )
-        parse = agents.parse_claude
-    else:
-        launcher = agents.copilot_launcher(shutil.which("copilot"), os.environ)
-        if launcher is None:
-            pytest.skip("requires GitHub Copilot CLI (copilot)")
-        home = agents.copilot_home(root / "copilot-home", os.environ, agents.home_dir(os.environ))
-        env = agents.copilot_env(env, home, COPILOT_MODEL)
-        command = agents.copilot_command(
-            launcher,
-            scenario.prompt,
-            python=scenario.python,
-            usage=usage_file,
-            logs=root / "copilot-logs",
-            model=COPILOT_MODEL,
-        )
-        parse = agents.parse_copilot
-    try:
-        done = subprocess.run(
-            command,
-            cwd=project,
-            env=env,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=TIMEOUT,
-            check=False,
-        )
-        stdout = done.stdout
-        (root / "stderr.txt").write_text(done.stderr or "", encoding="utf-8")
-    except subprocess.TimeoutExpired as exc:
-        raw = exc.stdout or ""
-        stdout = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else raw
-        failed.append(f"timed out after {TIMEOUT} s (EXO_SCENARIOS_TIMEOUT)")
+    # El COPILOT_HOME (con la copia de la cuenta) se borra al salir, también si falla.
+    with contextlib.ExitStack() as stack:
+        if agent == "claude-code":
+            claude = shutil.which("claude")
+            if claude is None:
+                pytest.skip("requires Claude Code (claude)")
+            command = agents.claude_command(
+                claude, scenario.prompt, python=scenario.python, max_turns=MAX_TURNS
+            )
+            parse = agents.parse_claude
+        else:
+            launcher = agents.copilot_launcher(shutil.which("copilot"), os.environ)
+            if launcher is None:
+                pytest.skip("requires GitHub Copilot CLI (copilot)")
+            home = stack.enter_context(
+                agents.copilot_home(root / "copilot-home", os.environ, agents.home_dir(os.environ))
+            )
+            env = agents.copilot_env(env, home, COPILOT_MODEL)
+            command = agents.copilot_command(
+                launcher,
+                scenario.prompt,
+                python=scenario.python,
+                usage=usage_file,
+                logs=root / "copilot-logs",
+                model=COPILOT_MODEL,
+            )
+            parse = agents.parse_copilot
+        try:
+            done = subprocess.run(
+                command,
+                cwd=project,
+                env=env,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=TIMEOUT,
+                check=False,
+            )
+            stdout = done.stdout
+            (root / "stderr.txt").write_text(done.stderr or "", encoding="utf-8")
+        except subprocess.TimeoutExpired as exc:
+            raw = exc.stdout or ""
+            stdout = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else raw
+            failed.append(f"timed out after {TIMEOUT} s (EXO_SCENARIOS_TIMEOUT)")
     (root / "stream.jsonl").write_text(stdout, encoding="utf-8")
     run = parse(stdout.splitlines())
     if agent == "copilot":
@@ -290,8 +305,11 @@ def check_cycle(
         failed.append(f"exo speclint failed: {lint.stdout[-1500:]}")
     check = _json(_exo(project, env, "check", "--base", "main", "--json"))
     facts["check_ok"] = check.get("ok")
+    facts["check_notes"] = check.get("notes")
     if check.get("ok") is not True:
         failed.append(f"exo check --base main failed: {json.dumps(check)[:1500]}")
+    # Un `ok` sin el change no prueba nada: con el trabajo en `main`, el diff está vacío.
+    failed += agents.check_saw(check, archived[0])
     status = subprocess.run(
         ["git", "status", "--porcelain"], cwd=project, capture_output=True, text=True, check=False
     )
