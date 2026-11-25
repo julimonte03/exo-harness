@@ -7,6 +7,7 @@ subcomandos, de la tabla del CLI (`commands.MODULES`).
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -269,3 +270,45 @@ def test_cli_validate_sin_docs_no_cambia(
 ) -> None:
     assert main(["validate", "--json"]) == 0
     assert "docs" not in json.loads(capsys.readouterr().out)
+
+
+# -- los docs del repo -----------------------------------------------------------------------
+
+REPO = Path(__file__).resolve().parents[1]
+DOC_FOLDERS = (REPO, REPO / "docs" / "guides")
+# El destino de un link de Markdown, sin el ancla: `[texto](destino)` o `(destino#ancla)`.
+_LINK = re.compile(r"\]\(([^)#\s]+)(?:#[^)\s]*)?\)")
+_URL = re.compile(r"^[a-z][a-z0-9+.-]*:")
+# El README usa links absolutos al repo, porque PyPI no resuelve los relativos.
+_BLOB = "https://github.com/julimonte03/exo-harness/blob/main/"
+
+
+def _local_target(doc: Path, target: str) -> Path | None:
+    """El archivo del repo al que apunta un link, o None si es externo."""
+    if target.startswith(_BLOB):
+        return REPO / target[len(_BLOB) :]
+    return None if _URL.match(target) else doc.parent / target
+
+
+def test_los_docs_del_repo_coinciden_con_el_motor(capsys: pytest.CaptureFixture[str]) -> None:
+    """D-48: los conteos y los comandos de README, QUICK-START, CONTRIBUTING y las guías."""
+    argv = ["validate"] + [arg for folder in DOC_FOLDERS for arg in ("--docs", str(folder))]
+    code = main(argv)
+    out = capsys.readouterr().out
+    assert code == 0, out
+    assert "count marker" in out
+
+
+def test_los_links_a_archivos_del_repo_existen() -> None:
+    checked, broken = 0, []
+    for folder in DOC_FOLDERS:
+        for path in doc_files(folder):
+            for target in _LINK.findall(path.read_text(encoding="utf-8")):
+                local = _local_target(path, target)
+                if local is None:
+                    continue
+                checked += 1
+                if not local.exists():
+                    broken.append(f"{path.relative_to(REPO).as_posix()}: {target}")
+    assert broken == []
+    assert checked > 10

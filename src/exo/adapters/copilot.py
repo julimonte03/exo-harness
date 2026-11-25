@@ -2,8 +2,9 @@
 
 Copilot lee `AGENTS.md`, `.claude/skills/`, `.claude/agents/` y `.mcp.json`
 (`docs/agent-matrix.md`), así que comparte archivos con Claude Code: si los dos
-son destino, el motor unifica las operaciones. El cloud agent de GitHub.com queda
-fuera porque los repos están en Azure DevOps (ADR-0008).
+son destino, el motor unifica las operaciones. El cloud agent de GitHub.com no es
+destino: el adaptador no genera nada específico para él (ADR-0017 dejó sin efecto la
+razón de ADR-0008, que los repos estaban en Azure DevOps).
 """
 
 from __future__ import annotations

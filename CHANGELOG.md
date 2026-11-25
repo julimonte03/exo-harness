@@ -7,11 +7,11 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [1.0.0] - Unreleased
 
-Milestone M4: stack packs, the rest of the skill catalog, and safe updates between engine versions.
+Milestone M4: stack packs, the rest of the skill catalog, safe updates between engine versions, installation from GitHub with one command, and a security review of the engine itself.
 
 ### Added
 
-- The catalog grows from 41 to 106 skills in 12 packs, with 6 subagents and 16 shared contracts. Six packs are new: `product`, `frontend`, `java`, `python`, `ops` and `agentic` (ADR-0016).
+- The catalog grows from 41 to 106 skills in 12 packs, with 6 subagents and 20 shared contracts. Six packs are new: `product`, `frontend`, `java`, `python`, `ops` and `agentic` (ADR-0016).
 - `java` pack: `backend-and-api`, `backend-engineering`, `java-build-resolver`, `java-coding-standards`, `java-reviewer`, `jpa-patterns`, `security-scan-jkp`, `springboot-patterns`, `springboot-security` and `springboot-verification`, written for Spring Boot 4 and Spring Security 7. `security-scan-jkp` also covers Python.
 - `python` pack: `python-patterns` and `python-reviewer`.
 - `frontend` pack: `accessibility-audit` and the TypeScript and React stack: `frontend-design`, `frontend-engineering`, `frontend-patterns`, `playwright`, `react-patterns`, `react-testing`, `security-scan-node`, `tailwind-4`, `typescript`, `typescript-reviewer` and `zod`.
@@ -32,20 +32,43 @@ Milestone M4: stack packs, the rest of the skill catalog, and safe updates betwe
 - `exo update`: previews what a new engine version changes (new, modified, renamed and orphaned files, and conflicts with your edits) and writes only with `--apply`. Your edits are kept unless you pass `--force`; orphaned skills are deleted only with `--prune` (in a terminal, `--apply` asks). It does not take a project back to an older version without `--force`, and `--json` gives the same information.
 - Versioned migrations for `lock.json` (like `config.json` and the memory database); `exo update --apply` saves a migrated `config.json`, with a snapshot first.
 - `exo doctor` warns when the lock was written by another engine version.
+- `exo status` shows the project at a glance: agents, packs, the lock's version against the engine's (with "run `exo update`" when they differ), the git hooks in this clone, your persona, manual changes to generated files, and each active change with its tier, phase, next phase, gates and open followups. Colors only in a terminal, and never with `NO_COLOR` or `TERM=dumb`; `--json` does not change.
+- Role overlays, or personas (ADR-0018): `exo persona set dev|tech-lead|qa|product`, `exo persona show` and `exo persona clear`, with one overlay per role in `.exo/shared/personas/`. The role is stored in the user data folder, never in the repo. At the start of a session the agent runs `exo persona show --json` and follows the overlay, which changes what it shows first and how, and never relaxes a rule, gate, tier or approval.
+- Installation from GitHub with one command: `curl -fsSL https://raw.githubusercontent.com/julimonte03/exo-harness/main/install.sh | sh` and `irm https://raw.githubusercontent.com/julimonte03/exo-harness/main/install.ps1 | iex`. Piped or downloaded alone, the installers install the latest release, or the tag, branch or commit in `EXO_REF`, from `EXO_REPO_URL` (GitHub by default). With uv they run `uv tool install` from git; without uv they check the release wheel against the release's `SHA256SUMS` before installing it, and install nothing if it does not match or cannot be downloaded (`install.ps1` computes the hash with .NET, so it also works in a Windows PowerShell started from PowerShell 7, where `Get-FileHash` is missing). They download only over `https` (or from a mirror on the same machine) and refuse a redirect to another protocol, so `install.sh` needs curl rather than wget for that path. `install.sh` creates the user data folder readable only by its owner. They never run a half-downloaded script, and explain how to read them before running them. Run from a clone, they install the clone, as before.
+- Running exo without installing it: `uvx --from git+https://github.com/julimonte03/exo-harness exo init`.
+- A release workflow: a `v*` tag checks that it matches the engine version, builds and checks the wheel and the sdist, writes `SHA256SUMS`, publishes a GitHub release with them, and publishes `exo-harness` to PyPI by trusted publishing. PyPI is not live yet.
+- User documentation in English (D-48): `README.md`, `QUICK-START.md`, `CONTRIBUTING.md`, and guides for Claude Code, GitHub Copilot, other agents, adopting an existing project and troubleshooting in `docs/guides/`.
+- `exo validate --docs <path>` checks the Markdown docs of a folder: every count cited between markers (`<!-- exo-count:skills -->`) must match the content, and every `exo <command>` cited in code must exist. A test runs it on the repository's own docs.
+- Scenario tests with real agents (`tests/test_agent_scenarios.py`, outside the normal suite): a Tier 1 change, a Tier 3 change and a `quick` adoption, with Claude Code and with GitHub Copilot CLI, checked with `exo speclint`, `exo check` and `exo discover status`.
+- exo is open source under the MIT License (`LICENSE`, declared in the package metadata).
 
 ### Changed
 
 - The `review` skill is now `pre-commit-review` (D-40), so it no longer clashes with Claude Code's built-in `/review`. In a project installed with an earlier version, `exo update` shows it as a rename, and the old `review` folder stays until `--prune` deletes it.
 - `exo check` checks every gate present in a change's `gates/` folder, not only the ones its tier requires: a gate without a readable verdict is an error, and `ESCALATED` needs `tech_lead` approval, as with required gates.
 - `sdd-judge` also reviews the propose and spec phases.
+- In automatic mode, rework converges: the judges' findings are decided by severity (Critical and High go back to apply; Medium and Low stay as open followups, do not block the archive and go in `pr.md`), a re-verify reviews the fix rather than the whole diff again, and after two rounds of rework the cycle stops and asks the person.
 - `exo sync` no longer deletes orphaned skills and subagents (ones the content no longer ships): it reports them, and `exo sync --prune` deletes them. `remove-agent`, a pack removed from the config and `uninstall` still remove their own files.
 - A `sync` with nothing to change no longer runs git to re-check the hooks when they are already active.
-- The engine's own CI moved to GitHub Actions: Windows, macOS and Linux with Python 3.10 to 3.13, running ruff, pytest with coverage, `exo validate` and both `--version` entry points, plus separate jobs for the memory extras, the installers and the build (ADR-0017). `azure-pipelines.yml` remains only as an example.
+- The engine's own CI moved to GitHub Actions: Windows, macOS and Linux with Python 3.10 to 3.13, running ruff, pytest with coverage, `exo validate` and both `--version` entry points, plus separate jobs for the memory extras, the installers and the build (ADR-0017). `azure-pipelines.yml` remains only as an example. Every action is pinned to a commit SHA, Dependabot proposes their updates, and no workflow expands an expression inside a shell step.
+- The `security` pack, the `quality` judges and reviews that reuse it, the citations in `sdd` and `core`, and the engine's gate template cite OWASP Top 10:2025 instead of 2021, with each CWE's category taken from `.exo/shared/owasp-2025.md`. `security-code-review` and `secure-coding-baseline` add checks for A10:2025 Mishandling of Exceptional Conditions.
+- The subagents that run commands (`sdd-implementer` and `sdd-verifier`) declare `PowerShell` as well as `Bash`: GitHub Copilot CLI on Windows gives a custom agent no shell with `Bash` alone. `exo validate` reports any subagent, also in a third-party pack, that lists `Bash` without `PowerShell`.
+- `exo codeowners` also gives the `tech_lead` entries what the agents read and what git runs: `AGENTS.md`, `CLAUDE.md`, `.claude/`, `.agents/`, `.mcp.json`, `.husky/`, `.pre-commit-config.yaml` and `.gitattributes`.
+
+### Security
+
+- The engine's threat model, `docs/seguridad/threat-model-motor.md` (in Spanish): the remote installers, the release and CI, the git hooks, the agent's CLI and the MCP server, memory, reverse engineering, skills and packs, `update` and `sync`, personas, the eval runners and the `EXO_*` variables, each threat with its mitigation or its accepted risk.
+- Claude Code's project permission covers only the `exo` commands that the skills run on their own (reading, checking and recording). The commands that change the installation, delete, reindex or export memory, or run a command from the project's config ask the person first.
+- `exo gate publish` runs `review.publish_command` only after the person approves that exact command on their machine: in a terminal it shows the command and asks, and `--approve-command '<command>'` approves exactly that text, which must match the configured command, so a CI pipeline pins the command it accepts. The approval is kept in the user data folder, never in the repo, and a different command asks again.
+- The `openai-compatible` and Ollama embeddings providers no longer follow redirects, so the API key and the memory text never reach another address, and `EXO_EMBEDDINGS_URL` must be `https` unless it points to this machine.
+- On Linux and macOS, the user data folder is created readable only by its owner, and the memory database, `persona.json`, the approved commands, the uninstall backups and `exo mem export --output` are written for the owner only. `exo doctor` warns when other users can read the data folder.
+- The runners of the agent evals give git an empty global config and deny `git push`, so an agent cannot change the person's git config or publish anything.
 
 ### Fixed
 
 - A gate file saved as UTF-16 no longer aborts `exo check`, and an unreadable gate is reported instead of stopping the check.
 - Stack detection works in a project that a parent repository ignores.
+- A `lock.json` whose `agents` or `packs` is not a list of names (for example `null`) gives an error that names the file and how to restore a snapshot, instead of a traceback or a list read letter by letter.
 
 ## [0.2.0] - 2026-11-17
 

@@ -10,9 +10,7 @@ name = "exo-harness"
 dynamic = ["version"]
 # En inglés: es lo que se lee en PyPI (D-48).
 description = "Project-governed development engine, agnostic of the AI coding agent."
-# Falta `readme = "README.md"`: hatchling no arma el paquete si el archivo no existe,
-# y README.md llega con la documentación de F8. Hasta entonces, `twine check --strict`
-# del release falla a propósito (falta la descripción larga).
+readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Julian Monte" }]
 # MIT (decisión del dueño, 2026-11-22): el código es suyo y open source.
