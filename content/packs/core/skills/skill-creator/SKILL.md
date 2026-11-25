@@ -69,7 +69,7 @@ If an existing skill already covers most of the job, propose extending it instea
 - **Inputs** and what to do when one is missing (ask once with a default, stop, or degrade).
 - **Where it runs:** `inline` by default; `subagent` only when one of the existing subagents has the right tools (for example `sdd-judge` for a read-only review).
 - **Permissions:** one value of the vocabulary (step 4).
-- **Inside an SDD change:** a skill that is not a phase never edits a phase's artifact; it returns text for the phase that owns it. Its own files are project documents, never files of the change root, written with the person's approval once the plan lists them (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count them as drift (`.exo/shared/sdd-phase-common.md`, section C).
+- **Inside an SDD change:** a skill that is not a phase never edits a phase's artifact; it returns text for the phase that owns it. Its own files are project documents, never files of the change root, written with the person's approval once the plan lists them (design.md, Modules / Files, in Tier 3; the Scope of proposal.md in Tier 1 and 2), so verify does not count them as drift (`.exo/shared/sdd-phase-common.md`, section C).
 
 ### 3. Name it
 

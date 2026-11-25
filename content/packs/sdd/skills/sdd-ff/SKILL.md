@@ -27,7 +27,7 @@ Every planning artifact the tier requires is in the change root (`proposal.md`, 
    - Tier 1: nothing more after `sdd-new` (the proposal, and the delta if behavior changes);
    - Tier 2: spec, with its `test-spec.md`;
    - with the SPDD overlay in Tier 1 and 2, then the canvas and its approval (skill:sdd-orchestrator, SPDD overlay); the person's approval is never skipped;
-   - Tier 3 and 4: explore when the area is unknown, then propose, spec, design and tasks, with `test-spec.md`.
+   - Tier 3: explore when the area is unknown, then propose, spec, design and tasks, with `test-spec.md`.
 4. **Run them in a row**, through the orchestrator's loop, without the gate between phases. Still stop at once on `needs-input`, `blocked` or a fitness signal that changes the tier: a change of tier changes the plan.
 5. **Check.** `exo speclint <change-root>`; fix what it reports in the phase that owns the file.
 6. **Stop before apply.** Show a short summary of each artifact and ask "Adjust anything or continue?". Apply starts only when the person says so.

@@ -46,7 +46,7 @@ Run the start checkpoint of `.exo/shared/project-wiki-guard.md`:
 
 1. `git status` and `git branch --show-current`. On a protected branch (`governance.protected_branches`), propose a branch for the change before `exo change new` writes anything (`branch-pr`). Uncommitted work that is not part of this change: ask what to do with it.
 2. With an upstream, `git status -sb`. If the branch is behind, say so and ask before going on.
-3. No `.exo/context.md`: suggest `project-onboarding` first. Tier 1 can go on without it; if step 4 gives Tier 3 or 4, stop and ask the person whether to run `project-onboarding` before planning.
+3. No `.exo/context.md`: suggest `project-onboarding` first. Tier 1 can go on without it; if step 4 gives Tier 3, stop and ask the person whether to run `project-onboarding` before planning.
 4. Read `.exo/context.md`. If the change touches an area it does not describe, or it contradicts the code, note it as a wiki update for the end of the change.
 5. With `.exo/discovery/` in the project, `exo discover update --json`. Note the stale units and capabilities the change will touch as an update for the end of the change, and tell the person now if it will change a capability that is still `Status: as-is` (the guard, step 5).
 
@@ -72,7 +72,7 @@ exo change new <slug> --ticket '<ID>' --epic '<ID>' --purpose '<one sentence: wh
 
 ### 4. Classify the risk
 
-Unless `exo change status <change> --json` already shows `tier_source: assessment`, run `skill:risk-tiering` for the change now. It records the tier and reports tier, rule and ceremony. A missing or unreadable assessment means Tier 4.
+Unless `exo change status <change> --json` already shows `tier_source: assessment`, run `skill:risk-tiering` for the change now. It records the tier and reports tier, rule and ceremony. A missing or unreadable assessment means Tier 3.
 
 The tier decides what you draft:
 
@@ -91,7 +91,7 @@ Start from `.exo/shared/templates/proposal.md`. Fill all four sections; write `N
 - **Approach:** the solution at a high level, with `path:line` for the existing code it builds on; alternatives in one line each.
 - **Out of Scope:** what this change does not do.
 
-Tier 1 keeps each section to one to three lines. In Tier 3 and 4, if the area is not understood yet, end Approach with "The area is unknown: explore before proposing." `skill:sdd-status` reads that sentence to send the change to explore.
+Tier 1 keeps each section to one to three lines. In Tier 3, if the area is not understood yet, end Approach with "The area is unknown: explore before proposing." `skill:sdd-status` reads that sentence to send the change to explore.
 
 Read the code before describing it: one to three files inline; four or more, delegate to `sdd-explorer` (`.exo/shared/sdd-phase-common.md`, section G). Without subagents, read in small batches (`.exo/shared/agent-capabilities.md`). Do not fill gaps with guesses: unknowns become questions at the gate.
 
@@ -130,7 +130,7 @@ exo change record <change> --add decisions '{"summary": "Created without a ticke
 ### 10. Continue
 
 - **Inside the orchestrator:** return the envelope; the orchestrator decides what runs next.
-- **Called alone:** when the person says to continue, load the skill of the next phase and run it: Tier 1 `sdd-apply`, Tier 2 `skill:sdd-spec`, Tier 3 and 4 `skill:sdd-explore` or `skill:sdd-propose`. For the whole cycle, suggest `sdd-orchestrator`.
+- **Called alone:** when the person says to continue, load the skill of the next phase and run it: Tier 1 `sdd-apply`, Tier 2 `skill:sdd-spec`, Tier 3 `skill:sdd-explore` or `skill:sdd-propose`. For the whole cycle, suggest `sdd-orchestrator`.
 
 ## Envelope
 
@@ -150,6 +150,6 @@ notes: >-
 next: apply
 ```
 
-- `needs-input`: the person has to answer something (the ticket, an unknown in the proposal, onboarding in Tier 3 or 4). Say exactly what to ask.
+- `needs-input`: the person has to answer something (the ticket, an unknown in the proposal, onboarding in Tier 3). Say exactly what to ask.
 - `blocked`: `exo` is not available, or you cannot write the change root.
 - `fitness_signal`: if what you read while drafting contradicts the tier, add it; only the orchestrator re-classifies.

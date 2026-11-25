@@ -6,7 +6,7 @@ Structured prompt-driven development (SPDD) is an optional overlay on the SDD cy
 
 Use the overlay when **any** of these holds:
 
-- **Tier 3 or 4 with domain logic worth fixing before the code:** business rules, calculations, state machines, permissions, money, or integrations whose contract matters;
+- **Tier 3 with domain logic worth fixing before the code:** business rules, calculations, state machines, permissions, money, or integrations whose contract matters;
 - **the person asks for it**, at any tier; or
 - **the project requires it:** `governance.gates` in `.exo/config.json` lists `prompt_spec_review` for the change's tier. Then every change of that tier has a canvas and its gate, whatever its content: the exclusions and the doubt rule below do not apply.
 
@@ -34,8 +34,8 @@ Do not use it for configuration, copy, styling, dependency bumps, or pure refact
 
 | Phase | Skill | Does |
 |---|---|---|
-| design (Tier 3 and 4) | `reasons-canvas-author` | Writes `canvas.md` from the spec, `design.md` and the threat model |
-| design (Tier 3 and 4) | `prompt-spec-review` (approval mode) | Checks the canvas is complete and coherent with the spec and the design, shows it to the person, and writes `gates/prompt_spec_review.md` with their decision |
+| design (Tier 3) | `reasons-canvas-author` | Writes `canvas.md` from the spec, `design.md` and the threat model |
+| design (Tier 3) | `prompt-spec-review` (approval mode) | Checks the canvas is complete and coherent with the spec and the design, shows it to the person, and writes `gates/prompt_spec_review.md` with their decision |
 | before apply (Tier 1 and 2) | `reasons-canvas-author`, then `prompt-spec-review` (approval mode) | The same two steps, in the orchestrator's session, from the proposal and the spec |
 | apply | `prompt-code-sync` | Before each task, reads the Operations and Safeguards it implements; keeps canvas and code in sync (section D) |
 | apply, after a logic correction | `prompt-spec-review` (approval mode) | Shows the changed canvas to the person and rewrites the gate with their decision, before the code changes |

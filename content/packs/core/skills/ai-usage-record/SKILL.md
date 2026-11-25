@@ -97,7 +97,7 @@ exo change record <change> --set purpose '"Let employees sign in with SSO."'
 
 - Every tier change. A raise is `"by": "agent"` when the orchestrator made it; a lower tier needs the person's literal confirmation and is `"by": "human"`.
 - A scope change, or an approach chosen between alternatives, that the person approved.
-- Running a Tier 4 verify without isolation, which needs the person's explicit approval (`.exo/shared/agent-capabilities.md`).
+- Running a Tier 3 verify without isolation, which needs the person's explicit approval (`.exo/shared/agent-capabilities.md`).
 
 Keep `summary` to one line and put the why in `rationale`.
 

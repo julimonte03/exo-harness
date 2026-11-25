@@ -120,7 +120,7 @@ Review it after every use in an incident and at least every six months; a runboo
 
 - Write the file as `<service>-<alert-slug>.md` in the folder the project uses for runbooks (look for `docs/runbooks/`, `runbooks/` or `ops/runbooks/`). If there is none, propose `docs/runbooks/` and create it only after the person says yes; until then, keep the runbook in the answer. Update the folder's index when it has one.
 - Propose the alert change that points at it (for example a `runbook_url` annotation in a Prometheus rule), as a diff for the person: changing alert rules is a configuration change, not part of writing the runbook.
-- **Inside an SDD change,** the runbook is a project document, never a file of the change root: any phase may write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C). Until then, return its outline as text for the phase that owns the plan.
+- **Inside an SDD change,** the runbook is a project document, never a file of the change root: any phase may write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C). Until then, return its outline as text for the phase that owns the plan.
 
 A full example is in `references/example-runbook.md`.
 

@@ -127,7 +127,7 @@ Read the note with the outgoing person, fix what is wrong, and suggest a short l
 
 - **By default, the answer:** most teams paste the handoff where they coordinate.
 - **In the repository** when the project already keeps handoffs there (look for `docs/oncall/`, `oncall/handoffs/` or `docs/handoffs/`) or the person names a path: `YYYY-MM-DD-<rotation>.md` in that folder. Without such a folder, propose one (`docs/oncall/`) and create it only after the person says yes: handoffs in the repository are the team's choice.
-- **Inside an SDD change,** a handoff is a project document, never a file of the change root: any phase may write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C); until then, it stays in the answer.
+- **Inside an SDD change,** a handoff is a project document, never a file of the change root: any phase may write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C); until then, it stays in the answer.
 
 ## Record
 

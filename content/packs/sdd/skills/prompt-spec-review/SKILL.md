@@ -37,7 +37,7 @@ The rules of the overlay are in `.exo/shared/spdd-common.md`. When this skill an
 
 | Mode | Phase | Runs in | Trigger |
 |---|---|---|---|
-| approval | design (Tier 3 and 4) or right before apply (Tier 1 and 2), after skill:reasons-canvas-author; in apply, after a logic correction | the orchestrator's session, inline with the person | a new canvas, or a changed one (a logic correction from skill:prompt-code-sync, a change in the design) |
+| approval | design (Tier 3) or right before apply (Tier 1 and 2), after skill:reasons-canvas-author; in apply, after a logic correction | the orchestrator's session, inline with the person | a new canvas, or a changed one (a logic correction from skill:prompt-code-sync, a change in the design) |
 | conformance | verify | `sdd-verifier`, read-only and in fresh context; without subagents, the session that runs the verify | `canvas.md` exists in the change |
 
 - `exo check` requires this gate whenever `canvas.md` exists, at any tier. Without `canvas.md` the change has no such gate and this skill does not run, unless the tier lists `prompt_spec_review` in `governance.gates`: then the canvas is mandatory in that tier (`.exo/shared/spdd-common.md`, section A), and a change without one goes back to skill:reasons-canvas-author before this review.

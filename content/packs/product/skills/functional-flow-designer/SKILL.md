@@ -53,7 +53,7 @@ One functional flow that a business owner and an engineer read the same way:
 | A change, in spec | Given/When/Then scenarios for the main path, each decision branch and each exception; the rules as requirement candidates | `sdd-spec`, in spec.md, numbering IDs its way |
 | A change, in design | The steps, the exceptions and the data, for Sequence Of Operations, Error Handling and Data Shapes | `sdd-design`, in design.md |
 
-- Never edit an artifact of a phase (`.exo/shared/sdd-phase-common.md`, section C): return the text for the phase that owns it. If the person wants the flow document too, it is a project document, never a file of the change root: write it (for example in `docs/flows/`) with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C), and the phase links it.
+- Never edit an artifact of a phase (`.exo/shared/sdd-phase-common.md`, section C): return the text for the phase that owns it. If the person wants the flow document too, it is a project document, never a file of the change root: write it (for example in `docs/flows/`) with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C), and the phase links it.
 - If an earlier artifact contradicts the flow you found in the code, stop and say what disagrees: that fix belongs to the phase that owns the artifact.
 
 ## Inputs

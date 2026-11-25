@@ -27,6 +27,6 @@ The next phase the change's tier requires has run, its artifact is in the change
 5. **Run that phase only**, through the orchestrator's loop (skills, where it runs, envelope, record, state memory, and the anchor when there is one).
 6. **Stop.** Show what the phase produced and the phase that comes next, and ask "Adjust anything or continue?". Do not start the following phase, even in automatic mode: `/sdd-continue` means one phase.
 
-If the next phase is `archive`, run it only after the checks it requires (skill:sdd-archive). If it is `verify` in Tier 3 or 4 and your agent has no subagents, offer the fresh-context handoff (`.exo/shared/agent-capabilities.md`).
+If the next phase is `archive`, run it only after the checks it requires (skill:sdd-archive). If it is `verify` in Tier 3 and your agent has no subagents, offer the fresh-context handoff (`.exo/shared/agent-capabilities.md`).
 
 End with the envelope of the phase you ran.

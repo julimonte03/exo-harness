@@ -6,7 +6,7 @@ description: >-
   project's tests, and returns verify-record.md with a Verdict of ready,
   needs-rework or blocked and its Gate summary. Read-only apart from running
   the tests, lint and build. Runs in the sdd-verifier subagent; fresh context
-  is mandatory in Tier 3 and 4. Use it after sdd-apply, when the person asks
+  is mandatory in Tier 3. Use it after sdd-apply, when the person asks
   to verify, review or check a change before its PR, or runs /sdd-verify, and
   when a new session starts from a change's handoff.md to verify it.
 metadata:
@@ -32,7 +32,7 @@ metadata:
 | Situation | Runs in | Writes verify-record.md |
 |---|---|---|
 | With subagents, in every tier | `sdd-verifier`, in fresh context | the orchestrator, verbatim from the verifier's answer |
-| Without subagents, Tier 3 and 4 | a new session started from `<change-root>/handoff.md` | that new session |
+| Without subagents, Tier 3 | a new session started from `<change-root>/handoff.md` | that new session |
 | Without subagents, Tier 1 and 2, or the person declines a new session | inline, declaring "no isolation" | the same session |
 
 - **Fresh context** means a context that did not write the code. The orchestrator passes only the change name, the change root, the phase, the tier, the `## Skills to load before work` block, the base to diff against, the test, lint and build commands, the implementer's test baseline, and what to return. No conclusions, and nothing from the implementer's reasoning.
@@ -40,7 +40,7 @@ metadata:
   1. The orchestrator writes `<change-root>/handoff.md`: the change name, the phase (`verify`), the files to read (spec, design, tasks, test-spec, and the diff with `git diff <base>`), the test command and what to return. Nothing else.
   2. It asks the person to open a new session of their agent and say: "Run sdd-verify for `<change-name>`; start from `<change-root>/handoff.md`."
   3. The new session runs this skill from the handoff file, writes verify-record.md, records its work, and deletes handoff.md: it is not an artifact of the change.
-- **Inline in Tier 4** needs the person's explicit approval, recorded as a decision in the AI Usage Record. Inline, say in the Tests section that the verify did not run in an isolated context.
+- **Inline in Tier 3** needs the person's explicit approval, recorded as a decision in the AI Usage Record. Inline, say in the Tests section that the verify did not run in an isolated context.
 
 ## Permissions
 
@@ -77,7 +77,7 @@ Back every finding with `path:line`. What you could not check goes in Issues Fou
 
 | Verdict | When |
 |---|---|
-| `ready` | Every scenario has a passing test, the tests pass (apart from proven pre-existing failures), there is no Critical or High issue and no drift, and (Tier 3 and 4) every box is ticked. A Critical or High finding of `accessibility_review` or `prompt_spec_review`, or a changed file outside the canvas's Structure, blocks `ready` unless the person dismissed it with a reason; their Medium and Low findings go to Issues Found and do not block. |
+| `ready` | Every scenario has a passing test, the tests pass (apart from proven pre-existing failures), there is no Critical or High issue and no drift, and (Tier 3) every box is ticked. A Critical or High finding of `accessibility_review` or `prompt_spec_review`, or a changed file outside the canvas's Structure, blocks `ready` unless the person dismissed it with a reason; their Medium and Low findings go to Issues Found and do not block. |
 | `needs-rework` | Something above fails and `sdd-apply` can fix it inside the plan. |
 | `blocked` | The verify cannot conclude or the fix is outside the plan: the tests cannot run, an artifact is missing or contradicts another, the spec or the design is wrong. |
 
@@ -95,7 +95,7 @@ Severities: **Critical** (data loss, a security hole, the main scenario broken),
 | Issues Found | per issue: severity, `path:line`, impact and suggested fix; `None` if nothing |
 | Tests | the exact commands, passed and failed counts, the pre-existing failures, and the isolation (subagent, new session, or no isolation) |
 | Out-of-Scope Drift | each change outside the plan, with `path:line`; `None` if nothing |
-| Judgment Day Handoff | Tier 4: what `judgment-day` must look at (the riskiest files, the risks of design.md to re-check, what you could not verify). Tiers 1 to 3: `N/A` |
+| Judgment Day Handoff | Tier 3: what `judgment-day` must look at (the riskiest files, the risks of design.md to re-check, what you could not verify). Tiers 1 and 2: `N/A` |
 | Gate summary | the marker and the table below |
 
 The Gate summary keeps the template's marker and fills its table, one row per issue (a single row saying "No findings" when there are none):
@@ -113,7 +113,7 @@ Source: skill
 
 `Requires tech_lead approval` is `yes` when the record has a Critical or High issue or any drift, and `no` otherwise. Cite only requirement and scenario IDs that the delta or the living specs define: speclint checks them. A full example is in `references/verify-record-example.md`.
 
-## Judges (Tier 3 and 4)
+## Judges (Tier 3)
 
 The verifier does not run the judges. After it answers, the orchestrator runs `judge-code-reviewer`, `judge-security` and, when the diff touches UI, `judge-frontend`, each one as its own read-only delegation to `sdd-judge`, with the diff (or the list of changed files), spec.md, design.md and tasks.md, and in its `## Skills to load before work` block the skills it reuses when installed (`accessibility-audit` and `frontend-design` for `judge-frontend`). A judge that is not installed degrades (`quality/judge-code-reviewer not installed — applying inline criteria`) and the prompt carries its criteria from the map. Without subagents, run each judge inline after the verify, as a separate pass, and say "no isolation".
 
@@ -158,7 +158,7 @@ In `hybrid` and `memory` persistence, save the record with the topic key `sdd/<c
 
 | Verdict | `status` | `next` |
 |---|---|---|
-| `ready` | `ok` | `archive` in Tiers 1 to 3; `judgment` in Tier 4 |
+| `ready` | `ok` | `archive` in Tiers 1 and 2; `judgment` in Tier 3 |
 | `needs-rework` | `ok` | `apply` (skill:sdd-apply fixes the accepted issues; in automatic mode, the Critical and High ones) |
 | `blocked` | `blocked` | `verify` once the blocker is gone, or the phase that owns the wrong artifact |
 

@@ -19,7 +19,7 @@ metadata:
 ## Result
 
 - `<change-root>/proposal.md` refined, with its four sections (Intent, Scope, Approach, Out of Scope), passing `exo speclint <change-root>/proposal.md`.
-- In Tier 3 and 4: the findings of `judge-product` and `judge-business`, each one fixed or dismissed by the person.
+- In Tier 3: the findings of `judge-product` and `judge-business`, each one fixed or dismissed by the person.
 - The person's answer at the approval gate.
 - The envelope of `.exo/shared/sdd-phase-common.md`, section D, with `next: spec`.
 
@@ -27,7 +27,7 @@ This skill edits only `proposal.md`, which `skill:sdd-new` drafted. It never tou
 
 ## Inputs
 
-- `exo change status <change> --json`: the change root, `tier` and `tier_source` (missing or unreadable means Tier 4).
+- `exo change status <change> --json`: the change root, `tier` and `tier_source` (missing or unreadable means Tier 3).
 - `proposal.md`. If it does not exist, the change skipped the new phase: return `needs-input` and suggest `skill:sdd-new`.
 - `exploration.md` when explore ran: its Options, Risks and Open Questions.
 - `.exo/context.md`, and `exo specs list --json` for the capabilities the change touches.
@@ -39,7 +39,7 @@ Follow `.exo/shared/sdd-phase-common.md`, section A, at most 5 skills.
 
 - **Required:** `context-retrieval`: retrieve context before claiming anything, and cite the source next to each claim.
 - **Conditional:** `product-discovery`, for a new feature, an MVP or an unclear value. While the product pack is not installed, say `product/product-discovery not installed — applying inline criteria` and apply them: write who the user is, the problem, the value and how success is measured in the Intent, and ask the person when any of them is unclear.
-- **Judges (Tier 3 and 4):** `judge-product` and `judge-business`, in step 4.
+- **Judges (Tier 3):** `judge-product` and `judge-business`, in step 4.
 
 ## Steps
 
@@ -69,7 +69,7 @@ Ask the person, in one message, what you cannot settle from the artifacts or the
 
 `exo speclint <change-root>/proposal.md`. Fix every error.
 
-### 4. Judges (Tier 3 and 4)
+### 4. Judges (Tier 3)
 
 Each judge is a **separate read-only delegation to `sdd-judge`**, never inside your own context (`.exo/shared/phase-skill-map.md`). Each prompt gives the change name and root, the paths of `proposal.md` and `exploration.md`, the person's request and `.exo/context.md` (the stage before a proposal, `.exo/shared/judge-common.md`, section C), the first free ID of the judge's prefix (`JPRD`, `JBIZ`) from `exo change followups <change> --status all`, and a `## Skills to load before work` block with the judge's `SKILL.md` path and, when installed, the skills it reuses (`product-discovery` for `judge-product`).
 

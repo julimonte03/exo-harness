@@ -26,7 +26,7 @@ The phase is set by the **last artifact present**, in this order:
 
 ## Tier
 
-From `fitness-assessment.json` (`exo fitness classify --change`). If it is missing or unreadable, the tier is unknown and **Tier 4** applies. Never assume a lower tier.
+From `fitness-assessment.json` (`exo fitness classify --change`). If it is missing or unreadable, the tier is unknown and **Tier 3** applies. Never assume a lower tier. A Tier 4 recorded by engine 1.0 is read as Tier 3; `exo update --apply` migrates active changes and records `migrated_from: 4`.
 
 ## Next phase
 
@@ -34,13 +34,13 @@ From `fitness-assessment.json` (`exo fitness classify --change`). If it is missi
 
 1. no readable `fitness-assessment.json` → `risk`;
 2. no `proposal.md` → `new`;
-3. Tier 3 and 4: the proposal says "The area is unknown" (`sdd-new` writes "The area is unknown: explore before proposing." in Approach) and there is no `exploration.md` → `explore`; `propose` is not in `phases_done` → `propose`;
+3. Tier 3: the proposal says "The area is unknown" (`sdd-new` writes "The area is unknown: explore before proposing." in Approach) and there is no `exploration.md` → `explore`; `propose` is not in `phases_done` → `propose`;
 4. Tier ≥ 2 without `spec.md`, or Tier 2 without `test-spec.md` → `spec`;
-5. Tier 3 and 4 without `design.md` → `design`; without `tasks.md` or `test-spec.md` → `tasks`;
+5. Tier 3 without `design.md` → `design`; without `tasks.md` or `test-spec.md` → `tasks`;
 6. the Verdict of `verify-record.md` is `needs-rework`: if the last entry of `phases_done` is not `apply` → `apply`, to fix what Issues Found lists; once that apply is logged → `verify` again;
-7. Tier 3 and 4 with unchecked boxes in `tasks.md`, or Tier 1 and 2 without `apply` in `phases_done` → `apply`;
+7. Tier 3 with unchecked boxes in `tasks.md`, or Tier 1 and 2 without `apply` in `phases_done` → `apply`;
 8. no `verify-record.md`, a Verdict that is not valid, or `blocked` → `verify`;
-9. Tier 4 without `{"name": "judgment-day", "result": "approved"}` in `judges_invoked` → `judgment`;
+9. Tier 3 without `{"name": "judgment-day", "result": "approved"}` in `judges_invoked` → `judgment`;
 10. otherwise → `archive`. An archived change gives `none`.
 
 ### The phase log

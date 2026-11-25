@@ -28,7 +28,7 @@ metadata:
 - **The roadmap** (`references/roadmap-model.md`): a header (owner, audience, scope, time range, version and date), the objectives `O-n` with their metrics, the initiatives `I-n` placed in horizons or quarters, the milestones `M-n` marked committed or target, the dependencies, the risks `R-n`, the assumptions `A-n`, and what is not on the roadmap.
 - **The executive view** (`references/executive-view.md`): one page with a headline, three to five summary cards, the timeline, the top risks, the decisions asked of the audience, and a footer.
 - **A visual:** a Mermaid timeline (or a Gantt chart when every date is real), or a visual brief for the slide or design tool the team uses.
-- In the answer, or in the file the person names (for example `docs/roadmap/<slug>.md`). Inside an SDD change, that file is a project document, written with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C).
+- In the answer, or in the file the person names (for example `docs/roadmap/<slug>.md`). Inside an SDD change, that file is a project document, written with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C).
 
 ## When
 

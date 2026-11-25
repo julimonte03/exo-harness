@@ -116,7 +116,7 @@ A GameDay runs one or more experiments with the team present, to exercise people
 ## Where it goes
 
 - The folder the project uses for resilience work (look for `docs/chaos/`, `docs/resilience/` or `docs/gamedays/`), as `YYYY-MM-DD-<slug>.md`. If there is none, propose `docs/chaos/` and create it only after the person says yes; until then, keep the card in the answer.
-- **Inside an SDD change,** the experiment card is a project document, never a file of the change root: any phase may write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C). Until then, return the experiment design as text, also for the phase that owns an artifact that needs it (for example the Test Plan of design.md). Fault injection code or configuration is code: apply phase, when the plan lists it.
+- **Inside an SDD change,** the experiment card is a project document, never a file of the change root: any phase may write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C). Until then, return the experiment design as text, also for the phase that owns an artifact that needs it (for example the Test Plan of design.md). Fault injection code or configuration is code: apply phase, when the plan lists it.
 
 ## Return
 

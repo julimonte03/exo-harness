@@ -2,7 +2,7 @@
 name: sdd-apply
 description: >-
   Implements an SDD change exactly as its frozen plan says, tests first: the
-  tasks in tasks.md in Tier 3 and 4, or the proposal (with the spec delta and
+  tasks in tasks.md in Tier 3, or the proposal (with the spec delta and
   test-spec.md when they exist) in Tier 1 and 2. Writes the code and the
   tests, ticks the task boxes, commits each work unit and runs the tests with
   the project's exact command. Runs in the sdd-implementer subagent, or inline
@@ -22,9 +22,9 @@ metadata:
 ## Result
 
 - Code and tests that do what the frozen plan says, and nothing else.
-- Each work unit committed and, in Tier 3 and 4, every finished task ticked in tasks.md.
+- Each work unit committed and, in Tier 3, every finished task ticked in tasks.md.
 - The tests run with the project's exact command, with no new failures.
-- When the tier's gates (`governance.gates`) include `secure_coding_check` (Tier 4 by default): after the last task, the gate of `secure-coding-baseline` over the full diff. In `sdd-implementer`, return its full text before the envelope and the orchestrator writes `<change-root>/gates/secure_coding_check.md`; inline, write it yourself.
+- When the tier's gates (`governance.gates`) include `secure_coding_check` (Tier 3 by default): after the last task, the gate of `secure-coding-baseline` over the full diff. In `sdd-implementer`, return its full text before the envelope and the orchestrator writes `<change-root>/gates/secure_coding_check.md`; inline, write it yourself.
 - The envelope of `.exo/shared/sdd-phase-common.md`, section D, listing the files changed and the test results, with `next: verify`.
 
 ## Who runs it
@@ -38,7 +38,7 @@ metadata:
 
 | Tier | The plan |
 |---|---|
-| 3 and 4 | tasks.md, approved in `sdd-tasks`: the files, tests and scenarios of each task |
+| 3 | tasks.md, approved in `sdd-tasks`: the files, tests and scenarios of each task |
 | 2 | the proposal's Scope and Out of Scope, spec.md and test-spec.md |
 | 1 | the proposal's Scope and Out of Scope; spec.md when the change alters behavior |
 

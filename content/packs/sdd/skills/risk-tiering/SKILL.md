@@ -1,10 +1,10 @@
 ---
 name: risk-tiering
 description: >-
-  Classifies the risk tier (1 to 4) of an SDD change before any planning:
+  Classifies the risk tier (1 to 3) of an SDD change before any planning:
   gathers path:line evidence for the 7 fitness dimensions, scores each from 0
   to 3 with the classification rules, and records tier, rule and ceremony with
-  exo fitness classify --change. Missing evidence gives Tier 4; lowering a
+  exo fitness classify --change. Missing evidence gives Tier 3; lowering a
   recorded tier needs the person's literal confirmation. Use it at the start of
   every change, when a phase returns a fitness_signal, or when someone asks
   "classify the risk", "what tier is this", "risk tier", "fitness", "re-tier
@@ -30,7 +30,7 @@ This skill never edits `fitness-assessment.json` by hand, never writes any other
 
 - **The rules live in `references/classification-rules.md`:** what each dimension measures, the FM rules in order (the first match wins) and the ceremony of each tier. The command applies exactly that table; your job is honest scores.
 - **Evidence first.** Every score points to its evidence. No evidence, no score.
-- **Missing evidence gives Tier 4** (rule FM-00). Never guess a low score to save ceremony.
+- **Missing evidence gives Tier 3** (rule FM-00). Never guess a low score to save ceremony.
 - **Upgrade is automatic; downgrade needs the person.** A tier lower than the recorded one is a downgrade: only the orchestrator decides it, with the person's literal confirmation.
 - **Runs inline**, in the orchestrator's session (`.exo/shared/sdd-phase-common.md`, section G). A subagent never classifies: it returns a `fitness_signal`.
 
@@ -72,7 +72,7 @@ Use the anchors below. Between two values, take the higher one and say why.
 | `test_maturity_gap` | the behavior is tested and the tests run | tests miss paths the change touches | few tests, or only manual checks | no tests, or they do not run |
 | `regulatory_compliance_impact` | none | indirect (logs or reports that are not regulated) | regulated data or processes, controls unchanged | changes a regulated control: consent, retention, audit trail, customer identification, regulatory reporting |
 
-**A dimension without evidence stays out of the JSON.** The command then answers FM-00 (Tier 4) and lists it in `errors` as `missing <dimension>`. Say which dimension is missing and what evidence would settle it.
+**A dimension without evidence stays out of the JSON.** The command then answers FM-00 (Tier 3) and lists it in `errors` as `missing <dimension>`. Say which dimension is missing and what evidence would settle it.
 
 ### 4. Classify and record
 

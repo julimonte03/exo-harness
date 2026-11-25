@@ -54,7 +54,7 @@ metadata:
 
 ## 1. The map
 
-Show the cycle in a few lines before any work: the tier decides the phases; Tier 1 and 2 are short, Tier 3 and 4 add design, tasks and judges; every artifact lives in `<specs_dir>/<change-name>/`; `exo check` closes the loop before the PR. The text to start from is in `references/phase-narration.md`, The map. Point at `.exo/shared/phase-skill-map.md` for later reading.
+Show the cycle in a few lines before any work: the tier decides the phases; Tier 1 and 2 are short, Tier 3 adds design, tasks, judges and `judgment-day`; every artifact lives in `<specs_dir>/<change-name>/`; `exo check` closes the loop before the PR. The text to start from is in `references/phase-narration.md`, The map. Point at `.exo/shared/phase-skill-map.md` for later reading.
 
 ## 2. Pick the improvement
 
@@ -68,7 +68,7 @@ Show the cycle in a few lines before any work: the tier decides the phases; Tier
 | 2 | `--limit 0` is accepted and returns every row: reject it with a clear message | `src/app/cli.py:112` | 1 or 2 | an unhappy path with a scenario of its own |
 
 4. **The person chooses,** or brings their own idea. Their own idea is welcome: say its expected tier and what the tour will look like.
-5. The expected tier is a guess. skill:risk-tiering decides it with evidence, and the tour follows its result. If it gives Tier 3 or 4, say that the tour gets longer (design, tasks, judges) and offer to go on or to pick a smaller improvement.
+5. The expected tier is a guess. skill:risk-tiering decides it with evidence, and the tour follows its result. If it gives Tier 3, say that the tour gets longer (design, tasks, judges, `judgment-day`) and offer to go on or to pick a smaller improvement.
 
 ## 3. Run the phases
 
@@ -83,14 +83,14 @@ For each phase of the tier, in order:
 |---|---|---|
 | risk and new | skill:sdd-new, with skill:risk-tiering | every tier |
 | spec (and test-spec) | skill:sdd-spec | Tier 2 and up |
-| explore, propose, design, tasks | skill:sdd-explore, skill:sdd-propose, skill:sdd-design, skill:sdd-tasks | Tier 3 and 4 |
+| explore, propose, design, tasks | skill:sdd-explore, skill:sdd-propose, skill:sdd-design, skill:sdd-tasks | Tier 3 |
 | apply | skill:sdd-apply | every tier |
 | verify | skill:sdd-verify | every tier |
 | archive and PR | skill:sdd-archive, with skill:branch-pr | every tier |
 
 ### The phases the tier skips
 
-Where a skipped phase would run, explain it in two or three sentences: what it would do, what it would leave, and why this change does not need it. You may show its template from `.exo/shared/templates/` (for example `design.md`), but never write the artifact. Do the same for the judges, `judgment-day` in Tier 4, and the SPDD canvas (`.exo/shared/spdd-common.md`). The texts are in `references/phase-narration.md`, Skipped phases.
+Where a skipped phase would run, explain it in two or three sentences: what it would do, what it would leave, and why this change does not need it. You may show its template from `.exo/shared/templates/` (for example `design.md`), but never write the artifact. Do the same for the judges, `judgment-day` in Tier 3, and the SPDD canvas (`.exo/shared/spdd-common.md`). The texts are in `references/phase-narration.md`, Skipped phases.
 
 ## 4. Close
 

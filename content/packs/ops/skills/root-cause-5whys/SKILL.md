@@ -145,7 +145,7 @@ Each action has:
 ```
 
 - **The actions table** has the same columns everywhere in this pack: the postmortem template of skill:incident-response and the experiment card of skill:chaos-engineering use it too. A Ticket is the ID the person gives, or `none`.
-- **Where it goes:** the postmortem, started from the template of skill:incident-response, when it exists; otherwise the file the person names, or the answer. Inside an SDD change, that file is a project document, never a file of the change root: any phase may write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C). Until then, return the analysis as text, also for the phase that owns an artifact that needs it (for example the Intent of the fix's proposal.md).
+- **Where it goes:** the postmortem, started from the template of skill:incident-response, when it exists; otherwise the file the person names, or the answer. Inside an SDD change, that file is a project document, never a file of the change root: any phase may write it with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C). Until then, return the analysis as text, also for the phase that owns an artifact that needs it (for example the Intent of the fix's proposal.md).
 - **Outside a change,** save the root cause with skill:memory-protocol (`exo mem save --type bugfix` or `--type gotcha`), without personal data.
 
 ## Record

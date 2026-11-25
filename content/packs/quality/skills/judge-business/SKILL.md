@@ -38,7 +38,7 @@ The findings of one review in the format of the `sdd-judge` subagent: a Verdict 
 
 | Phase | What you review | Against (the stage before) |
 |---|---|---|
-| propose (Tier 3 and 4) | `proposal.md` | the person's request, `exploration.md` when there is one, and `.exo/context.md` |
+| propose (Tier 3) | `proposal.md` | the person's request, `exploration.md` when there is one, and `.exo/context.md` |
 | outside SDD | the proposal, feature idea or business case the person gives | the goals and the context the person gives |
 
 When the person asks for it on a later artifact (a spec or a design), judge only what changed in value, cost or risk since the proposal, and name the proposal as the stage before.

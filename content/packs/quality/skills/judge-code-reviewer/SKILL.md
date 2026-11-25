@@ -7,7 +7,7 @@ description: >-
   returns JCR-n findings with severity and path:line and an APPROVED or
   ESCALATED verdict. It never fixes anything. Runs in the sdd-judge subagent:
   in design and verify from Tier 3, and as one of the two blind judges of
-  judgment-day in Tier 4. Use it also when someone wants an independent code
+  judgment-day in Tier 3. Use it also when someone wants an independent code
   review. Triggers: "code reviewer judge", "judge the code", "independent
   code review", "second opinion on this diff", "judge this design".
 metadata:
@@ -35,9 +35,9 @@ The findings of one review in the format of the `sdd-judge` subagent: a Verdict 
 
 | Phase | What you review | Against (the stage before) |
 |---|---|---|
-| design (Tier 3 and 4) | `design.md` | `spec.md` and `proposal.md` |
-| verify (Tier 3 and 4) | the diff and the changed files | `spec.md`, `design.md`, `tasks.md` and `test-spec.md` |
-| judgment (Tier 4) | the whole change, starting from the Judgment Day Handoff of `verify-record.md` | the spec, `design.md` (with Risks & Mitigations) and `tasks.md` |
+| design (Tier 3) | `design.md` | `spec.md` and `proposal.md` |
+| verify (Tier 3) | the diff and the changed files | `spec.md`, `design.md`, `tasks.md` and `test-spec.md` |
+| judgment (Tier 3) | the whole change, starting from the Judgment Day Handoff of `verify-record.md` | the spec, `design.md` (with Risks & Mitigations) and `tasks.md` |
 | outside SDD | the diff the person gives | the ticket or the description the person gives |
 
 ## Criteria

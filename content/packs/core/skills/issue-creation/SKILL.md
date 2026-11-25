@@ -99,7 +99,7 @@ A suspected cause goes under its own heading, `Hypothesis`, with `path:line` and
 
 ### 9. Deliver
 
-- The text in the answer, or a file the person names, outside any change folder; committed during a change, that file is a project document, written with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3 and 4; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C). The person files it, in the tracker's web page or with its CLI; this skill never runs a tracker's CLI or API.
+- The text in the answer, or a file the person names, outside any change folder; committed during a change, that file is a project document, written with the person's approval once the plan lists it (design.md, Modules / Files, in Tier 3; the Scope of proposal.md in Tier 1 and 2), so verify does not count it as drift (`.exo/shared/sdd-phase-common.md`, section C). The person files it, in the tracker's web page or with its CLI; this skill never runs a tracker's CLI or API.
 - **Duplicates:** this skill cannot search the tracker. Ask the person to check for an existing issue with the key words of the title before filing.
 - **The ID, once filed:** with a ticket pattern, check the ID the person brings back against it (the whole ID has to match). If it does not, say so with `tickets.example` and ask once more. Never invent one; without a pattern, there is no ID to check.
 - **Next:** if the project has the `sdd` pack and the person wants to fix it now, offer to start a change with `sdd-new`. It asks for the ticket once (`.exo/shared/sdd-phase-common.md`, section E), and the person answers with the issue's ID; never pass the ID on yourself.

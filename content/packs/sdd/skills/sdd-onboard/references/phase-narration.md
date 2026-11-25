@@ -4,8 +4,8 @@ Short texts to narrate the tour. Say them in your own words, in the person's lan
 
 ## The map
 
-- Every change goes through phases, and its **risk tier** (1 to 4) decides which ones. A typo fix and a payment flow do not deserve the same ceremony.
-- **Tier 1:** risk, new (a short proposal), apply, a light verify, archive. **Tier 2** adds the spec and its test spec. **Tier 3** adds explore when needed, propose, design and tasks, plus advisory judges. **Tier 4** adds a final human review, `judgment-day`.
+- Every change goes through phases, and its **risk tier** (1 to 3) decides which ones. A typo fix and a payment flow do not deserve the same ceremony.
+- **Tier 1:** risk, new (a short proposal), apply, a light verify, archive. **Tier 2** adds the spec and its test spec. **Tier 3** adds explore when needed, propose, design and tasks, advisory judges, a verify always in fresh context, and a final human review, `judgment-day`.
 - Every artifact lives in one folder, `<specs_dir>/<change-name>/`, next to an AI Usage Record that says which skills and decisions took part.
 - Before the PR, `exo check` verifies that the artifacts the tier requires are there and valid.
 - The full map is `.exo/shared/phase-skill-map.md`; the shared rules of every phase are `.exo/shared/sdd-phase-common.md`.
@@ -14,7 +14,7 @@ Short texts to narrate the tour. Say them in your own words, in the person's lan
 
 - **Does:** scores seven risk dimensions (blast radius, criticality, data sensitivity, reversibility, footprint, test gaps, compliance), each with evidence, and lets the rules pick the tier.
 - **Leaves:** `fitness-assessment.json`, written by `exo fitness classify --change`.
-- **Why:** the ceremony matches the risk, and missing evidence means Tier 4, never a convenient low tier.
+- **Why:** the ceremony matches the risk, and missing evidence means Tier 3, never a convenient low tier.
 - **Point out:** the evidence behind each score (`path:line`), and that only the person can confirm a lower tier.
 
 ## new (skill `sdd-new`)
@@ -34,7 +34,7 @@ Short texts to narrate the tour. Say them in your own words, in the person's lan
 ## apply (skill `sdd-apply`)
 
 - **Does:** implements exactly the frozen plan, tests first, and commits each work unit.
-- **Leaves:** code, tests and commits; in Tier 3 and 4, the ticked boxes of `tasks.md`.
+- **Leaves:** code, tests and commits; in Tier 3, the ticked boxes of `tasks.md`.
 - **Why:** a frozen plan keeps the change reviewable, and anything outside it becomes a follow-up instead of a surprise in the PR.
 - **Point out:** the failing test before the code (red, then green), and a follow-up the implementer noted instead of fixing on the way.
 
@@ -63,8 +63,8 @@ Say these where the phase would have run, and why this change does not need it.
 | design (`sdd-design`) | modules, data shapes, sequence, error handling and a Test Plan; `design.md`, plus a threat model from Tier 3 | one or two files do not need an architecture |
 | tasks (`sdd-tasks`) | an ordered checklist of small tasks and a size forecast; `tasks.md` and `test-spec.md` | the proposal's Scope is already one work unit |
 | judges | advisory reviews in separate read-only passes (security, code, product, business, frontend, team) | they start at Tier 3 |
-| `judgment-day` | a final review in fresh context that the person approves | Tier 4 only |
-| SPDD canvas | a seven-section contract the code is checked against, approved by a person (`.exo/shared/spdd-common.md`) | for Tier 3 and 4 domain logic, on request, or when the project requires it in the tier |
+| `judgment-day` | a final review in fresh context that the person approves | Tier 3 only |
+| SPDD canvas | a seven-section contract the code is checked against, approved by a person (`.exo/shared/spdd-common.md`) | for Tier 3 domain logic, on request, or when the project requires it in the tier |
 
 You may open the template of a skipped artifact (`.exo/shared/templates/design.md`, `canvas.md`) to show its sections. Never write the artifact itself.
 

@@ -7,7 +7,7 @@ description: >-
   findings with severity, path:line, the CWE and the OWASP item, plus an
   APPROVED or ESCALATED verdict. It never fixes anything. Runs in the
   sdd-judge subagent: in design and verify from Tier 3, and as one of the two
-  blind judges of judgment-day in Tier 4. Use it also when someone wants an
+  blind judges of judgment-day in Tier 3. Use it also when someone wants an
   independent security opinion on a change. Triggers: "security judge",
   "judge the security", "independent security review", "OWASP review of this
   diff", "is this change secure".
@@ -36,9 +36,9 @@ The findings of one review in the format of the `sdd-judge` subagent: a Verdict 
 
 | Phase | What you review | Against (the stage before) |
 |---|---|---|
-| design (Tier 3 and 4) | `design.md`, with its Risks & Mitigations | `spec.md` and `proposal.md` |
-| verify (Tier 3 and 4) | the diff and the changed files | `spec.md`, `design.md` (Risks & Mitigations) and `tasks.md` |
-| judgment (Tier 4) | the whole change, starting from the Judgment Day Handoff of `verify-record.md` | the spec and the Risks & Mitigations of `design.md` |
+| design (Tier 3) | `design.md`, with its Risks & Mitigations | `spec.md` and `proposal.md` |
+| verify (Tier 3) | the diff and the changed files | `spec.md`, `design.md` (Risks & Mitigations) and `tasks.md` |
+| judgment (Tier 3) | the whole change, starting from the Judgment Day Handoff of `verify-record.md` | the spec and the Risks & Mitigations of `design.md` |
 | outside SDD | the diff the person gives | the ticket or the description the person gives |
 
 ## Criteria

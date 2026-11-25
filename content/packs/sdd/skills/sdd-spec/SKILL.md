@@ -5,7 +5,7 @@ description: >-
   the capability, adds, modifies or removes requirements by ID with
   Given/When/Then scenarios, and checks it with exo speclint; in Tier 2 it
   also writes test-spec.md. Use it after sdd-new in Tier 2 or after
-  sdd-propose in Tier 3 and 4, or when someone asks "sdd spec", "write the
+  sdd-propose in Tier 3, or when someone asks "sdd spec", "write the
   spec", "spec this change", "acceptance criteria", "requirements and
   scenarios".
 metadata:
@@ -20,15 +20,15 @@ metadata:
 ## Result
 
 - `<change-root>/spec.md`, a delta from `.exo/shared/templates/spec.md` with `## ADDED Requirements`, `## MODIFIED Requirements` and `## REMOVED Requirements`, passing `exo speclint <change-root>` and `exo specs merge <change> --dry-run`.
-- In Tier 2 only: `<change-root>/test-spec.md`, from `.exo/shared/templates/test-spec.md`. In Tier 3 and 4, `sdd-tasks` writes it.
-- In Tier 3 and 4: the findings of `judge-product`, each one fixed or dismissed by the person.
+- In Tier 2 only: `<change-root>/test-spec.md`, from `.exo/shared/templates/test-spec.md`. In Tier 3, `sdd-tasks` writes it.
+- In Tier 3: the findings of `judge-product`, each one fixed or dismissed by the person.
 - The person's answer at the approval gate, and the envelope of `.exo/shared/sdd-phase-common.md`, section D.
 
 This skill never touches `<specs_dir>/capabilities/` (only `exo specs merge`, run by `sdd-archive`, changes the living specs), `proposal.md`, `exploration.md`, `design.md`, `tasks.md` or code.
 
 ## Inputs
 
-- `exo change status <change> --json`: the change root and the tier (missing or unreadable means Tier 4).
+- `exo change status <change> --json`: the change root and the tier (missing or unreadable means Tier 3).
 - `proposal.md`: Scope is what the spec must cover; Out of Scope is what it must not. `exploration.md` when it exists: Current Behavior and Affected Capabilities.
 - If an earlier artifact is wrong or lacks what you need, stop with `needs-input` and say what is wrong; do not edit it.
 - An existing `spec.md` (drafted by `skill:sdd-new` in Tier 1 before the tier went up): start from it, complete it, and say so in the notes.
@@ -40,7 +40,7 @@ Follow `.exo/shared/sdd-phase-common.md`, section A, at most 5 skills. Spec has 
 - **Tier 2:** `test-strategy`, for `test-spec.md` (step 5).
 - **The change has a UI:** `accessibility-audit`. While the frontend pack is not installed, say `frontend/accessibility-audit not installed — applying inline criteria` and turn the criteria into requirements: for the UI that changes, keyboard access, visible focus, labels and accessible names, contrast and text alternatives (WCAG 2.2 AA), as an NFR or as scenarios.
 - **A new user flow:** `product-discovery`. While the product pack is not installed, say `product/product-discovery not installed — applying inline criteria`: check that the Intent of `proposal.md` states the user, the problem, the value and how success is measured. If any is missing, stop with `needs-input`; never edit the proposal.
-- **Tier 3 and 4:** the judge `judge-product` (step 6).
+- **Tier 3:** the judge `judge-product` (step 6).
 
 ## Steps
 
@@ -102,7 +102,7 @@ Load `test-strategy` and write the three sections of the template:
 
 Cite full IDs (`CAP-auth-FR-6`, `S-1`): speclint checks them against `spec.md` and the living specs. Run `exo speclint <change-root>` again.
 
-### 6. Judge (Tier 3 and 4)
+### 6. Judge (Tier 3)
 
 `judge-product` runs as a **separate read-only delegation to `sdd-judge`**, with the paths of `spec.md` and `proposal.md`, the first free `JPRD` ID from `exo change followups <change> --status all`, and a `## Skills to load before work` block with its `SKILL.md` path and, when installed, `product-discovery`. While the quality pack is not installed, say `quality/judge-product not installed — applying inline criteria` and put in the prompt its inline criteria from `.exo/shared/phase-skill-map.md` (Inline criteria for skills not installed), copied as they are: in spec, they check the spec against the proposal. Without subagents, run it inline as its own pass after the spec is done and say "no isolation" (`.exo/shared/agent-capabilities.md`).
 
@@ -145,6 +145,6 @@ notes: >-
 next: apply
 ```
 
-- `next`: `apply` in Tier 1 and 2, `design` in Tier 3 and 4.
+- `next`: `apply` in Tier 1 and 2, `design` in Tier 3.
 - `needs-input`: the proposal is missing what the spec needs, or the capability is unclear.
 - `fitness_signal`: if a requirement reveals more risk than the tier says (sensitive data, an irreversible step), add it; only the orchestrator re-classifies.
