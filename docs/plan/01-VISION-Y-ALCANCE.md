@@ -24,8 +24,8 @@ Además, a diferencia del arnés original, el motor puede **llegar a un proyecto
 | Runtime Python ≥ 3.10 solo stdlib, con sus 11 invariantes (§4.6) | Se conserva, con rutas y nombres nuevos, más 6 invariantes propias (ver `02-ARQUITECTURA.md`) |
 | Ciclo SDD/SPDD por fases, tiers 1–4, reglas FM-01…FM-30, envelope, `change-root` | Se conserva el contrato completo |
 | Jueces advisory, AI Usage Record, gates con comentario único por gate | Se conservan; además se verifican en `arnes check` |
-| engram: API de 15 tools, `topic_key`, guard S1, export redactado | Se conserva la API; cambia el motor de búsqueda (F3) |
-| Servidor MCP JSON-RPC stdio con 22 tools en 3 grupos | Se conservan los grupos; nombres sin prefijo `toolkit` |
+| engram: API de 15 tools, `topic_key`, guard S1, export redactado | Se conserva la API; cambia el motor de búsqueda (F3). Sin guard S1 ni export redactado (ADR-0009) |
+| Servidor MCP JSON-RPC stdio con 22 tools en 3 grupos | Se conservan los grupos; nombres sin el prefijo del toolkit de origen |
 | 12 plugins de Devin con `requiredPlugins`/`optionalPlugins` | Pasan a ser **packs** del instalador con la misma semántica de dependencias |
 | `validate_plugin.py`, smoke E2E, `_verify_p0.py` | Pasan a `arnes validate`, suite smoke y `arnes p0` |
 | Matriz DPA, RACI, threat model lite | Se conservan como datos configurables por organización |

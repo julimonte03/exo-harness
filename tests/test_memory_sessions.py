@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -102,6 +103,28 @@ def test_merge_conserva_el_mas_reciente(store: MemoryStore) -> None:
     store.projects_merge("old/api", P)
     assert [o.content for o in store.list(P)] == ["nuevo"]
     assert store.search("nuevo", project=P)[0].project == P
+
+
+def test_merge_con_la_misma_hora_conserva_el_ultimo_escrito(
+    store: MemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """En Windows antes de 3.13 el reloj tiene unos 15 ms de resolución: dos escrituras
+    seguidas tendrían la misma hora. La hora del store crece siempre dentro del proceso."""
+    from exo.memory import store as module
+
+    frozen = datetime(2026, 11, 22, 12, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(module, "_clock", lambda: frozen)
+    stamps = [module.now() for _ in range(3)]
+    assert stamps == sorted(set(stamps))  # estrictamente creciente con el reloj quieto
+    store.save(project=P, title="Perfil", content="viejo", topic_key="project/profile")
+    store.save(project="old/api", title="Perfil", content="nuevo", topic_key="project/profile")
+    store.projects_merge("old/api", P)
+    assert [o.content for o in store.list(P)] == ["nuevo"]
+    # Y al revés: el último escrito está en el destino.
+    store.save(project="otro/api", title="Perfil", content="más viejo", topic_key="project/profile")
+    store.save(project=P, title="Perfil", content="el último", topic_key="project/profile")
+    store.projects_merge("otro/api", P)
+    assert [o.content for o in store.list(P)] == ["el último"]
 
 
 def test_merge_invalido(store: MemoryStore) -> None:

@@ -141,7 +141,8 @@ def staged(target: Path) -> Path:
         import shutil
 
         shutil.rmtree(partial)
-    partial.parent.mkdir(parents=True, exist_ok=True)
+    # La carpeta de datos tiene la memoria: si falta, se crea privada (TM-27, F8R1-9).
+    paths.private_dir(partial.parent)
     return partial
 
 

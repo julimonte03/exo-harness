@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import argparse
+import os
+import re
 import runpy
 import subprocess
 import sys
@@ -66,3 +69,146 @@ def test_console_script_coincide_con_python_m() -> None:
         pytest.skip("el paquete no está instalado con `pip install -e .`")
     result = subprocess.run([str(script), "--version"], capture_output=True, text=True, check=True)
     assert result.stdout.strip() == EXPECTED
+
+
+# -- importación diferida de los subcomandos (F8) ------------------------------------------
+
+
+def _choices(parser: argparse.ArgumentParser) -> list[str]:
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            return list(action.choices)
+    return []
+
+
+def test_la_tabla_de_comandos_coincide_con_lo_que_registra_cada_modulo() -> None:
+    """Un subcomando nuevo va en `commands.MODULES`: si no, el CLI lo encuentra igual (carga
+    todos los módulos), pero arranca más lento."""
+    import importlib
+
+    from exo import commands
+
+    for module, names in commands.MODULES.items():
+        parser = argparse.ArgumentParser()
+        importlib.import_module(f"exo.commands.{module}").register(parser.add_subparsers())
+        assert tuple(_choices(parser)) == names, f"actualizá commands.MODULES[{module!r}]"
+    every = [name for names in commands.MODULES.values() for name in names]
+    assert len(every) == len(set(every))
+
+
+def test_la_ayuda_general_tiene_todos_los_comandos_en_orden() -> None:
+    from exo import commands
+    from exo.cli import build_parser
+
+    every = [name for names in commands.MODULES.values() for name in names]
+    assert _choices(build_parser()) == every
+    assert _choices(build_parser(["project"])) == list(commands.MODULES["project"])
+
+
+def test_que_modulos_necesita_cada_llamada() -> None:
+    from exo import commands
+
+    every = list(commands.MODULES)
+    assert commands.needed(["sync", "--project", "x"]) == ["project"]
+    assert commands.needed(["mem", "search", "pagos"]) == ["memory"]
+    assert commands.needed(["discover", "inventory"]) == ["tools"]
+    assert commands.needed(["--version"]) == []
+    for argv in ([], ["--help"], ["-h", "sync"], ["no-existe"]):  # la ayuda o el error
+        assert commands.needed(argv) == every, argv
+
+
+def test_un_comando_desconocido_sigue_dando_el_error_de_argparse(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from exo.cli import main
+
+    with pytest.raises(SystemExit) as exc:
+        main(["no-existe"])
+    assert exc.value.code == 2
+    err = capsys.readouterr().err
+    # Las comillas de las opciones cambiaron dentro de 3.12 (`'sync'` antes, `sync` después).
+    assert re.search(r"invalid choice: '?no-existe'?", err), err
+    assert re.search(r"choose from .*\bsync\b", err), err
+
+
+_LOADED = (
+    "import sys\n"
+    "from exo.cli import main\n"
+    "try:\n"
+    "    main(sys.argv[1:])\n"
+    "except SystemExit:\n"
+    "    pass\n"
+    "print(' '.join(sorted(m for m in sys.modules if m.startswith('exo.'))))\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("argv", "module", "absent"),
+    [
+        (["--version"], None, ("exo.memory", "exo.discovery", "exo.installer", "exo.sdd")),
+        (["version"], "version", ("exo.memory", "exo.discovery", "exo.validate", "exo.sdd")),
+        (
+            ["sync", "--help"],
+            "project",
+            ("exo.memory.store", "exo.validate", "exo.sdd.check", "exo.sdd.speclint", "exo.sdd.record"),
+        ),
+        (["mem", "--help"], "memory", ("exo.installer", "exo.discovery", "exo.adapters")),
+    ],
+)
+def test_un_subcomando_importa_solo_su_modulo(
+    argv: list[str], module: str | None, absent: tuple[str, ...]
+) -> None:
+    """F8: `exo sync` no carga la memoria ni el validador; `exo mem`, nada del instalador;
+    `exo --version`, ningún subcomando."""
+    from exo import commands
+
+    src = str(Path(_meta.__file__).resolve().parents[1])
+    done = subprocess.run(
+        [sys.executable, "-c", _LOADED, *argv],
+        capture_output=True,
+        text=True,
+        check=True,
+        env={**os.environ, "PYTHONPATH": src},
+    )
+    loaded = set(done.stdout.strip().splitlines()[-1].split())
+    others = {f"exo.commands.{m}" for m in commands.MODULES if m != module}
+    assert module is None or f"exo.commands.{module}" in loaded
+    assert not loaded & others
+    assert not {m for m in loaded if m.startswith(absent)}
+
+
+def test_un_sync_que_corre_tampoco_carga_la_memoria_ni_el_validador(
+    tmp_path: Path, synthetic_content: Path
+) -> None:
+    """F8R1-16: no solo `--help`: un `sync` de verdad sobre un proyecto sintético, que
+    planifica, compara con el lock y mira los hooks."""
+    from exo import commands, content
+    from exo.cli import main
+
+    project = tmp_path / "p"
+    project.mkdir()
+    assert main(["init", "--project", str(project), "--agents", "claude-code", "--yes"]) == 0
+    src = str(Path(_meta.__file__).resolve().parents[1])
+    done = subprocess.run(
+        [sys.executable, "-c", _LOADED, "sync", "--project", str(project)],
+        capture_output=True,
+        text=True,
+        check=True,
+        env={**os.environ, "PYTHONPATH": src, content.ENV_VAR: str(synthetic_content)},
+    )
+    assert "no changes" in done.stdout, done.stdout + done.stderr
+    loaded = set(done.stdout.strip().splitlines()[-1].split())
+    assert "exo.commands.project" in loaded and "exo.installer.engine" in loaded
+    assert not loaded & {f"exo.commands.{m}" for m in commands.MODULES if m != "project"}
+    # Lo mismo que con `--help`: `hosts` y `stack` traen `memory.projects` y `discovery.files`,
+    # que son chicos; la base de la memoria, el validador y el chequeo del ciclo, no.
+    heavy = (
+        "exo.memory.store",
+        "exo.memory.db",
+        "exo.validate",
+        "exo.sdd.check",
+        "exo.sdd.speclint",
+        "exo.sdd.record",
+        "exo.discovery.inventory",
+    )
+    assert not {m for m in loaded if m.startswith(heavy)}

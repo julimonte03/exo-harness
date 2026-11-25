@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 
@@ -215,6 +216,11 @@ def test_created_por_archivo_ida_y_vuelta(tmp_path: Path) -> None:
         ('"created": [{"path": "../x", "file": true}]', "unsafe"),
         ('"created": [{"path": "x", "containers": [1]}]', "containers"),
         ('"created": {"x": true}', "created"),
+        # F8 (auditoría de la adopción de exo): antes, un TypeError o letras sueltas.
+        ('"agents": null', "agents must be a list of names"),
+        ('"packs": null', "packs must be a list of names"),
+        ('"agents": "claude-code"', "agents must be a list of names"),
+        ('"agents": [1, 2]', "agents must be a list of names"),
     ],
 )
 def test_item_o_created_invalidos(tmp_path: Path, payload: str, fragment: str) -> None:
@@ -223,3 +229,85 @@ def test_item_o_created_invalidos(tmp_path: Path, payload: str, fragment: str) -
     path.write_text('{"schema": 1, ' + payload + "}", encoding="utf-8")
     with pytest.raises(LockError, match=fragment):
         lock.read(tmp_path)
+
+
+# -- migraciones (F8) -------------------------------------------------------------------
+
+
+def _write_raw(project: Path, payload: dict) -> None:
+    path = lock.lock_path(project)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def _v1_to_v2(raw: dict) -> dict:
+    """Paso de prueba: el esquema 2 inventado renombra un dueño viejo."""
+    out = copy.deepcopy(raw)
+    for entry in out.get("files", []):
+        if entry.get("owner") == "adapter:claude":
+            entry["owner"] = "adapter:claude-code"
+    out["schema"] = 2
+    return out
+
+
+V1 = {
+    "schema": 1,
+    "engine_version": "0.2.0",
+    "agents": ["claude-code"],
+    "packs": ["core"],
+    "files": [{"path": "AGENTS.md", "kind": "block", "block_id": "core", "owner": "adapter:claude", "sha256": "a"}],
+}
+
+
+def test_un_esquema_2_de_prueba_migra_al_leer_y_se_guarda_al_escribir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(lock, "SCHEMA", 2)
+    monkeypatch.setattr(lock, "MIGRATIONS", {1: _v1_to_v2})
+    _write_raw(tmp_path, V1)
+    data = lock.read(tmp_path)
+    assert [e.owner for e in data.files] == ["adapter:claude-code"]
+    assert data.engine_version == "0.2.0"
+    assert lock.write(tmp_path, data) is True
+    assert json.loads(lock.lock_path(tmp_path).read_text(encoding="utf-8"))["schema"] == 2
+    assert lock.read(tmp_path).files == data.files
+
+
+def test_un_paso_que_falla_es_un_lock_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """F8R1-10: los comandos atrapan `LockError`, no un `KeyError` de un lock raro."""
+
+    def broken(raw: dict) -> dict:
+        return {**raw, "files": [entry["missing"] for entry in raw["files"]], "schema": 2}
+
+    monkeypatch.setattr(lock, "SCHEMA", 2)
+    monkeypatch.setattr(lock, "MIGRATIONS", {1: broken})
+    _write_raw(tmp_path, V1)
+    with pytest.raises(LockError, match="schema 1 to 2") as info:
+        lock.read(tmp_path)
+    assert "backups list" in str(info.value)
+
+
+def test_sin_el_paso_que_falta_no_se_adivina(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(lock, "SCHEMA", 3)
+    monkeypatch.setattr(lock, "MIGRATIONS", {1: _v1_to_v2})
+    _write_raw(tmp_path, V1)
+    with pytest.raises(LockError, match="no migration from schema 2 to 3"):
+        lock.read(tmp_path)
+
+
+def test_un_lock_de_un_motor_mas_nuevo_pide_actualizar(tmp_path: Path) -> None:
+    _write_raw(tmp_path, {**V1, "schema": lock.SCHEMA + 1})
+    with pytest.raises(LockError, match=f"upgrade {_meta.NAME}") as info:
+        lock.read(tmp_path)
+    assert f"schema {lock.SCHEMA + 1}" in str(info.value)
+
+
+@pytest.mark.parametrize("schema", [None, 0, "1", True])
+def test_un_esquema_que_no_es_un_entero_valido(tmp_path: Path, schema: object) -> None:
+    _write_raw(tmp_path, {**V1, "schema": schema})
+    with pytest.raises(LockError, match="schema"):
+        lock.read(tmp_path)
+
+
+def test_el_esquema_actual_no_tiene_pasos_pendientes() -> None:
+    assert sorted(lock.MIGRATIONS) == list(range(1, lock.SCHEMA))

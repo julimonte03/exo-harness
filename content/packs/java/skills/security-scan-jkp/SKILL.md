@@ -103,7 +103,7 @@ Search the changed files first, then the rest of the source, for the patterns of
 ## 7. Report and hand off
 
 - **Fixes as text:** the fixed version and where to set it (the BOM property such as `<log4j2.version>` in Spring Boot, `dependencyManagement`, a Gradle constraint, the lockfile), an exclusion, or the safe API for a code pattern. You do not apply them.
-- **In verify:** it runs where the verify runs (`sdd-verifier`, read-only, or the session that runs the verify). The Critical and High findings go to Issues Found of `verify-record.md`, which `sdd-verify` writes. When the tier has the `security_review` gate, skill:security-code-review takes this report as the result of its check SCR-DEP-2: give the same findings as rows in the gate's Findings format (`| Critical | pom.xml:52 | DEP-1: log4j-core 2.14.1 ... | A03:2025, CWE-1395 |`). This skill writes no gate and no file.
+- **In verify:** it runs where the verify runs (`sdd-verifier`, read-only, or the session that runs the verify). The Critical and High findings go to Issues Found of `verify-record.md`, which `sdd-verify` writes. When the tier has the `security_review` gate, skill:security-code-review takes this report as the result of its check SCR-DEP-2: give the same findings as rows in the gate's Findings format (`| Critical | pom.xml:52 | DEP-1: log4j-core 2.14.1 ... | CWE-1395, A03:2025 Software Supply Chain Failures |`). This skill writes no gate and no file.
 - **Outside SDD:** the report goes in the answer. Findings the person decides not to fix go to `dismissed_followups` with their reason, recorded by the orchestrator inside a change; never drop or dismiss one yourself.
 
 ## Return
@@ -118,19 +118,19 @@ Tools: dependency-check-maven (declared in pom.xml:142): `./mvnw -B org.owasp:de
 
 | ID | Severity | Package | Installed, fixed | Advisory | Path | Exposure | Introduced | OWASP 2025 | Source |
 |---|---|---|---|---|---|---|---|---|---|
-| DEP-1 | Critical | org.yaml:snakeyaml | 1.33, 2.0 | CVE-2022-1471 (unsafe constructor) | direct, pom.xml:88 | runtime, reachable: PAT-1 | yes | A03:2025, CWE-1395 | manual, not confirmed by a scanner |
+| DEP-1 | Critical | org.yaml:snakeyaml | 1.33, 2.0 | CVE-2022-1471 (unsafe constructor) | direct, pom.xml:88 | runtime, reachable: PAT-1 | yes | CWE-1395, A03:2025 Software Supply Chain Failures | manual, not confirmed by a scanner |
 
 ## Manifests and lockfiles
 
 | ID | Severity | path:line | Finding | OWASP 2025 |
 |---|---|---|---|---|
-| LOCK-1 | High | pom.xml:88 | snakeyaml is pinned below the version the Spring Boot BOM manages, at a known vulnerable version (DEP-1) | A03:2025, CWE-1357 |
+| LOCK-1 | High | pom.xml:88 | snakeyaml is pinned below the version the Spring Boot BOM manages, at a known vulnerable version (DEP-1) | CWE-1357, A03:2025 Software Supply Chain Failures |
 
 ## Code patterns
 
 | ID | Severity | path:line | Finding | OWASP 2025 |
 |---|---|---|---|---|
-| PAT-1 | Critical | src/main/java/com/example/reports/ReportImport.java:41 | `new Yaml().load(body)` on the request body of POST /reports/import: arbitrary types from user input (see DEP-1) | A08:2025, CWE-502 |
+| PAT-1 | Critical | src/main/java/com/example/reports/ReportImport.java:41 | `new Yaml().load(body)` on the request body of POST /reports/import: arbitrary types from user input (see DEP-1) | CWE-502, A08:2025 Software or Data Integrity Failures |
 
 ## Not checked
 

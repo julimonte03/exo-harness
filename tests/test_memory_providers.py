@@ -100,6 +100,85 @@ def test_openai_compatible_con_permiso(server, monkeypatch: pytest.MonkeyPatch) 
     )
 
 
+def test_openai_compatible_en_esta_maquina_no_pasa_por_el_proxy(
+    server, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """F8R1-4: con `HTTP_PROXY` puesto, un servicio en loopback recibía el pedido a través del
+    proxy, con la `Authorization` en claro. Como Ollama local, va directo."""
+    import urllib.request
+
+    url, handler = server
+    proxy = type("P", (_Handler,), {"replies": [], "seen": []})
+    proxyd = HTTPServer(("127.0.0.1", 0), proxy)
+    threading.Thread(target=proxyd.serve_forever, daemon=True).start()
+    try:
+        for name in ("HTTP_PROXY", "http_proxy"):
+            monkeypatch.setenv(name, f"http://127.0.0.1:{proxyd.server_port}")
+        for name in ("NO_PROXY", "no_proxy"):
+            monkeypatch.delenv(name, raising=False)
+        # El opener remoto lee los proxies al crearse: se rearma con el entorno del test.
+        monkeypatch.setattr(http, "_REMOTE", urllib.request.build_opener(http._NoRedirect))
+        monkeypatch.setenv(http.ENV_URL, url + "/v1")
+        monkeypatch.setenv(http.ENV_KEY, "clave-de-prueba")
+        handler.replies = [(200, {"data": [{"embedding": [1.0, 2.0]}]})]
+        provider = embeddings.create("openai-compatible", allow_remote=True)
+        assert provider.embed(["x"]) == [[1.0, 2.0]]
+        assert proxy.seen == [] and len(handler.seen) == 1
+    finally:
+        proxyd.shutdown()
+
+
+class _Redirector(BaseHTTPRequestHandler):
+    """Responde 302 a todo POST y registra quién lo sigue (con qué encabezados)."""
+
+    followed: list[dict] = []
+
+    def do_POST(self) -> None:  # noqa: N802
+        self.rfile.read(int(self.headers["Content-Length"]))
+        self.send_response(302)
+        self.send_header("Location", "/otro-destino")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def do_GET(self) -> None:  # noqa: N802
+        self.followed.append(dict(self.headers))
+        data = b"{}"
+        self.send_response(200)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def log_message(self, *args: object) -> None:
+        pass
+
+
+def test_openai_compatible_no_sigue_redirecciones(monkeypatch: pytest.MonkeyPatch) -> None:
+    """TM-29: urllib reenviaba `Authorization` al destino de un 302 (threat model, M-10)."""
+    handler = type("R", (_Redirector,), {"followed": []})
+    httpd = HTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        monkeypatch.setenv(http.ENV_URL, f"http://127.0.0.1:{httpd.server_port}/v1")
+        monkeypatch.setenv(http.ENV_KEY, "clave-de-prueba")
+        provider = embeddings.create("openai-compatible", allow_remote=True)
+        with pytest.raises(ProviderError, match="redirect"):
+            provider.embed(["x"])
+    finally:
+        httpd.shutdown()
+    assert handler.followed == []  # nadie siguió el 302: la clave no viajó
+
+
+@pytest.mark.parametrize(
+    "url", ["http://embeddings.example.com/v1", "ftp://127.0.0.1/v1", "file:///tmp/x"]
+)
+def test_openai_compatible_exige_https_fuera_de_esta_maquina(
+    monkeypatch: pytest.MonkeyPatch, url: str
+) -> None:
+    monkeypatch.setenv(http.ENV_URL, url)
+    with pytest.raises(ProviderError, match="https"):
+        embeddings.create("openai-compatible", allow_remote=True)
+
+
 def test_openai_compatible_sin_clave_o_sin_permiso(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(http.ENV_KEY, raising=False)
     with pytest.raises(ProviderError, match=http.ENV_KEY):

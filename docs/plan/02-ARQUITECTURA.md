@@ -58,7 +58,7 @@ arnes/                              # raíz del repo del motor
 │   ├── packs/                      # manifiestos, resolución de dependencias, descubrimiento de skills
 │   ├── adapters/                   # base, detect, generic, claude_code, copilot, cursor, codex, gemini, windsurf_devin
 │   ├── installer/                  # motor de operaciones, init/sync/uninstall, wizard, curate
-│   ├── memory/                     # store, lexical, hybrid, guard (S1), embeddings/, backends/
+│   ├── memory/                     # store, lexical, hybrid, embeddings/, backends/ (sin guard, ADR-0009)
 │   ├── sdd/                        # fitness, speclint, observability, specs (deltas), check, templates/
 │   ├── discovery/                  # inventory, stack, graph, git_metrics, planner, state, sampler, coverage
 │   ├── governance/                 # githooks, gates, p0
@@ -119,7 +119,7 @@ Los contratos compartidos se instalan en `.arnes/shared/` y no dentro de un dire
 | `packs/` | Manifiestos, dependencias (orden topológico), descubrimiento de skills | Manifests de plugins (§2.3) |
 | `adapters/` | Un adaptador por agente; detección y cálculo de operaciones | Nuevo (reemplaza `git-subdir`) |
 | `installer/` | Motor de operaciones, `init`, `sync`, `add-agent`, `uninstall`, wizard, `curate` | `installer.py`, `curate.py` |
-| `memory/` | Store con backends, guard S1, sesiones, proyectos, export/import, embeddings | `engram.py` (§5.5) |
+| `memory/` | Store con backends, sesiones, proyectos, export/import, embeddings (sin guard, ADR-0009) | `engram.py` (§5.5) |
 | `sdd/` | Fitness, speclint, observabilidad, deltas de specs, `check` | `fitness.py`, `speclint.py`, `observability.py` |
 | `discovery/` | Inventario, grafo de módulos, métricas de git, planificador, estado, muestreo | Nuevo |
 | `governance/` | Git hooks, gates, `p0` | `_verify_p0.py` + nuevo |
@@ -236,7 +236,7 @@ Los archivos de configuración MCP generados usan `"command": "arnes", "args": [
 
 > **Actualizado por ADR-0009:** la memoria es por máquina de usuario, sin guard S1, sin perfiles y sin Qdrant. Los backends son `lexical` y `hybrid-sqlite`. La configuración de embeddings vive en la base (`exo mem reindex --provider …`), no en `.exo/config.json`.
 
-SQLite es la **fuente de verdad**: observaciones, sesiones y proyectos. Los índices de búsqueda (FTS5 y vectores) son **derivados y reconstruibles** con `arnes mem reindex`. El guard S1 corre antes de guardar y antes de calcular cualquier embedding. La búsqueda híbrida fusiona resultados léxicos y semánticos con Reciprocal Rank Fusion. Backends: `lexical` (stdlib), `hybrid-sqlite` (sqlite-vec en el mismo archivo) y `qdrant` (servidor). Los embeddings son locales por defecto; un proveedor remoto requiere habilitación explícita por la matriz DPA.
+SQLite es la **fuente de verdad**: observaciones, sesiones y proyectos. Los índices de búsqueda (FTS5 y vectores) son **derivados y reconstruibles** con `arnes mem reindex`. La memoria no filtra secretos ni datos personales: la regla de no guardarlos es una pauta para el agente (riesgo aceptado en ADR-0009). La búsqueda híbrida fusiona resultados léxicos y semánticos con Reciprocal Rank Fusion. Backends: `lexical` (stdlib) y `hybrid-sqlite` (sqlite-vec en el mismo archivo). Los embeddings son locales por defecto; un proveedor remoto requiere habilitarlo explícitamente en la base (`exo mem reindex --provider … --allow-remote`).
 
 ## 2.12 Config del proyecto `.arnes/config.json` (esquema 1)
 
@@ -288,4 +288,4 @@ Y se agregan:
 
 ## 2.14 Seguridad (resumen)
 
-S1 (guard de secretos y PII en memoria) y S2 (validación de entradas MCP) siguen siendo controles en código. Se agregan controles enforced agnósticos: `pre-commit` con el mismo escáner de S1 sobre el diff, `commit-msg` con la convención de commits, `pre-push` que bloquea ramas protegidas y `--force`, y `arnes check` en CI. Como un humano siempre puede usar `--no-verify`, **la CI es el gate real** y los hooks locales son la primera red. Los controles que siguen siendo advisory (jueces, threat modeling, clasificación de datos en prompts) quedan declarados como tales.
+S2 (validación de entradas MCP) sigue siendo un control en código. S1 (el guard de secretos y PII en la memoria) salió con ADR-0009: la memoria no filtra, y ese riesgo quedó aceptado. Se agregan controles enforced agnósticos: `pre-commit` con el escáner de secretos (`core/secrets.py`) sobre el diff, `commit-msg` con la convención de commits, `pre-push` que bloquea ramas protegidas y `--force`, y `arnes check` en CI. Como un humano siempre puede usar `--no-verify`, **la CI es el gate real** y los hooks locales son la primera red. Los controles que siguen siendo advisory (jueces, threat modeling, clasificación de datos en prompts) quedan declarados como tales.

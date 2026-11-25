@@ -25,7 +25,7 @@ Este archivo muestra que cada pieza del reporte transcripto tiene un destino: un
 | §5.2 | Protocolo JSON-RPC stdio y validación S2 | F1 |
 | §5.3 | 22 tools | Skills y observabilidad (F1), memoria (F3), discovery (F6) |
 | §5.4 | Observabilidad read-only | F1 |
-| §5.5 | engram + guard S1 | F3 |
+| §5.5 | engram + guard S1 | engram en F3; el guard S1 salió con ADR-0009 (D-24) |
 | §5.6 | Convención de memoria para SDD | `memory-convention.md` (F4) |
 | §6.1–6.7 | Roles, fases, tiers, mapa fase → skills, contrato común, delegación, contratos de salida | F4 |
 | §6.8 | SPDD (REASONS Canvas) | F7 prioridad 1 |
@@ -33,9 +33,9 @@ Este archivo muestra que cada pieza del reporte transcripto tiene un destino: un
 | §7.1 | Reglas always-on | `AGENTS.base.md` (F5) |
 | §7.2 | `branch-pr` y comentarios únicos por gate | `branch-pr` (F4) + gates como artefacto y `arnes gate publish` (F5) |
 | §7.3 | RACI y roles | `governance.roles` + CODEOWNERS (F5) |
-| §7.4 | Controles P0 | S1 (F3), S2 (F1), resto (F5); `arnes p0` (F5) |
-| §7.5 | Matriz DPA | Datos en `content/shared/dpa-matrix.md`, perfil `legacy-profile` (F5) |
-| §7.6 | Threat model lite | Actualizado con las superficies nuevas (F8) |
+| §7.4 | Controles P0 | S2 (F1), resto (F5); `arnes p0` (F5, D-32). S1 salió con ADR-0009 |
+| §7.5 | Matriz DPA | Sin perfil de organización (ADR-0014): la matriz genérica en `content/packs/core/shared/data-protection.md` y los detectores en `data_protection.pii` (F5) |
+| §7.6 | Threat model lite | Actualizado con las superficies nuevas: `docs/seguridad/threat-model-motor.md` (F8) |
 | §7.7 | AI Usage Record | Esquema (F4), verificación en `arnes check` (F4, F5) |
 | §7.8 | Jueces advisory | Código y seguridad (F5), resto (F7) |
 | §8.1 | Playbooks y knowledge notes | **Descartado** por decisión del dueño; los gates ya tenían skill equivalente |

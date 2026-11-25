@@ -1,10 +1,12 @@
 # Progreso de construcción
 
-**Fase activa:** F8, pendiente. F7 se cerró el 2026-11-17 (106 skills en 12 packs).
+**Fase activa:** ninguna. F8 cierra con el merge de su PR a `main`: v1.0.0, hito M4. Repo público en `https://github.com/julimonte03/exo-harness` (D-22, ADR-0017).
 
-Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron con el comando exacto, la CI está verde en los tres sistemas operativos y el PR de la fase está mergeado.
+Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron con el comando exacto, la CI está verde en los tres sistemas operativos y el PR de la fase está mergeado; desde F8, el dueño lo abre y lo mergea en GitHub (D-51).
 
-**Mientras no haya repo remoto** (decisión del dueño, 2026-10-30): la fase se cierra en local. La suite y el lint se corren en Windows y en Linux (Ubuntu en WSL, sobre un clon limpio), y la rama se mergea a `main` con `git merge --no-ff`, sin push. La CI (Azure Pipelines, `azure-pipelines.yml`, incluido macOS) y el PR quedan diferidos (ADR-0008). Cuando exista el remoto, se suben `main` y las ramas, y se verifica la CI de cada fase cerrada así.
+**Hasta F7, sin repo remoto** (decisión del dueño, 2026-10-30): las fases se cerraron en local. La suite y el lint se corrieron en Windows y en Linux (Ubuntu en WSL, sobre un clon limpio), y la rama se mergeó a `main` con `git merge --no-ff`, sin push. La CI y el PR quedaron diferidos (ADR-0008).
+
+**Desde F8** (D-22, D-45): el repo es público en GitHub y la CI corre en GitHub Actions, con Windows, macOS y Linux y Python 3.10 a 3.13 (`.github/workflows/ci.yml`). `main` y las ramas de F0 a F7 se subieron el 2026-11-19. `azure-pipelines.yml` queda como ejemplo, sin paridad. Cada fase cierra con un PR de su rama a `main`, que el dueño abre y mergea en GitHub con la CI en verde; nunca hay push directo a `main` (D-51).
 
 ## Estado por fase
 
@@ -18,7 +20,7 @@ Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron 
 | F5 Gobierno y gates | Terminada (local; CI diferida) | `feat/F5-gobierno`, mergeada a `main` en local, sin PR | 2026-11-15 | 2026-11-16 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL); 7 con Claude Code real (Tier 1 y Tier 2), Copilot opcional. Hito M2 (v0.1.0). D-12, D-21 y D-29 a D-32 → ADR-0014 |
 | F6 Ingeniería inversa | Terminada (local; CI diferida) | `feat/F6-ingenieria-inversa`, mergeada a `main` en local, sin PR | 2026-11-16 | 2026-11-17 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL); 3 a 5 con Claude Code real (dos corridas sobre `py-invoices`), Copilot opcional. Criterio 8 diferido a F8 (D-35). Hito M3 (v0.2.0). D-14, D-19 y D-33 a D-37 → ADR-0015 |
 | F7 Packs | Terminada (local; CI diferida) | `feat/F7-packs`, mergeada a `main` en local, sin PR | 2026-11-17 | 2026-11-17 | Criterios 1–4 OK en Windows (3.14 y 3.10) y Linux (WSL); 3 con Claude Code real (117 de 117 evals). 65 skills nuevas, 6 packs nuevos. D-12 (resto), D-18 y D-38 a D-44 → ADR-0016 |
-| F8 Endurecimiento + v1.0 | Pendiente | | | | |
+| F8 Endurecimiento + v1.0 | Terminada | `feat/F8-v1`, PR a `main` (D-51) | 2026-11-19 | 2026-11-25 | Criterios 1, 2 y 4–8 OK; 3 con 5 de 6 escenarios (el Tier 3 de Copilot, parcial: D-50). CI de GitHub Actions en verde en los tres sistemas y Python 3.10 a 3.13. Hito M4 (v1.0.0). D-22, D-35, D-17 y D-45 a D-48 → ADR-0017 y ADR-0018; D-49 (MIT), D-50 y D-51 (cierre por PR). Historia limpia (D-46) |
 
 Estados: `Pendiente` · `En curso` · `Bloqueada (D-xx)` · `Terminada`.
 
@@ -46,7 +48,7 @@ Entorno: Windows 11, venv `.venv` con Python 3.14.5. La suite también se corri�
 |---|---|---|---|
 | 1 | El paquete se instala y responde | `pip install -e ".[dev]"`; `exo --version`; `python -m exo --version` | OK: los dos imprimen `exo 0.0.1` |
 | 2 | Tests y lint verdes | `pytest`; `ruff check .` | OK: 8 passed, cobertura 96.55 % (umbral 80 %); ruff "All checks passed!" |
-| 3 | CI verde en los 3 SO | Sin remoto: `pip install -e ".[dev]"`, `exo --version`, `python -m exo --version`, `pytest`, `ruff check .` en Windows y en Ubuntu (WSL) | **Parcial**: Windows OK (3.14.5 y 3.10.20) y Linux OK (3.12.3; 8 passed, 96.55 %, versión `exo 0.0.1` por las dos vías). macOS y el run de GitHub Actions (`.github/workflows/ci.yml`) quedan diferidos hasta tener remoto |
+| 3 | CI verde en los 3 SO | Sin remoto: `pip install -e ".[dev]"`, `exo --version`, `python -m exo --version`, `pytest`, `ruff check .` en Windows y en Ubuntu (WSL) | **Parcial**: Windows OK (3.14.5 y 3.10.20) y Linux OK (3.12.3; 8 passed, 96.55 %, versión `exo 0.0.1` por las dos vías). macOS y el run de GitHub Actions (`.github/workflows/ci.yml`) quedan diferidos hasta tener remoto. **F8:** `ci.yml` existe desde F8 y la CI corre los tres sistemas (D-45) |
 | 4 | Nombre centralizado | `pytest --no-cov tests/test_meta.py` | OK: 3 passed. Prueba a mano: un módulo temporal con `".exo/config.json"` hace fallar el test con `_tmp_probe.py:1`, y se revirtió |
 | 5 | Matriz de agentes completa | Revisión de `docs/agent-matrix.md` (script que cuenta las filas 1–8 por tabla) | OK: 8 tablas (Claude Code, Copilot CLI, VS Code, cloud agent, Cursor, Codex, Gemini, Devin), cada una con las filas 1–8, URL o `[No verificado]` |
 | 6 | Decisiones registradas | `ls docs/adr`; `grep "Decidida" docs/plan/04-DECISIONES.md` | OK: ADR-0001 a 0004; D-01, D-02, D-03 y D-15 decididas |
@@ -193,7 +195,7 @@ Desvíos respecto del plan y por qué:
 | 2 | Funciona sin extras | Suite completa en el venv de Python 3.10 sin `[vector]`, más `exo mem save` y `exo mem search --json` | OK: la suite pasa (los tests de modelos y de sqlite-vec se saltean) y `mode` es `"lexical"` |
 | 3 | Índices reconstruibles | `pytest -k criterio_3 tests/test_memory_semantic.py tests/test_memory_providers.py` | OK (2 passed). Se borran los vectores y el índice FTS5 y se reindexa desde SQLite: mismos resultados antes y después, con el proveedor de prueba y con el modelo onnx real (las 50 consultas del dataset) |
 | 4 | Concurrencia | `pytest tests/test_memory_concurrency.py` | OK (2 passed). Servidor MCP y CLI en dos procesos, 60 `save` + 60 `search` cada uno, con índice semántico y sin él: sin errores de lock |
-| 5 | Experimento cerrado | `exo mem eval --providers static,onnx --output docs/evals/memory-2026-11-13.md` | OK: reporte con la tabla de métricas y ADR-0010. La regla se congeló en `f6699a7` antes de correr. Gana `hybrid-onnx` (Recall@5 80,0 contra 62,2 de la léxica, exactas sin pérdida) |
+| 5 | Experimento cerrado | `exo mem eval --providers static,onnx --output docs/evals/memory-2026-11-13.md` | OK: reporte con la tabla de métricas y ADR-0010. La regla se congeló en `15ac9ba` antes de correr. Gana `hybrid-onnx` (Recall@5 80,0 contra 62,2 de la léxica, exactas sin pérdida) |
 | 6 | Rendimiento | La misma corrida | OK: p95 de 67,1 ms con 5 000 memorias en `hybrid-onnx` (85 ms al repetirla en la revisión), con el modelo cargado. Cada llamada del CLI carga el modelo: entre 1,3 y 2,1 s (ver ADR-0010) |
 | 7 | Nada sale sin permiso | `pytest -k criterio_7` y `exo mem reindex --provider openai-compatible` | OK: error claro (pide `--allow-remote`) y sale con 1. Además, Ollama local no pasa por el proxy y Ollama en otro host cuenta como remoto |
 | 8 | Paridad de API | `pytest -k criterio_8` | OK: las 15 tools con los nombres del §5.3, por CLI (`exo mem …`) y por el servidor MCP |
@@ -665,3 +667,94 @@ Se regeneraron los goldens de `tests/golden/` (6 archivos) y se revisó el diff.
 - **Convención nueva a revisar:** la aprobación de primer uso del estilo ejecutivo (memoria más el marcador `exo-style:` en los diagramas). No toca el motor.
 - **Copilot:** no se corrió (opcional).
 - **Cierre local sin remoto**, según la regla del principio de este archivo.
+
+### F8 — Endurecimiento, evals y distribución (v1.0) — 2026-11-25
+
+**Entorno:**
+- Windows 11, con Python 3.14.5 (`.venv`) y Python 3.10.20 (venv con `uv`, sin extras).
+- Linux Ubuntu 24.04 en WSL2, con Python 3.12 de `uv`, sobre una copia de la rama en el disco de Linux.
+- GitHub Actions (D-45, ADR-0017): Windows, macOS y Linux con Python 3.10 a 3.13, más los jobs de extras de memoria, instaladores y build.
+- Claude Code 2.1.325 y GitHub Copilot CLI 1.0.114 para los escenarios, con la config de usuario aislada.
+- Los datos aislados con `EXO_DATA_DIR` y `EXO_MEMORY_DB` en toda corrida manual o de agente.
+
+**Resultados:**
+
+| Entorno | Resultado |
+|---|---|
+| Windows, Python 3.14 | 1984 passed y 15 skipped (POSIX, extras de memoria y un caso de rutas), cobertura 93,79 % |
+| Windows, Python 3.10 sin extras | 1978 passed y 21 skipped (además, los extras de memoria que no están), cobertura 93,54 % |
+| Linux (WSL) | 1987 passed y 12 skipped (los de Windows y los extras de memoria que no están), cobertura 93,71 %; `ruff check .` limpio, `exo validate` «12 packs, 106 skills, 6 subagents, 20 shared contracts: all valid» y `exo validate --docs . --docs docs/guides` «11 files, 17 count markers, 369 commands: all valid» |
+| GitHub Actions | [corrida 45666950140](https://github.com/julimonte03/exo-harness/actions/runs/45666950140): 19 de 19 jobs en verde (tests en Windows, macOS y Linux con Python 3.10 a 3.13, extras de memoria, instaladores y build) |
+
+| # | Criterio | Comando ejecutado | Resultado |
+|---|---|---|---|
+| 1 | Instalar y adoptar en menos de 2 minutos | El instalador remoto real (`irm …/install.ps1 \| iex`, con `EXO_REF=feat/F8-v1`) y `exo init --agents <agente> --yes`, cronometrados (`docs/checklists/F8-v1.md`) | OK: Claude Code 56,4 s con uv y 67,1 s sin uv (venv y pip desde git); Copilot 27,9 s. `exo doctor` sin errores, y cada agente lista las skills del proyecto |
+| 2 | Un segundo agente sin romper el primero | `exo add-agent copilot` sobre el repo de Claude Code, y los goldens `claude-copilot__*` (`tests/test_adapters.py`) | OK: 3,6 s. Cambian solo `.exo/config.json` y `.exo/lock.json`, porque Copilot lee las mismas `.claude/skills/` y `.claude/agents/`. `exo doctor` sin errores |
+| 3 | Ciclos Tier 1 y Tier 3 válidos, con Claude Code y con Copilot | `pytest -m agent_e2e tests/test_agent_scenarios.py` | 5 de 6 OK: Tier 1, Tier 3 y adopción `quick` con Claude Code; Tier 1 y adopción `quick` con Copilot. **El Tier 3 de Copilot quedó parcial** (D-50): hizo todas las fases hasta verify, con sus subagentes, pero no archivó. El verify quedó `blocked` por un riesgo que tenía que aceptar el `tech_lead`, Copilot `-p` deniega sin preguntar los comandos compuestos, y la cuenta se quedó sin cuota antes de la última reanudación |
+| 4 | Ingeniería inversa con cobertura ≥ 80 % y precisión ≥ 90 % | `/exo-adopt` en `standard` con Claude Code sobre una copia de exo (`git archive` de `bc96270`), y `coverage.md` | OK: 19 de 19 módulos (100 %), 178 de 178 requisitos con evidencia, 100 % de precisión en las 11 capacidades (30 FR del re-auditor). La auditoría independiente (15 FR al azar fuera de la muestra, con contexto fresco) dio 15 de 15 |
+| 5 | Memoria con decisión documentada | ADR-0010 vigente, y `pytest --no-cov -m perf tests/test_perf.py` | OK: ADR-0010 sigue vigente (la búsqueda híbrida es el default por un experimento con la regla congelada antes). Los 9 tests de rendimiento pasan: `exo init` < 10 s, `exo sync` sin cambios < 1 s, `exo discover inventory` y `structure` sobre 50 mil líneas < 30 s, y la búsqueda léxica con p95 < 150 ms sobre 5000 memorias. Sobre exo mismo (81 mil líneas), `inventory` tardó 16,3 s en frío y 5,4 s en caliente |
+| 6 | CI verde en los tres sistemas y Python 3.10 a 3.13, con cobertura ≥ 85 % | GitHub Actions, `ci.yml` | OK: [corrida 45666950140](https://github.com/julimonte03/exo-harness/actions/runs/45666950140), 19 de 19 jobs en verde. La cobertura de la suite queda en 93,5 % a 93,8 % según el entorno (mínimo 85 %). El PR a `main` vuelve a correrla sobre la historia reescrita |
+| 7 | Actualización segura | `pytest --no-cov -k criterio_7 tests/test_update.py` | OK (6 passed): `exo update` de 0.2.0 a 1.0.0 sobre un proyecto instalado conserva lo editado, reporta los conflictos, muestra el renombre de `review` y no borra huérfanas sin `--prune` (sin TTY nunca pregunta ni borra; en una terminal pregunta antes); `--json` da la misma información |
+| 8 | Threat model actualizado | `docs/seguridad/threat-model-motor.md` | OK: las 11 superficies del alcance, 52 amenazas con su mitigación o su riesgo aceptado. 593 citas `path:line` y 32 commits verificados contra `f764784`. Ningún residual Crítico: 8 Altos (TM-1, TM-4, TM-5, TM-11 y TM-12, de la cadena de suministro, que bajan con los ajustes de GitHub del checklist; TM-16 y TM-20, pendientes de M-3 y M-2; TM-26, aceptado en ADR-0009), 8 Medios y 36 Bajos |
+
+Checklist manual: `docs/checklists/F8-v1.md`, con los criterios 1 a 4 en detalle y los pasos del release. Los checklists de Copilot pendientes de F2 a F7 no se corrieron porque la cuota de Copilot se terminó con los escenarios: quedan como deuda (D-50).
+
+**Lo que se escribió:**
+- **Actualización:** `exo update` (vista previa por defecto, `--apply`, `--prune` y `--force`; una skill que choca queda entera como estaba), migraciones del lock, `exo sync` que ya no borra huérfanas sin `--prune`, y un guard que no lleva un proyecto a una versión anterior del motor.
+- **Distribución:**
+  - los instaladores remotos (`curl … | sh` e `irm … | iex`) desde GitHub, con `EXO_REF`, el wheel verificado contra `SHA256SUMS` y solo `https`;
+  - `release.yml` con tests, build, checksums, el release de GitHub y PyPI por trusted publishing;
+  - la licencia MIT (D-49).
+- **CI:** GitHub Actions con la matriz de 12 jobs más extras, instaladores y build; las actions fijadas por SHA, Dependabot y anotaciones de los tests que fallan.
+- **Rendimiento:** `tests/test_perf.py` (marker `perf`, en la suite normal). Un `sync` sin cambios ya no corre git para los hooks y cachea los links.
+- **Seguridad:** el threat model del motor (52 amenazas, STRIDE), y sus mitigaciones:
+  - el permiso de Claude Code solo para los subcomandos que las skills corren solas;
+  - `exo gate publish` corre solo un comando aprobado en esa máquina, para ese proyecto y con los archivos que corre;
+  - los embeddings sin redirects;
+  - los datos de usuario privados en POSIX;
+  - los runners de evals sin red para git y sin `git push`.
+- **Opcionales:** `exo status` enriquecido, las personas (ADR-0018), el pack `security` en OWASP Top 10:2025 y `exo validate --docs`.
+- **Documentación de usuario en inglés** (D-48): README, QUICK-START, CONTRIBUTING, CHANGELOG y las guías de `docs/guides/`.
+- **Escenarios con agentes reales:** `tests/test_agent_scenarios.py` y `tests/_agents.py`, con Claude Code y Copilot CLI.
+
+**Revisión final con contexto fresco** (tres subagentes: el motor; la distribución, la CI y la seguridad; el contenido y los docs). Encontraron 60 hallazgos: 6 High, 23 Medium y 31 Low. Los 6 High eran 4 problemas distintos. Tres subagentes los arreglaron todos, cada arreglo del motor con su test; ninguno resultó falso positivo.
+- **High:**
+  - la aprobación de `publish_command` fijaba solo el texto del comando, para cualquier repo: ahora queda atada al proyecto, al texto y al SHA256 de los archivos del proyecto que el comando nombra (en Windows, también los que `cmd` busca por `PATHEXT`);
+  - `exo sync`, `init` y los comandos de agentes llevaban un proyecto a una versión anterior del motor sin avisar;
+  - en modo automático, un hallazgo Medium o Low no dejaba archivar: ahora se aplaza a un followup, `pr.md` lo lista en "Known followups" y hay a lo sumo dos rondas de retrabajo;
+  - el overlay `qa` relajaba una regla (un test que falla bloquea `ready` igual).
+- **Medium y Low, entre otros:**
+  - el proxy del sistema con `openai-compatible` local;
+  - los permisos privados como best-effort en discos FAT;
+  - la config que reescribe el motor conserva el estilo de la persona;
+  - los colores de `exo status` en Windows;
+  - `uninstall.ps1` con la salida redirigida;
+  - git sin transporte de red en los runners;
+  - el runner de escenarios borra la copia de la cuenta de Copilot y exige que `check` vea el change;
+  - un solo formato de cita OWASP;
+  - y varias citas viejas del threat model.
+
+**Decisiones tomadas durante la fase:**
+- **D-22** (del dueño): repo público en GitHub.
+- **D-35** (del dueño): la prueba de escala se hace sobre el propio exo.
+- **D-17** (del dueño): overlays de persona → ADR-0018.
+- **D-45 a D-48:**
+  - D-45: la CI pasa a GitHub Actions (ADR-0017);
+  - D-46: la historia se limpia antes del primer push;
+  - D-47: Copilot CLI en esta máquina;
+  - D-48: la documentación de usuario en inglés.
+- **D-49** (del dueño): licencia MIT.
+- **D-50** (del dueño): se cierra con el Tier 3 de Copilot parcial y sus checklists como deuda.
+- **D-51** (del dueño): cada fase cierra con un PR a `main` que el dueño mergea con la CI en verde.
+
+**Desvíos respecto del plan y por qué:**
+- **Copilot:** el Tier 3 quedó parcial y los checklists de F2 a F7 no se corrieron, por la cuota (D-50).
+- **El merge a `main`** no es local: lo hace el dueño en GitHub con un PR (D-51).
+- **La historia se reescribe una segunda vez** al cierre, para sacar un resto del nombre de una herramienta de origen que quedó después de D-46. Los hashes citados en los docs se remapean en el mismo paso.
+- **PyPI:** el workflow está listo, pero publicar depende de que el dueño configure el trusted publisher y el environment `pypi` (checklist de release).
+
+**Limitaciones conocidas:**
+- **TM-20 y TM-16 quedan en Alto**, pendientes de M-2 y M-3. En la CI, la aprobación de `publish_command` fija solo el texto, y la protección depende de que el pipeline siga el contrato `ci-and-review`.
+- **Copilot CLI 1.0.114 con `-p`** deniega sin preguntar las cadenas con `;`, `git --no-pager`, los rangos `a...b` y los scripts de PowerShell con variables. Las skills se pueden quedar a mitad en corridas desatendidas.
+- **Que Claude Code aplica `permissions.allow` recién con el workspace confiable** está verificado en sesión interactiva, no en `-p`.
+- **El ajuste de GitHub** (rulesets, environments, la inmutabilidad de los releases) es un checklist para el dueño, no lo hace el motor.

@@ -107,10 +107,10 @@ def states(project: Path, plan: dict[str, Any], fileset: files_mod.FileSet) -> l
     return found
 
 
-def _flags(project: Path, rel: str) -> dict[str, Any]:
+def _flags(project: Path, rel: str, fileset: files_mod.FileSet) -> dict[str, Any]:
     from exo.validate import suspicious_instructions
 
-    reader = files_mod.TextReader(project)
+    reader = files_mod.TextReader(project, fileset.contents)
     text = reader.text(rel)
     flags: dict[str, Any] = {}
     if reader.lossy:
@@ -135,7 +135,7 @@ def next_units(project: Path, count: int = 1) -> list[dict[str, Any]]:
         state = by_id[item["id"]]
         if state.status in ("done", "skipped"):
             continue
-        flags = {p: f for p in item["files"] + item["tests"] if (f := _flags(project, p))}
+        flags = {p: f for p in item["files"] + item["tests"] if (f := _flags(project, p, fileset))}
         picked.append(
             {
                 **item,

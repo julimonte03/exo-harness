@@ -12,11 +12,18 @@ quedó vacío: así `init` + `uninstall` deja el proyecto como estaba.
 `drift()` compara el estado actual con el lock y devuelve lo que alguien
 editó a mano: el motor no lo pisa sin `--force` (invariante 13 de
 `docs/plan/02-ARQUITECTURA.md` §2.13).
+
+El esquema se migra al leer, como la config (`core/config.py`): `MIGRATIONS[n]`
+lleva un lock del esquema n al n + 1, y el lock migrado se guarda en la próxima
+escritura. Un lock de un esquema más nuevo que el del motor no se toca: lo
+escribió un `exo` más nuevo.
 """
 
 from __future__ import annotations
 
 import json
+import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -27,6 +34,9 @@ from exo.core import filemerge, fsutil, structmerge
 SCHEMA = 1
 FILENAME = "lock.json"
 KINDS = ("file", "mirror", "block", "key", "item")
+
+# MIGRATIONS[n] convierte un dict del esquema n al n + 1.
+MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {}
 
 
 class LockError(ValueError):
@@ -77,6 +87,21 @@ class Drift:
 
 def lock_path(project: Path) -> Path:
     return Path(project) / _meta.PROJECT_DIR / FILENAME
+
+
+_VERSION = re.compile(r"^(\d+)\.(\d+)\.(\d+)")
+
+
+def version_key(version: str) -> tuple[int, ...] | None:
+    """`1.2.3-rc1` -> (1, 2, 3); None si no empieza con una versión semver."""
+    match = _VERSION.match(version or "")
+    return tuple(int(n) for n in match.groups()) if match else None
+
+
+def newer_than_engine(version: str) -> bool:
+    """¿`version` (la que escribió un lock) es más nueva que este motor?"""
+    theirs, mine = version_key(version), version_key(_meta.VERSION)
+    return theirs is not None and mine is not None and theirs > mine
 
 
 def hash_block_content(content: str) -> str:
@@ -145,6 +170,32 @@ def _created(raw: Any, index: int) -> Created:
     return Created(path, file, tuple(containers))
 
 
+def _migrate(raw: dict[str, Any], path: Path) -> dict[str, Any]:
+    """Lleva el lock al esquema actual con los pasos de `MIGRATIONS`."""
+    schema = raw.get("schema")
+    if isinstance(schema, bool) or not isinstance(schema, int) or schema < 1:
+        raise LockError(f"{path}: invalid schema {schema!r} (an integer from 1 to {SCHEMA})")
+    if schema > SCHEMA:
+        raise LockError(
+            f"{path}: the lock uses schema {schema} and this engine understands up to "
+            f"{SCHEMA} (a newer {_meta.NAME} wrote it); upgrade {_meta.NAME} and retry"
+        )
+    while schema < SCHEMA:
+        step = MIGRATIONS.get(schema)
+        if step is None:
+            raise LockError(f"{path}: no migration from schema {schema} to {schema + 1}")
+        try:
+            raw = step(raw)
+        except Exception as exc:  # noqa: BLE001 - un lock raro no es un traceback (F8R1-10)
+            raise LockError(
+                f"{path}: the migration from schema {schema} to {schema + 1} failed ({exc!r}); "
+                f"restore the project from a snapshot (`{_meta.NAME} backups list`, then "
+                f"`{_meta.NAME} restore <name>`)"
+            ) from exc
+        schema += 1
+    return raw
+
+
 def read(project: Path) -> Lock | None:
     path = lock_path(project)
     try:
@@ -155,8 +206,7 @@ def read(project: Path) -> Lock | None:
         raise LockError(f"{path}: not valid JSON ({exc})") from exc
     if not isinstance(raw, dict):
         raise LockError(f"{path}: the root must be an object")
-    if raw.get("schema") != SCHEMA:
-        raise LockError(f"{path}: unsupported schema {raw.get('schema')!r} (expected {SCHEMA})")
+    raw = _migrate(raw, path)
     files = raw.get("files", [])
     if not isinstance(files, list):
         raise LockError(f"{path}: files must be a list")
@@ -165,11 +215,22 @@ def read(project: Path) -> Lock | None:
         raise LockError(f"{path}: created must be a list")
     return Lock(
         engine_version=str(raw.get("engine_version", "")),
-        agents=[str(a) for a in raw.get("agents", [])],
-        packs=[str(p) for p in raw.get("packs", [])],
+        agents=_names(raw, "agents", path),
+        packs=_names(raw, "packs", path),
         files=[_entry(item, i) for i, item in enumerate(files)],
         created=[_created(item, i) for i, item in enumerate(created)],
     )
+
+
+def _names(raw: dict[str, Any], key: str, path: Path) -> list[str]:
+    """`agents` o `packs`: una lista de nombres. Un `null` o un texto suelto es un lock roto."""
+    value = raw.get(key, [])
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        raise LockError(
+            f"{path}: {key} must be a list of names; restore the project from a snapshot "
+            f"(`{_meta.NAME} backups list`, then `{_meta.NAME} restore <name>`)"
+        )
+    return list(value)
 
 
 def _serialize(entry: LockEntry) -> dict[str, Any]:

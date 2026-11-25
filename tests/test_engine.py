@@ -78,10 +78,91 @@ def test_cambio_de_contenido(tmp_path: Path) -> None:
 def test_baja_borra_y_poda_directorios(tmp_path: Path) -> None:
     _apply(tmp_path, _ops())
     ops = [op for op in _ops() if not op.path.startswith(".claude/skills")]
-    result = _apply(tmp_path, ops)
+    result = _apply(tmp_path, ops, prune=True)
     assert ("remove", ".claude/skills/demo/SKILL.md") in [(a.action, a.path) for a in result.actions]
     assert not (tmp_path / ".claude" / "skills").exists()
     assert (tmp_path / ".claude" / "settings.json").exists()
+
+
+SKILL = ".claude/skills/demo/SKILL.md"
+
+
+def _sin_la_skill() -> list:
+    return [op for op in _ops() if op.path != SKILL]
+
+
+def test_huerfana_sin_prune_se_conserva_y_se_informa(tmp_path: Path) -> None:
+    """F8: una copia de contenido que el contenido ya no trae no se borra sin `prune`."""
+    _apply(tmp_path, _ops())
+    snaps = snapshots.list_snapshots(tmp_path)
+    result = _apply(tmp_path, _sin_la_skill())
+    assert result.applied and not result.conflicts
+    assert [(a.action, a.path, a.detail) for a in result.orphans] == [("orphan", SKILL, "")]
+    assert result.changed is False
+    assert (tmp_path / SKILL).read_bytes() == b"skill v1\n"
+    assert SKILL in [e.path for e in lock.read(tmp_path).files]
+    assert snapshots.list_snapshots(tmp_path) == snaps
+    again = _apply(tmp_path, _sin_la_skill())
+    assert [a.path for a in again.orphans] == [SKILL]
+    pruned = _apply(tmp_path, _sin_la_skill(), prune=True)
+    assert ("remove", SKILL) in [(a.action, a.path) for a in pruned.actions]
+    assert not (tmp_path / ".claude" / "skills").exists()
+    assert SKILL not in [e.path for e in lock.read(tmp_path).files]
+
+
+def test_huerfana_editada_se_informa_y_prune_la_trata_como_conflicto(tmp_path: Path) -> None:
+    _apply(tmp_path, _ops())
+    (tmp_path / SKILL).write_bytes(b"mia ahora\n")
+    kept = _apply(tmp_path, _sin_la_skill())
+    assert kept.conflicts == []
+    assert [(a.path, a.detail) for a in kept.orphans] == [(SKILL, "modified by hand")]
+    blocked = _apply(tmp_path, _sin_la_skill(), prune=True)
+    assert blocked.applied is False
+    assert [(c.path, c.reason) for c in blocked.conflicts] == [(SKILL, "modified by hand; not removed")]
+    forced = _apply(tmp_path, _sin_la_skill(), prune=True, force=True)
+    assert forced.applied and not (tmp_path / SKILL).exists()
+
+
+def test_huerfana_que_ya_no_existe_se_olvida_sin_prune(tmp_path: Path) -> None:
+    _apply(tmp_path, _ops())
+    (tmp_path / SKILL).unlink()
+    result = _apply(tmp_path, _sin_la_skill())
+    assert ("forget", SKILL) in [(a.action, a.path) for a in result.actions]
+    assert result.orphans == []
+    assert SKILL not in [e.path for e in lock.read(tmp_path).files]
+
+
+def test_lo_que_el_pedido_saca_se_borra_sin_prune(tmp_path: Path) -> None:
+    """Un agente o un pack que se quitan: sus copias de contenido se dan de baja."""
+    _apply(tmp_path, _ops())
+    unit = (SKILL, "mirror", "")
+    result = _apply(tmp_path, _sin_la_skill(), dropped={unit})
+    assert ("remove", SKILL) in [(a.action, a.path) for a in result.actions]
+    assert not (tmp_path / SKILL).exists()
+
+
+def test_los_archivos_propios_del_motor_se_dan_de_baja_sin_prune(tmp_path: Path) -> None:
+    """Solo las copias de contenido (skills y subagentes) esperan `prune`."""
+    _apply(tmp_path, _ops())
+    registry = f"{_meta.PROJECT_DIR}/skill-registry.md"
+    result = _apply(tmp_path, [op for op in _ops() if op.path != registry])
+    assert ("remove", registry) in [(a.action, a.path) for a in result.actions]
+    assert not (tmp_path / registry).exists()
+
+
+def test_parcial_aplica_lo_demas_y_conserva_lo_editado(tmp_path: Path) -> None:
+    """`exo update`: con conflictos y sin force, escribe el resto y deja lo editado como está."""
+    _apply(tmp_path, _ops())
+    (tmp_path / SKILL).write_bytes(b"editado\n")
+    ops = [*_ops(b"skill v2\n"), WriteFile(".claude/agents/nuevo.md", b"nuevo\n", OWNER, kind="mirror")]
+    result = _apply(tmp_path, ops, partial=True)
+    assert result.applied
+    assert [(c.path, c.forceable) for c in result.conflicts] == [(SKILL, True)]
+    assert (tmp_path / SKILL).read_bytes() == b"editado\n"
+    assert (tmp_path / ".claude" / "agents" / "nuevo.md").read_bytes() == b"nuevo\n"
+    entry = next(e for e in lock.read(tmp_path).files if e.path == SKILL)
+    assert entry.sha256 == fsutil.sha256_bytes(b"skill v1\n")
+    assert result.snapshot is not None
 
 
 def test_desinstalar_todo_deja_el_proyecto_como_estaba(tmp_path: Path) -> None:
@@ -89,7 +170,7 @@ def test_desinstalar_todo_deja_el_proyecto_como_estaba(tmp_path: Path) -> None:
     (tmp_path / ".mcp.json").write_bytes(b'{\n  "mcpServers": {\n    "otro": {}\n  }\n}\n')
     original = _tree(tmp_path)
     _apply(tmp_path, _ops())
-    result = engine.apply(tmp_path, [], agents=[], packs=[])
+    result = engine.apply(tmp_path, [], agents=[], packs=[], prune=True)
     assert all(a.action == "remove" for a in result.actions)
     after = {k: v for k, v in _tree(tmp_path).items() if not k.startswith(_meta.PROJECT_DIR)}
     assert after == original
@@ -193,12 +274,18 @@ def test_ruta_que_pasa_por_un_link_es_conflicto(tmp_path: Path, make_dir_link) -
 
 
 def test_cambio_solo_del_lock(tmp_path: Path) -> None:
+    """F8R1-10: el lock también es un archivo gestionado: cambiarlo solo saca snapshot."""
     _apply(tmp_path, _ops())
+    before = lock.lock_path(tmp_path).read_bytes()
     snaps = snapshots.list_snapshots(tmp_path)
     result = engine.apply(tmp_path, _ops(), agents=["claude-code", "copilot"], packs=["core"])
-    assert result.lock_changed and result.snapshot is None
+    assert result.lock_changed and result.snapshot is not None
     assert lock.read(tmp_path).agents == ["claude-code", "copilot"]
-    assert snapshots.list_snapshots(tmp_path) == snaps
+    assert len(snapshots.list_snapshots(tmp_path)) == len(snaps) + 1
+    archive = snapshots.read_archive(
+        (tmp_path / _meta.PROJECT_DIR / "backups" / result.snapshot).read_bytes()
+    )
+    assert archive.files[f"{_meta.PROJECT_DIR}/{lock.FILENAME}"][0] == before
 
 
 def test_merge_duplicates() -> None:
@@ -308,7 +395,7 @@ def test_baja_en_un_json_que_se_volvio_jsonc(tmp_path: Path) -> None:
     result = engine.apply(tmp_path, [], agents=[], packs=[])
     assert result.applied is False
     assert [c.path for c in result.conflicts] == [".mcp.json"]
-    forced = engine.apply(tmp_path, [], agents=[], packs=[], force=True)
+    forced = engine.apply(tmp_path, [], agents=[], packs=[], force=True, prune=True)
     assert forced.applied
     assert ("skip", ".mcp.json") in [(a.action, a.path) for a in forced.actions]
     assert any("mcpServers" in w for w in forced.warnings)
@@ -328,7 +415,7 @@ def test_desinstalar_no_poda_contenedores_del_humano(tmp_path: Path) -> None:
     (tmp_path / ".mcp.json").write_bytes(b'{\n  "mcpServers": {}\n}\n')
     before = _tree(tmp_path)
     _apply(tmp_path, _ops())
-    engine.apply(tmp_path, [], agents=[], packs=[])
+    engine.apply(tmp_path, [], agents=[], packs=[], prune=True)
     after = {k: v for k, v in _tree(tmp_path).items() if not k.startswith(_meta.PROJECT_DIR)}
     assert after == before
 
@@ -379,7 +466,7 @@ def test_baja_a_traves_de_un_link_queda_sin_resolver(tmp_path: Path, make_dir_li
     (tmp_path / ".claude").rename(real)
     make_dir_link(tmp_path / ".claude", real)
     ops = [op for op in _ops() if not op.path.startswith(".claude/")]
-    result = _apply(tmp_path, ops, force=True)
+    result = _apply(tmp_path, ops, force=True, prune=True)
     assert result.applied
     assert {c.path for c in result.unresolved} == {".claude/skills/demo/SKILL.md", ".claude/settings.json"}
     kept = {e.path for e in lock.read(tmp_path).files}

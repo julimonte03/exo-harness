@@ -6,6 +6,7 @@ con el mismo nombre.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import sys
 from pathlib import Path
@@ -15,6 +16,37 @@ from exo import _meta
 ENV_DATA_DIR = f"{_meta.ENV_PREFIX}DATA_DIR"
 ENV_MEMORY_DB = f"{_meta.ENV_PREFIX}MEMORY_DB"
 MEMORY_DB_NAME = "memory.db"
+# Solo el dueño, en POSIX (threat model, TM-27): la memoria va sin redactar (ADR-0009).
+PRIVATE_DIR = 0o700
+PRIVATE_FILE = 0o600
+
+
+def private_dir(path: Path) -> Path:
+    """Crea `path` y las carpetas que le falten, en `PRIVATE_DIR` en POSIX.
+
+    No cambia los permisos de una carpeta que ya existe: puede no ser del motor (una
+    `<ENV_PREFIX>DATA_DIR` elegida por la persona); `exo doctor` avisa si la de datos la
+    leen otros. En Windows, `%LOCALAPPDATA%` ya es por usuario. Los permisos son
+    best-effort: un filesystem que rechaza chmod (vfat, exFAT) no frena nada, y
+    `exo doctor` lo avisa con `data-dir`.
+    """
+    path = Path(path)
+    if os.name == "nt":
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+    missing: list[Path] = []
+    current = path
+    while not current.exists() and current != current.parent:
+        missing.append(current)
+        current = current.parent
+    for folder in reversed(missing):
+        try:
+            os.mkdir(folder, PRIVATE_DIR)
+        except FileExistsError:
+            continue
+        with contextlib.suppress(OSError):
+            os.chmod(folder, PRIVATE_DIR)  # el umask no recorta: queda exactamente 0700
+    return path
 
 
 def user_data_dir() -> Path:

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from exo import _meta
 from exo.commands._output import emit_json, error, usage_error
-from exo.governance import gates
+from exo.governance import approvals, gates
 from exo.sdd import observability
 
 _ENV = _meta.ENV_PREFIX
@@ -31,9 +31,28 @@ def register(sub: argparse._SubParsersAction) -> None:
     )
     publish.add_argument("--change", help="change name (default: the only active change)")
     publish.add_argument("--dry-run", action="store_true", help="print, never run the command")
+    publish.add_argument(
+        "--approve-command",
+        metavar="COMMAND",
+        help=(
+            "approve on this machine exactly this command, which must be review.publish_command, "
+            "for this project and the current content of the project files it names, and run "
+            "it (without the flag, a terminal asks)"
+        ),
+    )
     publish.add_argument("--project", type=Path, default=Path("."), help="project root")
     publish.add_argument("--json", action="store_true", help="JSON output")
     publish.set_defaults(handler=_publish)
+
+
+def _confirm(decision: approvals.Decision) -> bool:
+    print(f"This project ({decision.project}) runs this command in a shell, once per gate:")
+    print(f"  {decision.command}")
+    if decision.changed:
+        print(f"Changed since you approved it: {', '.join(decision.changed)}")
+    print(approvals.coverage(decision))
+    answer = input("Approve it on this machine for this project and run it? [y/N] ")
+    return answer.strip().lower() in ("y", "yes", "s", "si", "sí")
 
 
 def _publish(args: argparse.Namespace) -> int:
@@ -44,8 +63,21 @@ def _publish(args: argparse.Namespace) -> int:
             names = ", ".join(c.name for c in active) or "none"
             return usage_error(f"pass --change (active changes: {names})")
         name = active[0].name
+    # El texto exacto: quien aprueba el pedido del agente ve el comando, y un pipeline fija
+    # cuál acepta (un PR que cambia publish_command no coincide). `gates.publish` lo compara
+    # con la config que lee para correrlo. Threat model, M-1.
+    approve = args.approve_command
     try:
-        results = gates.publish(args.project, name, dry_run=args.dry_run)
+        try:
+            results = gates.publish(args.project, name, dry_run=args.dry_run, approve=approve)
+        except gates.CommandNotApproved as exc:
+            if args.json or not sys.stdin.isatty():
+                raise
+            if not _confirm(exc.decision):
+                print("cancelled: nothing was run")
+                return 1
+            # Si la config cambió mientras tanto, no coincide y no corre nada.
+            results = gates.publish(args.project, name, approve=exc.command)
     except (gates.GateError, ValueError, OSError) as exc:
         return error(str(exc))
     failed = [r for r in results if r.status == "failed"]

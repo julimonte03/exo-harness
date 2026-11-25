@@ -17,11 +17,13 @@ CI is the real gate. `exo doctor` says whether the hooks are active on a machine
 The pipeline needs Python 3.10 or later, the engine installed, and enough git history for `--base` to find the merge base (full history, or at least the target branch fetched). Run the project's own tests in the same pipeline: the engine does not replace them.
 
 ```sh
-pip install "exo-harness @ git+<engine repository URL>"   # or from your internal package index
+pip install "exo-harness @ git+<engine repository URL>@<release tag>"   # or from your internal package index
 exo check --base origin/<target branch>
 ```
 
 Exit code 0 is green; anything else fails the pipeline. Add `--json` for machine-readable output.
+
+Pin the engine to a release tag (`@v1.0.0`) or to a version of your package index: without one, CI installs whatever the engine's default branch has that day, and the pipeline changes without a review.
 
 ### GitHub Actions [Not verified]
 
@@ -33,15 +35,20 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@<full commit SHA> # v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@<full commit SHA> # v5
         with:
           python-version: "3.12"
-      - run: pip install "exo-harness @ git+<engine repository URL>"
-      - run: exo check --base "origin/${{ github.base_ref }}"
+      - run: pip install "exo-harness @ git+<engine repository URL>@<release tag>"
+      - run: exo check --base "origin/$BASE_REF"
+        env:
+          BASE_REF: ${{ github.base_ref }}
 ```
+
+- **Pin each action to a full commit SHA**, the one of the release you reviewed, with its tag in a comment: a tag like `v4` can be moved to other code, and the pipeline would run it without a review. Dependabot or Renovate can propose the updates.
+- **Pass the branch name through `env:`,** never with `${{ }}` inside `run:`: the expression is pasted into the script before the shell runs it, so a branch name with shell syntax in it would run as a command.
 
 ### Azure Pipelines [Not verified]
 
@@ -55,7 +62,7 @@ steps:
   - task: UsePythonVersion@0
     inputs:
       versionSpec: "3.12"
-  - script: pip install "exo-harness @ git+<engine repository URL>"
+  - script: pip install "exo-harness @ git+<engine repository URL>@<release tag>"
     displayName: Install the engine
   - script: |
       target="${SYSTEM_PULLREQUEST_TARGETBRANCH#refs/heads/}"
@@ -76,7 +83,7 @@ exo-check:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   script:
-    - pip install "exo-harness @ git+<engine repository URL>"
+    - pip install "exo-harness @ git+<engine repository URL>@<release tag>"
     - git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
     - exo check --base "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
 ```
@@ -92,9 +99,12 @@ exo-check:
 - **Without `review.publish_command`** (the default), it prints the texts. Paste each one as a PR comment, or put them in the PR description.
 - **With it**, it runs the command once per gate, from the project root, in the system shell (`sh` on Linux and macOS, `cmd` on Windows), with these variables in the environment: `EXO_GATE` (the gate name), `EXO_GATE_MARKER`, `EXO_GATE_BODY` (the path to a file with the text) and `EXO_CHANGE`. The command must edit the PR comment that carries the marker, or create it when there is none: one comment per gate, never a new one on each run.
 - `--dry-run` never runs the command. Nothing reaches the host until the project sets the command, with `exo init --publish-command "<command>"` or by editing `review.publish_command`.
-- **In CI, the command comes from the branch under review** (its `.exo/config.json`) and runs in a shell: never run `exo gate publish` with a write token on pull requests from forks or under `pull_request_target`. Publish from a trusted pipeline, or from the person's machine.
+- **The command runs only if this machine approved it for this project.** The approval covers the project's root folder, the exact text of the command and the current content of each project file the command names (a word of the command that is a file inside the project, such as `scripts/publish-gate.sh`; on Windows also `gh.cmd` and the other `PATHEXT` names of a word such as `gh`, because `cmd` runs them from the project folder before the `PATH`). It is kept in the user's data folder, never in the repo. In a terminal, `exo gate publish` shows the command and those files and asks; without one, it refuses and names them: review them, then run `exo gate publish --approve-command '<the exact command>'`. The text must match `review.publish_command`, so whoever approves sees what runs. A different command (even by one space), another project, or a change to one of those files asks again, and the message names the file that changed. The approval does not cover what those files run or read in turn. An agent never approves it for the person: it asks them to run it.
+- **In CI, the pin covers only the config's text.** The pipeline writes the command it accepts, `exo gate publish --approve-command 'sh scripts/publish-gate.sh'`: if a branch changes `review.publish_command`, the texts differ and nothing runs. But the data folder is new on every run, so the files the command names are approved as the branch has them: a branch that edits `scripts/publish-gate.sh` runs its own version.
+- **In CI, the branch can also change the pipeline.** In a GitHub Actions `pull_request` workflow, an Azure Pipelines build validation and a GitLab merge request pipeline, the pipeline definition comes from the branch under review, like `.exo/config.json` and every script in the repo. Publish only from a pipeline whose definition and script come from a trusted ref: after the merge, or with the script read from the target branch (`git show "origin/<target branch>:scripts/publish-gate.sh" > scripts/publish-gate.sh` before `exo gate publish`), never the PR's. Never run `exo gate publish` with a write token on pull requests from forks, or under `pull_request_target` with the PR's scripts. Or publish from the person's machine.
+- **Prefer a command that runs no file the branch controls**, with its logic in the trusted pipeline, for example `gh pr comment "$PR_NUMBER" --body-file "$EXO_GATE_BODY"`. That one adds a comment on each run; to edit each gate's comment instead, use one of the scripts below, read from a trusted ref.
 
-Keep the command a single call to a script in the repo, such as `sh scripts/publish-gate.sh`. Example scripts:
+On a person's machine, a single call to a script in the repo, such as `sh scripts/publish-gate.sh`, is enough: the approval covers the script, and `exo codeowners` makes the `tech_lead` its code owner. Example scripts:
 
 ### GitHub, with gh [Not verified]
 
@@ -158,8 +168,8 @@ fi
 
 - Require a PR to merge into each protected branch (`governance.protected_branches`), and forbid force pushes and deletion.
 - Require the CI check of section B to pass before merging.
-- Make the `tech_lead` role an effective approver. `exo codeowners` prints CODEOWNERS lines that give the specs folder and `.exo/` to the `tech_lead` entries of `governance.roles`; add them to the project's CODEOWNERS file.
+- Make the `tech_lead` role an effective approver. `exo codeowners` prints CODEOWNERS lines that give the `tech_lead` entries of `governance.roles` the specs folder, `.exo/`, and what the agents read or git runs (`AGENTS.md`, `CLAUDE.md`, `.claude/`, `.agents/`, `.mcp.json`, `.husky/`, `.pre-commit-config.yaml`, `.gitattributes`); add them to the project's CODEOWNERS file. A change to the rules, the skills, the agent permissions or the hooks changes what every clone does, so it needs their review.
   - **GitHub:** a branch protection rule or ruleset with "Require review from Code Owners".
   - **GitLab:** code owner approval on the protected branch, or merge request approval rules.
-  - **Azure DevOps:** Azure Repos does not read CODEOWNERS. Add an "Automatically included reviewers" branch policy with path filters (`/specs/*`, `/.exo/*`) and the tech leads as required reviewers.
+  - **Azure DevOps:** Azure Repos does not read CODEOWNERS. Add an "Automatically included reviewers" branch policy with the tech leads as required reviewers and the same paths that `exo codeowners` prints as path filters (`/specs/*`, `/.exo/*`, `/AGENTS.md`, `/CLAUDE.md`, `/.claude/*`, `/.agents/*`, `/.mcp.json`, `/.husky/*`, `/.pre-commit-config.yaml`, `/.gitattributes`).
 - The engine never checks roles: these host settings are what make an approval effective.

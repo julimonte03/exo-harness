@@ -169,10 +169,11 @@ One section per symptom, titled with what the reader sees (the error message the
 
 ## Long PR description
 
-The sections come from the project's PR template: in an SDD change, `pr.md`, owned by `branch-pr`, with exactly Summary, Ticket, Changes, Test Plan and Checklist. Inside them:
+The sections come from the project's PR template: in an SDD change, `pr.md`, owned by `branch-pr`, with exactly Summary, Ticket, Changes, Test Plan, Known followups and Checklist. Inside them:
 
 - **Summary:** the first line says what changes for the user or the system; the second, why.
 - **Ticket:** the ticket key, or `none`.
 - **Changes:** grouped by what they do, not by file; the risky part first. When the diff is large, end with a short reviewer guide: where to start reading, and what can be skimmed.
 - **Test Plan:** the exact commands and their results.
+- **Known followups:** one line per deferred finding, most severe first, or `None`.
 - **Checklist:** tick only what is true.

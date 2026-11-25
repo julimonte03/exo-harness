@@ -5,13 +5,14 @@ from __future__ import annotations
 import argparse
 import contextlib
 import sys
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 
-from exo import _meta
-from exo.commands import COMMANDS
+from exo import _meta, commands
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser(modules: Iterable[str] | None = None) -> argparse.ArgumentParser:
+    """El parser del CLI con los subcomandos de `modules` (por defecto, todos). `main` le
+    pasa solo los que necesita la llamada (`commands.needed`): el resto no se importa."""
     parser = argparse.ArgumentParser(
         prog=_meta.NAME,
         description=f"{_meta.DISPLAY_NAME}: a governed, per-project development engine.",
@@ -22,8 +23,7 @@ def build_parser() -> argparse.ArgumentParser:
         version=f"{_meta.NAME} {_meta.VERSION}",
     )
     sub = parser.add_subparsers(dest="command", metavar="<command>")
-    for register in COMMANDS:
-        register(sub)
+    commands.register(sub, modules)
     return parser
 
 
@@ -41,7 +41,8 @@ def _tolerant_streams() -> None:
 
 def main(argv: Sequence[str] | None = None) -> int:
     _tolerant_streams()
-    parser = build_parser()
+    argv = list(sys.argv[1:] if argv is None else argv)
+    parser = build_parser(commands.needed(argv))
     args = parser.parse_args(argv)
     handler = getattr(args, "handler", None)
     if handler is None:

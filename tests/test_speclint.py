@@ -166,6 +166,9 @@ none
 ## Test Plan
 pytest
 
+## Known followups
+None
+
 ## Checklist
 - [x] Tests
 """
@@ -197,6 +200,19 @@ def test_documentos_validos(tmp_path: Path, name: str, text: str, kind: str) -> 
     report = speclint.lint_path(_write(tmp_path, name, text))
     assert report.ok, _messages(report)
     assert report.files[0].kind == kind
+
+
+def test_pr_lista_los_followups_conocidos(tmp_path: Path) -> None:
+    """F8R3-1: en modo automático un Medium o Low se aplaza, y el PR lo dice."""
+    deferred = PR.replace("## Known followups\nNone", "## Known followups\n- JCR-3 (Medium): retry")
+    assert speclint.lint_path(_write(tmp_path, "pr.md", deferred)).ok
+    # Un pr.md de antes de 1.0 no la tiene: un change archivado no puede romper `exo check`
+    # después de `exo update` (revisión de F8). La plantilla la trae; si está, no va vacía.
+    missing = PR.replace("## Known followups\nNone\n\n", "")
+    assert speclint.lint_path(_write(tmp_path, "pr.md", missing)).ok
+    empty = PR.replace("## Known followups\nNone", "## Known followups\n<!-- none yet -->")
+    messages = _messages(speclint.lint_path(_write(tmp_path, "pr.md", empty)))
+    assert "section 'Known followups' is empty" in messages
 
 
 @pytest.mark.parametrize("name", sorted(speclint.ARTIFACTS))

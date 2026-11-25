@@ -120,6 +120,40 @@ def test_install_sin_motor_y_con_drift(tmp_path: Path) -> None:
     assert ".claude/agents/sdd-judge.md (modified)" in check.detail
 
 
+def _lock_written_by(root: Path, version: str) -> None:
+    from exo.core import lock
+
+    data = lock.read(root)
+    data.engine_version = version
+    lock.write(root, data)
+
+
+def test_install_avisa_si_el_lock_es_de_otra_version(
+    tmp_path: Path, synthetic_content: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """F8: el lock dice qué versión del motor lo escribió; si es otra, `exo update`."""
+    root = _installed(tmp_path, ["claude-code"])
+    monkeypatch.setattr(_meta, "VERSION", "1.0.0")
+    _lock_written_by(root, "0.2.0")
+    check = _by_name(doctor.run_checks(root))["install"]
+    assert check.status == "warn"
+    assert f"the lock was written by {_meta.NAME} 0.2.0; run `{_meta.NAME} update`" in check.detail
+    (root / ".claude" / "agents" / "demo-explorer.md").write_bytes(b"tocado")
+    detail = _by_name(doctor.run_checks(root))["install"].detail
+    assert f"run `{_meta.NAME} update`" in detail and "demo-explorer.md (modified)" in detail
+
+
+def test_install_con_un_lock_de_un_motor_mas_nuevo_pide_actualizar_el_motor(
+    tmp_path: Path, synthetic_content: Path
+) -> None:
+    root = _installed(tmp_path, ["claude-code"])
+    _lock_written_by(root, "99.0.0")
+    check = _by_name(doctor.run_checks(root))["install"]
+    assert check.status == "warn"
+    assert f"newer than this engine ({_meta.VERSION}); upgrade {_meta.NAME}" in check.detail
+    assert f"{_meta.NAME} update`" not in check.detail
+
+
 @pytest.mark.parametrize(
     ("version", "status"),
     [((2, 1, 312), "ok"), ((2, 1, 281), "ok"), ((2, 1, 200), "warn"), (None, "info")],

@@ -1,17 +1,18 @@
-"""`exo init`, `sync`, `status`, `add-agent`, `remove-agent` y `uninstall`."""
+"""`exo init`, `sync`, `update`, `status`, `add-agent`, `remove-agent` y `uninstall`."""
 
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 from typing import Any
 
 from exo import _meta, content, packs
-from exo.adapters import KNOWN_AGENTS, detect
+from exo.adapters import KNOWN_AGENTS, base, detect
 from exo.commands._output import emit_json, error, usage_error
 from exo.core import config, tickets
-from exo.installer import engine, project, stack, wizard
+from exo.installer import engine, project, stack, update, wizard
 
 
 def _common(parser: argparse.ArgumentParser, *, writes: bool = True) -> None:
@@ -28,6 +29,9 @@ def _common(parser: argparse.ArgumentParser, *, writes: bool = True) -> None:
 
 def _csv(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+_PRUNE_HELP = "also delete orphaned skills and subagents (takes a snapshot first)"
 
 
 def register(sub: argparse._SubParsersAction) -> None:
@@ -81,9 +85,37 @@ def register(sub: argparse._SubParsersAction) -> None:
     init.add_argument("--yes", action="store_true", help="never prompt")
     init.set_defaults(handler=_init)
 
-    sync = sub.add_parser("sync", help="regenerate the engine files from the config and the lock")
+    sync = sub.add_parser(
+        "sync",
+        help="regenerate the engine files from the config and the lock",
+        description=(
+            "Skills and subagents that the content no longer ships (orphans) are reported "
+            "and kept; --prune deletes them."
+        ),
+    )
     _common(sync)
+    sync.add_argument("--prune", action="store_true", help=_PRUNE_HELP)
     sync.set_defaults(handler=_sync)
+
+    update_cmd = sub.add_parser(
+        "update",
+        help="bring the project files to this engine version (preview by default)",
+        description=(
+            "Shows what this engine version changes in the project: new, modified, renamed "
+            "and orphaned files, and conflicts with your edits. Writes only with --apply. "
+            "Your edits are kept unless you add --force, and orphaned skills and subagents "
+            "are deleted only with --prune (in a terminal, --apply asks)."
+        ),
+    )
+    _common(update_cmd, writes=False)
+    update_cmd.add_argument(
+        "--apply", action="store_true", help="write the changes (takes a snapshot first)"
+    )
+    update_cmd.add_argument(
+        "--force", action="store_true", help="overwrite your edits (takes a snapshot first)"
+    )
+    update_cmd.add_argument("--prune", action="store_true", help=_PRUNE_HELP)
+    update_cmd.set_defaults(handler=_update)
 
     status = sub.add_parser("status", help="agents, packs and manual changes to generated files")
     _common(status, writes=False)
@@ -118,15 +150,72 @@ _LABELS = {
 }
 
 
-def _payload(result: engine.Result) -> dict[str, Any]:
+def _payload(result: engine.Result, renamed: dict[str, str] | None = None) -> dict[str, Any]:
     return {
         "applied": result.applied,
         "changed": result.changed,
         "snapshot": result.snapshot,
         "actions": [vars(a) for a in result.actions],
         "conflicts": [vars(c) for c in result.conflicts],
+        "orphans": [a.path for a in result.orphans],
+        "renamed": dict(renamed or {}),
         "warnings": result.warnings,
     }
+
+
+def _group_key(action: engine.Action) -> str:
+    """Una skill se muestra como su carpeta: `.claude/skills/<nombre>/`."""
+    return engine.group_of(action.path, action.kind)
+
+
+def _held(result: engine.Result) -> list[str]:
+    """Una línea por skill o subagente que un conflicto retuvo entero (F8R1-3)."""
+    held = [a for a in result.actions if a.action == "skip" and a.detail == engine.HELD]
+    return [f"kept: {line}" for line in _grouped(held, {})]
+
+
+_AGENT_FOLDERS = (base.CLAUDE_SKILLS, base.AGENTS_SKILLS, base.CLAUDE_AGENTS)
+
+
+def _orphans_reason(orphans: list[engine.Action], agents: list[str]) -> str:
+    """Por qué se conservan las huérfanas. Las de una carpeta que ningún agente del proyecto
+    lee (`.agents/skills/` después de `remove-agent`, por ejemplo) no las usa nadie (F8R1-15)."""
+    targets = tuple(agents)
+    read = set(base.skills_dirs(targets))
+    if set(targets) & base.CLAUDE_DIR_AGENTS:
+        read.add(base.CLAUDE_AGENTS)
+    unread: dict[str, int] = {}
+    for orphan in orphans:
+        folder = next((f for f in _AGENT_FOLDERS if orphan.path.startswith(f + "/")), None)
+        if folder is not None and folder not in read:
+            unread[folder] = unread.get(folder, 0) + 1
+    if not unread:
+        return "your agents may still use them"
+    where = ", ".join(f"{folder}/" for folder in sorted(unread))
+    if sum(unread.values()) == len(orphans):
+        return f"no agent of this project reads {where}"
+    return f"{sum(unread.values())} of them are in {where}, which no agent of this project reads"
+
+
+def _grouped(
+    actions: list[engine.Action], renamed: dict[str, str], *, word: str = "renamed to"
+) -> list[str]:
+    """Una línea por skill (o por archivo), con la cantidad de archivos y el renombre."""
+    groups: dict[str, list[engine.Action]] = {}
+    for action in actions:
+        groups.setdefault(_group_key(action), []).append(action)
+    lines = []
+    for key, items in groups.items():
+        notes = []
+        if key.endswith("/"):
+            notes.append(f"{len(items)} file{'' if len(items) == 1 else 's'}")
+        other = next((renamed[a.path] for a in items if a.path in renamed), None)
+        if other is not None:
+            shown = "/".join(other.split("/")[:3]) + "/" if key.endswith("/") else other
+            notes.append(f"{word} {shown}")
+        notes += sorted({a.detail for a in items if a.detail})
+        lines.append(key + (f" ({', '.join(notes)})" if notes else ""))
+    return lines
 
 
 def _conflict_label(conflict: engine.Conflict, args: argparse.Namespace) -> str:
@@ -137,13 +226,18 @@ def _conflict_label(conflict: engine.Conflict, args: argparse.Namespace) -> str:
     return "would force" if args.dry_run else "forced"
 
 
-def _report(result: engine.Result, args: argparse.Namespace, extra: dict[str, Any]) -> int:
+def _report(
+    result: engine.Result,
+    args: argparse.Namespace,
+    extra: dict[str, Any],
+    renamed: dict[str, str] | None = None,
+) -> int:
     """Imprime el resultado. Sale con 1 si hubo conflictos sin `--force`, o si quedaron
-    conflictos que `--force` no resuelve."""
+    conflictos que `--force` no resuelve. Las huérfanas se informan, sin cambiar el código."""
     failed = bool(result.conflicts) and not args.force
     code = 1 if failed or result.unresolved else 0
     if args.json:
-        emit_json({**extra, **_payload(result)})
+        emit_json({**extra, **_payload(result, renamed)})
         return code
     for key, value in extra.items():
         if key == "notes":
@@ -158,6 +252,8 @@ def _report(result: engine.Result, args: argparse.Namespace, extra: dict[str, An
     for conflict in result.conflicts:
         label = _conflict_label(conflict, args)
         print(f"{label}: {conflict.path} ({conflict.kind}): {conflict.reason}")
+    for line in _held(result):
+        print(line)
     if failed:
         hint = (
             "Fix the ones marked 'unresolved' by hand; --force does not overwrite them."
@@ -175,6 +271,8 @@ def _report(result: engine.Result, args: argparse.Namespace, extra: dict[str, An
         print("dry-run: nothing was written")
     for action, path in writes if (args.dry_run or len(writes) <= 30) else []:
         print(f"{action}\t{path}")
+    for line in _grouped(result.orphans, renamed or {}):
+        print(f"orphan\t{line}")
     if not result.changed:
         print("no changes")
     else:
@@ -186,6 +284,12 @@ def _report(result: engine.Result, args: argparse.Namespace, extra: dict[str, An
     if result.unresolved:
         done = "would be applied" if args.dry_run else "was applied"
         print(f"the rest {done}; fix the ones marked 'unresolved' by hand and retry.")
+    if result.orphans:
+        why = _orphans_reason(result.orphans, list(extra.get("agents") or []))
+        print(
+            f"orphaned: {len(result.orphans)} files that this content no longer ships were kept "
+            f"({why}); delete them with `{_meta.NAME} sync --prune`"
+        )
     return code
 
 
@@ -274,6 +378,7 @@ def _init(args: argparse.Namespace) -> int:
         result.engine,
         args,
         {"agents": result.agents, "packs": result.packs, "notes": result.notes},
+        result.renamed,
     )
 
 
@@ -299,14 +404,139 @@ def _sync(args: argparse.Namespace) -> int:
     try:
         if project.current_agents(root) is None:
             return _not_installed(root)
-        result = project.sync(root, force=args.force, dry_run=args.dry_run)
+        result = project.sync(root, force=args.force, dry_run=args.dry_run, prune=args.prune)
     except (project.ProjectError, ValueError, OSError) as exc:
         return error(str(exc))
     return _report(
         result.engine,
         args,
         {"agents": result.agents, "packs": result.packs, "notes": result.notes},
+        result.renamed,
     )
+
+
+def _update(args: argparse.Namespace) -> int:
+    """Vista previa por defecto. Con `--apply` en una terminal y huérfanas sin `--prune`,
+    pregunta si borrarlas; sin terminal, nunca."""
+    root = args.project.resolve()
+    try:
+        if project.current_agents(root) is None:
+            return _not_installed(root)
+        prune = args.prune
+        if args.apply and not prune and not args.json and sys.stdin.isatty():
+            preview = update.update(root, force=args.force)
+            if preview.engine.orphans:
+                print("orphaned (no longer shipped by this version):")
+                for line in _grouped(preview.engine.orphans, preview.sync.renamed):
+                    print(f"  {line}")
+                prune = wizard.yes("Delete them too? The rest of the update is applied anyway.")
+        result = update.update(root, apply=args.apply, force=args.force, prune=prune)
+    except (project.ProjectError, ValueError, OSError) as exc:
+        return error(str(exc))
+    return _update_report(result, args)
+
+
+def _section(title: str, actions: list[engine.Action], renamed: dict[str, str], word: str) -> None:
+    lines = _grouped(actions, renamed, word=word)
+    if lines:
+        print(f"{title}:")
+        for line in lines:
+            print(f"  {line}")
+
+
+def _update_report(result: update.UpdateResult, args: argparse.Namespace) -> int:
+    """Sale con 1 si quedaron conflictos: lo editado que se conservó sin `--force`, o lo que
+    ni `--force` resuelve. Lo demás se aplicó igual."""
+    found = result.engine
+    renamed = result.sync.renamed
+    kept = [c for c in found.conflicts if c.forceable and not args.force]
+    code = 1 if kept or found.unresolved else 0
+    migration = result.sync.config_migration
+    if args.json:
+        emit_json(
+            {
+                "from_version": result.from_version,
+                "to_version": result.to_version,
+                "up_to_date": result.up_to_date,
+                "new": result.paths("create"),
+                "modified": result.paths("update"),
+                "removed": result.paths("remove"),
+                "config_migration": (
+                    {"from": migration[0], "to": migration[1], "saved": result.sync.config_written}
+                    if migration
+                    else None
+                ),
+                "notes": result.sync.notes,
+                **_payload(found, renamed),
+            }
+        )
+        return code
+    for note in result.sync.notes:
+        print(f"note: {note}")
+    for warning in found.warnings:
+        print(f"warning: {warning}")
+    if result.from_version == result.to_version:
+        print(f"engine: {result.to_version} (the lock is already at this version)")
+    else:
+        print(f"engine: {result.from_version or 'unknown version'} -> {result.to_version}")
+    if migration:
+        state = "saved" if result.sync.config_written else "saved with --apply"
+        if found.applied and not result.sync.config_written:
+            state = "not saved"
+        print(f"config: schema {migration[0]} -> {migration[1]} ({state})")
+
+    def of(action: str) -> list[engine.Action]:
+        return [
+            a for a in found.actions if a.action == action and a.detail != update.OUTSIDE_THE_LOCK
+        ]
+
+    back = {new: old for old, new in renamed.items()}
+    _section("new", of("create"), back, "renamed from")
+    _section("modified", of("update"), {}, "")
+    _section("removed", of("remove"), renamed, "renamed to")
+    title = "orphaned (no longer shipped; kept until you prune them)"
+    _section(title, found.orphans, renamed, "renamed to")
+    for conflict in found.conflicts:
+        if not conflict.forceable:
+            label = "unresolved"
+        elif args.force:
+            label = "forced" if args.apply else "would force"
+        else:
+            label = "kept"
+        print(f"{label}: {conflict.path} ({conflict.kind}): {conflict.reason}")
+    for line in _held(found):
+        print(line)
+    if not args.apply:
+        if result.up_to_date:
+            print(f"up to date: nothing to change for {_meta.NAME} {result.to_version}")
+        else:
+            print(f"preview: nothing was written; apply it with `{_meta.NAME} update --apply`")
+    elif not found.changed:
+        print("no changes")
+    else:
+        writes = list(
+            dict.fromkeys((a.action, a.path) for a in found.actions if a.action in engine.WRITES)
+        )
+        counts = {name: sum(action == name for action, _ in writes) for name in engine.WRITES}
+        summary = ", ".join(f"{n} {name}" for name, n in counts.items() if n)
+        print(f"done: {summary or 'lock only'}")
+        if found.snapshot:
+            print(f"snapshot before the changes: {found.snapshot}")
+    if kept:
+        files = f"{len(kept)} file{'' if len(kept) == 1 else 's'}"
+        print(
+            f"kept your edits in {files}; overwrite them with "
+            f"`{_meta.NAME} update --apply --force` (takes a snapshot first)"
+        )
+    if found.unresolved:
+        print("fix the ones marked 'unresolved' by hand and retry.")
+    if found.orphans:
+        why = _orphans_reason(found.orphans, result.sync.agents)
+        print(
+            f"orphaned: {len(found.orphans)} files kept ({why}); "
+            f"delete them with `{_meta.NAME} update --apply --prune`"
+        )
+    return code
 
 
 def _change_agents(args: argparse.Namespace, add: bool) -> int:
@@ -327,7 +557,9 @@ def _change_agents(args: argparse.Namespace, add: bool) -> int:
         result = project.sync(root, agents=agents, force=args.force, dry_run=args.dry_run)
     except (project.ProjectError, ValueError, OSError) as exc:
         return error(str(exc))
-    return _report(result.engine, args, {"agents": result.agents, "notes": result.notes})
+    return _report(
+        result.engine, args, {"agents": result.agents, "notes": result.notes}, result.renamed
+    )
 
 
 def _add_agent(args: argparse.Namespace) -> int:
@@ -361,16 +593,12 @@ def _status(args: argparse.Namespace) -> int:
     if not info.installed:
         print(f"the engine is not installed; run `{_meta.NAME} init`")
         return 0
-    print(f"agents: {', '.join(info.agents)}")
-    print(f"packs: {', '.join(info.packs)}")
-    print(f"engine: {_meta.VERSION} (lock written by {info.lock_version})")
-    print(f"managed files: {info.files}")
-    for item in drift:
-        print(f"manual change: {item['path']} ({item['kind']}): {item['status']}")
-    if not drift:
-        print("no manual changes to generated files")
-    for warning in info.warnings:
-        print(f"warning: {warning}")
+    # Diferido: `sync` y los demás comandos del módulo no cargan la observabilidad.
+    from exo import status_view
+
+    style = status_view.Style(color=status_view.use_color(sys.stdout, os.environ))
+    for line in status_view.render(status_view.gather(args.project, info), style):
+        print(line)
     return 0
 
 

@@ -32,7 +32,7 @@ metadata:
 - **With subagents:** the orchestrator delegates to `sdd-implementer` (section G). The prompt starts with `## Skills to load before work` (this `SKILL.md` and the apply skills) and gives the change name, the change root, the tier, the plan, the test command and what to return.
 - **Without subagents:** run it inline, in the same session, with the same steps, and write `Isolation: no isolation (inline)` in the notes (`.exo/shared/agent-capabilities.md`).
 - **One unit of a parallel plan:** when skill:parallel-dispatch delegates a single unit with its own worktree folder, implement only that unit's tasks, there.
-- **Rework:** after a `needs-rework` verdict, the input is what the person accepted from verify-record.md (Issues Found, Out-of-Scope Drift) and from the judges' findings. Fix it only inside the plan; then the change goes to verify again.
+- **Rework:** after a `needs-rework` verdict or a Critical or High judge finding, the input is what the person accepted from verify-record.md (Issues Found, Out-of-Scope Drift) and from the judges' findings. In automatic mode nobody accepts them one by one, and severity decides: the input is every Critical and High issue and finding, and the Medium and Low ones are deferred (skill:sdd-verify, Judges). Fix it only inside the plan; then the change goes to verify again.
 
 ## The frozen plan
 

@@ -16,6 +16,7 @@ import pytest
 
 from exo import _meta, content, packs, phase_map
 from exo.core import frontmatter
+from exo.sdd import speclint
 
 ROOT = content.content_root()
 COLLECTION = packs.load_collection(ROOT)
@@ -78,8 +79,9 @@ PHASES = {PHASE_SKILL[phase]: where for phase, where in _who_runs().items()}
 ORCHESTRATION = ("sdd-orchestrator", "sdd-continue", "sdd-ff")
 TOOLS = {
     "sdd-explorer": {"Read", "Grep", "Glob"},
-    "sdd-implementer": {"Read", "Grep", "Glob", "Edit", "Write", "Bash"},
-    "sdd-verifier": {"Read", "Grep", "Glob", "Bash"},
+    # Bash y PowerShell: en Copilot CLI sobre Windows, Bash solo no da shell (F8, TM-40).
+    "sdd-implementer": {"Read", "Grep", "Glob", "Edit", "Write", "Bash", "PowerShell"},
+    "sdd-verifier": {"Read", "Grep", "Glob", "Bash", "PowerShell"},
     "sdd-judge": {"Read", "Grep", "Glob"},
     # Pack discovery (F6): solo lectura; devuelven texto y el orquestador escribe.
     "re-extractor": {"Read", "Grep", "Glob"},
@@ -217,3 +219,80 @@ def test_el_esquema_del_registro_se_instala_con_sdd() -> None:
         "agent-capabilities.md",
     ):
         assert name in shared
+
+
+# -- modo automático (F8) ---------------------------------------------------------------------
+
+DEFERRED = "deferred to a followup (automatic mode)"
+
+
+def _content(*parts: str) -> str:
+    return ROOT.joinpath("packs", *parts).read_text(encoding="utf-8")
+
+
+def _automatic_mode() -> str:
+    """El bloque "Automatic mode" de la sección Judges de sdd-verify."""
+    text = _content("sdd", "skills", "sdd-verify", "SKILL.md")
+    return text.split("**Automatic mode**", 1)[1].split("**A risk the `tech_lead` accepts.**", 1)[0]
+
+
+def test_en_modo_automatico_un_medium_o_low_queda_decidido() -> None:
+    """F8R3-1: el aplazamiento es un descarte con su motivo, así archive y status no lo ven abierto.
+
+    Antes quedaba como followup abierto, y la precondición 5 de sdd-archive y el contrato de
+    estado (un `ready` con followups abiertos es una inconsistencia) frenaban el archive.
+    """
+    auto = _automatic_mode()
+    assert "dismissed_followups" in auto and DEFERRED in auto
+    assert "open followup" not in auto
+    assert DEFERRED in _content("sdd", "skills", "sdd-archive", "SKILL.md")
+    assert DEFERRED in _content("core", "shared", "sdd-status-contract.md")
+    assert DEFERRED in _content("core", "shared", "capability-attribution.md")
+    assert "## Known followups" in speclint.template_text("pr")
+    for skill in ("branch-pr", "chained-pr"):
+        assert "Known followups" in _content("core", "skills", skill, "SKILL.md"), skill
+    dev = _content("core", "shared", "personas", "dev.md")
+    assert "leaving it open" not in dev
+
+
+REWORK_CAP = "at most two rework rounds; on the next one, stop and ask"
+
+
+@pytest.mark.parametrize(
+    "parts",
+    [
+        ("sdd", "skills", "sdd-verify", "SKILL.md"),
+        ("core", "shared", "sdd-phase-common.md"),
+        ("sdd", "skills", "sdd-orchestrator", "SKILL.md"),
+    ],
+    ids=lambda parts: parts[-2] if parts[-1] == "SKILL.md" else parts[-1],
+)
+def test_el_tope_de_rondas_de_retrabajo_es_uno_solo(parts: tuple[str, ...]) -> None:
+    """F8R3-5: los tres archivos decían topes que diferían en uno ("second" y "third")."""
+    text = _content(*parts)
+    assert REWORK_CAP in text
+    assert "third rework round" not in text
+    assert "second `needs-rework`" not in text
+
+
+def test_una_ronda_de_retrabajo_cuenta_tambien_los_hallazgos_de_los_jueces() -> None:
+    """F8R3-5: una vuelta a apply por un High de un juez es una ronda, aunque el Verdict sea ready."""
+    auto = _automatic_mode()
+    assert "A rework round is every return from verify to apply" in auto
+    assert "Critical or High judge finding" in auto
+
+
+@pytest.mark.parametrize(
+    ("parts", "marker"),
+    [
+        (("sdd", "skills", "sdd-apply", "SKILL.md"), "- **Rework:**"),
+        (("sdd", "agents", "sdd-implementer.md"), "in a rework,"),
+    ],
+    ids=["sdd-apply", "sdd-implementer"],
+)
+def test_en_modo_automatico_el_retrabajo_arregla_los_critical_y_high(
+    parts: tuple[str, ...], marker: str
+) -> None:
+    """F8R3-21: en modo automático nadie acepta los hallazgos uno por uno; decide la severidad."""
+    line = next(line for line in _content(*parts).splitlines() if marker in line)
+    assert "automatic mode" in line and "Critical and High" in line

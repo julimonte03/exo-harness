@@ -213,3 +213,47 @@ def test_criterio_1_el_inventario_es_determinista(repo: Path) -> None:
     assert data["schema"] == store.SCHEMA
     _, written = inventory.write(repo)
     assert written is False
+
+
+def _count_reads(monkeypatch: pytest.MonkeyPatch, root: Path) -> dict[str, int]:
+    """Cuántas veces se lee cada archivo del proyecto (sin la carpeta del motor)."""
+    from exo import _meta
+    from exo.core import fsutil
+
+    real = fsutil.read_bytes
+    base = root.resolve()
+    reads: dict[str, int] = {}
+
+    def counting(path: Path) -> bytes:
+        rel = Path(path).resolve().relative_to(base).as_posix()
+        if not rel.startswith(_meta.PROJECT_DIR + "/"):
+            reads[rel] = reads.get(rel, 0) + 1
+        return real(path)
+
+    monkeypatch.setattr(fsutil, "read_bytes", counting)
+    return reads
+
+
+@needs_git
+@pytest.mark.parametrize("step", ["inventory", "structure", "plan", "update", "next"])
+def test_cada_archivo_se_lee_una_sola_vez_por_comando(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, step: str
+) -> None:
+    """F8: R0, R1 y R2 releían cada archivo de código; ahora usan los bytes de la lista."""
+    from exo.discovery import pipeline, planner, units
+
+    if step in ("update", "next"):
+        inventory.write(repo)
+        pipeline.structure(repo)
+        planner.write(repo, "standard")
+    reads = _count_reads(monkeypatch, repo)
+    run = {
+        "inventory": lambda: inventory.write(repo),
+        "structure": lambda: pipeline.structure(repo),
+        "plan": lambda: planner.write(repo, "standard"),
+        "update": lambda: pipeline.update(repo),
+        "next": lambda: units.next_units(repo, 50),
+    }[step]
+    run()
+    assert "src/invoices/tools/report.py" in reads
+    assert {rel: n for rel, n in reads.items() if n != 1} == {}

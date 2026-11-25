@@ -6,17 +6,18 @@ Only risk. Readability, correctness and failure handling belong to the other len
 
 ## Security
 
-The OWASP Top 10:2021 items that apply to what changed, the edition the `security` pack uses. Cite the item with its edition (`OWASP A03:2021`), never the bare number, and the CWE when it helps.
+The OWASP Top 10:2025 items that apply to what changed. A finding takes the category of its CWE from `.exo/shared/owasp-2025.md`. Cite the CWE first when there is one, then the item with its year and name (`CWE-89, A05:2025 Injection`), never the bare number. The table lists, for each item, the CWEs it covers.
 
 | Look for | Item |
 |---|---|
-| A new entry point without authentication, or without a check of what the caller may touch | A01:2021, A07:2021 |
-| Untrusted input reaching a query, a shell command, a template, HTML or a file path without parameters or encoding | A03:2021, A01:2021 (CWE-22) |
-| Secrets in code, configuration, tests or fixtures; keys or passwords compared with `==` | CWE-798, CWE-208 |
-| Weak or home-made cryptography for sensitive data; plain HTTP for credentials or personal data | A02:2021 |
-| Deserialization of untrusted data into objects | A08:2021 |
-| A URL from a user fetched by the server without an allow list | A10:2021 |
-| Debug modes, verbose errors or permissive settings in what ships | A05:2021 |
+| A new entry point without authentication, or without a check of what the caller may touch | A07:2025 Authentication Failures (CWE-306), A01:2025 Broken Access Control (CWE-862) |
+| Untrusted input reaching a query, a shell command, a template, HTML or a file path without parameters or encoding | A05:2025 Injection, A01:2025 Broken Access Control (CWE-22) |
+| Secrets in code, configuration, tests or fixtures; keys or passwords compared with `==` | A07:2025 Authentication Failures (CWE-798, CWE-208) |
+| Weak or home-made cryptography for sensitive data; plain HTTP for credentials or personal data | A04:2025 Cryptographic Failures (CWE-327, CWE-319) |
+| Deserialization of untrusted data into objects | A08:2025 Software or Data Integrity Failures (CWE-502) |
+| A URL from a user fetched by the server without an allow list | A01:2025 Broken Access Control (CWE-918) |
+| Debug modes or permissive settings in what ships | A02:2025 Security Misconfiguration (CWE-489, CWE-942) |
+| Errors that fail open, swallowed exceptions, unchecked results, error messages that show internals | A10:2025 Mishandling of Exceptional Conditions (CWE-636, CWE-755, CWE-252, CWE-209) |
 
 ## Data
 
@@ -36,7 +37,7 @@ The OWASP Top 10:2021 items that apply to what changed, the edition the `securit
 
 ## Supply chain and money
 
-- A new or upgraded dependency: maintained, pinned, from the expected source, with a license the project accepts. Name it for the dependency audit.
+- A new or upgraded dependency: maintained, pinned, from the expected source, with a license the project accepts (A03:2025 Software Supply Chain Failures). Name it for the dependency audit.
 - Calculations with money, rounding, currencies or taxes.
 
 ## Severity

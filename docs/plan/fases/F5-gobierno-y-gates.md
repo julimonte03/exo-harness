@@ -49,7 +49,7 @@ El validador falla si supera 60 líneas.
 | Hook | Qué hace |
 |---|---|
 | `commit-msg` | Valida Conventional Commits y, si hay tracker, el prefijo de ticket con los prefijos aceptados |
-| `pre-commit` | Escanea el diff en stage con el mismo escáner del guard S1; corre `arnes speclint` sobre specs en stage; bloquea archivos tipo `.env` |
+| `pre-commit` | Escanea el diff en stage con el escáner de secretos y datos personales (`core/scan.py`; el guard S1 de la memoria salió con ADR-0009); corre `arnes speclint` sobre specs en stage; bloquea archivos tipo `.env` |
 | `pre-push` | Bloquea push a ramas protegidas y force-push (leyendo las referencias que git pasa al hook); corre `arnes check --fast` |
 
 Como cualquiera puede saltear hooks locales con `--no-verify`, **la CI es el gate real** y esto se documenta así.
@@ -64,9 +64,9 @@ Como cualquiera puede saltear hooks locales con `--no-verify`, **la CI es el gat
 
 **Roles.** `governance.roles` en la config y plantilla `CODEOWNERS` para que `tech_lead` sea aprobador efectivo. Igual que en el reporte (§7.3), el motor no verifica roles: la garantía real es CODEOWNERS + branch protection, y se documenta cómo configurarlos.
 
-**Matriz DPA como datos** en `content/shared/dpa-matrix.md` con el perfil `legacy-profile` (niveles Público, Interno, Restringido, Crítico y destinos memoria, LLM, GitHub y Jira, §7.5).
+**Matriz DPA como datos** en `content/shared/dpa-matrix.md` con el perfil `legacy-profile` (niveles Público, Interno, Restringido, Crítico y destinos memoria, LLM, GitHub y Jira, §7.5). **Actualizado por ADR-0014:** sale el perfil; la matriz genérica de niveles por destino vive en `content/packs/core/shared/data-protection.md` y los detectores en `data_protection.pii` de la config.
 
-**`arnes p0`** (port de `_verify_p0.py`): regresión de S1 y S2 más la verificación de que los git hooks están instalados y activos.
+**`arnes p0`** (port de `_verify_p0.py`): regresión del escáner sobre un dataset sintético y de S2, más la verificación de que los git hooks están instalados y activos. S1 ya no existe (ADR-0009), así que no tiene regresión (D-32).
 
 ## Tareas (en orden)
 

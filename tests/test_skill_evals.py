@@ -11,10 +11,14 @@ Por cada caso de `tests/skill_evals/<skill>/evals.json`:
    commit base pasa a una rama `feat/<skill>-eval` y aplica el `setup` (sus rutas no
    pueden salir del proyecto);
 2. corre `claude -p <pedido> --output-format stream-json --verbose` con las tools de
-   `TOOLS` (el workspace no es confiable, así que el `permissions.allow` del proyecto no
-   cuenta) y aislado de la config de usuario de Claude Code: `--setting-sources
+   `TOOLS` y aislado de la config de usuario de Claude Code: `--setting-sources
    project,local` (ni los settings, ni las skills, plugins, hooks o `CLAUDE.md` de
-   usuario) y `--strict-mcp-config` sin `--mcp-config` (ningún servidor MCP);
+   usuario) y `--strict-mcp-config` sin `--mcp-config` (ningún servidor MCP). Con
+   `project` se cargan los settings del proyecto; el `permissions.allow` que exo escribe
+   en `.claude/settings.json` no suma tools, porque cada regla (`Bash(exo <subcomando>:*)`)
+   ya está dentro de `Bash(exo:*)` (test en `test_skill_evals_schema.py`). No está
+   verificado si Claude Code aplica ese permiso en `-p` sin aceptar la confianza del
+   workspace. git corre sin transporte de red (`_skill_evals.runner_env`);
 3. lee qué skills cargó (`_skill_evals.parse_stream`) y verifica: `trigger` la carga,
    `no-trigger` no, `output` la carga y cumple sus chequeos.
 

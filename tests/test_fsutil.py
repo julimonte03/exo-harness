@@ -201,6 +201,47 @@ def test_is_link_reconoce_links_de_directorio(tmp_path: Path, make_dir_link) -> 
     assert fsutil.is_link(tmp_path / "no-existe") is False
 
 
+def test_link_cache_verifica_cada_componente_una_sola_vez(
+    tmp_path: Path, make_dir_link, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / ".claude" / "skills").mkdir(parents=True)
+    calls: list[str] = []
+    real = fsutil.is_link
+
+    def counting(path: Path) -> bool:
+        calls.append(Path(path).relative_to(tmp_path).as_posix())
+        return real(path)
+
+    monkeypatch.setattr(fsutil, "is_link", counting)
+    rels = [".claude/skills/a/SKILL.md", ".claude/skills/b/SKILL.md", ".claude/skills/a/SKILL.md"]
+    for rel in rels:
+        fsutil.join_within(tmp_path, rel)
+    assert len(calls) == 12  # sin caché, cada componente de cada ruta
+    calls.clear()
+    with fsutil.link_cache():
+        for rel in rels:
+            fsutil.join_within(tmp_path, rel)
+        with fsutil.link_cache():  # anidada: la misma caché
+            fsutil.join_within(tmp_path, ".claude/skills/b/SKILL.md")
+    assert sorted(calls) == [
+        ".claude",
+        ".claude/skills",
+        ".claude/skills/a",
+        ".claude/skills/a/SKILL.md",
+        ".claude/skills/b",
+        ".claude/skills/b/SKILL.md",
+    ]
+    # Un link se sigue rechazando con la caché, y al salir del bloque la caché se descarta.
+    outside = tmp_path / "afuera"
+    outside.mkdir()
+    make_dir_link(tmp_path / ".claude" / "skills" / "c", outside)
+    with fsutil.link_cache(), pytest.raises(UnsafePathError, match="symlink or junction"):
+        fsutil.join_within(tmp_path, ".claude/skills/c/SKILL.md")
+    calls.clear()
+    fsutil.join_within(tmp_path, ".claude/skills/a/SKILL.md")
+    assert len(calls) == 4
+
+
 def test_walk_files_no_entra_en_links(tmp_path: Path, make_dir_link) -> None:
     outside = tmp_path / "afuera"
     outside.mkdir()

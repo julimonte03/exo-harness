@@ -5,6 +5,7 @@ from __future__ import annotations
 import builtins
 import io
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -233,6 +234,27 @@ def test_config_rota_aborta_sin_tocar_nada(tmp_path: Path, broken: str, capsys: 
     assert tree(tmp_path) == before
 
 
+def test_config_de_un_exo_mas_nuevo_pide_actualizar(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """F8R1-8: no es una config rota que haya que arreglar: la escribió un motor más nuevo."""
+    _init(tmp_path)
+    config.config_path(tmp_path).write_text('{"schema": 99}', encoding="utf-8")
+    before = tree(tmp_path)
+    capsys.readouterr()
+    for argv in (["sync"], ["update"], ["init", "--yes"], ["add-agent", "cursor"]):
+        assert main([*argv, "--project", str(tmp_path)]) == 1
+        err = capsys.readouterr().err
+        assert "config.json was written by a newer exo" in err, argv
+        assert "upgrade exo" in err.lower() and "Fix it" not in err
+    assert tree(tmp_path) == before
+    # Los comandos que solo leen siguen con los defaults, y lo dicen sin contradecirse.
+    warning = " ".join(config.load(tmp_path).warnings)
+    assert "newer" in warning and "upgrade exo" in warning.lower()
+    with pytest.raises(config.ConfigError, match="newer"):
+        config.save(tmp_path, config.defaults())
+
+
 def test_config_invalida_por_flags_no_escribe_nada(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert _init(tmp_path, "--ticket-pattern", "(") == 2
     assert "not a valid regular expression" in capsys.readouterr().err
@@ -443,6 +465,86 @@ def test_lock_corrupto_da_error_sin_traceback(tmp_path: Path, capsys: pytest.Cap
     for argv in (["sync"], ["add-agent", "cursor"]):
         assert main([*argv, "--project", str(tmp_path)]) == 1
         assert "lock.json" in capsys.readouterr().err
+
+
+HELLO = ".claude/skills/hello-exo"
+
+
+def test_sync_informa_las_huerfanas_y_solo_las_borra_con_prune(
+    tmp_path: Path, synthetic_content: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """F8: una skill que el contenido ya no trae no se borra sin `--prune`."""
+    _init(tmp_path)
+    shutil.rmtree(synthetic_content / "packs" / "core" / "skills" / "hello-exo")
+    capsys.readouterr()
+    assert main(["sync", "--project", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert f"orphan\t{HELLO}/ (2 files)" in out
+    assert f"`{_meta.NAME} sync --prune`" in out
+    assert "remove\t" not in out
+    assert (tmp_path / HELLO / "SKILL.md").is_file()
+    assert "(your agents may still use them)" in out
+    assert main(["sync", "--project", str(tmp_path), "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["orphans"] == [f"{HELLO}/SKILL.md", f"{HELLO}/references/guide.md"]
+    assert payload["changed"] is False
+    assert main(["sync", "--project", str(tmp_path), "--prune", "--dry-run"]) == 0
+    assert f"remove\t{HELLO}/SKILL.md" in capsys.readouterr().out
+    assert (tmp_path / HELLO / "SKILL.md").is_file()
+    assert main(["sync", "--project", str(tmp_path), "--prune"]) == 0
+    assert "snapshot before the changes" in capsys.readouterr().out
+    assert not (tmp_path / HELLO).exists()
+    assert main(["sync", "--project", str(tmp_path)]) == 0
+    assert "orphan" not in capsys.readouterr().out
+
+
+def test_un_pack_que_se_saca_de_la_config_se_borra_sin_prune(
+    tmp_path: Path, synthetic_content: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Lo que la persona deja de pedir no es una huérfana: se da de baja como siempre."""
+    _init(tmp_path, "--packs", "core,sdd")
+    assert (tmp_path / ".claude" / "skills" / "demo-phase" / "SKILL.md").is_file()
+    cfg = config.load(tmp_path).config
+    cfg["packs"] = ["core"]
+    config.save(tmp_path, cfg)
+    capsys.readouterr()
+    assert main(["sync", "--project", str(tmp_path)]) == 0
+    assert "orphan" not in capsys.readouterr().out
+    assert not (tmp_path / ".claude" / "skills" / "demo-phase").exists()
+    assert not (tmp_path / ".claude" / "agents" / "demo-explorer.md").exists()
+    assert (tmp_path / HELLO / "SKILL.md").is_file()
+
+
+def test_init_con_menos_packs_los_saca_sin_prune(tmp_path: Path, synthetic_content: Path) -> None:
+    _init(tmp_path, "--packs", "core,sdd")
+    assert _init(tmp_path, "--packs", "core") == 0
+    assert not (tmp_path / ".claude" / "skills" / "demo-phase").exists()
+
+
+def test_remove_agent_no_borra_huerfanas_ajenas(
+    tmp_path: Path, synthetic_content: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`remove-agent` borra lo del agente; una huérfana del contenido sigue esperando `--prune`."""
+    _init(tmp_path)
+    assert main(["add-agent", "cursor", "--project", str(tmp_path)]) == 0
+    shutil.rmtree(synthetic_content / "packs" / "core" / "skills" / "hello-exo")
+    capsys.readouterr()
+    assert main(["remove-agent", "cursor", "--project", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert not (tmp_path / ".agents" / "skills" / "demo-phase").exists()
+    # hello-exo ya no está en el contenido: es huérfana también en la carpeta de cursor.
+    assert sorted(p.name for p in (tmp_path / ".agents" / "skills").iterdir()) == ["hello-exo"]
+    assert (tmp_path / HELLO / "SKILL.md").is_file()
+    assert f"orphan\t{HELLO}/ (2 files)" in out
+    assert "orphan\t.agents/skills/hello-exo/ (2 files)" in out
+    # F8R1-15: ningún agente que queda lee `.agents/skills/`: no "may still use them".
+    [line] = [line for line in out.splitlines() if line.startswith("orphaned:")]
+    assert "2 of them are in .agents/skills/, which no agent of this project reads" in line
+    shutil.rmtree(tmp_path / HELLO)
+    assert main(["sync", "--project", str(tmp_path)]) == 0
+    [line] = [line for line in capsys.readouterr().out.splitlines() if line.startswith("orphaned:")]
+    assert "no agent of this project reads .agents/skills/" in line
+    assert "may still use" not in line
 
 
 def test_force_dry_run_con_algo_sin_resolver_no_dice_que_aplico(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

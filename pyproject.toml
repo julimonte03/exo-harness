@@ -1,5 +1,6 @@
 [build-system]
-requires = ["hatchling>=1.24"]
+# 1.27: `license` como expresión SPDX y `license-files` (PEP 639).
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
@@ -7,15 +8,36 @@ build-backend = "hatchling.build"
 # (ADR-0001). El paquete importable y el CLI se llaman `exo`.
 name = "exo-harness"
 dynamic = ["version"]
-description = "Motor de desarrollo gobernado por proyecto, agnóstico del agente de IA."
+# En inglés: es lo que se lee en PyPI (D-48).
+description = "Project-governed development engine, agnostic of the AI coding agent."
+readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Julian Monte" }]
+# MIT (decisión del dueño, 2026-11-22): el código es suyo y open source.
+license = "MIT"
+license-files = ["LICENSE"]
 classifiers = [
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 # Núcleo solo con biblioteca estándar (invariante 4 de 02-ARQUITECTURA §2.13, ADR-0002).
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/julimonte03/exo-harness"
+Repository = "https://github.com/julimonte03/exo-harness"
+Issues = "https://github.com/julimonte03/exo-harness/issues"
+Changelog = "https://github.com/julimonte03/exo-harness/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6"]
@@ -56,6 +78,7 @@ addopts = [
 markers = [
     "agent_e2e: usa agentes reales o red; excluido de la suite normal",
     "installer: corre los instaladores de verdad (red); usar pytest -m installer --no-cov",
+    "perf: metas de rendimiento de F8; corre en la suite normal y falla con el doble de la meta",
 ]
 
 [tool.coverage.run]

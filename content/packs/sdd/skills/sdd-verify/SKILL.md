@@ -117,7 +117,18 @@ Source: skill
 
 The verifier does not run the judges. After it answers, the orchestrator runs `judge-code-reviewer`, `judge-security` and, when the diff touches UI, `judge-frontend`, each one as its own read-only delegation to `sdd-judge`, with the diff (or the list of changed files), spec.md, design.md and tasks.md, and in its `## Skills to load before work` block the skills it reuses when installed (`accessibility-audit` and `frontend-design` for `judge-frontend`). A judge that is not installed degrades (`quality/judge-code-reviewer not installed — applying inline criteria`) and the prompt carries its criteria from the map. Without subagents, run each judge inline after the verify, as a separate pass, and say "no isolation".
 
-Each judge gets the first free ID of its prefix (from `exo change followups <change> --status all`), and the orchestrator records each finding with `exo change record <change> --followup '<json>'` (`.exo/shared/judge-common.md`, section F). The person decides on each finding: one to fix sends the change back to apply and then to verify again, and is marked with `--fixed <id>` once fixed; a dismissed one goes to `dismissed_followups` with its `id`. The change does not go to archive while a finding is undecided.
+Each judge gets the first free ID of its prefix (from `exo change followups <change> --status all`), and the orchestrator records each finding with `exo change record <change> --followup '<json>'` (`.exo/shared/judge-common.md`, section F). The person decides on each finding: one to fix sends the change back to apply and then to verify again, and is marked with `--fixed <id>` once fixed; a dismissed one goes to `dismissed_followups` with its `id`. The change does not go to archive while a finding is undecided. In automatic mode, severity decides instead, as below.
+
+**Automatic mode** (`.exo/shared/sdd-phase-common.md`, section H), so the rework converges:
+- **By severity:** a Critical or High finding goes back to apply. A Medium or Low finding is deferred to a followup: that is its decision, taken by the mode the person chose, and it does not send the change back. The orchestrator records the deferral in `dismissed_followups`, with its `id` and a reason that says so, and `exo change followups` no longer lists it as open:
+
+  ```bash
+  exo change record <change> --add dismissed_followups '{"id": "JCR-3", "judge": "judge-code-reviewer", "rule": "error-handling", "reason": "deferred to a followup (automatic mode): JCR-3"}'
+  ```
+
+  With a `ready` Verdict, the Medium and Low issues left in the verifier's own Issues Found are deferred too, with one decision that names them: `--add decisions '{"summary": "deferred to a followup (automatic mode): src/api/handler.py:88 (Medium)", "by": "agent"}'`. `pr.md` lists every deferred finding under Known followups, and the person can still fix any of them, in this change or in a later one.
+- **A re-verify reviews the fix:** the judges get the diff since their last pass, the open findings and the deferred ones, and say whether each open one is fixed. A new finding on code the round did not change is decided by severity like the rest: it sends the change back only if it is Critical or High.
+- **Rework rounds:** at most two rework rounds; on the next one, stop and ask the person with the remaining findings, as with `needs-input`, instead of going back to apply. A rework round is every return from verify to apply, for a `needs-rework` Verdict or for a Critical or High judge finding with a `ready` Verdict; count them in `phases_done`, as each `apply` logged after a `verify`. In an unattended run, leave the gates as they are and report.
 
 **A risk the `tech_lead` accepts.** When the `tech_lead` role decides not to fix an open Critical or High issue or gate finding, the orchestrator records that decision (`dismissed_followups` with the finding's `id`, or a decision with `"by": "human"`) and passes it to the next verify as data, not as a conclusion. The verifier keeps the finding in Issues Found, marked `accepted by tech_lead` with the reference, and it does not block `ready`; the gate that reported it stays `ESCALATED` with `Requires tech_lead approval: yes`, so the PR shows it.
 
@@ -148,7 +159,7 @@ In `hybrid` and `memory` persistence, save the record with the topic key `sdd/<c
 | Verdict | `status` | `next` |
 |---|---|---|
 | `ready` | `ok` | `archive` in Tiers 1 to 3; `judgment` in Tier 4 |
-| `needs-rework` | `ok` | `apply` (skill:sdd-apply fixes the accepted issues) |
+| `needs-rework` | `ok` | `apply` (skill:sdd-apply fixes the accepted issues; in automatic mode, the Critical and High ones) |
 | `blocked` | `blocked` | `verify` once the blocker is gone, or the phase that owns the wrong artifact |
 
 ```yaml

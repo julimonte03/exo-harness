@@ -9,12 +9,14 @@ y, si quedó desactualizado, se reconstruye al abrir con FTS5 disponible.
 
 from __future__ import annotations
 
+import os
 import sqlite3
+import stat
 from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from pathlib import Path
 
-from exo import _meta
+from exo import _meta, paths
 from exo.memory.model import MemoryStoreError
 
 SCHEMA_VERSION = 1
@@ -65,16 +67,41 @@ _FTS = (
 MIGRATIONS: dict[int, Callable[[sqlite3.Connection], None]] = {}
 
 
-def connect(path: Path) -> sqlite3.Connection:
-    path.parent.mkdir(parents=True, exist_ok=True)
+def _private(path: Path) -> None:
+    """La base y sus archivos WAL, solo para el dueño en POSIX (threat model, TM-27).
+
+    Se crea vacía en `PRIVATE_FILE` antes de abrirla: SQLite crea el `-wal` y el `-shm` con
+    los permisos de la base. Una base vieja más abierta se cierra en la próxima apertura.
+    Es best-effort: en un filesystem que rechaza chmod (vfat, exFAT) la memoria abre igual,
+    y `exo doctor` avisa con `data-dir`.
+    """
+    if os.name == "nt":
+        return
     try:
+        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, paths.PRIVATE_FILE)
+        os.close(fd)
+    except FileExistsError:
+        pass
+    for candidate in (path, Path(f"{path}-wal"), Path(f"{path}-shm")):
+        try:
+            if stat.S_IMODE(candidate.stat().st_mode) & 0o077:
+                with suppress(OSError):
+                    os.chmod(candidate, paths.PRIVATE_FILE)
+        except FileNotFoundError:
+            continue
+
+
+def connect(path: Path) -> sqlite3.Connection:
+    try:
+        paths.private_dir(path.parent)
+        _private(path)
         conn = sqlite3.connect(path, timeout=BUSY_TIMEOUT_MS / 1000, isolation_level=None)
         conn.row_factory = sqlite3.Row
         conn.execute(f"PRAGMA busy_timeout = {BUSY_TIMEOUT_MS}")
         conn.execute("PRAGMA journal_mode = WAL")
         conn.execute("PRAGMA synchronous = NORMAL")
         conn.execute("PRAGMA foreign_keys = ON")
-    except sqlite3.Error as exc:
+    except (sqlite3.Error, OSError) as exc:
         raise MemoryStoreError(f"could not open the memory at {path} ({exc})") from exc
     return conn
 

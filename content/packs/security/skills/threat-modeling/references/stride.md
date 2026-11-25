@@ -4,14 +4,16 @@ The working material of `threat-modeling`: what each STRIDE category asks, which
 
 ## The six categories
 
-| Category | Property it breaks | Ask, for each element | Usual mitigations | OWASP 2021 / CWE |
+| Category | Property it breaks | Ask, for each element | Usual mitigations | OWASP 2025 / CWE |
 |---|---|---|---|---|
-| Spoofing | Authenticity | Can someone act as another user, service or system here? Can a caller fake where a request or message comes from? | Authentication on every entry point, full token verification, signed webhooks, mutual TLS between services (SCB-3) | A07:2021; CWE-287, CWE-290 |
-| Tampering | Integrity | Can someone change data in transit, at rest, or in a request that the server trusts (prices, IDs, roles, file contents)? | TLS, server-side validation, parameterized queries, signatures on round-tripped data, authorization on writes (SCB-1, SCB-2, SCB-7) | A03:2021, A08:2021; CWE-20, CWE-345 |
-| Repudiation | Accountability | Can someone deny an action because nothing records who did it, or because the record can be changed? | Audit log with who, what and when for sensitive actions; logs the actor cannot edit (SCB-6) | A09:2021; CWE-778 |
-| Information disclosure | Confidentiality | Can data reach someone who should not see it: through responses, errors, logs, caches, URLs, exports, timing, or another tenant? | Authorization per object, data minimization, encryption, masking, generic errors (SCB-3, SCB-6, SCB-8, SCB-9) | A01:2021, A02:2021, A04:2021; CWE-200, CWE-639 |
-| Denial of service | Availability | Can someone exhaust memory, CPU, storage, connections, quotas or money, or lock other users out? | Rate limits, size and page limits, timeouts, pagination, queues with back-pressure, budgets on paid calls | CWE-400, CWE-770 |
-| Elevation of privilege | Authorization | Can someone gain rights they should not have: an admin action, another tenant's scope, code execution? | Deny by default, server-side role and tenant checks, no mass assignment, least privilege for services, safe deserialization (SCB-3, SCB-7) | A01:2021 (CWE-862); A04:2021 (CWE-269); A08:2021 (CWE-915) |
+| Spoofing | Authenticity | Can someone act as another user, service or system here? Can a caller fake where a request or message comes from? | Authentication on every entry point, full token verification, signed webhooks, mutual TLS between services (SCB-3) | A07:2025 Authentication Failures (CWE-287, CWE-290) |
+| Tampering | Integrity | Can someone change data in transit, at rest, or in a request that the server trusts (prices, IDs, roles, file contents)? | TLS, server-side validation, parameterized queries, signatures on round-tripped data, authorization on writes (SCB-1, SCB-2, SCB-7) | A05:2025 Injection (CWE-20); A08:2025 Software or Data Integrity Failures (CWE-345) |
+| Repudiation | Accountability | Can someone deny an action because nothing records who did it, or because the record can be changed? | Audit log with who, what and when for sensitive actions; logs the actor cannot edit (SCB-6) | A09:2025 Security Logging and Alerting Failures (CWE-778) |
+| Information disclosure | Confidentiality | Can data reach someone who should not see it: through responses, errors, logs, caches, URLs, exports, timing, or another tenant? | Authorization per object, data minimization, encryption, masking, generic errors (SCB-3, SCB-6, SCB-8, SCB-9) | A01:2025 Broken Access Control (CWE-200, CWE-639); A04:2025 Cryptographic Failures (CWE-319); A10:2025 Mishandling of Exceptional Conditions (CWE-209) |
+| Denial of service | Availability | Can someone exhaust memory, CPU, storage, connections, quotas or money, or lock other users out? | Rate limits, size and page limits, timeouts, pagination, queues with back-pressure, budgets on paid calls | A06:2025 Insecure Design (CWE-770, closest) |
+| Elevation of privilege | Authorization | Can someone gain rights they should not have: an admin action, another tenant's scope, code execution? | Deny by default, server-side role and tenant checks, no mass assignment, least privilege for services, safe deserialization (SCB-3, SCB-7) | A01:2025 Broken Access Control (CWE-862); A06:2025 Insecure Design (CWE-269); A08:2025 Software or Data Integrity Failures (CWE-915) |
+
+Each CWE gives its category through `.exo/shared/owasp-2025.md`; cite the one that fits the threat, written with its year.
 
 ## Which categories apply to which element
 

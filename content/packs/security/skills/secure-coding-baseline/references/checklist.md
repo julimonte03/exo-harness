@@ -53,6 +53,8 @@ This:      query("SELECT * FROM orders WHERE id = ?", [order_id])
 | SCB-4.2 | Missing security configuration (no key, no allow-list, no issuer) stops the start-up or the request; it never falls back to "no check". | CWE-636, CWE-1188 |
 | SCB-4.3 | Feature flags and switch statements on roles or states have a default branch that denies. | CWE-636 |
 | SCB-4.4 | A partial failure in a multi-step operation leaves the system in a safe state: no half-granted access, no money moved without its record. | CWE-755 |
+| SCB-4.5 | The result of a call that matters (a verification, a permission lookup, a write, a send) is checked; a failure or an error code stops the operation. | CWE-252 |
+| SCB-4.6 | Security checks are real conditions that deny, never assertions, which an optimized build or a runtime flag can remove. | CWE-617 |
 
 ## SCB-5 Secrets from the environment or a secret manager
 
@@ -104,14 +106,15 @@ If you find a real secret in the code: do not copy it anywhere, point at `path:l
 | SCB-9.2 | Authentication errors do not tell which part failed ("user not found" versus "wrong password"). | CWE-204 |
 | SCB-9.3 | Debug modes and detailed error pages are off in the configuration that ships. | CWE-489 |
 | SCB-9.4 | Exceptions are not swallowed: they are logged on the server (with SCB-6) and turned into the generic error. | CWE-390 |
+| SCB-9.5 | Debug output (debug endpoints, verbose log levels, dumps on error) carries no secrets, personal data or internals in what ships. | CWE-215 |
 
 ## SCB-10 Dependency hygiene
 
 | ID | Check | CWE |
 |---|---|---|
 | SCB-10.1 | A new dependency is named in the plan. Otherwise it is a follow-up, not code. | CWE-1104 |
-| SCB-10.2 | It is maintained (recent releases, an owner), comes from the official registry, and its name is checked against look-alike packages. | CWE-1104, CWE-829 |
-| SCB-10.3 | Its version is pinned through the lockfile, and the lockfile is part of the change. | CWE-829 |
-| SCB-10.4 | It has no known high or critical vulnerability. The stack pack's dependency scan skill runs it when installed; otherwise use the ecosystem's audit command from `.exo/context.md`. | CWE-1104 |
+| SCB-10.2 | It is maintained (recent releases, an owner), comes from the official registry, and its name is checked against look-alike packages. | CWE-1104, CWE-1357 |
+| SCB-10.3 | Its version is pinned through the lockfile, and the lockfile is part of the change. | CWE-1357 |
+| SCB-10.4 | It has no known high or critical vulnerability. The stack pack's dependency scan skill runs it when installed; otherwise use the ecosystem's audit command from `.exo/context.md`. | CWE-1395 |
 | SCB-10.5 | No step downloads and runs code (install scripts, remote scripts piped into a shell, unpinned CI actions) without a pinned version or an integrity check. | CWE-494 |
 | SCB-10.6 | Prefer the standard library or an existing dependency over a new one for small needs. | CWE-1104 |

@@ -1,36 +1,66 @@
 #!/bin/sh
-# Installs the exo engine from this clone (Linux and macOS).
+# Installs the exo engine on Linux and macOS: from this clone, or from GitHub when
+# piped:
 #
-# Requires Python 3.10 or later. With uv it uses `uv tool install`; otherwise it
-# creates a venv in the user data folder and puts `exo` in ~/.local/bin (if another
-# `exo` is already there, it is left alone; uv does the same). Adds that directory
-# to the PATH if missing, and says so: in ~/.profile, in ~/.bash_profile if it
-# exists, in ~/.bashrc if you use bash and in ~/.zshrc if you use zsh. Runs
-# `exo doctor` and, with --init, adopts a project. Running it again updates it.
+#   curl -fsSL https://raw.githubusercontent.com/julimonte03/exo-harness/main/install.sh | sh
 #
-# Usage: ./install.sh [--init DIR] [--with-vector] [--no-path]
-# Variables: EXO_DATA_DIR, EXO_INSTALL_NO_PATH=1, EXO_INSTALL_NO_UV=1.
+# To read it before running it:
+#
+#   curl -fsSL https://raw.githubusercontent.com/julimonte03/exo-harness/main/install.sh -o install.sh
+#   less install.sh
+#   sh install.sh
+#
+# Options and variables: sh install.sh --help
 set -eu
 
-REPO=$(cd "$(dirname "$0")" && pwd)
+# Repo del motor (ADR-0017). EXO_REPO_URL lo cambia para probar contra un remoto
+# simulado o para instalar desde un espejo.
+EXO_REPO_URL=${EXO_REPO_URL:-https://github.com/julimonte03/exo-harness}
 DIST=exo-harness
-INIT=""
-WITH_VECTOR=0
-NO_PATH=${EXO_INSTALL_NO_PATH:-0}
 MARK="# added by $DIST"
 
-while [ $# -gt 0 ]; do
-    case "$1" in
-        --init) INIT="$2"; shift 2 ;;
-        --with-vector) WITH_VECTOR=1; shift ;;
-        --no-path) NO_PATH=1; shift ;;
-        -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
-        *) echo "unknown option: $1" >&2; exit 2 ;;
-    esac
-done
+usage() {
+    cat <<'EOF'
+Installs the exo engine (Linux and macOS).
 
-SPEC="$REPO"
-[ "$WITH_VECTOR" = 1 ] && SPEC="$REPO[vector]"
+Run from a clone, it installs that clone. Piped from curl, it installs from
+GitHub: the latest release, or the tag, branch or commit in EXO_REF. With uv it
+runs `uv tool install` from git (needs git). Without uv it creates a venv in the
+user data folder and installs the release wheel after checking it against the
+SHA256SUMS of the release (a branch or a commit installs from git; a release
+whose SHA256SUMS cannot be downloaded installs nothing); that needs Python 3.10
+or later, and curl to download from https.
+
+It puts `exo` on the PATH if missing and says so: in ~/.profile, in
+~/.bash_profile if it exists, in ~/.bashrc with bash and in ~/.zshrc with zsh.
+It never overwrites another `exo`; it warns if another one comes first on your
+PATH, and `exo doctor` reports it. Then it runs `exo doctor` and, with --init,
+adopts a project. Running it again updates the installation.
+
+Usage:
+  sh install.sh [--init DIR] [--with-vector] [--no-path]
+  curl -fsSL https://raw.githubusercontent.com/julimonte03/exo-harness/main/install.sh | sh -s -- [options]
+
+Options:
+  --init DIR      adopt the project in DIR after installing (exo init --yes)
+  --with-vector   also install the semantic memory extra (sqlite-vec, FastEmbed)
+  --no-path       leave the PATH alone
+
+Variables:
+  EXO_REF                tag, branch or commit to install when piped
+                         (default: the latest release; main if there is none)
+  EXO_REPO_URL           repository to install from when piped
+                         (default: https://github.com/julimonte03/exo-harness)
+  EXO_DATA_DIR           data folder (holds the venv when uv is not used)
+  EXO_INSTALL_NO_PATH=1  same as --no-path
+  EXO_INSTALL_NO_UV=1    do not use uv even if it is installed
+EOF
+}
+
+die() {
+    echo "$*" >&2
+    exit 1
+}
 
 data_dir() {
     if [ -n "${EXO_DATA_DIR:-}" ]; then echo "$EXO_DATA_DIR"
@@ -50,6 +80,196 @@ find_python() {
     return 1
 }
 
+# El clon que contiene este script, o nada. Por pipe (`curl ... | sh`) $0 es el
+# shell y no hay archivo; un install.sh bajado suelto no tiene el clon al lado.
+clone_dir() {
+    case "$0" in
+        *.sh) ;;
+        *) return 0 ;;
+    esac
+    [ -f "$0" ] || return 0
+    dir=$(cd "$(dirname "$0")" && pwd)
+    if [ -f "$dir/pyproject.toml" ] && [ -f "$dir/src/exo/_meta.py" ]; then
+        echo "$dir"
+    fi
+}
+
+# Solo https. file:// y http a 127.0.0.1 o localhost no salen de la máquina: sirven
+# para un espejo local y para los tests. Sin @ (credenciales o un host disfrazado),
+# ni ? o # que cambien la URL, y el puerto de loopback solo con dígitos (con un glob,
+# `127.0.0.1:1.example.com` pasaba). Sin las barras finales, como install.ps1. Deja en
+# SCHEME el protocolo permitido para bajar.
+check_repo_url() {
+    while :; do
+        case "$EXO_REPO_URL" in
+            */) EXO_REPO_URL=${EXO_REPO_URL%/} ;;
+            *) break ;;
+        esac
+    done
+    case "$EXO_REPO_URL" in
+        *[!A-Za-z0-9._~:/%+-]*) die "EXO_REPO_URL has characters that are not allowed: $EXO_REPO_URL" ;;
+    esac
+    case "$EXO_REPO_URL" in
+        https://?*) SCHEME=https ;;
+        file:///?*) SCHEME=file ;;
+        http://127.0.0.1/?* | http://localhost/?*) SCHEME=http ;;
+        http://127.0.0.1:* | http://localhost:*)
+            rest=${EXO_REPO_URL#http://*:}
+            port=${rest%%/*}
+            case "$port" in
+                '' | *[!0-9]*) die "EXO_REPO_URL must be an https:// URL (got: $EXO_REPO_URL)." ;;
+            esac
+            case "$rest" in
+                "$port"/?*) SCHEME=http ;;
+                *) die "EXO_REPO_URL must be an https:// URL (got: $EXO_REPO_URL)." ;;
+            esac ;;
+        *) die "EXO_REPO_URL must be an https:// URL (got: $EXO_REPO_URL)." ;;
+    esac
+}
+
+# Un tag, rama o commit que no cambie la URL ni el requisito de pip: sin espacios,
+# comillas, @, # ni `..`.
+check_ref() {
+    case "$1" in
+        '' | -* | *..* | *[!A-Za-z0-9._/+-]*)
+            die "Not a valid tag, branch or commit: '$1'. Set EXO_REF to a release tag such as v1.0.0, or to a branch." ;;
+    esac
+}
+
+# Baja $1 a $2 solo por el protocolo de EXO_REPO_URL, también en cada redirección:
+# curl lo controla con --proto y --proto-redir. wget sigue redirecciones a cualquier
+# protocolo y no tiene cómo restringirlas (su --https-only es para el modo
+# recursivo): un salto a http dejaría cambiar el wheel y su SHA256SUMS. Por eso, con
+# https, sin curl no se baja nada; wget queda para http a loopback (un espejo local).
+fetch() {
+    if command -v curl >/dev/null 2>&1; then
+        curl --proto "=$SCHEME" --proto-redir "=$SCHEME" -fsSL -o "$2" "$1"
+    elif [ "$SCHEME" = https ]; then
+        echo "curl is required to download $1: wget follows redirects to http, where the download could be swapped. Install curl and retry." >&2
+        return 1
+    else
+        wget -q -O "$2" "$1"
+    fi
+}
+
+# Adónde redirige $1, sin seguir la redirección (con GET, como curl).
+redirect_of() {
+    if command -v curl >/dev/null 2>&1; then
+        curl --proto "=$SCHEME" -fsS -o /dev/null -w '%{redirect_url}' "$1"
+    else
+        wget -S --max-redirect=0 -O /dev/null "$1" 2>&1 |
+            sed -n 's/^ *[Ll]ocation: *\([^ ]*\).*/\1/p' | tr -d '\r' | tail -n 1
+    fi
+}
+
+# El tag del último release, sin API ni token: <repo>/releases/latest redirige a
+# <repo>/releases/tag/<tag>, o a <repo>/releases si todavía no hay ninguno.
+latest_ref() {
+    if ! location=$(redirect_of "$EXO_REPO_URL/releases/latest"); then
+        die "Could not reach $EXO_REPO_URL to find the latest release. Check the connection, or set EXO_REF to a tag or a branch."
+    fi
+    case "$location" in
+        */releases/tag/?*) echo "${location##*/releases/tag/}" ;;
+        */releases | */releases/)
+            echo "$EXO_REPO_URL has no releases yet: installing the main branch." >&2
+            echo main ;;
+        *) die "Unexpected answer from $EXO_REPO_URL/releases/latest. Set EXO_REF to a tag or a branch." ;;
+    esac
+}
+
+sha256_of() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | cut -d ' ' -f 1
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$1" | cut -d ' ' -f 1
+    elif command -v openssl >/dev/null 2>&1; then
+        openssl dgst -sha256 -r "$1" | cut -d ' ' -f 1
+    else
+        die "sha256sum, shasum or openssl is required to verify the download."
+    fi
+}
+
+# Baja el wheel del release $1 (cuyo SHA256SUMS ya está en $TMP) y lo verifica contra
+# ese SHA256SUMS. Deja su ruta en WHEEL. Si no coincide, no instala nada.
+verified_wheel() {
+    lines=$(tr -d '\r' < "$TMP/SHA256SUMS" |
+        grep -E '^[0-9A-Fa-f]{64} [ *][A-Za-z0-9._+-]+\.whl$' || true)
+    count=$(printf '%s\n' "$lines" | grep -c . || true)
+    if [ "$count" != 1 ]; then
+        die "The SHA256SUMS of release $1 should list exactly one wheel; it lists $count."
+    fi
+    expected=$(printf '%s\n' "$lines" | cut -c 1-64 | tr 'A-F' 'a-f')
+    name=$(printf '%s\n' "$lines" | cut -c 67-)
+    echo "Downloading $name from release $1..."
+    fetch "$EXO_REPO_URL/releases/download/$1/$name" "$TMP/$name" ||
+        die "Could not download $EXO_REPO_URL/releases/download/$1/$name."
+    actual=$(sha256_of "$TMP/$name" | tr 'A-F' 'a-f')
+    if [ "$actual" != "$expected" ]; then
+        die "Checksum mismatch for $name: SHA256SUMS says $expected, the download is $actual. Nothing was installed; retry, and report it if it happens again."
+    fi
+    echo "Verified $name against SHA256SUMS."
+    WHEEL="$TMP/$name"
+}
+
+# curl o wget, solo cuando el script baja algo: con uv y EXO_REF no baja nada.
+need_downloader() {
+    if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
+        die "curl or wget is required to install from $EXO_REPO_URL."
+    fi
+}
+
+# Qué instalar cuando no hay clon (por pipe). Deja el requisito en SPEC.
+remote_spec() {
+    check_repo_url
+    if [ -n "${EXO_REF:-}" ]; then
+        REF=$EXO_REF
+    elif [ "$SCHEME" = file ]; then
+        # Un espejo local no tiene la redirección de releases/latest que da GitHub.
+        die "EXO_REPO_URL is a local mirror ($EXO_REPO_URL), which has no latest release to look up: set EXO_REF to a tag or a branch."
+    else
+        need_downloader
+        REF=$(latest_ref)
+    fi
+    check_ref "$REF"
+    # Sin uv, el wheel del release, verificado. Una rama o un commit no tienen
+    # SHA256SUMS en releases/download: se instalan desde git. Un release (v y un
+    # dígito, como los tags que publica release.yml) no pasa a git si su SHA256SUMS
+    # no baja: sería instalar sin checksum lo que se pidió verificado.
+    if [ "$USE_UV" = 0 ]; then
+        need_downloader
+        TMP=$(mktemp -d 2>/dev/null || mktemp -d -t "$DIST")
+        SUMS="$EXO_REPO_URL/releases/download/$REF/SHA256SUMS"
+        if fetch "$SUMS" "$TMP/SHA256SUMS" 2>"$TMP/fetch.log"; then
+            verified_wheel "$REF"
+            SPEC="$WHEEL$EXTRAS"
+            return 0
+        fi
+        case "$REF" in
+            v[0-9]*)
+                cat "$TMP/fetch.log" >&2
+                die "Cannot verify release $REF: could not download $SUMS. Nothing was installed. Check the connection and that the release exists in $EXO_REPO_URL/releases, then retry." ;;
+        esac
+    fi
+    if ! command -v git >/dev/null 2>&1; then
+        if [ "$USE_UV" = 1 ]; then
+            die "git is required to install $REF with uv. Install git, or set EXO_INSTALL_NO_UV=1 to install the release wheel with pip."
+        fi
+        die "git is required to install $REF, which is not a release. Install git, or set EXO_REF to a release tag."
+    fi
+    echo "Installing $DIST from $EXO_REPO_URL at $REF..."
+    SPEC="$DIST$EXTRAS @ git+$EXO_REPO_URL@$REF"
+    FROM_GIT=1
+    # El git que corren uv y pip sigue redirecciones a cualquier protocolo, también a
+    # http: solo el de EXO_REPO_URL, como en fetch, más file, porque uv clona desde su
+    # caché local (una redirección por http no lleva a file). La variable le gana a
+    # protocol.allow de la config de git.
+    GIT_ALLOW_PROTOCOL=$SCHEME
+    if [ "$SCHEME" != file ]; then
+        GIT_ALLOW_PROTOCOL="$SCHEME:file"
+    fi
+    export GIT_ALLOW_PROTOCOL
+}
+
 # Agrega la línea del PATH a un archivo de inicio del shell, una sola vez. Anota
 # los archivos que crea, para que uninstall.sh borre solo esos si quedan vacíos.
 add_path_line() {
@@ -67,64 +287,146 @@ add_path_line() {
     echo "Added $BIN_DIR to the PATH in $1."
 }
 
-DATA_DIR=$(data_dir)
-if command -v uv >/dev/null 2>&1 && [ "${EXO_INSTALL_NO_UV:-0}" != 1 ]; then
-    echo "Installing $DIST with uv tool..."
-    # Sin --force: si ya hay otro exo en el directorio de uv, uv no lo pisa (ADR-0001).
-    uv tool install --reinstall "$SPEC"
-    BIN_DIR=$(uv tool dir --bin)
-else
-    VENV="$DATA_DIR/venv"
-    BIN_DIR="$HOME/.local/bin"
-    LINK="$BIN_DIR/exo"
-    # ADR-0001: hay otra herramienta que se llama exo. No se pisa nada que no sea nuestro.
-    if [ -e "$LINK" ] || [ -L "$LINK" ]; then
-        if [ "$(readlink "$LINK" 2>/dev/null || true)" != "$VENV/bin/exo" ]; then
-            echo "$LINK already exists and does not belong to this engine (another tool called exo?)." >&2
-            echo "Move or delete it and retry." >&2
+# Crea la carpeta de datos, y las que le falten, solo para el dueño (0700): guarda la
+# memoria sin redactar y los backups de desinstalación (TM-27), como
+# paths.private_dir del motor. Una que ya existe no se toca: puede no ser del motor.
+private_data_dir() {
+    [ -d "$DATA_DIR" ] || (umask 077 && mkdir -p "$DATA_DIR")
+}
+
+# ADR-0001: hay otra herramienta que se llama exo. El instalador nunca la pisa, pero si
+# está antes en el PATH, escribir `exo` corre esa: se avisa, sin frenar, con su ruta.
+# Se mira el PATH de esta sesión, con la carpeta del motor adelante si se agregó.
+warn_other_exo() {
+    found=$(command -v exo 2>/dev/null || true)
+    if [ -z "$found" ] || [ "$found" = "$EXE" ] || [ "$found" -ef "$EXE" ]; then
+        return 0
+    fi
+    echo "Warning: another exo comes first on your PATH: $found. Typing 'exo' runs that one, not this engine: put $BIN_DIR before it on the PATH, or run $EXE. 'exo doctor' reports it too." >&2
+}
+
+cleanup() {
+    if [ -n "$TMP" ]; then
+        rm -rf "$TMP"
+        TMP=""
+    fi
+}
+
+# Todo corre desde main, en la última línea: si la descarga por pipe se corta, el
+# shell no llega a ejecutar un script a medias.
+main() {
+    INIT=""
+    WITH_VECTOR=0
+    NO_PATH=${EXO_INSTALL_NO_PATH:-0}
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --init)
+                [ $# -ge 2 ] || die "--init needs a directory."
+                INIT="$2"; shift 2 ;;
+            --with-vector) WITH_VECTOR=1; shift ;;
+            --no-path) NO_PATH=1; shift ;;
+            -h | --help) usage; exit 0 ;;
+            *) echo "unknown option: $1" >&2; exit 2 ;;
+        esac
+    done
+
+    EXTRAS=""
+    if [ "$WITH_VECTOR" = 1 ]; then
+        EXTRAS="[vector]"
+    fi
+    USE_UV=0
+    if command -v uv >/dev/null 2>&1 && [ "${EXO_INSTALL_NO_UV:-0}" != 1 ]; then
+        USE_UV=1
+    fi
+    DATA_DIR=$(data_dir)
+    TMP=""
+    FROM_GIT=0
+    trap cleanup EXIT
+    trap 'exit 130' INT TERM
+
+    REPO=$(clone_dir)
+    if [ -n "$REPO" ]; then
+        if [ -n "${EXO_REF:-}" ]; then
+            echo "EXO_REF is ignored: installing the clone in $REPO."
+        fi
+        SPEC="$REPO$EXTRAS"
+    else
+        remote_spec
+    fi
+
+    if [ "$USE_UV" = 1 ]; then
+        echo "Installing $DIST with uv tool..."
+        # Sin --force: si ya hay otro exo en el directorio de uv, uv no lo pisa (ADR-0001).
+        uv tool install --reinstall "$SPEC"
+        BIN_DIR=$(uv tool dir --bin)
+    else
+        VENV="$DATA_DIR/venv"
+        BIN_DIR="$HOME/.local/bin"
+        LINK="$BIN_DIR/exo"
+        # ADR-0001: hay otra herramienta que se llama exo. No se pisa nada que no sea nuestro.
+        if [ -e "$LINK" ] || [ -L "$LINK" ]; then
+            if [ "$(readlink "$LINK" 2>/dev/null || true)" != "$VENV/bin/exo" ]; then
+                echo "$LINK already exists and does not belong to this engine (another tool called exo?)." >&2
+                echo "Move or delete it and retry." >&2
+                exit 1
+            fi
+        fi
+        PY=$(find_python)
+        echo "Installing $DIST into $VENV..."
+        private_data_dir
+        if ! "$PY" -m venv "$VENV"; then
+            echo "Could not create the venv: install the python3-venv package or install uv." >&2
             exit 1
         fi
-    fi
-    PY=$(find_python)
-    echo "Installing $DIST into $VENV..."
-    if ! "$PY" -m venv "$VENV"; then
-        echo "Could not create the venv: install the python3-venv package or install uv." >&2
-        exit 1
-    fi
-    "$VENV/bin/python" -m pip install --upgrade --quiet --disable-pip-version-check "$SPEC"
-    mkdir -p "$BIN_DIR"
-    ln -sf "$VENV/bin/exo" "$LINK"
-fi
-
-EXE="$BIN_DIR/exo"
-[ -x "$EXE" ] || { echo "The installation did not produce $EXE" >&2; exit 1; }
-
-case ":$PATH:" in
-    *":$BIN_DIR:"*) ;;
-    *)
-        if [ "$NO_PATH" != 1 ]; then
-            mkdir -p "$DATA_DIR"
-            add_path_line "$HOME/.profile"
-            if [ -f "$HOME/.bash_profile" ]; then
-                add_path_line "$HOME/.bash_profile"
-            fi
-            # Las terminales de los escritorios Linux abren bash sin login: leen ~/.bashrc.
-            case "${SHELL:-}" in
-                *bash) add_path_line "$HOME/.bashrc" ;;
-                *) if [ -f "$HOME/.bashrc" ]; then add_path_line "$HOME/.bashrc"; fi ;;
-            esac
-            case "${SHELL:-}" in
-                *zsh) add_path_line "$HOME/.zshrc" ;;
-                *) if [ -f "$HOME/.zshrc" ]; then add_path_line "$HOME/.zshrc"; fi ;;
-            esac
-            printf '%s\n' "$BIN_DIR" > "$DATA_DIR/path-entry.txt"
-            echo "Open a new terminal to use 'exo'."
+        # Una rama o un commit traen la misma versión que lo instalado: sin
+        # --force-reinstall, pip lo da por instalado y no trae el commit nuevo. Va sin
+        # comillas para que, vacía, no pase un argumento vacío.
+        FORCE=""
+        if [ "$FROM_GIT" = 1 ]; then
+            FORCE=--force-reinstall
         fi
-        ;;
-esac
+        "$VENV/bin/python" -m pip install --upgrade --quiet --disable-pip-version-check $FORCE "$SPEC"
+        mkdir -p "$BIN_DIR"
+        ln -sf "$VENV/bin/exo" "$LINK"
+    fi
+    cleanup
 
-"$EXE" doctor
-if [ -n "$INIT" ]; then
-    "$EXE" init --project "$INIT" --yes
-fi
-echo "Done: $EXE"
+    EXE="$BIN_DIR/exo"
+    [ -x "$EXE" ] || die "The installation did not produce $EXE"
+
+    case ":$PATH:" in
+        *":$BIN_DIR:"*) ;;
+        *)
+            if [ "$NO_PATH" != 1 ]; then
+                private_data_dir
+                add_path_line "$HOME/.profile"
+                if [ -f "$HOME/.bash_profile" ]; then
+                    add_path_line "$HOME/.bash_profile"
+                fi
+                # Las terminales de los escritorios Linux abren bash sin login: leen ~/.bashrc.
+                case "${SHELL:-}" in
+                    *bash) add_path_line "$HOME/.bashrc" ;;
+                    *) if [ -f "$HOME/.bashrc" ]; then add_path_line "$HOME/.bashrc"; fi ;;
+                esac
+                case "${SHELL:-}" in
+                    *zsh) add_path_line "$HOME/.zshrc" ;;
+                    *) if [ -f "$HOME/.zshrc" ]; then add_path_line "$HOME/.zshrc"; fi ;;
+                esac
+                printf '%s\n' "$BIN_DIR" > "$DATA_DIR/path-entry.txt"
+                echo "Open a new terminal to use 'exo'."
+                # Como la terminal nueva: la carpeta del motor, al principio.
+                PATH="$BIN_DIR:$PATH"
+                export PATH
+            fi
+            ;;
+    esac
+
+    warn_other_exo
+    "$EXE" doctor
+    if [ -n "$INIT" ]; then
+        "$EXE" init --project "$INIT" --yes
+    fi
+    echo "Done: $EXE"
+}
+
+main "$@"

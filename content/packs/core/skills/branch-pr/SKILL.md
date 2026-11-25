@@ -64,6 +64,7 @@ Start from `.exo/shared/templates/pr.md`. Every section needs real content; the 
 - **Ticket:** the exact `ticket_key` of the change (`exo change ai-usage <change> --json`), for example `AB#77` and not the normalized `AB-77`. If it is null, write `none`. Never infer it from the branch.
 - **Changes:** bullets with the relevant changes, and the change's artifacts (the spec delta, the design).
 - **Test Plan:** the exact commands and their results, as in the Tests section of `verify-record.md`.
+- **Known followups:** every finding deferred to a followup, with its ID or `path:line`, severity and one line: the dismissals of `exo change followups <change> --status dismissed --json` whose reason starts with `deferred to a followup`, and the decisions of `exo change ai-usage <change> --json` that start the same way. Write `None` when there are none.
 - **Checklist:** the template items as real lines, ticked only when true:
 
 ```markdown
@@ -91,7 +92,7 @@ gh pr create --base main --head feat/PROJ-123-add-login \
 
 - `gh` is the GitHub CLI. On another host, use its CLI or the link that `git push` prints, with the same title and body.
 - Give the person the full URL of the PR.
-- **Publish the gates** once the PR exists: `exo gate publish --change <change>`. With `review.publish_command` configured, it keeps one PR comment per gate; without it, it prints one text per gate: give them to the person to paste as PR comments. Host examples are in `.exo/shared/ci-and-review.md`.
+- **Publish the gates** once the PR exists: `exo gate publish --change <change>`. With `review.publish_command` configured, it keeps one PR comment per gate; without it, it prints one text per gate: give them to the person to paste as PR comments. If it answers that the command is not approved on this machine, show the person that command and the project files the message lists, and ask them to approve it themselves (`exo gate publish --change <change> --approve-command '<the exact command>'`); never pass that flag for them. Host examples are in `.exo/shared/ci-and-review.md`.
 - The work is done when CI is green. If CI fails, fix it with new commits on the same branch. Never force-push: the pre-push hook blocks it, and rewriting a pushed branch is the person's decision, which they carry out themselves.
 
 Record this skill and the checks that ran in the change's AI Usage Record (skill:ai-usage-record).

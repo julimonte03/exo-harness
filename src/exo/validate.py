@@ -35,6 +35,14 @@ Reglas de §10.5 del reporte, adaptadas al plan (`docs/plan/fases/F1-nucleo.md`)
   caracteres invisibles (ancho cero, control bidi y etiquetas Unicode). Cada
   advertencia dice qué encontró, por qué es riesgoso y qué hacer; la de envío no
   repite los datos y la de invisibles nombra el carácter en vez de copiarlo.
+
+Documentación (`--docs`, F8, D-48): los conteos citados con marcadores
+(`<!-- <prefijo>-count:skills -->106<!-- /<prefijo>-count -->`, con el prefijo
+de bloques de `_meta`) tienen que coincidir con el contenido, y cada
+`<motor> <subcomando>` citado en posición de comando dentro de código (bloques
+cercados o código en línea) tiene que existir en el CLI. Los marcadores dentro
+de código son ejemplos y no cuentan. Se revisan los `.md` de la carpeta, sin
+recursión: el plan y los ADRs no son documentación de usuario.
 """
 
 from __future__ import annotations
@@ -42,7 +50,7 @@ from __future__ import annotations
 import json
 import re
 import unicodedata
-from collections.abc import Callable
+from collections.abc import Callable, Collection, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -359,6 +367,8 @@ class ValidationReport:
     errors: list[Finding] = field(default_factory=list)
     warnings: list[Finding] = field(default_factory=list)
     counts: dict[str, int] = field(default_factory=dict)
+    # Skills por pack (también los packs sin skills, con 0): los conteos de los docs.
+    skills_per_pack: dict[str, int] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
@@ -677,11 +687,34 @@ class _Validator:
                     continue
                 if not isinstance(data.get("description"), str) or not data["description"].strip():
                     self.error(path, 0, "subagent is missing description")
+                self.check_subagent_shell(path, data.get("tools"))
                 self.subagents.setdefault(name, []).append(self.rel(path))
         for name, paths in self.subagents.items():
             if len(paths) > 1:
                 for rel in paths:
                     self.report.errors.append(Finding(rel, 0, f"duplicate subagent: {name}"))
+
+    def check_subagent_shell(self, path: Path, tools: object) -> None:
+        """Un subagente con shell la declara para los dos agentes que leen `.claude/agents/`.
+
+        Claude Code usa `Bash` (y `PowerShell` en Windows); GitHub Copilot CLI 1.0.114 en
+        Windows no le da shell a un subagente que declara solo `Bash`, aunque su
+        documentación lo trate como alias (verificado en F8). Con `PowerShell`, sí.
+        """
+        if isinstance(tools, str):
+            names = tools.split(",")
+        elif isinstance(tools, list):
+            names = [str(t) for t in tools]
+        else:
+            return
+        lowered = {name.strip().lower() for name in names}
+        if "bash" in lowered and "powershell" not in lowered:
+            self.error(
+                path,
+                0,
+                "tools lists Bash but not PowerShell: GitHub Copilot CLI on Windows gives a "
+                "subagent no shell with Bash alone; add PowerShell",
+            )
 
     def check_rules(self) -> None:
         path = self.root / RULES_FILE
@@ -716,8 +749,163 @@ class _Validator:
             "subagents": sum(len(v) for v in self.subagents.values()),
             "shared": self.shared_count,
         }
+        per_pack = dict.fromkeys(self.packs, 0)
+        for places in self.skills.values():
+            for pack, _ in places:
+                per_pack[pack] = per_pack.get(pack, 0) + 1
+        self.report.skills_per_pack = per_pack
         return self.report
 
 
 def validate(root: Path) -> ValidationReport:
     return _Validator(root).run()
+
+
+# -- documentación (--docs) -----------------------------------------------------------------
+
+DOC_SUFFIX = ".md"
+_COUNT_TAG = f"{_meta.BLOCK_PREFIX}-count"
+_COUNT_OPEN = re.compile(rf"<!--\s*{re.escape(_COUNT_TAG)}:([^\s>]*)\s*-->")
+_COUNT_CLOSE = re.compile(rf"<!--\s*/{re.escape(_COUNT_TAG)}\s*-->")
+# Solo dígitos ASCII: `str.isdigit` acepta "²", que `int` rechaza.
+_NUMBER = re.compile(r"[0-9]+")
+_INLINE_CODE = re.compile(r"(`+)(.+?)\1")
+# `<motor> <subcomando>` en posición de comando: al principio del código (la línea o el
+# código en línea); después de un operador o un prompt de shell (`| & ; ( $ >`, o la
+# comilla invertida de "run `exo sync`" dentro de un bloque), de `python -m`, de
+# `uvx --from <paquete>` o de una clave de YAML (`run:`, `script:`, `- `). Así no cuenta un
+# mensaje que nombra al motor ("upgrade exo and retry"), ni una ruta o un nombre que lo
+# contiene. El subcomando es la palabra entera y no lo sigue `:` (`exo commit-msg: blocked`
+# es la salida de un hook); una opción (`--version`) o un marcador de posición
+# (`<command>`) no es un subcomando.
+_COMMAND_AT = r"(?:^|[|&;(`$>]|(?<!\S)-m|--from[ \t]+\S+|\b(?:run|script):|^[ \t]*-)"
+_COMMAND = re.compile(
+    rf"{_COMMAND_AT}[ \t]*{re.escape(_meta.NAME)}[ \t]+([A-Za-z][\w-]*)(?![\w:-])"
+)
+# Comentario de shell o de PowerShell dentro de un bloque cercado.
+_COMMENT = re.compile(r"(?:^|\s)#.*$")
+_PER_PACK = "skills:"
+
+
+@dataclass
+class DocsReport:
+    files: list[Path] = field(default_factory=list)
+    markers: int = 0
+    commands: int = 0
+    errors: list[Finding] = field(default_factory=list)
+
+    @property
+    def ok(self) -> bool:
+        return not self.errors
+
+
+def doc_counts(report: ValidationReport) -> dict[str, int]:
+    """Las claves de los marcadores: los conteos de `validate`, los agentes con adaptador
+    propio (`agents`) y las skills de cada pack (`skills:<pack>`)."""
+    # Diferido: validar el contenido no necesita los adaptadores.
+    from exo.adapters import ADAPTERS
+
+    counts = dict(report.counts)
+    counts["agents"] = len(ADAPTERS)
+    counts.update({f"{_PER_PACK}{pack}": n for pack, n in report.skills_per_pack.items()})
+    return counts
+
+
+def doc_files(path: Path) -> list[Path]:
+    """Un archivo, o los `.md` de una carpeta en orden, sin entrar en subcarpetas."""
+    if path.is_dir():
+        return sorted(p for p in path.iterdir() if p.is_file() and p.suffix == DOC_SUFFIX)
+    return [path]
+
+
+def _known_keys(counts: Mapping[str, int]) -> str:
+    keys = sorted(k for k in counts if not k.startswith(_PER_PACK))
+    return ", ".join([*keys, f"{_PER_PACK}<pack>"])
+
+
+def _check_markers(
+    text: str, number: int, display: str, counts: Mapping[str, int], report: DocsReport
+) -> None:
+    for opening in _COUNT_OPEN.finditer(text):
+        key = opening.group(1)
+        closing = _COUNT_CLOSE.search(text, opening.end())
+        following = _COUNT_OPEN.search(text, opening.end())
+        if closing is None or (following is not None and following.start() < closing.start()):
+            report.errors.append(
+                Finding(
+                    display,
+                    number,
+                    f"count marker {key!r} is not closed on the same line; end it with "
+                    f"<!-- /{_COUNT_TAG} -->",
+                )
+            )
+            continue
+        report.markers += 1
+        value = text[opening.end() : closing.start()].strip()
+        if key not in counts:
+            report.errors.append(
+                Finding(
+                    display,
+                    number,
+                    f"unknown count key {key!r}; the known keys are {_known_keys(counts)}",
+                )
+            )
+        elif not _NUMBER.fullmatch(value):
+            report.errors.append(
+                Finding(
+                    display,
+                    number,
+                    f"count marker {key!r} must hold a whole number, not {value!r}; "
+                    f"write {counts[key]}",
+                )
+            )
+        elif int(value) != counts[key]:
+            report.errors.append(
+                Finding(
+                    display,
+                    number,
+                    f"the docs say {value} for {key!r}, but the content has {counts[key]}; "
+                    f"write {counts[key]}",
+                )
+            )
+
+
+def _check_commands(
+    code: str, number: int, display: str, commands: Collection[str], report: DocsReport
+) -> None:
+    for found in _COMMAND.finditer(code):
+        report.commands += 1
+        name = found.group(1)
+        if name not in commands:
+            report.errors.append(
+                Finding(
+                    display,
+                    number,
+                    f"cites `{_meta.NAME} {name}`, but {name!r} is not a {_meta.NAME} command; "
+                    f"see `{_meta.NAME} --help` for the list",
+                )
+            )
+
+
+def validate_docs(
+    files: Iterable[Path], counts: Mapping[str, int], commands: Collection[str]
+) -> DocsReport:
+    """Revisa los marcadores de conteo y los subcomandos citados en código de `files`."""
+    report = DocsReport()
+    for path in files:
+        report.files.append(path)
+        display = path.as_posix()
+        in_code = False
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for number, line in enumerate(text.splitlines(), start=1):
+            if _FENCE.match(line):
+                in_code = not in_code
+                continue
+            if in_code:
+                _check_commands(_COMMENT.sub("", line), number, display, commands, report)
+                continue
+            for span in _INLINE_CODE.finditer(line):
+                _check_commands(span.group(2), number, display, commands, report)
+            prose = _INLINE_CODE.sub("", line)
+            _check_markers(prose, number, display, counts, report)
+    return report

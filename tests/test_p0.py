@@ -73,3 +73,6 @@ def test_codeowners(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert "/docs/specs/ @ana bob@example.com" in out
     assert "/.exo/ @ana bob@example.com" in out
     assert out.lstrip().startswith("#")
+    # Lo que leen los agentes y lo que ejecuta git también pide al tech_lead (threat model, M-3).
+    for path in ("/AGENTS.md", "/CLAUDE.md", "/.claude/", "/.agents/", "/.mcp.json", "/.husky/"):
+        assert f"{path} @ana bob@example.com" in out, path

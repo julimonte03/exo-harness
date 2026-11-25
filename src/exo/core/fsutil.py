@@ -15,6 +15,7 @@ import stat
 import sys
 import tempfile
 import time
+from collections.abc import Iterator
 from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 
 _RETRIES = 5
@@ -134,7 +135,10 @@ def write_atomic(
             fh.write(data)
             fh.flush()
             os.fsync(fh.fileno())
-        os.chmod(tmp, mode)
+        # Best-effort: vfat y exFAT rechazan chmod (EPERM) y el archivo se escribe igual;
+        # `exo doctor` avisa si la carpeta de datos quedó abierta (F8R1-7).
+        with contextlib.suppress(PermissionError):
+            os.chmod(tmp, mode)
         _replace_with_retry(tmp, os_target)
     except BaseException:
         # En Windows no se puede borrar un archivo de solo lectura: el temporal ya
@@ -191,20 +195,49 @@ def safe_relpath(raw: str | PurePath) -> PurePosixPath:
     return PurePosixPath(*parts)
 
 
+# Componentes que `join_within` ya verificó que no son links, dentro de `link_cache()`.
+_not_links: set[str] | None = None
+
+
+@contextlib.contextmanager
+def link_cache() -> Iterator[None]:
+    """Dentro del bloque, `join_within` verifica cada componente una sola vez.
+
+    Es para una corrida del motor (`engine.apply`): las rutas gestionadas comparten
+    prefijos (`.claude/skills/…`) y se arman varias veces. Mientras tanto el motor es
+    el único que escribe, y nunca crea links. Un bloque anidado usa la misma caché, y
+    al salir del bloque de afuera se descarta.
+    """
+    global _not_links
+    outer = _not_links
+    if outer is None:
+        _not_links = set()
+    try:
+        yield
+    finally:
+        _not_links = outer
+
+
 def join_within(root: Path, raw: str | PurePath) -> Path:
     """Ruta dentro de `root` armada sin resolver, rechazando cualquier componente que sea link.
 
     Es la forma segura de obtener una ruta para escribir o borrar: el motor no
     gestiona rutas que pasan por symlinks o junctions.
     """
+    seen = _not_links
     current = Path(root)
     for part in safe_relpath(raw).parts:
         current = current / part
+        key = str(current)
+        if seen is not None and key in seen:
+            continue
         if is_link(current):
             raise UnsafePathError(
                 f"{raw}: {current} is a symlink or junction; the engine does not manage paths "
                 "through links"
             )
+        if seen is not None:
+            seen.add(key)
     return current
 
 

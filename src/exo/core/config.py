@@ -13,6 +13,7 @@ humano. `save` valida y rechaza valores inválidos.
 
 from __future__ import annotations
 
+import contextlib
 import copy
 import json
 import re
@@ -66,6 +67,18 @@ class LoadResult:
     # viene de los defaults. Quien escribe a partir de la config tiene que abortar.
     fallback: bool = False
     invalid: list[str] = field(default_factory=list)  # campos que volvieron a su default
+    # El esquema del archivo, si se migró al leerlo: `exo update --apply` lo guarda migrado.
+    migrated_from: int | None = None
+    # El esquema del archivo, si lo escribió un motor más nuevo (`fallback` también es True).
+    newer_schema: int | None = None
+
+
+def newer_message(schema: int) -> str:
+    """Una config de un esquema más nuevo no está rota: la escribió otra versión del motor."""
+    return (
+        f"{_meta.PROJECT_DIR}/{FILENAME} was written by a newer {_meta.NAME} (schema {schema}; "
+        f"this engine understands up to {CURRENT_SCHEMA}); upgrade {_meta.NAME} and retry"
+    )
 
 
 def defaults() -> dict[str, Any]:
@@ -374,7 +387,10 @@ def _v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 def _v2_to_v3(raw: dict[str, Any]) -> dict[str, Any]:
-    """ADR-0014: sale el perfil de organización; los gates, los datos y la revisión toman su default."""
+    """ADR-0014: sale el perfil de organización.
+
+    Los gates, los datos y la revisión toman su default.
+    """
     out = dict(raw)
     governance = out.get("governance")
     if isinstance(governance, dict):
@@ -405,8 +421,9 @@ def _migrate(raw: dict[str, Any]) -> tuple[dict[str, Any] | None, list[str]]:
     if schema > CURRENT_SCHEMA:
         return None, [
             *warnings,
-            f"schema: unknown schema {schema} (this engine understands up to "
-            f"{CURRENT_SCHEMA}); using the defaults. Update {_meta.NAME}.",
+            f"schema: schema {schema} was written by a newer {_meta.NAME} (this engine "
+            f"understands up to {CURRENT_SCHEMA}); using the defaults until you upgrade "
+            f"{_meta.NAME}",
         ]
     original = schema
     while schema < CURRENT_SCHEMA:
@@ -445,27 +462,69 @@ def load(project: Path) -> LoadResult:
         return _fallback(path, "the root must be a JSON object")
     migrated, warnings = _migrate(raw)
     if migrated is None:
-        return LoadResult(defaults(), warnings, path, fallback=True)
+        schema = raw.get("schema")
+        newer = schema if isinstance(schema, int) and schema > CURRENT_SCHEMA else None
+        return LoadResult(defaults(), warnings, path, fallback=True, newer_schema=newer)
     cfg, field_warnings, invalid = validate(migrated)
-    return LoadResult(cfg, warnings + field_warnings, path, invalid=invalid)
+    original = raw.get("schema", 1)
+    return LoadResult(
+        cfg,
+        warnings + field_warnings,
+        path,
+        invalid=invalid,
+        migrated_from=original if original != CURRENT_SCHEMA else None,
+    )
 
 
-def dumps(cfg: dict[str, Any]) -> bytes:
-    return (json.dumps(cfg, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+_BOM = b"\xef\xbb\xbf"
+_INDENT = re.compile(r"\n([ \t]+)\S")
+
+
+def _ordered(new: Any, old: Any) -> Any:
+    """`new` con las claves en el orden de `old` (las nuevas, al final), en cada nivel."""
+    if not (isinstance(new, dict) and isinstance(old, dict)):
+        return new
+    keys = [k for k in old if k in new] + [k for k in new if k not in old]
+    return {k: _ordered(new[k], old.get(k)) for k in keys}
+
+
+def dumps(cfg: dict[str, Any], like: bytes | None = None) -> bytes:
+    """La config como JSON. Con `like` (el archivo que reemplaza), conserva lo de la persona
+    (invariante 2): el fin de línea, el BOM, la sangría y el orden de sus claves."""
+    indent: int | str = 2
+    if like is not None:
+        text = like.decode("utf-8-sig", errors="replace")
+        found = _INDENT.search(text.replace("\r\n", "\n"))
+        if found:
+            indent = found.group(1) if "\t" in found.group(1) else len(found.group(1))
+        with contextlib.suppress(json.JSONDecodeError):
+            cfg = _ordered(cfg, json.loads(text))
+    out = json.dumps(cfg, indent=indent, ensure_ascii=False) + "\n"
+    if like is not None and b"\r\n" in like:
+        out = out.replace("\n", "\r\n")
+    data = out.encode("utf-8")
+    return _BOM + data if like is not None and like.startswith(_BOM) else data
+
+
+def current_bytes(project: Path) -> bytes | None:
+    """El archivo de config tal como está, o None si falta o no se puede leer."""
+    try:
+        return fsutil.read_bytes(config_path(project))
+    except OSError:
+        return None
 
 
 def save(project: Path, cfg: dict[str, Any]) -> bool:
-    """Valida y escribe la config de forma atómica. Devuelve si escribió."""
+    """Valida y escribe la config de forma atómica, con el estilo del archivo que reemplaza.
+    Devuelve si escribió."""
     normalized, _, invalid = validate(cfg)
     if invalid:
         raise ConfigError("the config has invalid values: " + " | ".join(invalid))
     on_disk = _schema_on_disk(project)
     if on_disk is not None and on_disk > CURRENT_SCHEMA:
-        raise ConfigError(
-            f"the config on disk uses schema {on_disk} and this engine understands up to "
-            f"{CURRENT_SCHEMA}; not overwriting it. Update {_meta.NAME}."
-        )
-    return fsutil.write_if_changed(config_path(project), dumps(normalized))
+        raise ConfigError(f"{newer_message(on_disk)} (it was not overwritten)")
+    data = dumps(normalized, like=current_bytes(project))
+    return fsutil.write_if_changed(config_path(project), data)
 
 
 def _schema_on_disk(project: Path) -> int | None:

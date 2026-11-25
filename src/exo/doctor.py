@@ -8,10 +8,12 @@ snapshots) corren en un directorio temporal y no tocan el proyecto.
 from __future__ import annotations
 
 import json
+import os
 import platform
 import re
 import shutil
 import sqlite3
+import stat
 import subprocess
 import sys
 import sysconfig
@@ -139,19 +141,33 @@ def _config(project: Path) -> Check:
 CLAUDE_AGENTS_MD = (2, 1, 281)
 
 
+def _lock_version(data: lock.Lock) -> str | None:
+    """Aviso si el lock lo escribió otra versión del motor (F8)."""
+    written = data.engine_version or "an unknown version"
+    if data.engine_version == _meta.VERSION:
+        return None
+    if lock.newer_than_engine(data.engine_version):
+        return (
+            f"the lock was written by {_meta.NAME} {written}, newer than this engine "
+            f"({_meta.VERSION}); upgrade {_meta.NAME}"
+        )
+    return f"the lock was written by {_meta.NAME} {written}; run `{_meta.NAME} update`"
+
+
 def _install(project: Path) -> Check:
     data = lock.read(project)
     if data is None:
         return Check("install", "info", f"the engine is not installed in {project.resolve()}")
+    problems = [p for p in (_lock_version(data),) if p]
     drift = lock.drift(project, data)
     if drift:
         listed = ", ".join(f"{d.entry.path} ({d.status})" for d in drift[:5])
         more = f" and {len(drift) - 5} more" if len(drift) > 5 else ""
-        return Check(
-            "install",
-            "warn",
-            f"manual changes to generated files: {listed}{more}; see `{_meta.NAME} status`",
+        problems.append(
+            f"manual changes to generated files: {listed}{more}; see `{_meta.NAME} status`"
         )
+    if problems:
+        return Check("install", "warn", "; ".join(problems))
     return Check("install", "ok", f"{len(data.files)} managed units, no manual changes")
 
 
@@ -345,6 +361,45 @@ def _githooks(project: Path) -> Check:
     return Check("githooks", found.status, found.detail)
 
 
+def _is_under(path: Path, base: Path) -> bool:
+    """¿`path` está dentro de `base` (o es `base`)? Sin distinguir mayúsculas en Windows."""
+    target = os.path.normcase(os.path.realpath(path))
+    root = os.path.normcase(os.path.realpath(base))
+    try:
+        return os.path.commonpath([target, root]) == root
+    except ValueError:  # otra unidad
+        return False
+
+
+def _data_dir(project: Path) -> Check:
+    """La carpeta de datos tiene la memoria sin redactar: en POSIX, solo para el dueño (TM-27)."""
+    folder = paths.user_data_dir()
+    if not folder.is_dir():
+        detail = f"{folder} does not exist yet; the engine creates it private"
+        return Check("data-dir", "info", detail)
+    if os.name == "nt":
+        # `%LOCALAPPDATA%` es por usuario (supuesto S-10); una carpeta elegida con
+        # `<ENV_PREFIX>DATA_DIR` en otro lado puede no serlo, y el motor no lee ACLs (F8R1-19).
+        local = os.environ.get("LOCALAPPDATA")
+        if local and _is_under(folder, Path(local)):
+            return Check("data-dir", "ok", f"{folder} (per user, under %LOCALAPPDATA%)")
+        return Check(
+            "data-dir",
+            "info",
+            f"{folder} is outside %LOCALAPPDATA%: check that only you can read it, because it "
+            "holds your memory, unredacted",
+        )
+    mode = stat.S_IMODE(folder.stat().st_mode)
+    if mode & 0o077:
+        return Check(
+            "data-dir",
+            "warn",
+            f"{folder} can be read by other users (mode {mode:o}); it holds your memory, "
+            f"unredacted: run `chmod 700 {folder}`",
+        )
+    return Check("data-dir", "ok", f"{folder} (mode {mode:o})")
+
+
 CHECKS: tuple[Callable[[Path], Check], ...] = (
     _python,
     _platform,
@@ -364,8 +419,10 @@ CHECKS: tuple[Callable[[Path], Check], ...] = (
     _memory,
     _memory_semantic,
     _memory_config,
+    _data_dir,
 )
 _NAMES = {
+    _data_dir: "data-dir",
     _selftest_filemerge: "filemerge",
     _selftest_snapshots: "snapshots",
     _memory_fts5: "memory-fts5",

@@ -17,7 +17,7 @@ Keep the marker below with the gate name (snake_case, the same as the file name)
 <!--
 | Severity | File:line | Finding | Rule/OWASP |
 |---|---|---|---|
-| High | src/auth/login.py:42 | User input reaches the SQL query unescaped | A03:2021 Injection |
+| High | src/auth/login.py:42 | User input reaches the SQL query unescaped | CWE-89, A05:2025 Injection |
 -->
 
 ## Approval

@@ -9,6 +9,7 @@ import pytest
 
 from _projects import FIXTURES, tree
 from exo import _meta, adapters, content
+from exo.adapters import claude_code
 from exo.adapters.base import (
     AGENTS_SKILLS,
     CLAUDE_AGENTS,
@@ -91,8 +92,56 @@ def test_permiso_para_el_cli(tmp_path: Path) -> None:
     root.mkdir()
     project.sync(root, agents=["claude-code"])
     settings = json.loads((root / ".claude" / "settings.json").read_text(encoding="utf-8"))
-    expected = [f"Bash({_meta.NAME}:*)", f"PowerShell({_meta.NAME}:*)"]
-    assert settings == {"permissions": {"allow": expected}}
+    allow = settings["permissions"]["allow"]
+    assert allow == list(claude_code.PERMISSIONS)
+    assert f"Bash({_meta.NAME} change:*)" in allow and f"PowerShell({_meta.NAME} check:*)" in allow
+
+
+# Lo que cambia la config o los archivos gestionados, borra memoria, la manda afuera o ejecuta
+# un comando configurado: el agente lo pide y la persona lo aprueba (threat model, TM-21).
+_NEEDS_A_PERSON = (
+    "init", "sync", "update", "uninstall", "restore", "add-agent", "remove-agent", "inject",
+    "registry", "mcp", "gate", "backups", "persona set", "persona clear", "mem delete",
+    "mem reindex", "mem export", "mem import", "mem projects", "mem model", "mem eval",
+)
+
+
+def test_el_permiso_no_cubre_lo_que_necesita_a_una_persona() -> None:
+    """TM-21: con `Bash(exo:*)`, un agente con prompt injection corría `exo init
+    --publish-command <cmd>` y después `exo gate publish`, que ejecuta `<cmd>`, sin preguntar."""
+    from exo import commands
+
+    rules = claude_code.PERMISSIONS
+    assert f"Bash({_meta.NAME}:*)" not in rules and f"PowerShell({_meta.NAME}:*)" not in rules
+    granted = {rule.split("(", 1)[1].removesuffix(":*)").removeprefix(f"{_meta.NAME} ") for rule in rules}
+    assert granted == set(claude_code.AGENT_COMMANDS)
+    first_level = {name for names in commands.MODULES.values() for name in names}
+    for command in claude_code.AGENT_COMMANDS:
+        assert command.split()[0] in first_level, command  # un nombre que el CLI no tiene
+        for blocked in _NEEDS_A_PERSON:
+            assert not (command == blocked or command.startswith(blocked + " ")), command
+            assert not blocked.startswith(command + " ") and blocked != command, command
+
+
+def test_sync_cambia_el_permiso_viejo_por_la_lista(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Un proyecto instalado con `Bash(exo:*)` lo pierde en el próximo sync; lo de la persona queda."""
+    root = tmp_path / "p"
+    root.mkdir()
+    old = (f"Bash({_meta.NAME}:*)", f"PowerShell({_meta.NAME}:*)")
+    monkeypatch.setattr(claude_code, "PERMISSIONS", old)
+    project.sync(root, agents=["claude-code"])
+    path = root / ".claude" / "settings.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["permissions"]["allow"].append("Bash(npm test:*)")  # de la persona
+    path.write_text(json.dumps(data), encoding="utf-8")
+    monkeypatch.undo()
+    project.sync(root)
+    allow = json.loads(path.read_text(encoding="utf-8"))["permissions"]["allow"]
+    assert not set(old) & set(allow)
+    assert "Bash(npm test:*)" in allow
+    assert set(claude_code.PERMISSIONS) <= set(allow)
 
 
 def test_solo_copilot_usa_claude_y_no_pide_permisos(tmp_path: Path) -> None:

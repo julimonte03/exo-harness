@@ -7,6 +7,11 @@ comando pide cambiar algo (agentes, packs, MCP o tickets), se valida antes de
 tocar nada y va en la misma transacción que el resto, con su snapshot. Si la
 config existe pero no se puede usar, se aborta: con los defaults se borraría
 lo de los agentes que tiene configurados.
+
+Las huérfanas (skills y subagentes que el contenido ya no trae) no se borran sin
+`prune` (F8). Lo que deja de pedirse porque la persona sacó un agente o un pack sí:
+son las copias que el contenido actual todavía generaría con los agentes y packs
+del lock, es decir, de la última instalación.
 """
 
 from __future__ import annotations
@@ -23,8 +28,9 @@ from exo import _meta, adapters, content, packs, paths
 from exo.adapters.base import Context
 from exo.core import config, fsutil, lock, snapshots
 from exo.governance import githooks, hosts
-from exo.installer import engine
+from exo.installer import engine, renames
 from exo.installer.bundle import build_bundle
+from exo.installer.ops import Op, Unit, unit_of, unit_of_entry
 
 DEFAULT_PACKS = ("core", "sdd", "quality", "security")
 
@@ -45,6 +51,10 @@ class SyncResult:
     packs: list[str]
     notes: list[str] = field(default_factory=list)
     config_written: bool = False
+    # Huérfana (o la que se borró con prune) -> su nombre nuevo, si es un renombre conocido.
+    renamed: dict[str, str] = field(default_factory=dict)
+    # (esquema en disco, esquema actual) si la config se migró al leerla.
+    config_migration: tuple[int, int] | None = None
 
 
 def normalize_agents(agents: Iterable[str]) -> tuple[str, ...]:
@@ -66,6 +76,8 @@ def _base_config(project: Path) -> tuple[config.LoadResult, dict[str, Any], list
     se borraría lo de los agentes. Si falta y el motor está instalado, agentes y packs
     salen del lock, por la misma razón."""
     loaded = config.load(project)
+    if loaded.newer_schema is not None:
+        raise ProjectError(config.newer_message(loaded.newer_schema))
     if loaded.fallback or loaded.invalid:
         problems = " | ".join(loaded.invalid or loaded.warnings)
         raise ProjectError(
@@ -83,6 +95,17 @@ def _base_config(project: Path) -> tuple[config.LoadResult, dict[str, Any], list
                 "using the agents and packs from the lock"
             )
     return loaded, cfg, notes
+
+
+def refuse_newer_lock(previous: lock.Lock) -> None:
+    """ProjectError si el lock lo escribió un motor más nuevo que este."""
+    written_by = previous.engine_version
+    if written_by and lock.newer_than_engine(written_by):
+        raise ProjectError(
+            f"the lock was written by {_meta.NAME} {written_by}, newer than this engine "
+            f"({_meta.VERSION}): updating would take the project back to {_meta.VERSION}. "
+            f"Upgrade {_meta.NAME}, or pass --force to do it anyway"
+        )
 
 
 def current_agents(project: Path) -> list[str] | None:
@@ -106,8 +129,20 @@ def sync(
     claude_md: bool = False,
     force: bool = False,
     dry_run: bool = False,
+    prune: bool = False,
+    partial: bool = False,
+    save_migrated: bool = False,
 ) -> SyncResult:
+    """`partial` y `save_migrated` son de `exo update`: aplicar lo que no choca con lo
+    editado, y guardar la config si se migró al leerla.
+
+    Un lock escrito por un motor más nuevo no se lleva hacia atrás sin `force`: se
+    borrarían los archivos que trae esa versión y su marca (F8R1-2). Vale para `init`,
+    `sync`, `update`, `add-agent` y `remove-agent`; `uninstall` no pasa por acá."""
     project = Path(project).resolve()
+    previous = lock.read(project)
+    if previous is not None and not force:
+        refuse_newer_lock(previous)
     loaded, cfg, base_notes = _base_config(project)
     explicit = agents is not None or packs is not None or mcp is not None or tickets is not None
     if agents is not None:
@@ -141,18 +176,28 @@ def sync(
     if invalid:
         raise ProjectError("invalid values for the config: " + " | ".join(invalid))
     extra: dict[str, bytes] = {}
-    if explicit and (loaded.source is None or normalized != loaded.config):
-        extra[f"{_meta.PROJECT_DIR}/{config.FILENAME}"] = config.dumps(normalized)
+    config_rel = f"{_meta.PROJECT_DIR}/{config.FILENAME}"
+    migrated = loaded.migrated_from
+    asked = explicit and (loaded.source is None or normalized != loaded.config)
+    if asked or (save_migrated and migrated is not None):
+        # Con el fin de línea, la sangría y el orden del archivo de la persona (F8R1-18).
+        extra[config_rel] = config.dumps(normalized, like=config.current_bytes(project))
     ctx = Context(project, bundle, targets, normalized, claude_md="always" if claude_md else "auto")
+    ops = adapters.plan_all(ctx)
     result = engine.apply(
         project,
-        adapters.plan_all(ctx),
+        ops,
         agents=list(targets),
         packs=list(bundle.packs),
         force=force,
         dry_run=dry_run,
         extra=extra,
+        prune=prune,
+        dropped=_dropped(root, ctx, ops, previous),
+        partial=partial,
     )
+    gone = [a.path for a in result.actions if a.action in ("orphan", "remove")]
+    renamed = renames.find(gone, {op.path for op in ops})
     notes = [*base_notes, *loaded.warnings, *adapters.GENERIC.notes(ctx)]
     if result.applied and not dry_run:
         notes += _githooks(project, normalized, result)
@@ -161,12 +206,53 @@ def sync(
             f"the repo lives on {host_note} (review.host); to publish the gates as PR comments, "
             "set review.publish_command (examples in the ci-and-review contract)"
         )
+    if migrated is not None and config_rel not in extra:
+        notes.append(
+            f"{config_rel} is still on schema {migrated} (read as {config.CURRENT_SCHEMA}); "
+            f"`{_meta.NAME} update --apply` saves it migrated"
+        )
     written = result.applied and bool(extra)
-    return SyncResult(result, list(targets), list(bundle.packs), notes, written)
+    migration = (migrated, config.CURRENT_SCHEMA) if migrated is not None else None
+    return SyncResult(
+        result, list(targets), list(bundle.packs), notes, written, renamed, migration
+    )
+
+
+def _dropped(root: Path, ctx: Context, ops: list[Op], previous: lock.Lock | None) -> set[Unit]:
+    """Las copias de contenido que se dejan de pedir porque cambió el pedido, no el contenido.
+
+    Son las que el contenido actual todavía genera con los agentes y packs del lock: si
+    ya no se piden, es porque la persona sacó un agente o un pack (por un comando o a mano
+    en la config). Las demás son huérfanas y esperan `prune`. Solo se planifica de nuevo
+    si hay candidatas y el pedido cambió.
+    """
+    if previous is None:
+        return set()
+    planned = {unit_of(op) for op in ops}
+    candidates = {
+        unit_of_entry(e) for e in previous.files if e.kind in engine.ORPHAN_KINDS
+    } - planned
+    if not candidates:
+        return set()
+    available = [p for p in previous.packs if (root / "packs" / p / packs.MANIFEST).is_file()]
+    try:
+        targets = normalize_agents(previous.agents)
+        bundle = build_bundle(root, available) if available else None
+    except ValueError:
+        return set()
+    if bundle is None or (targets == ctx.targets and bundle.packs == ctx.bundle.packs):
+        return set()
+    before = Context(ctx.project, bundle, targets, ctx.config, claude_md=ctx.claude_md)
+    return candidates & {unit_of(op) for op in adapters.plan_all(before)}
 
 
 def _githooks(project: Path, cfg: dict[str, Any], result: engine.Result) -> list[str]:
-    """Activa o desactiva los git hooks en este clon, después de aplicar (D-21)."""
+    """Activa o desactiva los git hooks en este clon, después de aplicar (D-21).
+
+    Si no hubo nada que aplicar y ya están como deben, no se lanza git (F8).
+    """
+    if not result.changed and githooks.settled(project, cfg):
+        return []
     if not githooks.enabled(cfg):
         return ["git hooks turned off in this clone"] if githooks.deactivate(project) else []
     if githooks.mechanism(project) == "husky":
@@ -247,9 +333,11 @@ def uninstall(project: Path, *, force: bool = False, dry_run: bool = False) -> U
         archive = snapshots.build_archive(project, roots)
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         name = f"{project.name}-{stamp}-{fsutil.sha256_bytes(archive)[:12]}.tar.gz"
-        backup = paths.user_data_dir() / "uninstall-backups" / name
-        fsutil.write_atomic(backup, archive)
-    result = engine.apply(project, [], agents=[], packs=[], force=force, dry_run=dry_run)
+        backup = paths.private_dir(paths.user_data_dir() / "uninstall-backups") / name
+        fsutil.write_atomic(backup, archive, mode=paths.PRIVATE_FILE)
+    result = engine.apply(
+        project, [], agents=[], packs=[], force=force, dry_run=dry_run, prune=True
+    )
     if result.applied and not dry_run:
         githooks.deactivate(project)
     also_removed = _human_files_in(project, motor_dir, data)

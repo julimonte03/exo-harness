@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -199,6 +201,72 @@ def test_el_comando_de_claude_aisla_la_config_de_usuario() -> None:
     assert command[command.index("--allowedTools") + 1] == "Read Skill"
     assert command[command.index("--max-turns") + 1] == "40"
     assert command[command.index("--output-format") + 1] == "stream-json"
+    # M-17: el agente no publica nada, aunque `Bash(git:*)` lo permitiría.
+    denied = command[command.index("--disallowedTools") + 1]
+    assert "Bash(git push:*)" in denied and "PowerShell(git push:*)" in denied
+
+
+def test_el_entorno_aisla_la_config_global_de_git(tmp_path: Path) -> None:
+    """M-17 (threat model, TM-47): un `git config --global` del agente no toca el de la persona."""
+    env = evals.runner_env(tmp_path / "data", {"PATH": "/usr/bin"})
+    gitconfig = Path(env["GIT_CONFIG_GLOBAL"])
+    assert gitconfig.parent == tmp_path / "data" and gitconfig.is_file()
+    assert env["GIT_CONFIG_NOSYSTEM"] == "1"
+
+
+def _cubre(allowed: str, rule: str) -> bool:
+    """Si alguna regla `Tool(prefijo:*)` de `allowed` cubre `rule` (`Tool(prefijo resto:*)`)."""
+    tool, _, arg = rule.partition("(")
+    for item in allowed.split():
+        name, _, prefix = item.partition("(")
+        if name == tool and prefix.endswith(":*)"):
+            base = prefix[: -len(":*)")]
+            if arg == prefix or arg.startswith(base + " "):
+                return True
+    return False
+
+
+def test_el_permiso_del_proyecto_no_suma_tools_a_las_corridas() -> None:
+    """F8R2-20: `--setting-sources project,local` carga `.claude/settings.json`, con el
+    `permissions.allow` que escribe exo. Sea que Claude Code lo aplique o no en `-p`, no
+    suma nada: cada regla está dentro de las tools de los evals y de los escenarios."""
+    import _agents as agents
+    from exo.adapters import claude_code
+    from test_skill_evals import TOOLS
+
+    assert claude_code.PERMISSIONS
+    for allowed in (TOOLS, agents.claude_tools(python=False)):
+        assert [r for r in claude_code.PERMISSIONS if not _cubre(allowed, r)] == []
+    assert not _cubre("Bash(git:*)", "Bash(exo change:*)")
+    assert not _cubre("Bash(exo:*)", "Bash(exotic:*)")
+
+
+def _git_en(env: dict[str, str], *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", *args], env=env, capture_output=True, text=True, timeout=60, check=False
+    )
+
+
+def test_el_entorno_bloquea_el_transporte_de_git(tmp_path: Path) -> None:
+    """F8R2-6 (TM-47): `--disallowedTools "Bash(git push:*)"` es por prefijo y `git -C . push`
+    lo saltea; el entorno corta el transporte: solo `file` (los repos locales de la corrida),
+    también con `-c protocol.allow=always`, y ssh con un comando que no existe."""
+    env = evals.runner_env(tmp_path / "data", os.environ)
+    assert env["GIT_ALLOW_PROTOCOL"] == "file"
+    assert env["GIT_SSH_COMMAND"] == evals.NO_SSH
+    bare = tmp_path / "remoto.git"
+    assert _git_en(env, "init", "-q", "--bare", str(bare)).returncode == 0
+    assert _git_en(env, "ls-remote", str(bare)).returncode == 0  # file anda
+    for url in ("https://127.0.0.1:9/x.git", "http://127.0.0.1:9/x.git", "ssh://git@127.0.0.1/x.git"):
+        for extra in ((), ("-c", "protocol.allow=always")):
+            done = _git_en(env, *extra, "ls-remote", url)
+            assert done.returncode != 0
+            assert "not allowed" in done.stderr, (url, extra, done.stderr)
+    # Si algo dejara pasar ssh, git corre GIT_SSH_COMMAND, que no existe: no hay conexión.
+    no_allow = {k: v for k, v in env.items() if k != "GIT_ALLOW_PROTOCOL"}
+    done = _git_en(no_allow, "-c", f"core.sshCommand={shutil.which('git')}", "ls-remote", "ssh://git@127.0.0.1/x.git")
+    assert done.returncode != 0
+    assert evals.NO_SSH in done.stderr, done.stderr
 
 
 def test_el_entorno_aisla_los_datos_y_antepone_el_bin_del_interprete(tmp_path: Path) -> None:

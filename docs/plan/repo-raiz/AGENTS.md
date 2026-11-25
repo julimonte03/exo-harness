@@ -1,6 +1,6 @@
 # AGENTS.md — Desarrollo del motor `arnes`
 
-Este repo construye un motor de desarrollo gobernado por proyecto y agnóstico de agente. El plan vive en `docs/plan/` y manda sobre todo lo demás. `docs/referencia/` es la transcripción del sistema original: es referencia, no especificación; si contradice al plan, gana el plan.
+Este repo construye un motor de desarrollo gobernado por proyecto y agnóstico de agente. El plan vive en `docs/plan/` y manda sobre todo lo demás. La transcripción del sistema original es privada: vive solo en local, en `docs/referencia/` (ignorada por git, D-46), y nunca se sube. Es referencia, no especificación; si contradice al plan, gana el plan.
 
 ## Antes de trabajar
 
@@ -20,7 +20,7 @@ Este repo construye un motor de desarrollo gobernado por proyecto y agnóstico d
 8. SQLite es la fuente de verdad de la memoria; los índices son derivados.
 9. Servidor MCP: stdout solo JSON-RPC, logs a stderr.
 10. Ingeniería inversa: solo lectura sobre el código del proyecto analizado.
-11. Nada sale a servicios remotos sin habilitación explícita en la config.
+11. Nada sale a servicios remotos sin habilitación explícita: en la config del proyecto (por ejemplo `review.publish_command`, que además se aprueba por máquina y por proyecto, con los archivos que corre), o en la base de la memoria para los embeddings remotos (`exo mem reindex --allow-remote`, ADR-0009), porque la memoria es una por usuario.
 12. Todo nombre visible del motor sale de `src/arnes/_meta.py`.
 
 ## Código
@@ -59,3 +59,4 @@ arnes p0                    # gate de controles P0 (desde F5)
 - Conventional Commits; un commit por unidad de trabajo revisable.
 - Rama por fase: `feat/F<n>-<slug>`. Nunca push directo a `main` ni `--force`.
 - Al cerrar una fase: correr cada criterio de aceptación con el comando exacto y registrar el resultado en `docs/plan/PROGRESO.md`.
+- La rama de la fase llega a `main` solo por un PR, que el dueño abre y mergea en GitHub con la CI en verde (D-51). Nunca un merge local a `main` ni un push a `main`.
