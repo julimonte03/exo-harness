@@ -180,7 +180,8 @@ def sync(
     migrated = loaded.migrated_from
     asked = explicit and (loaded.source is None or normalized != loaded.config)
     if asked or (save_migrated and migrated is not None):
-        extra[config_rel] = config.dumps(normalized)
+        # Con el fin de línea, la sangría y el orden del archivo de la persona (F8R1-18).
+        extra[config_rel] = config.dumps(normalized, like=config.current_bytes(project))
     ctx = Context(project, bundle, targets, normalized, claude_md="always" if claude_md else "auto")
     ops = adapters.plan_all(ctx)
     result = engine.apply(

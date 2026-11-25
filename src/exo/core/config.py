@@ -13,6 +13,7 @@ humano. `save` valida y rechaza valores inválidos.
 
 from __future__ import annotations
 
+import contextlib
 import copy
 import json
 import re
@@ -475,19 +476,55 @@ def load(project: Path) -> LoadResult:
     )
 
 
-def dumps(cfg: dict[str, Any]) -> bytes:
-    return (json.dumps(cfg, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+_BOM = b"\xef\xbb\xbf"
+_INDENT = re.compile(r"\n([ \t]+)\S")
+
+
+def _ordered(new: Any, old: Any) -> Any:
+    """`new` con las claves en el orden de `old` (las nuevas, al final), en cada nivel."""
+    if not (isinstance(new, dict) and isinstance(old, dict)):
+        return new
+    keys = [k for k in old if k in new] + [k for k in new if k not in old]
+    return {k: _ordered(new[k], old.get(k)) for k in keys}
+
+
+def dumps(cfg: dict[str, Any], like: bytes | None = None) -> bytes:
+    """La config como JSON. Con `like` (el archivo que reemplaza), conserva lo de la persona
+    (invariante 2): el fin de línea, el BOM, la sangría y el orden de sus claves."""
+    indent: int | str = 2
+    if like is not None:
+        text = like.decode("utf-8-sig", errors="replace")
+        found = _INDENT.search(text.replace("\r\n", "\n"))
+        if found:
+            indent = found.group(1) if "\t" in found.group(1) else len(found.group(1))
+        with contextlib.suppress(json.JSONDecodeError):
+            cfg = _ordered(cfg, json.loads(text))
+    out = json.dumps(cfg, indent=indent, ensure_ascii=False) + "\n"
+    if like is not None and b"\r\n" in like:
+        out = out.replace("\n", "\r\n")
+    data = out.encode("utf-8")
+    return _BOM + data if like is not None and like.startswith(_BOM) else data
+
+
+def current_bytes(project: Path) -> bytes | None:
+    """El archivo de config tal como está, o None si falta o no se puede leer."""
+    try:
+        return fsutil.read_bytes(config_path(project))
+    except OSError:
+        return None
 
 
 def save(project: Path, cfg: dict[str, Any]) -> bool:
-    """Valida y escribe la config de forma atómica. Devuelve si escribió."""
+    """Valida y escribe la config de forma atómica, con el estilo del archivo que reemplaza.
+    Devuelve si escribió."""
     normalized, _, invalid = validate(cfg)
     if invalid:
         raise ConfigError("the config has invalid values: " + " | ".join(invalid))
     on_disk = _schema_on_disk(project)
     if on_disk is not None and on_disk > CURRENT_SCHEMA:
         raise ConfigError(f"{newer_message(on_disk)} (it was not overwritten)")
-    return fsutil.write_if_changed(config_path(project), dumps(normalized))
+    data = dumps(normalized, like=current_bytes(project))
+    return fsutil.write_if_changed(config_path(project), data)
 
 
 def _schema_on_disk(project: Path) -> int | None:

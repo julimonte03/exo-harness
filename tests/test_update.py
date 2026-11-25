@@ -300,6 +300,37 @@ def test_uninstall_no_mira_la_version_del_lock(
     assert not (tmp_path / _meta.PROJECT_DIR / lock.FILENAME).exists()
 
 
+def test_la_config_migrada_conserva_fin_de_linea_bom_sangria_y_orden(
+    tmp_path: Path, synthetic_content: Path
+) -> None:
+    """F8R1-18 (invariante 2): `update --apply` reescribía la config en LF, con sangría 2
+    y en su propio orden. Lo mismo al cambiar un agente."""
+    assert main(["init", "--project", str(tmp_path), "--agents", "claude-code", "--yes"]) == 0
+    path = config.config_path(tmp_path)
+    cfg = json.loads(path.read_text(encoding="utf-8"))
+    cfg["schema"] = 2
+    ordered = {"packs": cfg.pop("packs"), "agents": cfg.pop("agents"), **cfg}
+    text = json.dumps(ordered, indent=4, ensure_ascii=False).replace("\n", "\r\n") + "\r\n"
+    path.write_bytes(b"\xef\xbb\xbf" + text.encode("utf-8"))
+
+    def style() -> tuple[str, dict]:
+        raw = path.read_bytes()
+        assert raw.startswith(b"\xef\xbb\xbf")
+        body = raw[3:].decode("utf-8")
+        assert body.count("\r\n") == body.count("\n"), "un fin de línea quedó en LF"
+        assert '\r\n    "packs": [' in body  # sangría 4
+        return body, json.loads(body)
+
+    assert main(["update", "--project", str(tmp_path), "--apply"]) == 0
+    body, saved = style()
+    assert saved["schema"] == 3
+    assert list(saved)[:3] == ["packs", "agents", "schema"]  # el orden de la persona
+    assert main(["add-agent", "cursor", "--project", str(tmp_path)]) == 0
+    body, saved = style()
+    assert saved["agents"] == ["claude-code", "cursor"]
+    assert list(saved)[:3] == ["packs", "agents", "schema"]
+
+
 def test_sin_cambios_no_escribe_ni_crea_snapshot(
     tmp_path: Path, synthetic_content: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
