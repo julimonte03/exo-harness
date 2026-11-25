@@ -172,6 +172,12 @@ Reglas: `name` igual al nombre de la carpeta (minúsculas, dígitos y guiones, h
 
 `content/packs/<pack>/agents/<nombre>.md` usa el formato Markdown + frontmatter de los subagentes de Claude Code (`name`, `description`, `tools`, `model` opcional), porque varios agentes lo leen directamente (ver `03-MATRIZ-AGENTES.md`). Los adaptadores lo traducen para los que necesitan otro formato (`.github/agents/*.agent.md`, TOML de Codex). Subagentes canónicos del ciclo: `sdd-explorer` (solo lectura), `sdd-implementer` (escribe dentro del plan congelado), `sdd-verifier` (solo lectura + correr tests, contexto fresco) y `sdd-judge` (solo lectura). F6 agrega `re-extractor` y `re-auditor`.
 
+**Desde el paquete de capacidades (D-54, ADR-0020):**
+- Un subagente canónico versionado **nunca lleva un modelo concreto**: o no tiene campo `model`, o tiene `inherit`, según lo que verifique F10.
+- El motivo es doble: el modelo depende del agente y de la cuenta de cada persona, y Copilot lee los mismos `.claude/agents/` que Claude Code.
+- El modelo de cada rol lo pasa el orquestador al delegar (§2.15).
+- F12 suma el subagente de solo lectura `exo-advisor`.
+
 ## 2.8 Adaptadores
 
 Un adaptador es **puro**: no escribe nada, solo calcula operaciones. Toda escritura pasa por el motor común.
@@ -204,6 +210,11 @@ El motor calcula las operaciones de todos los adaptadores elegidos, las compara 
 ```
 
 Si el hash actual de un archivo generado no coincide con el del lock, alguien lo editó a mano: `sync` lo informa como conflicto y no lo pisa salvo `--force` (con backup).
+
+**Estado en la v1.0:**
+- `capabilities()` existe en los adaptadores, con cinco booleanos (`rules`, `skills`, `subagents`, `hooks` y `mcp`), pero nada lo llama.
+- `tier` y `commands` no se implementaron.
+- El catálogo de capacidades del paquete (§2.15) amplía lo que sabe el motor de cada agente sin reemplazar esta interfaz.
 
 ## 2.9 Detección del agente
 
@@ -289,3 +300,49 @@ Y se agregan:
 ## 2.14 Seguridad (resumen)
 
 S2 (validación de entradas MCP) sigue siendo un control en código. S1 (el guard de secretos y PII en la memoria) salió con ADR-0009: la memoria no filtra, y ese riesgo quedó aceptado. Se agregan controles enforced agnósticos: `pre-commit` con el escáner de secretos (`core/secrets.py`) sobre el diff, `commit-msg` con la convención de commits, `pre-push` que bloquea ramas protegidas y `--force`, y `arnes check` en CI. Como un humano siempre puede usar `--no-verify`, **la CI es el gate real** y los hooks locales son la primera red. Los controles que siguen siendo advisory (jueces, threat modeling, clasificación de datos en prompts) quedan declarados como tales.
+
+## 2.15 Capacidades, modelos y segunda opinión
+
+Es el paquete posterior a la v1.0 (`paquete-capacidades.md`, F9 a F13). Lo deciden D-52 a D-55, con ADR-0019 y ADR-0020.
+
+**Tres tiers (D-52, ADR-0019).**
+- **Tiers:**
+  - **1 Small:** `proposal.md`, y `spec.md` si cambia el comportamiento.
+  - **2 Spec:** suma `spec.md`, `test-spec.md` y la segunda opinión.
+  - **3 Full:** suma `design.md`, `tasks.md`, jueces y `judgment-day` siempre.
+- **Clasificación:**
+  - FM-01 a FM-03 y la evidencia faltante o ilegible (FM-00) dan Tier 3;
+  - hay una ceremonia por tier (`minimal`, `light` y `full`);
+  - los gates del Tier 3 son la unión de los del Tier 3 y el Tier 4 de la 1.0.
+- **Migración, con `exo update`:**
+  - en la config, se unen los gates de los Tiers 3 y 4;
+  - los cambios activos pasan al esquema nuevo del assessment, y un 4 queda en 3 con `migrated_from: 4`;
+  - los archivados no se reescriben: un 4 se lee como 3, y si son del esquema viejo se validan solo por estructura.
+
+**Catálogo de capacidades (D-53, ADR-0020).**
+- **El catálogo y los datos de cada agente** viajan dentro del paquete y no se instalan en los proyectos.
+  - Cada capacidad tiene una política: `native`, `exo` o `complement`.
+  - Lo que gobierna o deja prueba es siempre `exo`.
+  - Cada dato tiene su fuente oficial y `verified_at` (`docs/capabilities-matrix.md`).
+- **El perfil por máquina** vive en la carpeta de datos del usuario (ADR-0001), nunca en el repo ni en el lock.
+  - Guarda las elecciones nativo/exo de la persona y su mapa de modelos.
+  - `exo init` pregunta una sola vez por agente.
+- **`exo capabilities --json`** devuelve, por capacidad, la resolución (`native`, `exo` o `human`), el motivo y cómo usarla. Las skills lo corren al empezar cada fase.
+
+**Modelo por tier y por rol (D-54, ADR-0020).**
+- La política vive en `.exo/config.json` (`models.policy`) y solo admite los niveles `fast`, `balanced` y `deep`.
+- El mapa de nivel a modelo concreto vive en el perfil de la máquina.
+- El orquestador pasa el modelo al delegar. Si el agente no lo permite, se usa el de la sesión, se avisa y se registra en el AI Usage Record (`models_used`).
+
+**Segunda opinión (D-55, ADR-0020).**
+- **Dónde se consulta:** en los Tiers 2 y 3, en tres puntos: `approach` y `done`, obligatorios, y `stuck`, si pasa.
+- **Quién la resuelve:**
+  - el agente consulta a su advisor nativo (solo en el Tier 2 y si la persona lo aceptó) o al subagente de solo lectura `exo-advisor`, con el modelo `deep`;
+  - si no hay ninguno, a la persona.
+- **Registro:** `exo advice` lleva el tope por cambio, con reserva para los puntos obligatorios, y registra cada consulta. En el Tier 3 también deja el consejo escrito en `<change-root>/advice/`.
+- `exo check` verifica los puntos obligatorios y el tope.
+
+**Invariantes que no cambian:**
+- exo no llama a ningún modelo (invariante 11): quien consulta es siempre el agente;
+- sin hooks de agente (D-31);
+- todo es un subcomando de CLI primero (ADR-0005).

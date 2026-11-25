@@ -16,6 +16,7 @@ Este plan describe cómo construir, en un repositorio nuevo, un **motor de desar
 | `03-MATRIZ-AGENTES.md` | Qué archivos lee cada agente (Claude Code, Copilot, Cursor, Codex, Gemini, Windsurf/Devin) y cómo los generamos |
 | `04-DECISIONES.md` | Dudas abiertas, cada una con opción recomendada por defecto y qué fase bloquea |
 | `fases/F0…F8` | Una fase por archivo: objetivo, alcance, entregables, tareas en orden, criterios de aceptación |
+| `paquete-capacidades.md` y `fases/F9…F13` | Paquete posterior a la v1.0: tres tiers, catálogo de capacidades, modelo por tier, segunda opinión y medición (D-52 a D-55) |
 | `99-TRAZABILIDAD.md` | Cada pieza del reporte (incluidas las 100 skills) mapeada a una fase o marcada como descartada |
 | `PROGRESO.md` | Plantilla de seguimiento que Claude Code actualiza al cerrar cada fase |
 | `repo-raiz/AGENTS.md` y `repo-raiz/CLAUDE.md` | Reglas de desarrollo para la raíz del repo nuevo |
@@ -56,8 +57,15 @@ y actualizá docs/plan/PROGRESO.md.
 | F6 | Ingeniería inversa y adopción de proyectos existentes | F4 (F3 recomendable) | **M3: adopta proyectos existentes** |
 | F7 | Packs de stack y resto del catálogo de skills | F5 | — |
 | F8 | Endurecimiento, evals con agentes reales y distribución | F6, F7 | **M4: v1.0** |
+| F9 | Tres tiers en lugar de cuatro, con migración (D-52) | F8 | — |
+| F10 | Catálogo de capacidades por agente y perfil por máquina (D-53) | F9 | — |
+| F11 | Modelo por tier y por rol (D-54) | F10 | — |
+| F12 | Puntos de decisión y segunda opinión (D-55) | F11 | — |
+| F13 | Medición y ajuste de los defaults | F12 | **v2.0** |
 
 F3 es independiente de F2 y F4: se puede hacer en paralelo (otra rama u otra sesión) si conviene.
+
+F9 a F13 son el paquete de capacidades y tiers (`paquete-capacidades.md`), posterior a la v1.0. Van en serie y terminan en la versión 2.0.0, porque pasar de cuatro tiers a tres es incompatible con lo publicado.
 
 ```mermaid
 flowchart LR
@@ -75,6 +83,12 @@ flowchart LR
   F5 -.-> M2(("M2"))
   F6 -.-> M3(("M3"))
   F8 -.-> M4(("M4"))
+  F8 --> F9["F9 Tres tiers"]
+  F9 --> F10["F10 Capacidades"]
+  F10 --> F11["F11 Modelos"]
+  F11 --> F12["F12 Segunda opinión"]
+  F12 --> F13["F13 Medición"]
+  F13 -.-> V2(("v2.0"))
 ```
 
 ## Relación con el reporte

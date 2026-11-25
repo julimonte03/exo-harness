@@ -2,6 +2,12 @@
 
 **Fase activa:** ninguna. F8 cierra con el merge de su PR a `main`: v1.0.0, hito M4. Repo público en `https://github.com/julimonte03/exo-harness` (D-22, ADR-0017).
 
+**Paquete de capacidades y tiers (F9 a F13)**, registrado el 2026-11-25 en el paso 0 (rama `feat/paquete-registro`):
+- **Fuente:** `docs/plan/paquete-capacidades.md`.
+- **Decisiones:** D-52 a D-55, con ADR-0019 y ADR-0020.
+- **Versión:** `git tag --list "v1*"` devolvió `v1.0.0` el 2026-11-25, así que el paquete termina en **2.0.0** (sección 0 del paquete, punto 2).
+- **Próxima fase:** F9, que arranca cuando se mergee el PR del paso 0.
+
 Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron con el comando exacto, la CI está verde en los tres sistemas operativos y el PR de la fase está mergeado; desde F8, el dueño lo abre y lo mergea en GitHub (D-51).
 
 **Hasta F7, sin repo remoto** (decisión del dueño, 2026-10-30): las fases se cerraron en local. La suite y el lint se corrieron en Windows y en Linux (Ubuntu en WSL, sobre un clon limpio), y la rama se mergeó a `main` con `git merge --no-ff`, sin push. La CI y el PR quedaron diferidos (ADR-0008).
@@ -21,6 +27,11 @@ Una fase está **terminada** cuando: todos sus criterios de aceptación pasaron 
 | F6 Ingeniería inversa | Terminada (local; CI diferida) | `feat/F6-ingenieria-inversa`, mergeada a `main` en local, sin PR | 2026-11-16 | 2026-11-17 | Criterios 1–7 OK en Windows (3.14 y 3.10) y Linux (WSL); 3 a 5 con Claude Code real (dos corridas sobre `py-invoices`), Copilot opcional. Criterio 8 diferido a F8 (D-35). Hito M3 (v0.2.0). D-14, D-19 y D-33 a D-37 → ADR-0015 |
 | F7 Packs | Terminada (local; CI diferida) | `feat/F7-packs`, mergeada a `main` en local, sin PR | 2026-11-17 | 2026-11-17 | Criterios 1–4 OK en Windows (3.14 y 3.10) y Linux (WSL); 3 con Claude Code real (117 de 117 evals). 65 skills nuevas, 6 packs nuevos. D-12 (resto), D-18 y D-38 a D-44 → ADR-0016 |
 | F8 Endurecimiento + v1.0 | Terminada | `feat/F8-v1`, PR a `main` (D-51) | 2026-11-19 | 2026-11-25 | Criterios 1, 2 y 4–8 OK; 3 con 5 de 6 escenarios (el Tier 3 de Copilot, parcial: D-50). CI de GitHub Actions en verde en los tres sistemas y Python 3.10 a 3.13. Hito M4 (v1.0.0). D-22, D-35, D-17 y D-45 a D-48 → ADR-0017 y ADR-0018; D-49 (MIT), D-50 y D-51 (cierre por PR). Historia limpia (D-46) |
+| F9 Tres tiers | Pendiente | `feat/F9-tres-tiers` | | | Paquete. D-52 → ADR-0019. Versión 2.0.0 (BREAKING) |
+| F10 Catálogo de capacidades y perfil | Pendiente | `feat/F10-capacidades` | | | Paquete. D-53 → ADR-0020 |
+| F11 Modelo por tier y por rol | Pendiente | `feat/F11-modelos` | | | Paquete. D-54 → ADR-0020 |
+| F12 Segunda opinión | Pendiente | `feat/F12-segunda-opinion` | | | Paquete. D-55 → ADR-0020 |
+| F13 Medición y ajuste | Pendiente | `feat/F13-medicion` | | | Paquete. ADR que confirma o ajusta los defaults revisables. Hito v2.0.0 |
 
 Estados: `Pendiente` · `En curso` · `Bloqueada (D-xx)` · `Terminada`.
 
