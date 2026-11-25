@@ -17,7 +17,10 @@ Flujo (`docs/plan/fases/F2-adaptadores-e-instalador.md`):
    (un archivo del humano, marcadores rotos, una ruta que pasa por un link)
    queda como está, con su entrada del lock, y se informa igual. Con `partial`
    (`exo update`) se aplica el resto y lo que choca queda como está, como con
-   `force` lo que este no resuelve.
+   `force` lo que este no resuelve. Una copia que choca y no se escribe retiene su
+   **grupo** entero (la carpeta de la skill, o el subagente): no se escribe ni se
+   borra nada más adentro (`HELD`), porque una skill a medias no es ni la vieja ni
+   la nueva, y la carpeta puede ser de la persona.
 5. Sin cambios: no escribe ni crea snapshot. Con `dry_run`: solo informa.
 6. Si no, snapshot de las rutas afectadas (con el lock), aplicación atómica
    archivo por archivo y lock al final. Si algo falla a mitad de camino, se
@@ -68,6 +71,17 @@ _HUMAN = (
     "already exists with different content and the engine did not generate it; "
     "move or delete it and retry (--force does not overwrite human files)"
 )
+# Detalle de las acciones `skip` de las copias que retiene un conflicto de su grupo.
+HELD = "left as it was: another file of the same skill or subagent conflicts"
+
+
+def group_of(path: str, kind: str) -> str:
+    """El grupo de una copia: la carpeta de su skill (`.claude/skills/<nombre>/`) o el
+    subagente (`.claude/agents/<nombre>.md`). Lo que no es una copia es su propio grupo."""
+    parts = path.split("/")
+    if kind in ORPHAN_KINDS and len(parts) >= 4:
+        return "/".join(parts[:3]) + "/"
+    return path
 
 
 class ApplyError(ValueError):
@@ -280,6 +294,49 @@ def _rollback(project: Path, name: str, error: BaseException) -> ApplyError:
     return ApplyError(f"failed partway through ({error}); snapshot {name} was restored")
 
 
+def _hold_groups(
+    result: Result,
+    writes: list[Op],
+    removals: list[lock.LockEntry],
+    entries: dict[Unit, lock.LockEntry],
+    old: dict[Unit, lock.LockEntry],
+) -> tuple[list[Op], list[lock.LockEntry]]:
+    """Retiene el grupo de cada copia que choca y no se escribe (ver el docstring del
+    módulo): sus otras escrituras y bajas pasan a `skip`, y el lock queda como estaba."""
+    touched = {op.path for op in writes} | {e.path for e in removals}
+    held = {
+        group_of(c.path, c.kind)
+        for c in result.conflicts
+        if c.kind in ORPHAN_KINDS and c.path not in touched
+    }
+    if not held:
+        return writes, removals
+
+    def is_held(path: str, kind: str) -> bool:
+        return kind in ORPHAN_KINDS and group_of(path, kind) in held
+
+    for op in writes:
+        if is_held(op.path, kind_of(op)):
+            unit = unit_of(op)
+            if unit in old:
+                entries[unit] = old[unit]
+            else:
+                entries.pop(unit, None)
+    for entry in removals:
+        if is_held(entry.path, entry.kind):
+            entries[unit_of_entry(entry)] = entry
+    result.actions = [
+        Action("skip", a.path, a.kind, HELD)
+        if a.action in WRITES and is_held(a.path, a.kind)
+        else a
+        for a in result.actions
+    ]
+    return (
+        [op for op in writes if not is_held(op.path, kind_of(op))],
+        [e for e in removals if not is_held(e.path, e.kind)],
+    )
+
+
 # -- plan y aplicación ----------------------------------------------------------
 
 
@@ -435,6 +492,9 @@ def apply(
         else:
             removals.append(entry)
             result.actions.append(Action("remove", entry.path, entry.kind))
+
+    if force or partial:
+        writes, removals = _hold_groups(result, writes, removals, entries, old)
 
     # Lo creado se registra por archivo; se deshace en los archivos de los que se quita
     # algo y en los que no se escribe nada en esta misma corrida.

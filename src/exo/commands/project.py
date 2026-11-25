@@ -165,10 +165,13 @@ def _payload(result: engine.Result, renamed: dict[str, str] | None = None) -> di
 
 def _group_key(action: engine.Action) -> str:
     """Una skill se muestra como su carpeta: `.claude/skills/<nombre>/`."""
-    parts = action.path.split("/")
-    if action.kind == "mirror" and len(parts) >= 4:
-        return "/".join(parts[:3]) + "/"
-    return action.path
+    return engine.group_of(action.path, action.kind)
+
+
+def _held(result: engine.Result) -> list[str]:
+    """Una línea por skill o subagente que un conflicto retuvo entero (F8R1-3)."""
+    held = [a for a in result.actions if a.action == "skip" and a.detail == engine.HELD]
+    return [f"kept: {line}" for line in _grouped(held, {})]
 
 
 def _grouped(
@@ -226,6 +229,8 @@ def _report(
     for conflict in result.conflicts:
         label = _conflict_label(conflict, args)
         print(f"{label}: {conflict.path} ({conflict.kind}): {conflict.reason}")
+    for line in _held(result):
+        print(line)
     if failed:
         hint = (
             "Fix the ones marked 'unresolved' by hand; --force does not overwrite them."
@@ -475,6 +480,8 @@ def _update_report(result: update.UpdateResult, args: argparse.Namespace) -> int
         else:
             label = "kept"
         print(f"{label}: {conflict.path} ({conflict.kind}): {conflict.reason}")
+    for line in _held(found):
+        print(line)
     if not args.apply:
         if result.up_to_date:
             print(f"up to date: nothing to change for {_meta.NAME} {result.to_version}")

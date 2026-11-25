@@ -66,7 +66,7 @@ You (or someone) edited a file that exo generates. exo writes nothing and exits 
 - keep your change somewhere exo does not own: outside the marked block in `AGENTS.md`, `CLAUDE.md` or `.gitignore`, or in a file of your own;
 - or overwrite it with `--force`. A snapshot comes first: `exo backups list` lists them and `exo restore <name>` brings one back.
 
-`exo update` behaves differently: it keeps your edit (`kept: <path> (<kind>): modified by hand since the last install`) and exits with 1 so you notice; with `--apply` it writes the rest. `exo update --apply --force` overwrites your edit too.
+`exo update` behaves differently: it keeps your edit (`kept: <path> (<kind>): modified by hand since the last install`) and exits with 1 so you notice; with `--apply` it writes the rest. The other files of that skill or subagent stay as they were too (`kept: <folder>/ (N files, left as it was: ...)`), so a skill is never half updated. `exo update --apply --force` overwrites your edit too.
 
 **`unresolved: <path> (<kind>): already exists with different content and the engine did not generate it; move or delete it and retry (--force does not overwrite human files)`**
 A file exo would generate already exists and is yours. `--force` never overwrites your files: move or rename yours and run the command again.

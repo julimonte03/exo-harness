@@ -22,7 +22,7 @@ from exo import _meta, content, packs, paths
 from exo.adapters import detect
 from exo.cli import main
 from exo.core import config, lock, snapshots
-from exo.installer import renames
+from exo.installer import engine, renames
 
 HELLO = ".claude/skills/hello-exo"
 REVIEW = ".claude/skills/review"
@@ -108,10 +108,12 @@ def test_criterio_7_update_de_0_2_0_a_1_0_0(
     assert "config: schema 2 -> 3 (saved with --apply)" in out
     assert f"  {PCR}/ (1 file, renamed from {REVIEW}/)" in out
     assert f"  {FRESH}/ (1 file)" in out
-    assert f"  {HELLO}/ (1 file)" in out  # guide.md: SKILL.md es un conflicto
+    assert f"  {HELLO}/" not in out.split("modified:")[1].split("removed:")[0]
     assert f"  {REVIEW}/ (1 file, renamed to {PCR}/)" in out
     assert f"  {LEGACY}/ (1 file)" in out
     assert f"kept: {HELLO}/SKILL.md (mirror): modified by hand since the last install" in out
+    # El resto de la skill tampoco se toca: una skill a medias no es ni la vieja ni la nueva.
+    assert f"kept: {HELLO}/ (1 file, {engine.HELD})" in out
     assert f"preview: nothing was written; apply it with `{_meta.NAME} update --apply`" in out
     assert tree(root) == before
 
@@ -122,7 +124,7 @@ def test_criterio_7_update_de_0_2_0_a_1_0_0(
     assert f"kept your edits in 1 file; overwrite them with `{_meta.NAME} update --apply --force`" in out
     assert f"delete them with `{_meta.NAME} update --apply --prune`" in out
     assert (root / HELLO / "SKILL.md").read_bytes() == edited
-    assert b"version 1.0" in (root / HELLO / "references" / "guide.md").read_bytes()
+    assert b"version 1.0" not in (root / HELLO / "references" / "guide.md").read_bytes()
     assert (root / PCR / "SKILL.md").is_file() and (root / FRESH / "SKILL.md").is_file()
     assert (root / REVIEW / "SKILL.md").is_file() and (root / LEGACY / "SKILL.md").is_file()
     assert lock.read(root).engine_version == "1.0.0"
@@ -141,6 +143,7 @@ def test_criterio_7_update_de_0_2_0_a_1_0_0(
     # 4. --force: pisa lo editado, con snapshot antes.
     assert main(["update", "--project", str(root), "--apply", "--force"]) == 0
     assert b"New paragraph." in (root / HELLO / "SKILL.md").read_bytes()
+    assert b"version 1.0" in (root / HELLO / "references" / "guide.md").read_bytes()
     newest = snapshots.list_snapshots(root)[-1]
     archive = snapshots.read_archive(newest.path.read_bytes())
     assert archive.files[f"{HELLO}/SKILL.md"][0] == edited
@@ -158,7 +161,9 @@ def test_criterio_7_json_con_la_misma_informacion(
     assert (payload["from_version"], payload["to_version"]) == ("0.2.0", "1.0.0")
     assert payload["applied"] is False
     assert payload["new"] == [f"{FRESH}/SKILL.md", f"{PCR}/SKILL.md"]
-    assert f"{HELLO}/references/guide.md" in payload["modified"]
+    assert f"{HELLO}/references/guide.md" not in payload["modified"]
+    held = [a for a in payload["actions"] if a["action"] == "skip" and a["detail"] == engine.HELD]
+    assert [a["path"] for a in held] == [f"{HELLO}/references/guide.md"]
     assert payload["orphans"] == [f"{LEGACY}/SKILL.md", f"{REVIEW}/SKILL.md"]
     assert payload["renamed"] == {f"{REVIEW}/SKILL.md": f"{PCR}/SKILL.md"}
     assert payload["removed"] == []
@@ -253,6 +258,35 @@ def test_ningun_comando_lleva_hacia_atras_un_lock_mas_nuevo(
     if "--dry-run" not in argv:
         assert main([*argv, "--project", str(tmp_path), "--force"]) == 0
         assert lock.read(tmp_path).engine_version == _meta.VERSION
+
+
+def test_una_skill_que_choca_se_conserva_entera(
+    tmp_path: Path, synthetic_content: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """F8R1-3: la persona tiene una skill propia con el nombre de una que trae la versión
+    nueva. Su `SKILL.md` no se pisa, y tampoco se escribe nada más dentro de su carpeta."""
+    root = tmp_path / "p"
+    root.mkdir()
+    assert main(["init", "--project", str(root), "--agents", "claude-code", "--yes"]) == 0
+    mine = root / ".claude" / "skills" / "fresh"
+    mine.mkdir(parents=True)
+    (mine / "SKILL.md").write_text("# my skill\n", encoding="utf-8")
+    _skill(synthetic_content, "fresh", "The engine's version.")
+    guide = synthetic_content / "packs" / "core" / "skills" / "fresh" / "references" / "guide.md"
+    guide.parent.mkdir()
+    guide.write_text("# engine guide\n", encoding="utf-8")
+    capsys.readouterr()
+    assert main(["update", "--project", str(root), "--apply"]) == 1
+    out = capsys.readouterr().out
+    assert "unresolved: .claude/skills/fresh/SKILL.md" in out
+    assert f"kept: .claude/skills/fresh/ (1 file, {engine.HELD})" in out
+    assert (mine / "SKILL.md").read_text(encoding="utf-8") == "# my skill\n"
+    assert not (mine / "references").exists()
+    assert not any(e.path.startswith(".claude/skills/fresh/") for e in lock.read(root).files)
+    # Con --force tampoco: el archivo de la persona no lo resuelve --force.
+    assert main(["sync", "--project", str(root), "--force"]) == 1
+    assert f"kept: .claude/skills/fresh/ (1 file, {engine.HELD})" in capsys.readouterr().out
+    assert not (mine / "references").exists()
 
 
 def test_uninstall_no_mira_la_version_del_lock(
