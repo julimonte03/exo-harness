@@ -100,6 +100,34 @@ def test_openai_compatible_con_permiso(server, monkeypatch: pytest.MonkeyPatch) 
     )
 
 
+def test_openai_compatible_en_esta_maquina_no_pasa_por_el_proxy(
+    server, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """F8R1-4: con `HTTP_PROXY` puesto, un servicio en loopback recibía el pedido a través del
+    proxy, con la `Authorization` en claro. Como Ollama local, va directo."""
+    import urllib.request
+
+    url, handler = server
+    proxy = type("P", (_Handler,), {"replies": [], "seen": []})
+    proxyd = HTTPServer(("127.0.0.1", 0), proxy)
+    threading.Thread(target=proxyd.serve_forever, daemon=True).start()
+    try:
+        for name in ("HTTP_PROXY", "http_proxy"):
+            monkeypatch.setenv(name, f"http://127.0.0.1:{proxyd.server_port}")
+        for name in ("NO_PROXY", "no_proxy"):
+            monkeypatch.delenv(name, raising=False)
+        # El opener remoto lee los proxies al crearse: se rearma con el entorno del test.
+        monkeypatch.setattr(http, "_REMOTE", urllib.request.build_opener(http._NoRedirect))
+        monkeypatch.setenv(http.ENV_URL, url + "/v1")
+        monkeypatch.setenv(http.ENV_KEY, "clave-de-prueba")
+        handler.replies = [(200, {"data": [{"embedding": [1.0, 2.0]}]})]
+        provider = embeddings.create("openai-compatible", allow_remote=True)
+        assert provider.embed(["x"]) == [[1.0, 2.0]]
+        assert proxy.seen == [] and len(handler.seen) == 1
+    finally:
+        proxyd.shutdown()
+
+
 class _Redirector(BaseHTTPRequestHandler):
     """Responde 302 a todo POST y registra quién lo sigue (con qué encabezados)."""
 

@@ -33,7 +33,8 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 # Sin proxies: para un servicio local, un proxy del sistema (HTTP_PROXY o el del registro de
-# Windows) sacaría el texto de las memorias de la máquina (invariante 11).
+# Windows) sacaría el texto de las memorias de la máquina (invariante 11), y con
+# `openai-compatible` por http, también la API key en claro (F8R1-4).
 _DIRECT = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect)
 _REMOTE = urllib.request.build_opener(_NoRedirect)
 
@@ -131,7 +132,8 @@ class OpenAICompatibleProvider(_Http):
         self.model = model or self.DEFAULT_MODEL
         self.url = os.environ.get(ENV_URL, "https://api.openai.com/v1")
         parts = urlsplit(self.url)
-        local = parts.scheme == "http" and (parts.hostname or "") in _LOCAL_HOSTS
+        self.local = (parts.hostname or "") in _LOCAL_HOSTS
+        local = parts.scheme == "http" and self.local
         if parts.scheme != "https" and not local:
             # La clave viaja en cada pedido: en claro, cualquiera en el camino la lee.
             raise ProviderError(
@@ -144,7 +146,10 @@ class OpenAICompatibleProvider(_Http):
             raise ProviderError(f"missing API key: set the {ENV_KEY} variable")
         url = f"{self.url.rstrip('/')}/embeddings"
         data = _post(
-            url, {"model": self.model, "input": list(texts)}, {"Authorization": f"Bearer {key}"}
+            url,
+            {"model": self.model, "input": list(texts)},
+            {"Authorization": f"Bearer {key}"},
+            direct=self.local,  # en esta máquina, nunca por un proxy
         )
         items = data.get("data") if isinstance(data, dict) else None
         raw = [item.get("embedding") for item in items] if isinstance(items, list) else None
