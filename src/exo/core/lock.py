@@ -10,8 +10,8 @@ también son del humano: el archivo mismo y los contenedores JSON (por ejemplo
 quedó vacío: así `init` + `uninstall` deja el proyecto como estaba.
 
 `drift()` compara el estado actual con el lock y devuelve lo que alguien
-editó a mano: el motor no lo pisa sin `--force` (invariante 13 de
-`docs/plan/02-ARQUITECTURA.md` §2.13).
+editó a mano: el motor no lo pisa sin `--force` (invariante 13 del
+motor).
 
 El esquema se migra al leer, como la config (`core/config.py`): `MIGRATIONS[n]`
 lleva un lock del esquema n al n + 1, y el lock migrado se guarda en la próxima

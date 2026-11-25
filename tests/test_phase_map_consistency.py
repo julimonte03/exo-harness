@@ -1,7 +1,6 @@
 """Consistencia del contenido del ciclo SDD (F4, tarea 8 y criterios 1 y 2).
 
-Port de `test_phase_skill_map_consistency` del reporte (§10.4), con lo que F4
-define: toda skill que nombra el mapa fase → skills existe o pertenece a un
+Lo que F4 define: toda skill que nombra el mapa fase → skills existe o pertenece a un
 pack que todavía no existe y declara cómo degrada; las skills de fase dicen
 dónde corren como manda el contrato común (sección G); los subagentes tienen
 las tools de su rol.

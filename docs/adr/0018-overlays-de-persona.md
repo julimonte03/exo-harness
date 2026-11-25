@@ -2,7 +2,7 @@
 
 - **Estado:** Aceptada (el dueño confirmó el diseño el 2026-11-22, D-17)
 - **Fecha:** 2026-11-19
-- **Decisiones:** D-17 (`docs/plan/04-DECISIONES.md`)
+- **Decisiones:** D-17
 
 ## Contexto
 
@@ -12,7 +12,7 @@ Las mismas reglas y skills llegan a todas las personas del equipo, pero no todas
 - quien hace QA, los escenarios y la cobertura;
 - quien lleva el producto, el problema, el valor y el alcance.
 
-El reporte de referencia proponía overlays por persona; el plan los dejó como opcionales para F8, y el dueño los sumó.
+El plan dejó los overlays por persona como opcionales para F8, y el dueño los sumó.
 
 ## Decisión
 

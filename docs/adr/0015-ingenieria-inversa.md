@@ -2,11 +2,11 @@
 
 - **Estado:** Aceptada
 - **Fecha:** 2026-11-16
-- **Decisiones:** D-14, D-19 y D-33 a D-37 (`docs/plan/04-DECISIONES.md`)
+- **Decisiones:** D-14, D-19 y D-33 a D-37
 
 ## Contexto
 
-F6 hace que exo entienda un proyecto que ya existe sin tocar su código (`docs/plan/fases/F6-ingenieria-inversa.md`). Las specs reconstruidas desde código suelen tener errores si salen de una sola pasada. Por eso el pipeline es determinista donde puede, exige evidencia y tiene una auditoría independiente.
+F6 hace que exo entienda un proyecto que ya existe sin tocar su código. Las specs reconstruidas desde código suelen tener errores si salen de una sola pasada. Por eso el pipeline es determinista donde puede, exige evidencia y tiene una auditoría independiente.
 
 Cuatro restricciones vienen de antes:
 - **CLI primero (ADR-0005):** el bucle tiene que sobrevivir a la compactación de contexto, a cortes y a cambios de agente.

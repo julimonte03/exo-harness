@@ -2,11 +2,11 @@
 
 - **Estado:** Aceptada
 - **Fecha:** 2026-10-29
-- **Origen:** principio 1 de `docs/plan/01-VISION-Y-ALCANCE.md`; diseño en `docs/plan/02-ARQUITECTURA.md` §2.1, §2.8
+- **Origen:** principio 1 del plan: fuente canónica única, adaptadores generados
 
 ## Contexto
 
-Cada persona del equipo puede usar un agente distinto: Claude Code, Copilot, Cursor, Codex, Gemini CLI, Windsurf/Devin u otro. Los estándares abiertos (`AGENTS.md`, Agent Skills, MCP) cubren buena parte, pero no todo. La prueba empírica de F0 (`docs/spikes/agent-probe.md`) confirmó que Claude Code no lee `AGENTS.md` si hay un `CLAUDE.md` sin `@AGENTS.md`, y que no escanea `.agents/skills/`. Además, la configuración MCP, los subagentes y los hooks tienen formato y ruta propios en cada agente (`docs/agent-matrix.md`).
+Cada persona del equipo puede usar un agente distinto: Claude Code, Copilot, Cursor, Codex, Gemini CLI, Windsurf/Devin u otro. Los estándares abiertos (`AGENTS.md`, Agent Skills, MCP) cubren buena parte, pero no todo. La prueba empírica de F0 confirmó que Claude Code no lee `AGENTS.md` si hay un `CLAUDE.md` sin `@AGENTS.md`, y que no escanea `.agents/skills/`. Además, la configuración MCP, los subagentes y los hooks tienen formato y ruta propios en cada agente (`docs/agent-matrix.md`).
 
 ## Decisión
 

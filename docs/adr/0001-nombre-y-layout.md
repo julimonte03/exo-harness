@@ -2,11 +2,11 @@
 
 - **Estado:** Aceptada
 - **Fecha:** 2026-10-29
-- **Decisión:** D-01 (`docs/plan/04-DECISIONES.md`)
+- **Decisión:** D-01
 
 ## Contexto
 
-El plan usa `arnes` como nombre de trabajo y exige que todo nombre visible salga de una sola constante (invariante 17 de `docs/plan/02-ARQUITECTURA.md` §2.13; 12 en `AGENTS.md`), para que renombrar sea barato. El dueño eligió **`exo`**, el nombre de la carpeta de trabajo `exo-harness`. La verificación de F0 (fuentes consultadas el 2026-10-29) encontró dos colisiones:
+El plan usa `arnes` como nombre de trabajo y exige que todo nombre visible salga de una sola constante (invariante 12 de `AGENTS.md`), para que renombrar sea barato. El dueño eligió **`exo`**, el nombre de la carpeta de trabajo `exo-harness`. La verificación de F0 (fuentes consultadas el 2026-10-29) encontró dos colisiones:
 
 - **exo-explore/exo** (Apache-2.0, activo) usa el mismo CLI `exo` (`exo = "exo.main:main"`) y el mismo paquete importable `src/exo`. También usa `~/.exo` como carpeta de usuario en macOS y Windows: ahí guarda logs, modelos y un pid, y su desinstalador borra `~/.exo`. Define variables `EXO_HOME`, `EXO_RUNTIME_DIR`, `EXO_OFFLINE`, `EXO_DEFAULT_MODELS_DIR`, `EXO_MODELS_DIRS`, `EXO_MODELS_READ_ONLY_DIRS`, `EXO_ENABLE_IMAGE_MODELS`, `EXO_ZENOH_NAMESPACE`, `EXO_FAST_SYNCH`, `EXO_TRACING_ENABLED` y `EXO_TESTS`. Fuentes: https://github.com/exo-explore/exo/blob/871caad407a70647426dffaa455bd4d0ab1d48e6/src/exo/shared/constants.py#L7-L27 y https://github.com/exo-explore/exo/blob/main/README.md
 - **PyPI:** `exo` está tomado por otro proyecto (CEGRcode, sin releases desde 2020): https://pypi.org/project/exo/. `exo-harness` está libre (404 en https://pypi.org/pypi/exo-harness/json).
@@ -30,7 +30,7 @@ Reglas:
 
 - **Nunca** se definen variables que use exo-explore. Las de la lista de arriba quedan reservadas y el motor no las lee ni las escribe.
 - En F2, `exo doctor` avisa si el primer `exo` del `PATH` no es este motor.
-- El plan conserva su texto; donde dice `arnes`, se lee `exo` (nota en `docs/plan/00-LEEME-PRIMERO.md`).
+- El plan conserva su texto; donde dice `arnes`, se lee `exo`.
 
 ## Alternativas
 

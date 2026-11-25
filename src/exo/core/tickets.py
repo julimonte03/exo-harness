@@ -96,7 +96,7 @@ def change_name(
     pattern: str | None = None,
     example: str | None = None,
 ) -> str:
-    """`[<ticket normalizado>-]<slug>` (§6.5 E del reporte, con D-26)."""
+    """`[<ticket normalizado>-]<slug>` (D-26)."""
     if not isinstance(slug, str) or not SLUG.fullmatch(slug):
         raise TicketError(
             f"invalid change slug {slug!r}: use lowercase kebab-case (a-z, 0-9, single "

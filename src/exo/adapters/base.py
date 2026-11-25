@@ -1,4 +1,4 @@
-"""Interfaz de los adaptadores y helpers compartidos (`docs/plan/02-ARQUITECTURA.md` §2.8).
+"""Interfaz de los adaptadores y helpers compartidos (ADR-0003).
 
 Un adaptador es **puro**: recibe el contexto (proyecto, bundle, agentes destino,
 config) y devuelve operaciones. Puede mirar si un archivo existe para decidir,

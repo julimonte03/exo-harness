@@ -1,7 +1,6 @@
-"""Las 15 tools de memoria (§5.3 del reporte; criterio 8 de F3).
+"""Las 15 tools de memoria (criterio 8 de F3).
 
-Los nombres son los del reporte. Los `inputSchema` son definiciones propias: el
-apéndice E con los originales nunca se fotografió. Cada tool abre la base, hace
+Los `inputSchema` son definiciones propias. Cada tool abre la base, hace
 su operación y la cierra, así el CLI y el servidor MCP pueden trabajar a la vez
 (WAL). Sin `project`, el proyecto se detecta desde `cwd` (`git remote origin`
 normalizado, o `local/<carpeta>`).

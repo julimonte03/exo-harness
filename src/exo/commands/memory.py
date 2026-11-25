@@ -1,8 +1,7 @@
 """`exo mem …`: la memoria del usuario por CLI (mismo registro que el servidor MCP).
 
 `--project` es el proyecto de la memoria (si falta, se detecta desde `--cwd`,
-que por defecto es el directorio actual). `export` e `import` son solo del CLI,
-como en el reporte.
+que por defecto es el directorio actual). `export` e `import` son solo del CLI.
 """
 
 from __future__ import annotations

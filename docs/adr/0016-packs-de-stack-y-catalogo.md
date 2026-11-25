@@ -2,11 +2,11 @@
 
 - **Estado:** Aceptada
 - **Fecha:** 2026-11-17
-- **Decisiones:** D-12 (resto), D-18 y D-38 a D-44 (`docs/plan/04-DECISIONES.md`)
+- **Decisiones:** D-12 (resto), D-18 y D-38 a D-44
 
 ## Contexto
 
-F7 escribe las 65 skills del reporte que faltan, por pack y prioridad (`docs/plan/fases/F7-packs.md`). El reporte no trae cuerpos: cada skill se escribe de cero desde su rol (capítulo 03) y su lugar en el mapa fase → skills.
+F7 escribe las 65 skills que faltan del catálogo, por pack y prioridad. Cada skill se escribe de cero desde su rol y su lugar en el mapa fase → skills.
 
 Cuatro piezas no entran en lo que ya existe:
 - **Gates sin tier:** el gate de accesibilidad (§6.7) y el gate humano del Canvas SPDD (§6.8) dependen de que el change tenga UI o canvas, no de su tier. `exo check` solo revisa los gates que exige el tier.

@@ -1,6 +1,6 @@
 """Bundle canónico: lo que el motor instala, leído del contenido una sola vez.
 
-Lo construye el motor y los adaptadores solo lo leen (`docs/plan/fases/F2-…`).
+Lo construye el motor y los adaptadores solo lo leen.
 Reúne, para los packs resueltos: las reglas (`rules/AGENTS.base.md`), las
 skills con todos sus archivos byte a byte, los subagentes y los contratos
 compartidos.

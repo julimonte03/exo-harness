@@ -2,11 +2,11 @@
 
 - **Estado:** Aceptada
 - **Fecha:** 2026-10-29
-- **Decisión:** D-03 (`docs/plan/04-DECISIONES.md`)
+- **Decisión:** D-03
 
 ## Contexto
 
-Según el reporte, el arnés original replica en Python `gentle-ai`, que está escrito en Go. Hoy gentle-ai es agnóstico de agente: configura más de quince agentes existentes sin instalarlos, instala skills, configura MCP, hace backups de config, tiene `doctor` y usa Engram como memoria. Engram es un binario Go con SQLite + FTS5 (búsqueda léxica), accesible por CLI, HTTP, MCP y TUI, que guarda su base en `~/.engram/engram.db`. La tarea 0.5 de F0 pide verificar las licencias antes de reusar nada.
+`gentle-ai` es un proyecto parecido, escrito en Go. Hoy gentle-ai es agnóstico de agente: configura más de quince agentes existentes sin instalarlos, instala skills, configura MCP, hace backups de config, tiene `doctor` y usa Engram como memoria. Engram es un binario Go con SQLite + FTS5 (búsqueda léxica), accesible por CLI, HTTP, MCP y TUI, que guarda su base en `~/.engram/engram.db`. La tarea 0.5 de F0 pide verificar las licencias antes de reusar nada.
 
 Licencias verificadas el 2026-10-29:
 
@@ -22,7 +22,7 @@ Licencias verificadas el 2026-10-29:
 Opción **(a)**: construir el motor propio en Python siguiendo el plan, y usar gentle-ai y Engram **solo como referencia**: matriz de agentes, rutas y comportamiento observable.
 
 - No se copia código ni texto de upstream por defecto. Si alguna vez se reusa un fragmento, se conserva el aviso MIT y se lo registra en `THIRD_PARTY_NOTICES.md`, que se crea ese día.
-- No se usan los nombres "Gentle AI" ni "Engram" como nombre de componentes, comandos ni documentación propia. La memoria del motor se llama `memory` (tools `mem_*`); "engram" aparece solo al citar el reporte o el upstream.
+- No se usan los nombres "Gentle AI" ni "Engram" como nombre de componentes, comandos ni documentación propia. La memoria del motor se llama `memory` (tools `mem_*`); "engram" aparece solo al citar el upstream.
 
 ## Alternativas
 
@@ -33,4 +33,4 @@ Opción **(a)**: construir el motor propio en Python siguiendo el plan, y usar g
 
 - El valor diferencial (gobierno, gates, AI Usage Record, DPA, jueces, ingeniería inversa, memoria híbrida) se construye y se mantiene acá.
 - La matriz de agentes de gentle-ai sirve para contrastar, pero la fuente final siempre es la documentación oficial de cada agente (`docs/agent-matrix.md`).
-- Compatibilidad de API con Engram, en lo que el reporte documenta (15 tools `mem_*`, §5.3): se replica por contrato, sin código upstream.
+- Compatibilidad de API con Engram (15 tools `mem_*`): se replica por contrato, sin código upstream.

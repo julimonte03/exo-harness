@@ -4,7 +4,7 @@
   un contenido idéntico del mismo proyecto.
 - Las observaciones `personal` no tienen proyecto (`""`) y se ven desde todos.
 - `search` aplica los filtros antes de rankear y devuelve previews; `get`
-  devuelve el contenido completo (recuperación en dos pasos, §5.6 del reporte).
+  devuelve el contenido completo (recuperación en dos pasos).
 - Búsqueda léxica: FTS5 con BM25. Sin FTS5 (algunos Python lo traen
   deshabilitado) se rankea en Python, con la misma tokenización.
 - Búsqueda semántica e híbrida (RRF) si la base tiene un índice semántico

@@ -1,8 +1,8 @@
 """Config del proyecto (`<PROJECT_DIR>/config.json`, esquema 3).
 
-Esquema en `docs/plan/02-ARQUITECTURA.md` §2.12, más `mcp.enabled` (ADR-0005).
+El esquema 1 trae `mcp.enabled` (ADR-0005).
 El esquema 2 (F4) reemplaza `tracker` por `tickets {pattern, example}`
-(ADR-0012) y suma `sdd {persistence, mode}` (§6.5 B y §6.6 del reporte). El
+(ADR-0012) y suma `sdd {persistence, mode}`. El
 esquema 3 (F5, ADR-0014) suma `governance.gates`, `data_protection.pii` y
 `review {host, publish_command}`, y saca `governance.dpa_profile`.
 La lectura es tolerante: si el archivo falta, se usan los defaults sin avisar;

@@ -2,7 +2,7 @@
 
 - **Estado:** Aceptada; reemplazada en parte por ADR-0017 (2026-11-19). El repo y la CI del motor pasaron a GitHub y GitHub Actions, y `azure-pipelines.yml` queda como ejemplo. Lo de los proyectos ya lo había generalizado ADR-0014 (D-30).
 - **Fecha:** 2026-10-30
-- **Decisión:** D-16 (`docs/plan/04-DECISIONES.md`)
+- **Decisión:** D-16
 
 ## Contexto
 
@@ -27,7 +27,7 @@ Datos de Azure DevOps que importan, verificados el 2026-10-30:
 
 ## Consecuencias
 
-- **F0/F1:** el criterio de "CI verde en los tres sistemas" se verifica con Azure Pipelines cuando exista el repo. Mientras tanto sigue la regla de cierre local de `docs/plan/PROGRESO.md`.
+- **F0/F1:** el criterio de "CI verde en los tres sistemas" se verifica con Azure Pipelines cuando exista el repo. Mientras tanto sigue la regla de cierre local del plan.
 - **F2:** el adaptador de Copilot no necesita `.github/agents/` (era para el cloud agent de GitHub.com). VS Code y Copilot CLI leen `.claude/agents/`, `.claude/skills/`, `AGENTS.md` y `.mcp.json`.
 - **F4:** el tracker de tickets probablemente sea **Azure Boards**, que referencia work items como `AB#123`. Hay que sumarlo como tipo de tracker al decidir D-09.
 - **F5:** `exo gate publish` publica un comentario por gate usando la API REST de Azure DevOps o `az repos`, en lugar de `gh`/`glab`. Los roles se garantizan con políticas de rama. La plantilla de pipeline de proyecto es de Azure Pipelines.

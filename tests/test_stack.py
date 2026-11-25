@@ -131,7 +131,7 @@ def test_no_mira_terceros_ni_mas_alla_de_la_profundidad(tmp_path: Path) -> None:
 def test_criterio_4_cada_fixture_sugiere_su_pack(
     tmp_path: Path, fixture: str, expected: set[str], absent: set[str], with_git: bool
 ) -> None:
-    """Criterio 4 de F7: la detección sobre los fixtures de cada stack (port de curate)."""
+    """Criterio 4 de F7: la detección sobre los fixtures de cada stack."""
     if with_git and shutil.which("git") is None:
         pytest.skip("requiere git")
     root = tmp_path / fixture

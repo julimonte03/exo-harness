@@ -1,7 +1,7 @@
 """Validador mínimo de JSON Schema, solo con biblioteca estándar (invariante 1).
 
 Cubre el subconjunto que usan los esquemas del motor (por ahora el AI Usage
-Record, §7.7 del reporte): `type` (uno o una lista), `required`, `properties`,
+Record): `type` (uno o una lista), `required`, `properties`,
 `additionalProperties` (booleano o esquema), `items`, `enum`, `minItems`,
 `minLength`, `maxLength`, `pattern` (con `re.search`, como el estándar) y
 `minimum`. Las anotaciones (`$schema`, `$id`, `title`, `description`,

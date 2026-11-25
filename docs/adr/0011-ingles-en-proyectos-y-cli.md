@@ -2,11 +2,11 @@
 
 - **Estado:** Aceptada
 - **Fecha:** 2026-11-13
-- **Decisión:** D-10 (`docs/plan/04-DECISIONES.md`)
+- **Decisión:** D-10
 
 ## Contexto
 
-El default de D-10 mezclaba idiomas: chat en el idioma de la persona, artefactos SDD en inglés (§6.6 del reporte) y skills en español con disparadores bilingües. Hasta F3, el motor quedó casi todo en español:
+El default de D-10 mezclaba idiomas: chat en el idioma de la persona, artefactos SDD en inglés y skills en español con disparadores bilingües. Hasta F3, el motor quedó casi todo en español:
 - el contenido que se instala en los proyectos (reglas de `AGENTS.md`, skills, subagentes);
 - las plantillas SDD;
 - los mensajes del CLI.
@@ -18,7 +18,7 @@ El dueño prefiere que «cuanto más esté en inglés, mejor», sin contenido bi
 - **En inglés, y solo en inglés:**
   - Todo lo que el motor instala o genera en un proyecto: reglas de `AGENTS.md`, skills (cuerpo y `description`, con disparadores solo en inglés), subagentes, plantillas y artefactos SDD, registro de skills y contratos compartidos.
   - Los mensajes del CLI `exo` (salida, errores, ayuda) y las descripciones de las tools del registro, que también ven los agentes por MCP.
-- **Sigue en español:** la documentación de este repo (`docs/plan/`, ADR, `PROGRESO.md`, checklists) y los comentarios y docstrings del código.
+- **Sigue en español:** la documentación de desarrollo de este repo (el plan y los ADR) y los comentarios y docstrings del código.
 - **El agente** responde en el idioma en que le habla la persona: eso no lo fija el motor. El campo `project.chat_language` de la config queda como preferencia opcional.
 
 ## Alternativas

@@ -1,6 +1,6 @@
 """Snapshots tar.gz deterministas de rutas gestionadas, con restore seguro.
 
-Invariantes 1 y 10 de `docs/plan/02-ARQUITECTURA.md` §2.13: snapshot antes de
+Invariantes 1 y 10 del motor: snapshot antes de
 mutar; snapshots deterministas (entradas ordenadas, metadata normalizada, gzip
 con mtime 0) y extracción segura (rechaza traversal, links y devices).
 

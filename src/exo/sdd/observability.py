@@ -1,6 +1,6 @@
 """Estado de los changes SDD, solo lectura.
 
-Port de §5.4 del reporte: recorre `<specs_dir>` (de la config del proyecto),
+Recorre `<specs_dir>` (de la config del proyecto),
 detecta épicas, changes y `archive/`, deriva la fase por los artefactos
 presentes, lee `ai-usage-record.json` y `followups.json`, aplica los descartes
 (`dismissed_followups`) y proyecta `ticket_key` (antes `jira_key`) y

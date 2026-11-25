@@ -1,8 +1,7 @@
 # toy-todo
 
-A tiny to-do list, stdlib only. It is the toy project of the SDD cycle
-checklist (`docs/checklists/F4-ciclo.md` in the engine repo): copy it to a
-temporary folder, `git init`, and adopt the engine there.
+A tiny to-do list, stdlib only. It is the toy project for trying the SDD
+cycle by hand: copy it to a temporary folder, `git init`, and adopt the engine there.
 
 ```bash
 python -m toy_todo add "buy milk"

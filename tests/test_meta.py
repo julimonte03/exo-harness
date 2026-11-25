@@ -1,6 +1,6 @@
 """Los nombres visibles del motor salen solo de `_meta.py`.
 
-Invariante 17 de `docs/plan/02-ARQUITECTURA.md` §2.13 (12 en `AGENTS.md`), ADR-0001.
+Invariante 12 de `AGENTS.md`, ADR-0001.
 Falla si algún módulo de `src/exo` distinto de `_meta.py` contiene como
 literal de string el directorio del proyecto, el prefijo de variables o el
 nombre de la carpeta de datos de usuario. Los docstrings también cuentan, a

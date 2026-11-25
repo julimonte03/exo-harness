@@ -1,7 +1,7 @@
 """Operaciones que calculan los adaptadores y aplica el motor.
 
-Los adaptadores son puros (invariante 12 de `docs/plan/02-ARQUITECTURA.md`
-§2.13): devuelven estas operaciones y nunca escriben. Cada operación describe
+Los adaptadores son puros (invariante 12 del
+motor): devuelven estas operaciones y nunca escriben. Cada operación describe
 el estado deseado de una unidad gestionada, que el lock registra con su hash:
 
 - `WriteFile`: un archivo completo del motor (`file`) o una copia espejo de una
