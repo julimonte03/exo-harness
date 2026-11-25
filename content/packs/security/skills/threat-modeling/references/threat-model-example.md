@@ -80,12 +80,12 @@ APPROVED: six threats, each mitigated in the plan; TM-2 keeps a Medium residual 
 
 | Severity | File:line | Finding | Rule/OWASP |
 |---|---|---|---|
-| Low | src/invoices/api.py:34 | TM-1: cross-customer download by ID; owner filter and its test | Information disclosure, A01:2025, CWE-639 |
-| Medium | src/invoices/parser.py (planned) | TM-2: memory exhaustion with a crafted PDF; size, page and time limits, a slow file can still delay the queue | Denial of service, A06:2025, CWE-770 |
-| Low | src/invoices/api.py:52 | TM-3: non-PDF content served inline; content check, generated name, download disposition | Tampering, A06:2025, CWE-434 |
-| Low | src/invoices/worker.py (planned) | TM-4: forged customer ID in the message; worker reads it from the stored record | Spoofing, A08:2025, CWE-345 |
-| Low | src/invoices/worker.py (planned) | TM-5: invoice content in error logs; log ID and error type only | Information disclosure, A09:2025, CWE-532 |
-| Low | src/invoices/api.py:60 | TM-6: no proof of upload; audit entry on upload | Repudiation, A09:2025, CWE-778 |
+| Low | src/invoices/api.py:34 | TM-1: cross-customer download by ID; owner filter and its test | Information disclosure, CWE-639, A01:2025 Broken Access Control |
+| Medium | src/invoices/parser.py (planned) | TM-2: memory exhaustion with a crafted PDF; size, page and time limits, a slow file can still delay the queue | Denial of service, CWE-770, A06:2025 Insecure Design |
+| Low | src/invoices/api.py:52 | TM-3: non-PDF content served inline; content check, generated name, download disposition | Tampering, CWE-434, A06:2025 Insecure Design |
+| Low | src/invoices/worker.py (planned) | TM-4: forged customer ID in the message; worker reads it from the stored record | Spoofing, CWE-345, A08:2025 Software or Data Integrity Failures |
+| Low | src/invoices/worker.py (planned) | TM-5: invoice content in error logs; log ID and error type only | Information disclosure, CWE-532, A09:2025 Security Logging and Alerting Failures |
+| Low | src/invoices/api.py:60 | TM-6: no proof of upload; audit entry on upload | Repudiation, CWE-778, A09:2025 Security Logging and Alerting Failures |
 
 ## Approval
 

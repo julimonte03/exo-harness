@@ -121,7 +121,7 @@ ESCALATED: JSEC-1 (High) stays open. One contradiction needs the person's decisi
 | Severity | IDs | path:line | Finding | Criterion | Suggested fix | Moderation |
 |---|---|---|---|---|---|---|
 | High | JSEC-1 | src/auth/reset.py:42 | The reset token is compared with ==, which leaks timing | CWE-208 | Use a constant-time comparison | confirmed |
-| Medium | JSEC-2, JCR-1 | src/auth/login.py:57 | The sign-in error says whether the email exists | OWASP A07:2025 (CWE-204) | One message for a wrong email and a wrong password | duplicate; Medium from JCR-1 |
+| Medium | JSEC-2, JCR-1 | src/auth/login.py:57 | The sign-in error says whether the email exists | CWE-204, A07:2025 Authentication Failures | One message for a wrong email and a wrong password | duplicate; Medium from JCR-1 |
 | Medium | JPRD-2, JBIZ-1 | specs/PROJ-123-add-login/proposal.md:9 | The success measure has no baseline | product-discovery: success measure; rubric 6 | Give today's weekly failed sign-ins | duplicate; raised Low → Medium |
 | Medium | JPRD-1 | specs/PROJ-123-add-login/proposal.md:14 | "Remember me" is out of scope, though the problem cites users who sign in many times a day | scope | Bring it into the scope | contradicts JTEAM-1 |
 | Medium | JTEAM-1 | specs/PROJ-123-add-login/tasks.md:3 | The plan is already at its 400-line budget | rubric 4: reasonable size | Keep new scope for a follow-up change | contradicts JPRD-1 |

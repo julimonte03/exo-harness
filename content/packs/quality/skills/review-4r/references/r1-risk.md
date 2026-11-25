@@ -6,7 +6,7 @@ Only risk. Readability, correctness and failure handling belong to the other len
 
 ## Security
 
-The OWASP Top 10:2025 items that apply to what changed. A finding takes the category of its CWE from `.exo/shared/owasp-2025.md`. Cite the item with its year (`OWASP A05:2025`), never the bare number, and the CWE next to it when there is one.
+The OWASP Top 10:2025 items that apply to what changed. A finding takes the category of its CWE from `.exo/shared/owasp-2025.md`. Cite the CWE first when there is one, then the item with its year and name (`CWE-89, A05:2025 Injection`), never the bare number. The table lists, for each item, the CWEs it covers.
 
 | Look for | Item |
 |---|---|

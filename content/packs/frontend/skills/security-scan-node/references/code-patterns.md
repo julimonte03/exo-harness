@@ -38,6 +38,6 @@ Severities assume the input comes from a request, a message or a user; lower it 
 
 ## Writing the finding
 
-- One finding per weakness and location: `PAT-1 | High | packages/api/src/routes/preferences.js:12 | <what and why> | A08:2025, CWE-1321`.
+- One finding per weakness and location: `PAT-1 | High | packages/api/src/routes/preferences.js:12 | <what and why> | CWE-1321, A08:2025 Software or Data Integrity Failures`.
 - Say the source, the sink and the missing control. A pattern with no path from input is hardening (Low) at most.
 - Never write a working exploit or payload; describe the weakness and the fix in text.

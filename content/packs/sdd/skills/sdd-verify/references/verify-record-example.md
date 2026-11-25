@@ -55,7 +55,7 @@ N/A
 | Severity | File:line | Finding | Rule/OWASP |
 |---|---|---|---|
 | High | tests/test_login.py:57 | S-3 not proven by its test | S-3 |
-| Medium | src/auth/login.py:31 | Personal data written to the logs | OWASP A09:2025 Security Logging and Alerting Failures (CWE-532) |
+| Medium | src/auth/login.py:31 | Personal data written to the logs | CWE-532, A09:2025 Security Logging and Alerting Failures |
 
 Requires tech_lead approval: yes
 Source: skill

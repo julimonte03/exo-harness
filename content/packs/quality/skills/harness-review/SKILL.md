@@ -71,7 +71,7 @@ A quick pass over the diff, not a security review. The deep review is `security-
 - error messages or logs that expose internals, tokens or personal data, and errors that are swallowed or let the request through;
 - a new or upgraded dependency: name it, so that the stack's dependency audit covers it.
 
-Report each one with its CWE and OWASP Top 10:2025 category when one applies (`CWE-89, OWASP A05:2025 Injection`, from `.exo/shared/owasp-2025.md`), and say which parts need `security-code-review`. If that skill is not installed and the tier has the `security_review` gate, say that the gate will be missing and that `exo check` fails without it.
+Report each one with its CWE and OWASP Top 10:2025 category when one applies (`CWE-89, A05:2025 Injection`, from `.exo/shared/owasp-2025.md`), and say which parts need `security-code-review`. If that skill is not installed and the tier has the `security_review` gate, say that the gate will be missing and that `exo check` fails without it.
 
 ## 3. UX/UI
 
@@ -113,7 +113,7 @@ ESCALATED: S-3 is not proven by its test.
 | Severity | File:line | Finding | Rule/OWASP |
 |---|---|---|---|
 | High | tests/test_login.py:57 | The lockout test stops at the fourth attempt, so S-3 is not proven | S-3 |
-| High | src/auth/login.py:31 | The user's email is written to the log | OWASP A09:2025, CWE-532 |
+| High | src/auth/login.py:31 | The user's email is written to the log | CWE-532, A09:2025 Security Logging and Alerting Failures |
 | Low | src/auth/login.py:12 | A debug print is left in | engineering: leftovers |
 
 ## Approval

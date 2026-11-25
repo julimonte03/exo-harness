@@ -118,8 +118,8 @@ ESCALATED: one Critical finding open (order lookup without an ownership check).
 
 | Severity | File:line | Finding | Rule/OWASP |
 |---|---|---|---|
-| Critical | src/orders/api.py:57 | GET /orders/{id} loads any order by ID; the caller's ownership is never checked. Filter by the session's customer ID | SCR-AUTHZ-2, A01:2025, CWE-639 |
-| Medium | src/orders/api.py:91 | The 500 response returns the exception text. Return a generic message and log the detail | SCR-ERR-1, A10:2025, CWE-209 |
+| Critical | src/orders/api.py:57 | GET /orders/{id} loads any order by ID; the caller's ownership is never checked. Filter by the session's customer ID | SCR-AUTHZ-2, CWE-639, A01:2025 Broken Access Control |
+| Medium | src/orders/api.py:91 | The 500 response returns the exception text. Return a generic message and log the detail | SCR-ERR-1, CWE-209, A10:2025 Mishandling of Exceptional Conditions |
 
 ## Approval
 

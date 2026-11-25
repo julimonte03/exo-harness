@@ -1,6 +1,6 @@
 # Security review checklist
 
-The criteria of `security-code-review`, also reused by `judge-security` (pack `quality`). Each check has a stable ID: cite it in the Rule/OWASP column of a gate, or in the `rule` of a judge finding, together with its CWE and the OWASP Top 10:2025 category of that CWE, written with its year (`SCR-AUTHZ-2, A01:2025, CWE-639`). The categories come from `.exo/shared/owasp-2025.md`, which lists every CWE of this checklist. The category is the one of the section, unless the row names another one for its CWE: then cite that one (`SCR-AUTHN-6, A02:2025, CWE-614`). A section with two categories names the one of each row.
+The criteria of `security-code-review`, also reused by `judge-security` (pack `quality`). Each check has a stable ID: cite it in the Rule/OWASP column of a gate, or in the `rule` of a judge finding, together with its CWE and the OWASP Top 10:2025 category of that CWE, written with its year (`SCR-AUTHZ-2, CWE-639, A01:2025 Broken Access Control`). The categories come from `.exo/shared/owasp-2025.md`, which lists every CWE of this checklist. The category is the one of the section, unless the row names another one for its CWE: then cite that one (`SCR-AUTHN-6, CWE-614, A02:2025 Security Misconfiguration`). A section with two categories names the one of each row.
 
 ## How the IDs work
 

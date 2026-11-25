@@ -100,8 +100,8 @@ ESCALATED: one High finding stays open; it needs a dependency outside the plan.
 
 | Severity | File:line | Finding | Rule/OWASP |
 |---|---|---|---|
-| High | src/reports/export.py:88 | The PDF renderer fetches any URL in the template; restrict it to the asset folder (needs the renderer option the plan does not include) | SCB-1, A01:2025, CWE-918 |
-| Medium | src/reports/api.py:41 | The error response includes the exception text; return a generic message and log the detail | SCB-9, A10:2025, CWE-209 |
+| High | src/reports/export.py:88 | The PDF renderer fetches any URL in the template; restrict it to the asset folder (needs the renderer option the plan does not include) | SCB-1, CWE-918, A01:2025 Broken Access Control |
+| Medium | src/reports/api.py:41 | The error response includes the exception text; return a generic message and log the detail | SCB-9, CWE-209, A10:2025 Mishandling of Exceptional Conditions |
 
 ## Approval
 

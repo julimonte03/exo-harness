@@ -5,7 +5,8 @@ The one table that maps a weakness (its CWE) to its OWASP Top 10:2025 category. 
 ## How to cite
 
 - **Always with the year:** `A05:2025 Injection`, never a bare `A05`. The same number names a different category in each edition.
-- **The CWE goes next to it** (`CWE-89, A05:2025 Injection`): the CWE is stable across editions, the category is not.
+- **The CWE goes first,** then the category with its year and name: `CWE-89, A05:2025 Injection`. The CWE is stable across editions, the category is not. This is the format of every finding, gate row and followup `rule`; a check ID or a STRIDE category goes before it (`SCR-AUTHZ-2, CWE-639, A01:2025 Broken Access Control`), and the word `OWASP` does not. Only a table that maps a rule or a signal to its category lists the CWEs it covers after the name (`A05:2025 Injection (CWE-89, CWE-78)`).
+- **A CWE that MITRE deprecated:** cite the entry that replaces it. The table keeps the old one, marked `deprecated`, to translate an older report.
 - **One category per finding,** from its CWE in the table below. When a finding has two CWEs in different categories, cite the category of the one the fix addresses: CSRF left off for a cookie session is `CWE-352`, `A01:2025`, because the fix restores a missing access control.
 - **A CWE the table does not list:** use the category of its closest parent or sibling in the table and say `closest`; never invent a category.
 - **Dependency findings** (a vulnerable, unmaintained or untrusted package) are `A03:2025 Software Supply Chain Failures`, whatever the weakness inside the library: name that weakness in the finding text ("remote code execution through JNDI lookups").
@@ -85,6 +86,7 @@ The CWEs that the `security` pack and the stack skills use. `listed` means OWASP
 | CWE-601 | Open redirect | A01:2025 Broken Access Control | listed |
 | CWE-602 | Server-side security enforced only on the client | A06:2025 Insecure Design | listed |
 | CWE-611 | XML external entities | A02:2025 Security Misconfiguration | listed |
+| CWE-613 | Insufficient session expiration (deprecated in CWE 5.0: cite CWE-1463 or CWE-1464) | A07:2025 Authentication Failures | listed |
 | CWE-614 | Session cookie without `Secure` | A02:2025 Security Misconfiguration | listed |
 | CWE-617 | `assert` used as a security check | A10:2025 Mishandling of Exceptional Conditions | closest |
 | CWE-636 | Failing open | A10:2025 Mishandling of Exceptional Conditions | listed |
@@ -115,8 +117,8 @@ The CWEs that the `security` pack and the stack skills use. `listed` means OWASP
 | CWE-1336 | Template injection | A05:2025 Injection | closest |
 | CWE-1357 | Insufficiently trustworthy component (unpinned, unexpected source, typosquat) | A03:2025 Software Supply Chain Failures | listed |
 | CWE-1395 | Dependency on a vulnerable third-party component | A03:2025 Software Supply Chain Failures | listed |
-| CWE-1463 | Session timeout too long | A07:2025 Authentication Failures | closest (its sibling CWE-384 is listed) |
-| CWE-1464 | Session not invalidated on logout or a credential change | A07:2025 Authentication Failures | closest (its sibling CWE-384 is listed) |
+| CWE-1463 | Session timeout too long | A07:2025 Authentication Failures | closest (it replaces CWE-613, which A07:2025 lists) |
+| CWE-1464 | Session not invalidated on logout or a credential change | A07:2025 Authentication Failures | closest (it replaces CWE-613, which A07:2025 lists) |
 
 ## Dependency and supply-chain findings
 

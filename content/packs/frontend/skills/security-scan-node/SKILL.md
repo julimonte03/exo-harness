@@ -118,19 +118,19 @@ Tools: npm audit --omit=dev: not run (npm audit needs package-lock.json); osv-sc
 
 | ID | Severity | Package | Installed, fixed | Advisory | Exposure | OWASP 2025 | Source |
 |---|---|---|---|---|---|---|---|
-| DEP-1 | High | lodash (direct, packages/api) | 4.17.15, 4.17.21 | Unconfirmed: CVE-2021-23337, command injection through `template` | runtime | A03:2025, CWE-1395 | manual; confirm with `npm audit --omit=dev` |
+| DEP-1 | High | lodash (direct, packages/api) | 4.17.15, 4.17.21 | Unconfirmed: CVE-2021-23337, command injection through `template` | runtime | CWE-1395, A03:2025 Software Supply Chain Failures | manual; confirm with `npm audit --omit=dev` |
 
 ## Manifests and lockfile
 
 | ID | Severity | path:line | Finding | OWASP 2025 |
 |---|---|---|---|---|
-| LOCK-1 | Medium | package.json:1 | No lockfile: every install resolves new versions, and no audit can run | A03:2025, CWE-1357 |
+| LOCK-1 | Medium | package.json:1 | No lockfile: every install resolves new versions, and no audit can run | CWE-1357, A03:2025 Software Supply Chain Failures |
 
 ## Code patterns
 
 | ID | Severity | path:line | Finding | OWASP 2025 |
 |---|---|---|---|---|
-| PAT-1 | High | packages/api/src/routes/preferences.js:12 | The request body is deep-merged into an object with lodash `merge`, so a `__proto__` key can pollute prototypes | A08:2025, CWE-1321 |
+| PAT-1 | High | packages/api/src/routes/preferences.js:12 | The request body is deep-merged into an object with lodash `merge`, so a `__proto__` key can pollute prototypes | CWE-1321, A08:2025 Software or Data Integrity Failures |
 
 ## Not checked
 
@@ -150,7 +150,7 @@ Scan: partial (no lockfile, no scanner installed). Critical 0, High 2, Medium 1,
 ## In an SDD change
 
 - **Verify:** it runs where the verify runs (`sdd-verifier`, read-only, or the session that runs the verify). Every Critical and High finding goes to Issues Found of `verify-record.md` (severity, `path:line` or package, impact, fix), which `sdd-verify` writes; dev-only ones are marked as such, and the person decides.
-- **The `security_review` gate,** when the tier has it, is written by `security-code-review` (pack `security`). Give the same Critical and High findings as rows in the gate's Findings format (`| High | packages/api/package.json:14 | DEP-1: lodash 4.17.15 ... | A03:2025, CWE-1395 |`) so that whoever writes the gate includes them. This skill writes no gate and no file.
+- **The `security_review` gate,** when the tier has it, is written by `security-code-review` (pack `security`). Give the same Critical and High findings as rows in the gate's Findings format (`| High | packages/api/package.json:14 | DEP-1: lodash 4.17.15 ... | CWE-1395, A03:2025 Software Supply Chain Failures |`) so that whoever writes the gate includes them. This skill writes no gate and no file.
 - **A missing tool** is not a degradation of this skill: it is a partial scan, said in the report and in the envelope notes. When this skill itself is not installed, the verify applies the inline criteria of `.exo/shared/phase-skill-map.md`.
 
 ## Record

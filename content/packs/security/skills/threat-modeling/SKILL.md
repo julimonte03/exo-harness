@@ -116,8 +116,8 @@ APPROVED: every threat has a mitigation in the plan; TM-2 keeps a Medium residua
 
 | Severity | File:line | Finding | Rule/OWASP |
 |---|---|---|---|
-| Low | src/invoices/api.py:34 | TM-1: cross-customer read by ID; mitigated by the owner filter and its test | Information disclosure, A01:2025, CWE-639 |
-| Medium | src/invoices/parser.py (planned) | TM-2: memory exhaustion with a crafted PDF; mitigated by size, page and time limits, a slow parse can still delay the queue | Denial of service, A06:2025, CWE-770 |
+| Low | src/invoices/api.py:34 | TM-1: cross-customer read by ID; mitigated by the owner filter and its test | Information disclosure, CWE-639, A01:2025 Broken Access Control |
+| Medium | src/invoices/parser.py (planned) | TM-2: memory exhaustion with a crafted PDF; mitigated by size, page and time limits, a slow parse can still delay the queue | Denial of service, CWE-770, A06:2025 Insecure Design |
 
 ## Approval
 

@@ -91,6 +91,15 @@ NAMED = re.compile(rf"\b({ID}):{YEAR}\b{SEP}(?=[A-Z])")
 # Un par contiguo va separado solo por una coma o un paréntesis; un `;` separa grupos.
 PAIR_AFTER = re.compile(rf"\b({ID}):{YEAR}\b(?:[ \t]+(?:{_NAMES_2025}))?,?[ \t]*\(?CWE-(\d+)\b")
 PAIR_BEFORE = re.compile(rf"\bCWE-(\d+),?[ \t]*({ID}):{YEAR}\b")
+# El formato canónico (`owasp-2025.md`, How to cite) es `CWE-89, A05:2025 Injection`: el CWE va
+# antes de la categoría, y la categoría sin `OWASP` delante (F8R3-14). Una tabla que mapea una
+# regla a su categoría puede listar los CWE que cubre, después del nombre:
+# `A05:2025 Injection (CWE-89, CWE-78)`.
+NONCANONICAL = re.compile(
+    rf"\bOWASP[ \t]+{ID}:{YEAR}\b"
+    rf"|\b{ID}:{YEAR}\b(?:[ \t]+(?:{_NAMES_2025}))?,[ \t]*\(?CWE-\d+"
+    rf"|\b{ID}:{YEAR}[ \t]*\(CWE-\d+"
+)
 
 
 def _wrong_years(text: str) -> list[tuple[int, str]]:
@@ -121,6 +130,19 @@ def _mismapped(text: str) -> list[tuple[int, str]]:
         for start, cwe, category in pairs
         if cwe in CWE_MAP and CWE_MAP[cwe] != category
     ]
+
+
+def _noncanonical(text: str) -> list[tuple[int, str]]:
+    return [(m.start(), m.group(0)) for m in NONCANONICAL.finditer(text)]
+
+
+def _deprecated() -> set[str]:
+    """Los CWE que MITRE deprecó: la tabla los guarda solo para traducir reportes viejos."""
+    return {
+        cells[0].removeprefix("CWE-")
+        for cells in _rows(TABLE.read_text(encoding="utf-8"))
+        if re.fullmatch(r"CWE-\d+", cells[0]) and len(cells) >= 2 and "deprecated" in cells[1]
+    }
 
 
 def _without_equivalence_column(text: str) -> str:
@@ -212,6 +234,39 @@ def test_detecta_un_par_cwe_categoria_que_contradice_la_tabla() -> None:
     assert _mismapped("A01:2025 (CWE-862, CWE-639); A07:2025 (CWE-306)") == []
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "OWASP A01:2025 (CWE-639)",
+        "SCR-AUTHZ-2, A01:2025, CWE-639",
+        "CWE-639, OWASP A01:2025",
+        "OWASP A05:2025 Injection (CWE-89, CWE-78)",
+        "A01:2025 (CWE-639)",
+        "OWASP A09:2025, CWE-532",
+        "Information disclosure, A01:2025, CWE-639",
+    ],
+)
+def test_detecta_una_cita_fuera_del_formato_canonico(text: str) -> None:
+    """Los formatos que convivían antes de F8R3-14."""
+    assert _noncanonical(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "CWE-89, A05:2025 Injection",
+        "SCR-AUTHZ-2, CWE-639, A01:2025 Broken Access Control",
+        "Information disclosure, CWE-639, A01:2025 Broken Access Control",
+        "CWE-89, CWE-78, A05:2025 Injection; CWE-22, A01:2025 Broken Access Control",
+        "| SCB-4 | Fail closed. | A10:2025 Mishandling of Exceptional Conditions (CWE-636, CWE-755) |",
+        "every category of OWASP Top 10:2025",
+        "a dependency finding is `A03:2025` whatever the weakness inside the library",
+    ],
+)
+def test_el_formato_canonico_no_se_marca(text: str) -> None:
+    assert _noncanonical(text) == []
+
+
 # -- el contenido ---------------------------------------------------------------------------------
 
 
@@ -256,3 +311,45 @@ def test_la_checklist_de_revision_cubre_a10_2025() -> None:
     missing = [f"CWE-{cwe}" for cwe in A10_CWES if not re.search(rf"\bCWE-{cwe}\b", text)]
     assert not missing, f"A10:2025 Mishandling of Exceptional Conditions needs {', '.join(missing)}"
     assert all(CWE_MAP[cwe] == "A10" for cwe in A10_CWES)
+
+
+def test_toda_cita_owasp_usa_el_formato_canonico() -> None:
+    wrong = _report(_noncanonical)
+    assert not wrong, (
+        "cite the CWE first, then the category, as .exo/shared/owasp-2025.md says "
+        "(CWE-89, A05:2025 Injection):\n" + "\n".join(wrong)
+    )
+
+
+def test_todo_cwe_del_pack_security_esta_en_la_tabla() -> None:
+    """F8R3-13: CWE-400 estaba en stride.md sin categoría y fuera de la tabla."""
+    missing = [
+        f"{path.relative_to(REPO).as_posix()}: CWE-{cwe}"
+        for path in sorted(SECURITY.rglob("*.md"))
+        for cwe in sorted(set(CWE.findall(path.read_text(encoding="utf-8"))), key=int)
+        if cwe not in CWE_MAP
+    ]
+    assert not missing, f"add to {TABLE.name} or drop:\n" + "\n".join(missing)
+
+
+def test_la_expiracion_de_sesion_mapea_a_a07_por_cwe_613() -> None:
+    """F8R3-12: OWASP lista CWE-613 en A07:2025, y CWE 5.0 lo deprecó por CWE-1463 y CWE-1464.
+
+    Verificado el 2026-11-25 en https://top10.owasp.org/2025/A07_2025-Authentication_Failures
+    y https://cwe.mitre.org/data/definitions/613.html (y 1463 y 1464).
+    """
+    assert CWE_MAP["613"] == "A07" and "613" in _deprecated()
+    mapping = {
+        cells[0]: cells[3]
+        for cells in _rows(TABLE.read_text(encoding="utf-8"))
+        if len(cells) >= 4 and re.fullmatch(r"CWE-\d+", cells[0])
+    }
+    for cwe in ("CWE-1463", "CWE-1464"):
+        assert CWE_MAP[cwe.removeprefix("CWE-")] == "A07"
+        assert "CWE-613" in mapping[cwe], f"{cwe}: closest because it replaces CWE-613"
+
+
+@pytest.mark.parametrize("checklist", CHECKLISTS, ids=lambda p: p.parent.parent.name)
+def test_las_checklists_no_citan_un_cwe_deprecado(checklist: Path) -> None:
+    cwes = set(CWE.findall(checklist.read_text(encoding="utf-8")))
+    assert not cwes & _deprecated(), "cite the CWE that replaces it (owasp-2025.md)"

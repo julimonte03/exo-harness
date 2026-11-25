@@ -72,7 +72,7 @@ Launch both delegations to `sdd-judge` at the same time, one per judge, with the
 Record each confirmed finding as a followup. Severity goes in lowercase; the command validates the entry and rejects an `id` already in use with other content.
 
 ```bash
-exo change record <change> --followup '{"id": "JSEC-1", "judge": "judge-security", "rule": "OWASP A01:2025 (CWE-639)", "severity": "high", "summary": "The export does not check that the account belongs to the caller; load it through the session", "location": "src/export/views.py:31"}'
+exo change record <change> --followup '{"id": "JSEC-1", "judge": "judge-security", "rule": "CWE-639, A01:2025 Broken Access Control", "severity": "high", "summary": "The export does not check that the account belongs to the caller; load it through the session", "location": "src/export/views.py:31"}'
 ```
 
 Show the person the confirmed findings, by severity:

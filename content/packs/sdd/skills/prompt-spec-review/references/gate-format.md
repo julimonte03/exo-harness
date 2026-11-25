@@ -17,7 +17,7 @@ The examples below belong to a synthetic change, `add-volume-discount` (the canv
 | Severity | the gap's severity, or `-` when there is none | the gap's severity, or `-` |
 | File:line | `<change-root>/canvas.md`, with the line when it helps | the code (`path:line`), or the canvas item for a missing file |
 | Finding | what is missing, contradicted or vague, and the fix | what the code does against what the canvas says, and the fix |
-| Rule/OWASP | the canvas section and item, and the source it disagrees with (`S-3`, `TM-1`, a design.md section) | the canvas section and item (`Operations 4`, `Safeguards 2`, `Structure`, `Norms 1`); add, for a security Safeguard, its CWE and OWASP Top 10:2025 item with the year (`CWE-639, OWASP A01:2025`, `.exo/shared/judge-common.md`, section D) |
+| Rule/OWASP | the canvas section and item, and the source it disagrees with (`S-3`, `TM-1`, a design.md section) | the canvas section and item (`Operations 4`, `Safeguards 2`, `Structure`, `Norms 1`); add, for a security Safeguard, its CWE and OWASP Top 10:2025 item with the year (`Safeguards 2, CWE-639, A01:2025 Broken Access Control`, `.exo/shared/owasp-2025.md`, How to cite) |
 
 ## 1. Approval mode, approved
 

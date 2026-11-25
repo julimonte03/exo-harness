@@ -46,7 +46,7 @@ The findings of one review in the format of the `sdd-judge` subagent: a Verdict 
 Only security; other judges cover correctness, product and UI.
 
 1. **`security-code-review`** (pack `security`). Read its `SKILL.md` in full: from the delegation, or resolved as `.exo/shared/skill-resolver.md` says. Apply its criteria to what you review; do not repeat them here and do not invent others.
-2. **OWASP Top 10:2025:** every category that applies to the change. Each finding takes the category of its CWE from `.exo/shared/owasp-2025.md`, which lists the categories and what each covers. Cite the ID with its year (`OWASP A01:2025`), never the bare number, with the CWE next to it when there is one (`OWASP A01:2025 (CWE-639)`).
+2. **OWASP Top 10:2025:** every category that applies to the change. Each finding takes the category of its CWE from `.exo/shared/owasp-2025.md`, which lists the categories and what each covers. Cite it as that table says: the CWE first when there is one, then the ID with its year and the category name (`CWE-639, A01:2025 Broken Access Control`), never the bare number.
 3. **In design:** every new entry point, trust boundary, sensitive data flow and money flow has its threats (STRIDE) and a mitigation in Risks & Mitigations. Use the criteria of `threat-modeling` (pack `security`) when it is installed.
 4. **In verify and judgment:** every mitigation in Risks & Mitigations is implemented and has a test.
 5. **Data protection:** no credentials, and no personal data outside what a waiver allows, in code, tests, fixtures, logs or messages (`.exo/shared/data-protection.md`).
@@ -101,8 +101,8 @@ ESCALATED
 
 | ID | Severity | path:line | Finding | Criterion | Suggested fix |
 |---|---|---|---|---|---|
-| JSEC-1 | High | src/export/views.py:31 | The export reads any account by the identifier in the URL, without checking that it belongs to the caller | OWASP A01:2025 (CWE-639) | Load the account through the caller's session and return 404 when it is not theirs |
-| JSEC-2 | Medium | src/auth/login.py:40 | Failed sign-ins are not limited, although design.md lists brute force as a risk | OWASP A07:2025 (CWE-307); design.md Risks & Mitigations | Apply the lockout that design.md describes and add its test |
+| JSEC-1 | High | src/export/views.py:31 | The export reads any account by the identifier in the URL, without checking that it belongs to the caller | CWE-639, A01:2025 Broken Access Control | Load the account through the caller's session and return 404 when it is not theirs |
+| JSEC-2 | Medium | src/auth/login.py:40 | Failed sign-ins are not limited, although design.md lists brute force as a risk | CWE-307, A07:2025 Authentication Failures; design.md Risks & Mitigations | Apply the lockout that design.md describes and add its test |
 
 ## Not reviewed
 
@@ -130,7 +130,7 @@ next: none
 Never run these yourself. The orchestrator records each finding as a followup (in judgment-day, each confirmed finding), the verdict, and the judge in `capabilities_used` (`.exo/shared/judge-common.md`, section F):
 
 ```bash
-exo change record <change> --followup '{"id": "JSEC-1", "judge": "judge-security", "rule": "OWASP A01:2025 (CWE-639)", "severity": "high", "summary": "The export does not check that the account belongs to the caller; load it through the session", "location": "src/export/views.py:31"}'
+exo change record <change> --followup '{"id": "JSEC-1", "judge": "judge-security", "rule": "CWE-639, A01:2025 Broken Access Control", "severity": "high", "summary": "The export does not check that the account belongs to the caller; load it through the session", "location": "src/export/views.py:31"}'
 exo change record <change> --add judges_invoked '{"name": "judge-security", "result": "escalated: JSEC-1 open"}'
 exo change record <change> --add capabilities_used '{"name": "judge-security", "type": "judge", "activation": "auto", "resolution": "paths-injected"}'
 ```
