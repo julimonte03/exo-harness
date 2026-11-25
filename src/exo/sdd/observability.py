@@ -24,13 +24,13 @@ from pathlib import Path
 from typing import Any
 
 from exo.core import config, fsutil
-from exo.sdd import speclint
+from exo.sdd import fitness, speclint
 
 ARCHIVE = "archive"
 CAPABILITIES = "capabilities"
 AI_USAGE_RECORD = "ai-usage-record.json"
 ASSESSMENT = "fitness-assessment.json"
-FAILSAFE_TIER = 4
+FAILSAFE_TIER = fitness.FAILSAFE_TIER
 FOLLOWUPS = "followups.json"
 # Artefacto que marca cada fase, en orden; gana el último presente.
 PHASES = (
@@ -249,13 +249,19 @@ def ai_usage_record(project: Path, name: str) -> dict[str, Any]:
 
 
 def tier_of(folder: Path) -> tuple[int, str]:
-    """`(tier, origen)`: el de `fitness-assessment.json`, o 4 si falta o no se lee (§6.3)."""
+    """`(tier, origen)`: el de `fitness-assessment.json`, o 3 si falta o no se lee (§6.3).
+
+    Un 4 escrito por la 1.0 se lee como 3 (D-52), sin reescribir el archivo.
+    """
     path = Path(folder) / ASSESSMENT
     if not path.exists():
         return FAILSAFE_TIER, "missing"
     data = _read_json(path, [])
     tier = data.get("tier") if isinstance(data, dict) else None
-    if isinstance(tier, bool) or not isinstance(tier, int) or not 1 <= tier <= 4:
+    legacy = fitness.legacy_tier(tier)
+    if legacy is not None:
+        return legacy, "assessment"
+    if isinstance(tier, bool) or not isinstance(tier, int) or tier not in fitness.TIERS:
         return FAILSAFE_TIER, "unreadable"
     return tier, "assessment"
 
@@ -318,8 +324,8 @@ def next_phase(
         return "verify", "verify-record.md has no valid Verdict"
     if result == "blocked":
         return "verify", "the verify is blocked: solve what it reports, then verify again"
-    if tier == 4 and not judgment_approved(judges):
-        return "judgment", "Tier 4 needs an approved judgment-day before archive"
+    if tier == 3 and not judgment_approved(judges):
+        return "judgment", "Tier 3 needs an approved judgment-day before archive"
     return "archive", "the verify is ready"
 
 

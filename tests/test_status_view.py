@@ -72,7 +72,7 @@ def test_changes_con_gates_y_followups(project: Path, capsys: pytest.CaptureFixt
     assert "manual change: .claude/agents/sdd-judge.md (mirror): modified" in out
     assert "changes: 1 active" in out
     [row] = [line for line in out.splitlines() if "add-login" in line]
-    assert "Tier 4 (unclassified)" in row  # sin fitness-assessment.json
+    assert "Tier 3 (unclassified)" in row  # sin fitness-assessment.json
     assert "next: risk" in row
     detail = out.split(row, 1)[1]
     assert "gates: code_review APPROVED, security_review ESCALATED (needs tech_lead)" in detail

@@ -27,7 +27,8 @@ from exo.core import config, fsutil, jsonschema, tickets
 from exo.sdd import fitness, observability, record
 
 ASSESSMENT = observability.ASSESSMENT
-ASSESSMENT_SCHEMA = 1
+# 2 desde D-52 (tres tiers). El 1 es de la 1.0: puede traer un tier 4 (ver migrate_assessment).
+ASSESSMENT_SCHEMA = 2
 LIST_FIELDS = (
     "skills_used",
     "knowledge_used",
@@ -364,10 +365,59 @@ def read_tier(folder: Path) -> int | None:
     return tier if source == "assessment" else None
 
 
+def read_assessment_file(path: Path) -> dict[str, Any] | None:
+    """`fitness-assessment.json` como dict, o None si falta o no se puede leer."""
+    return _read_assessment(Path(path))
+
+
+def dump_assessment(data: dict[str, Any]) -> bytes:
+    """Los bytes con los que el motor escribe un assessment."""
+    return _dump(data)
+
+
+def assessment_schema(folder: Path) -> int | None:
+    """El esquema de `fitness-assessment.json` (sin campo, 1), o None si falta o no se lee."""
+    data = _read_assessment(Path(folder) / ASSESSMENT)
+    if data is None:
+        return None
+    schema = data.get("schema", 1)
+    return schema if isinstance(schema, int) and not isinstance(schema, bool) else None
+
+
 def effective_tier(folder: Path) -> int:
-    """Tier desconocido o ilegible es Tier 4 (§6.3)."""
+    """Tier desconocido o ilegible es Tier 3 (§6.3)."""
     tier = read_tier(folder)
     return fitness.FAILSAFE_TIER if tier is None else tier
+
+
+def migrate_assessment(data: Any, *, now: datetime | None = None) -> dict[str, Any] | None:
+    """Lleva un `fitness-assessment.json` del esquema 1 (la 1.0, cuatro tiers) al actual.
+
+    D-52: un Tier 4 pasa a 3 y registra `migrated_from: 4`; un Tier 3 adopta las
+    reglas nuevas (`judgment-day` siempre). Los dos suman una entrada `migrated` a la
+    historia, sin reescribir las anteriores. Un Tier 1 o 2 solo cambia de esquema.
+    Devuelve None si no hay nada que migrar: ya es del esquema actual, o no se puede
+    leer (eso lo informa `exo check`, no se adivina).
+    """
+    if not isinstance(data, dict):
+        return None
+    schema = data.get("schema", 1)
+    tier = data.get("tier")
+    if isinstance(schema, bool) or schema != 1:
+        return None
+    if isinstance(tier, bool) or not isinstance(tier, int) or not 1 <= tier <= 4:
+        return None
+    out = {**data, "schema": ASSESSMENT_SCHEMA}
+    if tier >= 3:
+        new = fitness.normalize_tier(tier)
+        out.update(tier=new, ceremony=fitness.CEREMONIES[new], judgment_day=True)
+        if tier != new:
+            out["migrated_from"] = tier
+        history = data.get("history")
+        entry = {"tier": new, "rule": data.get("rule"), "at": _stamp(now), "change": "migrated"}
+        entry["from"] = tier
+        out["history"] = [*(history if isinstance(history, list) else []), entry]
+    return out
 
 
 def record_assessment(
@@ -388,7 +438,7 @@ def record_assessment(
     if malformed:
         raise ChangeError(
             "the evidence is malformed (" + "; ".join(malformed) + "), so nothing was recorded: "
-            "fix it and run again. A missing dimension is fine: it gives Tier 4 (FM-00)"
+            "fix it and run again. A missing dimension is fine: it gives Tier 3 (FM-00)"
         )
     decision = fitness.classify(evidence)
     exists = path.exists()
@@ -427,5 +477,7 @@ def record_assessment(
         "assessed_at": stamp,
         "history": [*(history if isinstance(history, list) else []), entry],
     }
+    if old is not None and "migrated_from" in old:
+        data["migrated_from"] = old["migrated_from"]
     fsutil.write_atomic(path, _dump(data))
     return Assessment(decision.tier, previous, comparison, True, rel, decision)
