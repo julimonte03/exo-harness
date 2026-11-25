@@ -2,19 +2,21 @@
 
 Junta lo que ya calculan otros módulos (la instalación, los hooks, la persona y la
 observabilidad de los changes) y lo arma en líneas. Los colores son ANSI, solo en una
-TTY y sin `NO_COLOR` (no-color.org). `exo status --json` no pasa por acá: su salida
-no cambia.
+TTY y sin `NO_COLOR` (no-color.org); en Windows, además, solo si la consola acepta el
+modo VT. `exo status --json` no pasa por acá: su salida no cambia.
 """
 
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+import sys
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from exo import _meta, persona
+from exo.core import lock
 from exo.governance import githooks
 from exo.installer import project as installed
 from exo.sdd import observability, speclint
@@ -22,14 +24,48 @@ from exo.sdd import observability, speclint
 _CODES = {"ok": "32", "warn": "33", "bad": "31", "dim": "2", "bold": "1"}
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 _TIER_SOURCE = {"missing": "unclassified", "unreadable": "unreadable assessment"}
+_ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
 
 
-def use_color(stream: Any, env: Mapping[str, str]) -> bool:
-    """Colores solo en una TTY, sin `NO_COLOR` (si no está vacía) y sin `TERM=dumb`."""
+def _enable_vt(
+    stream: Any, kernel32: Any = None, get_handle: Callable[[int], int] | None = None
+) -> bool:
+    """Activa el modo VT de la consola de Windows para `stream`; False si no se puede.
+
+    Sin `ENABLE_VIRTUAL_TERMINAL_PROCESSING`, conhost muestra los códigos ANSI como texto.
+    `kernel32` y `get_handle` se inyectan en los tests."""
+    try:
+        import ctypes
+
+        if kernel32 is None:
+            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+        if get_handle is None:
+            import msvcrt
+
+            get_handle = msvcrt.get_osfhandle  # type: ignore[attr-defined]
+        handle = get_handle(stream.fileno())
+        mode = ctypes.c_uint32()
+        if not kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+            return False  # no es una consola
+        if mode.value & _ENABLE_VIRTUAL_TERMINAL_PROCESSING:
+            return True
+        wanted = mode.value | _ENABLE_VIRTUAL_TERMINAL_PROCESSING
+        return bool(kernel32.SetConsoleMode(handle, wanted))
+    except (AttributeError, ImportError, OSError, ValueError):
+        return False
+
+
+def use_color(stream: Any, env: Mapping[str, str], *, windows: bool | None = None) -> bool:
+    """Colores solo en una TTY, sin `NO_COLOR` (si no está vacía) y sin `TERM=dumb`. En
+    Windows, solo si se pudo activar el modo VT de la consola (F8R1-6)."""
     if env.get("NO_COLOR") or env.get("TERM") == "dumb":
         return False
     isatty = getattr(stream, "isatty", None)
-    return bool(isatty and isatty())
+    if not (isatty and isatty()):
+        return False
+    if sys.platform == "win32" if windows is None else windows:
+        return _enable_vt(stream)
+    return True
 
 
 @dataclass(frozen=True)
@@ -119,6 +155,9 @@ def _engine(info: installed.Status, style: Style) -> str:
     line = f"engine: {_meta.VERSION} (lock written by {info.lock_version}"
     if info.lock_version == _meta.VERSION:
         return line + ")"
+    # Un lock más nuevo: `exo update` lo rechaza, así que se actualiza el motor (como doctor).
+    if info.lock_version and lock.newer_than_engine(info.lock_version):
+        return line + "; " + style.paint("warn", f"upgrade {_meta.NAME}") + ")"
     return line + "; " + style.paint("warn", f"run `{_meta.NAME} update`") + ")"
 
 

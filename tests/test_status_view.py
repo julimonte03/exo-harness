@@ -100,6 +100,17 @@ def test_lock_de_otra_version_sugiere_update(
     assert f"engine: 9.9.9 (lock written by {written}; run `{_meta.NAME} update`)" in out
 
 
+def test_lock_de_un_motor_mas_nuevo_pide_actualizar_el_motor(
+    project: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """F8R1-5: `exo update` lo rechaza; como `exo doctor`, hay que actualizar exo."""
+    written = _meta.VERSION
+    monkeypatch.setattr(_meta, "VERSION", "0.0.1")
+    out = _status(project, capsys)
+    assert f"engine: 0.0.1 (lock written by {written}; upgrade {_meta.NAME})" in out
+    assert "run `" not in out.split("engine:", 1)[1].splitlines()[0]
+
+
 def test_json_sin_cambios(project: Path, capsys: pytest.CaptureFixture[str]) -> None:
     payload = json.loads(_status(project, capsys, "--json"))
     assert sorted(payload) == sorted(
@@ -142,7 +153,62 @@ class _Stream(io.StringIO):
     ],
 )
 def test_colores_solo_en_tty_y_sin_no_color(tty: bool, env: dict, expected: bool) -> None:
-    assert status_view.use_color(_Stream(tty), env) is expected
+    assert status_view.use_color(_Stream(tty), env, windows=False) is expected
+
+
+@pytest.mark.parametrize("vt", [True, False])
+def test_en_windows_colores_solo_si_la_consola_acepta_ansi(
+    monkeypatch: pytest.MonkeyPatch, vt: bool
+) -> None:
+    """F8R1-6: conhost muestra los códigos ANSI como basura si no se activa el modo VT."""
+    asked: list[object] = []
+    monkeypatch.setattr(status_view, "_enable_vt", lambda stream: asked.append(stream) or vt)
+    stream = _Stream(True)
+    assert status_view.use_color(stream, {}, windows=True) is vt
+    assert asked == [stream]
+    assert status_view.use_color(_Stream(False), {}, windows=True) is False
+    assert len(asked) == 1  # sin TTY ni se intenta
+
+
+class _Kernel32:
+    """Lo que `_enable_vt` usa de kernel32: GetConsoleMode y SetConsoleMode."""
+
+    def __init__(self, mode: int | None, settable: bool = True) -> None:
+        self.mode, self.settable, self.set_to = mode, settable, None
+
+    def GetConsoleMode(self, handle: int, ref: object) -> int:  # noqa: N802
+        if self.mode is None:
+            return 0  # no es una consola
+        ref._obj.value = self.mode  # type: ignore[attr-defined]
+        return 1
+
+    def SetConsoleMode(self, handle: int, mode: int) -> int:  # noqa: N802
+        self.set_to = mode
+        return 1 if self.settable else 0
+
+
+class _Console(io.StringIO):
+    def fileno(self) -> int:
+        return 1
+
+
+@pytest.mark.parametrize(
+    ("kernel32", "expected", "set_to"),
+    [
+        (_Kernel32(0x0003), True, 0x0007),  # se activa
+        (_Kernel32(0x0007), True, None),  # ya estaba activo
+        (_Kernel32(0x0003, settable=False), False, 0x0007),  # consola vieja: sin color
+        (_Kernel32(None), False, None),  # no es una consola
+    ],
+)
+def test_activar_el_modo_vt(kernel32: _Kernel32, expected: bool, set_to: int | None) -> None:
+    handles: list[int] = []
+    got = status_view._enable_vt(
+        _Console(), kernel32=kernel32, get_handle=lambda fd: handles.append(fd) or 42
+    )
+    assert got is expected
+    assert kernel32.set_to == set_to and handles == [1]
+    assert status_view._enable_vt(io.StringIO(), kernel32=kernel32, get_handle=int) is False
 
 
 def test_con_colores_marca_el_estado(project: Path) -> None:
