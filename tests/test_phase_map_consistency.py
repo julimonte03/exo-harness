@@ -16,6 +16,7 @@ import pytest
 
 from exo import _meta, content, packs, phase_map
 from exo.core import frontmatter
+from exo.sdd import speclint
 
 ROOT = content.content_root()
 COLLECTION = packs.load_collection(ROOT)
@@ -218,3 +219,37 @@ def test_el_esquema_del_registro_se_instala_con_sdd() -> None:
         "agent-capabilities.md",
     ):
         assert name in shared
+
+
+# -- modo automático (F8) ---------------------------------------------------------------------
+
+DEFERRED = "deferred to a followup (automatic mode)"
+
+
+def _content(*parts: str) -> str:
+    return ROOT.joinpath("packs", *parts).read_text(encoding="utf-8")
+
+
+def _automatic_mode() -> str:
+    """El bloque "Automatic mode" de la sección Judges de sdd-verify."""
+    text = _content("sdd", "skills", "sdd-verify", "SKILL.md")
+    return text.split("**Automatic mode**", 1)[1].split("**A risk the `tech_lead` accepts.**", 1)[0]
+
+
+def test_en_modo_automatico_un_medium_o_low_queda_decidido() -> None:
+    """F8R3-1: el aplazamiento es un descarte con su motivo, así archive y status no lo ven abierto.
+
+    Antes quedaba como followup abierto, y la precondición 5 de sdd-archive y el contrato de
+    estado (un `ready` con followups abiertos es una inconsistencia) frenaban el archive.
+    """
+    auto = _automatic_mode()
+    assert "dismissed_followups" in auto and DEFERRED in auto
+    assert "open followup" not in auto
+    assert DEFERRED in _content("sdd", "skills", "sdd-archive", "SKILL.md")
+    assert DEFERRED in _content("core", "shared", "sdd-status-contract.md")
+    assert DEFERRED in _content("core", "shared", "capability-attribution.md")
+    assert "## Known followups" in speclint.template_text("pr")
+    for skill in ("branch-pr", "chained-pr"):
+        assert "Known followups" in _content("core", "skills", skill, "SKILL.md"), skill
+    dev = _content("core", "shared", "personas", "dev.md")
+    assert "leaving it open" not in dev

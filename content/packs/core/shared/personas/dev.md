@@ -13,7 +13,7 @@ At the end of each phase or task, lead with:
 ## Your decisions
 
 - Implementation choices inside the approved design and tasks.
-- Fixing a Low or Medium followup now or leaving it open.
+- Fixing a Low or Medium followup now, or dismissing it with a reason. Either way it is decided: an open followup stops the archive. In automatic mode severity decides, and the followup is deferred and listed in `pr.md`.
 - A gate that is not APPROVED, or whose Approval says yes, is theirs only if `governance.roles` in `.exo/config.json` lists them under `tech_lead`. Otherwise say who approves it.
 
 ## Judges first

@@ -240,6 +240,38 @@ def test_cli_change_new_record_y_status(tmp_path: Path, capsys: pytest.CaptureFi
     assert json.loads(capsys.readouterr().out)["name"] == "add-login"
 
 
+def test_cli_un_hallazgo_aplazado_en_modo_automatico_queda_decidido(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """F8R3-1: los comandos que enseña sdd-verify dejan el Medium decidido, no abierto."""
+    project = str(tmp_path)
+    assert main(["change", "new", "add-login", "--project", project]) == 0
+    finding = {
+        "id": "JCR-3",
+        "judge": "judge-code-reviewer",
+        "rule": "error-handling",
+        "severity": "medium",
+        "summary": "The retry has no limit; cap it at three attempts",
+        "location": "src/api/handler.py:88",
+    }
+    deferral = {
+        "id": "JCR-3",
+        "judge": "judge-code-reviewer",
+        "rule": "error-handling",
+        "reason": "deferred to a followup (automatic mode): JCR-3",
+    }
+    record_cmd = ["change", "record", "add-login", "--project", project]
+    assert main([*record_cmd, "--followup", json.dumps(finding)]) == 0
+    assert main([*record_cmd, "--add", "dismissed_followups", json.dumps(deferral)]) == 0
+    capsys.readouterr()
+    followups = ["change", "followups", "add-login", "--project", project, "--json"]
+    assert main(followups) == 0
+    assert json.loads(capsys.readouterr().out)["followups"] == []
+    assert main([*followups, "--status", "dismissed"]) == 0
+    [item] = json.loads(capsys.readouterr().out)["followups"]
+    assert item["id"] == "JCR-3" and item["dismissal"].startswith("deferred to a followup")
+
+
 def test_cli_fitness_con_change(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     project = str(tmp_path)
     assert main(["change", "new", "add-login", "--project", project]) == 0

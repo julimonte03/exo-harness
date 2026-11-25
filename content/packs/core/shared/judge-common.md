@@ -72,4 +72,5 @@ The orchestrator, or the agent when there is none, records the outcome; the judg
 - **The judge and its verdict** in the AI Usage Record: `--add judges_invoked '{"name": "judge-security", "result": "escalated: JSEC-1 open"}'`, and the judge in `capabilities_used` with `"type": "judge"`.
 - **A fixed followup:** once the fix is in, `exo change record <change> --fixed <id>`.
 - **A dismissed followup** (the person decides not to fix it) goes to `dismissed_followups` with its `id`, `judge`, `rule` and the person's reason. Never dismiss one on your own.
+- **A deferred followup** (automatic mode only, `.exo/shared/sdd-phase-common.md`, section H): a Medium or Low one goes to `dismissed_followups` the same way, with the reason `deferred to a followup (automatic mode): <id>` (the Judges section of the verify phase skill). It is the mode's decision, not yours: never defer a Critical or High one.
 - Judges have no gate of their own: the gates come from the skills in `.exo/shared/phase-skill-map.md`, Gates.

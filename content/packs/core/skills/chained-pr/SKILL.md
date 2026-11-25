@@ -110,6 +110,7 @@ Start each one from `.exo/shared/templates/pr.md`, with real content in every se
 - **Ticket:** the same exact `ticket_key` in every part (`exo change ai-usage <change> --json`), or `none`. Never infer it from the branch.
 - **Changes:** the tasks of this part by number and title; part 1 also lists the change's artifacts.
 - **Test Plan:** the commands run on this part's branch and their results.
+- **Known followups:** `None` in the parts before the last, which come before the verify; the last part's `pr.md` lists the change's (skill:branch-pr).
 - **Checklist:** the template items, ticked only when true for this part.
 
 Save each body as `pr-part-<n>.md` in the change root and check it with `exo speclint <change-root>/pr-part-<n>.md --type pr`. The last part's body is the change's `pr.md`, which skill:branch-pr writes, with the whole stack listed in its Summary. Commit the `pr-part-<n>.md` files in the last part, together with `pr.md`; until then, stage files by name so they do not slip into an earlier part.

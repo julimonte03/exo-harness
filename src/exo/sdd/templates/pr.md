@@ -16,6 +16,10 @@
 
 <!-- How it was tested: exact commands and results. -->
 
+## Known followups
+
+<!-- The findings deferred to a followup, each with its ID or path:line, severity and one line; "None" if there are none. -->
+
 ## Checklist
 
 <!--

@@ -166,6 +166,9 @@ none
 ## Test Plan
 pytest
 
+## Known followups
+None
+
 ## Checklist
 - [x] Tests
 """
@@ -197,6 +200,18 @@ def test_documentos_validos(tmp_path: Path, name: str, text: str, kind: str) -> 
     report = speclint.lint_path(_write(tmp_path, name, text))
     assert report.ok, _messages(report)
     assert report.files[0].kind == kind
+
+
+def test_pr_lista_los_followups_conocidos(tmp_path: Path) -> None:
+    """F8R3-1: en modo automático un Medium o Low se aplaza, y el PR lo dice."""
+    deferred = PR.replace("## Known followups\nNone", "## Known followups\n- JCR-3 (Medium): retry")
+    assert speclint.lint_path(_write(tmp_path, "pr.md", deferred)).ok
+    missing = PR.replace("## Known followups\nNone\n\n", "")
+    messages = _messages(speclint.lint_path(_write(tmp_path, "pr.md", missing)))
+    assert "missing section '## Known followups'" in messages
+    empty = PR.replace("## Known followups\nNone", "## Known followups\n<!-- none yet -->")
+    messages = _messages(speclint.lint_path(_write(tmp_path, "pr.md", empty)))
+    assert "section 'Known followups' is empty" in messages
 
 
 @pytest.mark.parametrize("name", sorted(speclint.ARTIFACTS))

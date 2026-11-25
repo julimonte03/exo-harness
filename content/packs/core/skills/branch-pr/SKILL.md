@@ -64,6 +64,7 @@ Start from `.exo/shared/templates/pr.md`. Every section needs real content; the 
 - **Ticket:** the exact `ticket_key` of the change (`exo change ai-usage <change> --json`), for example `AB#77` and not the normalized `AB-77`. If it is null, write `none`. Never infer it from the branch.
 - **Changes:** bullets with the relevant changes, and the change's artifacts (the spec delta, the design).
 - **Test Plan:** the exact commands and their results, as in the Tests section of `verify-record.md`.
+- **Known followups:** every finding deferred to a followup, with its ID or `path:line`, severity and one line: the dismissals of `exo change followups <change> --status dismissed --json` whose reason starts with `deferred to a followup`, and the decisions of `exo change ai-usage <change> --json` that start the same way. Write `None` when there are none.
 - **Checklist:** the template items as real lines, ticked only when true:
 
 ```markdown

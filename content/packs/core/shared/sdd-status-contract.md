@@ -53,7 +53,7 @@ Report them, do not resolve them by guessing:
 
 - an artifact of a later phase without the earlier one the tier requires (for example `design.md` without `spec.md` in Tier 3);
 - a `change_name` in `ai-usage-record.json` that does not match the folder;
-- a Verdict `ready` with open followups (`exo change followups <change>`: neither fixed nor dismissed) or with findings in Issues Found that the person did not decide;
+- a Verdict `ready` with open followups (`exo change followups <change>`: neither fixed nor dismissed) or with findings in Issues Found that nobody decided. In automatic mode, a Medium or Low finding recorded as `deferred to a followup (automatic mode)`, as a dismissal or as a decision, is decided: it is not an inconsistency;
 - an unreadable JSON file (it shows up in `warnings`).
 
 Say which file and what is wrong, and ask the person, or fix it in the phase that owns the file.
