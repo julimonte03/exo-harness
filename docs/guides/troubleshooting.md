@@ -229,7 +229,10 @@ The API key travels with every request, so a remote endpoint must use `https`. P
 exo does not follow redirects of an embeddings endpoint. Set `EXO_EMBEDDINGS_URL` to the address the message names, if you trust it.
 
 **``... can be read by other users (mode 755); it holds your memory, unredacted: run `chmod 700 ...` ``** (`exo doctor`, line `data-dir`)
-On Linux and macOS, exo creates its data folder readable only by you, but it does not change a folder that already existed. Run the `chmod` in the message.
+On Linux and macOS, exo creates its data folder readable only by you, but it does not change a folder that already existed. Run the `chmod` in the message. On a disk that does not keep Unix permissions (FAT or exFAT), exo works anyway and this warning stays: move the data folder with `EXO_DATA_DIR`.
+
+**``... is outside %LOCALAPPDATA%: check that only you can read it, because it holds your memory, unredacted``** (`exo doctor`, line `data-dir`, on Windows)
+`EXO_DATA_DIR` points somewhere other than `%LOCALAPPDATA%`, which Windows keeps per user. exo does not read folder permissions on Windows: check them yourself, or unset `EXO_DATA_DIR`.
 
 ## Persona
 

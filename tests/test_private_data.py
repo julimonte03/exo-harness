@@ -106,6 +106,21 @@ def test_doctor_sin_carpeta_de_datos(data_dir: Path, tmp_path: Path) -> None:
     assert check.status in ("info", "ok")
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="solo Windows")
+def test_doctor_en_windows_ok_solo_bajo_localappdata(
+    data_dir: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """F8R1-19: `%LOCALAPPDATA%` es por usuario; una `EXO_DATA_DIR` en otro lado, quizás no."""
+    data_dir.mkdir(parents=True)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "DATOS"))  # mayúsculas: da igual
+    check = {c.name: c for c in doctor.run_checks(tmp_path)}["data-dir"]
+    assert check.status == "ok", check.detail
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "otra"))
+    check = {c.name: c for c in doctor.run_checks(tmp_path)}["data-dir"]
+    assert check.status == "info"
+    assert "LOCALAPPDATA" in check.detail and str(data_dir) in check.detail
+
+
 @POSIX
 def test_backups_de_desinstalacion_en_0700_y_0600(
     data_dir: Path, tmp_path: Path, synthetic_content: Path

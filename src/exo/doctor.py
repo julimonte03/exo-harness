@@ -361,6 +361,16 @@ def _githooks(project: Path) -> Check:
     return Check("githooks", found.status, found.detail)
 
 
+def _is_under(path: Path, base: Path) -> bool:
+    """¿`path` está dentro de `base` (o es `base`)? Sin distinguir mayúsculas en Windows."""
+    target = os.path.normcase(os.path.realpath(path))
+    root = os.path.normcase(os.path.realpath(base))
+    try:
+        return os.path.commonpath([target, root]) == root
+    except ValueError:  # otra unidad
+        return False
+
+
 def _data_dir(project: Path) -> Check:
     """La carpeta de datos tiene la memoria sin redactar: en POSIX, solo para el dueño (TM-27)."""
     folder = paths.user_data_dir()
@@ -368,7 +378,17 @@ def _data_dir(project: Path) -> Check:
         detail = f"{folder} does not exist yet; the engine creates it private"
         return Check("data-dir", "info", detail)
     if os.name == "nt":
-        return Check("data-dir", "ok", f"{folder} (per user on Windows)")
+        # `%LOCALAPPDATA%` es por usuario (supuesto S-10); una carpeta elegida con
+        # `<ENV_PREFIX>DATA_DIR` en otro lado puede no serlo, y el motor no lee ACLs (F8R1-19).
+        local = os.environ.get("LOCALAPPDATA")
+        if local and _is_under(folder, Path(local)):
+            return Check("data-dir", "ok", f"{folder} (per user, under %LOCALAPPDATA%)")
+        return Check(
+            "data-dir",
+            "info",
+            f"{folder} is outside %LOCALAPPDATA%: check that only you can read it, because it "
+            "holds your memory, unredacted",
+        )
     mode = stat.S_IMODE(folder.stat().st_mode)
     if mode & 0o077:
         return Check(
