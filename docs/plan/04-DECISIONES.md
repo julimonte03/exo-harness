@@ -176,6 +176,7 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
   - **Tier 2:** exige `proposal.md`, `spec.md` y `test-spec.md`. Este último lo escribe `sdd-spec` con `test-strategy`.
   - **Tier 3 y 4:** suman `design.md` y `tasks.md`; `test-spec.md` lo escribe `sdd-tasks`.
   - **Todos los tiers:** exigen `ai-usage-record.json` válido. Sin `fitness-assessment.json`, el tier es 4.
+- **Reemplazada en parte por D-52** (2026-11-22): con tres tiers, lo que acá dice "Tier 3 y 4" pasa al Tier 3, y sin `fitness-assessment.json` el tier es 3. Las reglas del Tier 1 y del Tier 2 siguen igual.
 
 ### D-28 — Meta-comandos del orquestador
 - **Contexto:** F4 pide los meta-comandos `/sdd-new`, `/sdd-continue`, `/sdd-ff` y `/sdd-status`. El repo usa skills como comandos y no genera prompt files ni `.claude/commands/` (`03-MATRIZ-AGENTES.md`).
@@ -304,3 +305,83 @@ Estado: `Abierta` | `Decidida (ADR-xxxx)`.
 ### D-51 — Cierre de cada fase por PR
 - **Contexto:** hasta F7 las fases se cerraban en local, con `git merge --no-ff` a `main` y sin remoto. Desde F8 el repo es público y la CI corre en GitHub Actions (D-22, D-45).
 - **Estado:** Decidida por el dueño, 2026-11-25: desde F8, cada fase termina con un PR de su rama a `main` que el dueño abre y mergea en GitHub con la CI en verde. Nunca hay push directo a `main`.
+
+## Paquete de capacidades y tiers (F9 a F13)
+
+Vienen del paquete que el dueño escribió el 2026-11-22 (`docs/plan/paquete-capacidades.md`, sección 3). El original las numeraba D-49 a D-52; se corrieron porque esos números ya estaban usados.
+
+### D-52 — Tres tiers
+- **Contexto:** el modelo de cuatro tiers venía del reporte (§4.8 y §6.3), con tres ceremonias para cuatro tiers. El Tier 4 se distinguía del 3 solo por `judgment-day` y por el gate `secure_coding_check`.
+- **Estado:** Decidida por el dueño (ADR-0019), 2026-11-22:
+  - **Tres tiers:**
+    - **1 Small:** `proposal.md`; `spec.md` solo si cambia el comportamiento (D-27).
+    - **2 Spec:** `proposal.md`, `spec.md` y `test-spec.md`, más la segunda opinión.
+    - **3 Full:** `proposal.md`, `spec.md`, `design.md`, `tasks.md` y `test-spec.md`, más la segunda opinión, los jueces y `judgment-day` **siempre**.
+    - Todos exigen `ai-usage-record.json` válido.
+  - **Fitness:**
+    - FM-01, FM-02 y FM-03 pasan del Tier 4 al **Tier 3**;
+    - la evidencia faltante o ilegible (FM-00) da **Tier 3**;
+    - FM-10 a FM-30 no cambian.
+  - **Ceremonias:** una por tier, `minimal`, `light` y `full`.
+  - **Sin marca de "piso duro".** La regla que disparó el tier queda en `fitness-assessment.json`, como hoy. Bajar de tier sigue pidiendo la confirmación literal de la persona.
+  - **Migración:**
+    - los cambios activos en Tier 4 pasan a Tier 3 con `migrated_from: 4`;
+    - los archivados no se reescriben, y al leerlos un 4 se interpreta como 3.
+  - Reemplaza a D-27 en todo lo que toca a los Tiers 3 y 4.
+- **Agregado por el dueño, 2026-11-25** (el paquete no lo resolvía):
+  1. **Gates del Tier 3:** la unión de los del Tier 3 y el Tier 4, así que suma `secure_coding_check`. La migración de la config une las listas `"3"` y `"4"` de `governance.gates` de cada proyecto, conserva el orden y lo personalizado, y borra la clave `"4"`.
+  2. **Cambios activos en Tier 3:** adoptan las reglas nuevas, o sea `judgment-day` y los gates nuevos antes de archivar.
+  3. **Archivados con `fitness-assessment.json` del esquema viejo:** `exo check` los valida solo por estructura (record, artefactos y speclint). No les exige gates ni `judgment-day` con las reglas nuevas, porque ya pasaron `exo check` cuando se archivaron.
+
+### D-53 — Catálogo de capacidades: nativo primero, con pregunta única
+- **Contexto:** cada agente trae funcionalidades propias (subagentes, modelo por subagente, modo de solo lectura, advisor) que exo también resuelve a su manera. Hoy las skills suponen qué hay, o lo prueban una vez (`agent-capabilities.md`).
+- **Estado:** Decidida por el dueño (ADR-0020), 2026-11-22:
+  - **Catálogo completo desde la primera versión.** Cada capacidad tiene una política:
+    - `native`: se usa la del agente si la trae y la persona la aceptó; si no, la de exo; si tampoco hay, la persona.
+    - `exo`: siempre la de exo, para todo lo que gobierna o deja prueba (gates, jueces, `judgment-day`, fitness, `exo check`, AI Usage Record, specs, memoria y enforcement). Nunca se ofrece como nativa.
+    - `complement`: la nativa suma información pero no reemplaza a la de exo.
+  - **Pregunta única por máquina**, en `exo init`, si no hay perfil para el agente detectado: usar todas, elegir una por una o ninguna.
+    - La respuesta va al perfil de la máquina, nunca al repo.
+    - Solo se vuelve a preguntar si cambia el agente, o por una capacidad nativa nueva.
+  - `exo capabilities --json` informa la resolución a las skills.
+
+### D-54 — Modelo por tier y por rol
+- **Contexto:** todas las fases corren hoy con el modelo de la sesión. Una selección por niveles se diseñó antes de la versión actual del plan y nunca entró.
+- **Estado:** Decidida por el dueño (ADR-0020), 2026-11-22:
+  - **Niveles:** `fast`, `balanced` y `deep`.
+  - **Dónde vive cada cosa:**
+    - la política por tier y por rol, en `.exo/config.json`, solo con niveles;
+    - el mapa de nivel a modelo concreto, en el perfil de cada máquina.
+  - **Defaults** (tabla en el paquete, §3.3):
+    - `explore` en `fast`;
+    - `propose`, `spec`, `tasks` y `apply` en `balanced`;
+    - `design` en `deep` (Tier 3);
+    - `verify` en `balanced`, salvo en el Tier 3, que va en `deep`;
+    - los jueces, `judgment-day` y la segunda opinión en `deep`.
+  - El orquestador pasa el modelo al delegar. Si el agente no lo permite, usa el de la sesión, avisa y lo registra.
+  - Nunca se escribe un modelo concreto en un archivo versionado.
+
+### D-55 — Segunda opinión
+- **Contexto:** varios agentes ya traen un "advisor" o un crítico incorporado. Las rondas de verify y los hallazgos de los jueces muestran retrabajo que una consulta temprana podría evitar.
+- **Estado:** Decidida por el dueño (ADR-0020), 2026-11-22:
+  - **Tier 1:** solo si la persona lo pide.
+  - **Tiers 2 y 3, en tres puntos:**
+    - `approach`, obligatorio y una vez por cambio: en el Tier 2 al empezar `apply`, en el Tier 3 al cerrar `design`;
+    - `stuck`, si el mismo error aparece por segunda vez o tras dos intentos fallidos;
+    - `done`, obligatorio, al terminar `apply` y antes de `verify`.
+  - **Orden de resolución:**
+    - Tier 2: nativa (si la persona la aceptó) → `exo-advisor` → persona.
+    - Tier 3: `exo-advisor` → persona, para que lo aconsejado quede escrito.
+  - **Tope por tier** (`second_opinion.max_per_change`):
+    - reserva lugar para los puntos obligatorios que falten, y `stuck` solo usa lo que sobra;
+    - las respuestas de la persona no cuentan para el tope.
+  - **Registro:** cada consulta queda en el AI Usage Record, y en el Tier 3 deja además un archivo de consejo en el change.
+  - exo no llama a ningún modelo: el subagente lo corre el agente, y la invariante 11 no cambia.
+
+**Defaults revisables de D-53 a D-55** (paquete, §3.5). Se aplican y se confirman o ajustan con los datos de F13:
+- topes de 3 consultas por cambio en el Tier 2 y 6 en el Tier 3;
+- la exploración en `fast`;
+- la segunda opinión con un modelo más fuerte del mismo agente; usar otra familia de modelos (como Rubber Duck en Copilot) queda fuera del paquete;
+- `exo init` sin terminal aplica la política con `chosen_by: default`;
+- `exo doctor` avisa cuando los datos de capacidades tienen más de 60 días;
+- los archivados no se reescriben.

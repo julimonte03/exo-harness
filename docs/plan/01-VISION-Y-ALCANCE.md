@@ -22,7 +22,7 @@ Además, a diferencia del arnés original, el motor puede **llegar a un proyecto
 | Pieza del reporte | Cómo queda en el motor |
 |---|---|
 | Runtime Python ≥ 3.10 solo stdlib, con sus 11 invariantes (§4.6) | Se conserva, con rutas y nombres nuevos, más 6 invariantes propias (ver `02-ARQUITECTURA.md`) |
-| Ciclo SDD/SPDD por fases, tiers 1–4, reglas FM-01…FM-30, envelope, `change-root` | Se conserva el contrato completo |
+| Ciclo SDD/SPDD por fases, tiers 1–4, reglas FM-01…FM-30, envelope, `change-root` | Se conserva el contrato completo. **Desde D-52 (ADR-0019, paquete F9 a F13) son tres tiers:** FM-01 a FM-03 y la evidencia faltante dan Tier 3 |
 | Jueces advisory, AI Usage Record, gates con comentario único por gate | Se conservan; además se verifican en `arnes check` |
 | engram: API de 15 tools, `topic_key`, guard S1, export redactado | Se conserva la API; cambia el motor de búsqueda (F3). Sin guard S1 ni export redactado (ADR-0009) |
 | Servidor MCP JSON-RPC stdio con 22 tools en 3 grupos | Se conservan los grupos; nombres sin el prefijo del toolkit de origen |
