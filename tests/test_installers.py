@@ -370,6 +370,33 @@ def test_install_sh_remoto_ref_por_file(tmp_path: Path, remoto: _remote.Remote) 
     assert remoto.requests == []
 
 
+# Un archivo del paquete que cambia de un commit a otro de la misma rama, sin cambiar la versión.
+_MARCA = "src/exo/reinstall-check.txt"
+
+
+def _marca_instalada(venv: Path) -> str:
+    """El texto de `_MARCA` en el venv del instalador (sin uv), o '' si no está."""
+    found = sorted(venv.rglob(Path(_MARCA).name))
+    return found[0].read_text(encoding="utf-8") if found else ""
+
+
+@POSIX_ONLY
+def test_install_sh_remoto_rama_reinstala_el_commit_nuevo(tmp_path: Path, remoto: _remote.Remote) -> None:
+    """Sin uv, una rama va por git: volver a instalarla trae el commit nuevo aunque la versión
+    sea la misma (pip, sin --force-reinstall, la daba por instalada; F8R2-3)."""
+    if not _venv_works():
+        pytest.skip("este Python no trae ensurepip (falta python3-venv)")
+    branch = f"rama-sh-{uuid.uuid4().hex[:8]}"
+    remoto.commit(branch, {_MARCA: "uno\n"})
+    env = {**_remote_env(tmp_path, remoto.url, no_uv=True, ref=branch), "EXO_INSTALL_NO_PATH": "1"}
+    _run(["sh", "-s"], env, _script("install.sh"))
+    venv = tmp_path / "datos" / "venv"
+    assert _marca_instalada(venv) == "uno\n"
+    remoto.commit(branch, {_MARCA: "dos\n"})
+    _run(["sh", "-s"], env, _script("install.sh"))
+    assert _marca_instalada(venv) == "dos\n"
+
+
 @POSIX_ONLY
 def test_install_sh_remoto_checksum_distinto_no_instala(tmp_path: Path, remoto: _remote.Remote) -> None:
     env = _remote_env(tmp_path, remoto.url, no_uv=True, ref=_remote.BAD_TAG)
@@ -547,6 +574,21 @@ def test_install_ps1_remoto_ref_por_file(tmp_path: Path, remoto: _remote.Remote)
     exe = bin_dir / f"{_meta.NAME}.exe"
     assert _run([str(exe), "--version"], env).stdout.strip() == f"{_meta.NAME} {_meta.VERSION}"
     assert remoto.requests == ["/raw/install.ps1"]
+
+
+@WINDOWS_ONLY
+def test_install_ps1_remoto_rama_reinstala_el_commit_nuevo(tmp_path: Path, remoto: _remote.Remote) -> None:
+    """Sin uv, una rama va por git: volver a instalarla trae el commit nuevo aunque la versión
+    sea la misma (pip, sin --force-reinstall, la daba por instalada; F8R2-3)."""
+    branch = f"rama-ps1-{uuid.uuid4().hex[:8]}"
+    remoto.commit(branch, {_MARCA: "uno\n"})
+    env = {**_remote_env(tmp_path, remoto.url, no_uv=True, ref=branch), "EXO_INSTALL_NO_PATH": "1"}
+    _run(_irm_iex(remoto.raw("install.ps1")), env)
+    venv = tmp_path / "datos" / "venv"
+    assert _marca_instalada(venv) == "uno\n"
+    remoto.commit(branch, {_MARCA: "dos\n"})
+    _run(_irm_iex(remoto.raw("install.ps1")), env)
+    assert _marca_instalada(venv) == "dos\n"
 
 
 @WINDOWS_ONLY

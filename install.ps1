@@ -289,6 +289,7 @@ param(
     $uv = Get-Command uv -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     $UseUv = [bool]($uv -and $env:EXO_INSTALL_NO_UV -ne '1')
     $Downloads = $null
+    $FromGit = $false
     try {
         # Un clon tiene el motor al lado del script. Por pipe no hay script en disco
         # ($PSScriptRoot vacio), y un install.ps1 bajado suelto no tiene el clon al lado.
@@ -323,6 +324,7 @@ param(
                 # clave); con la unidad codificada lo aceptan uv, pip y git.
                 $gitUrl = $RepoUrl -replace '^file:///([A-Za-z]):', 'file:///$1%3A'
                 $Spec = "$Dist$Extras @ git+$gitUrl@$Ref"
+                $FromGit = $true
             }
         }
 
@@ -337,7 +339,11 @@ param(
             Write-Host "Installing $Dist into $Venv..."
             $pyArgs = @($Python | Select-Object -Skip 1) + @('-m', 'venv', $Venv)
             Invoke-Checked $Python[0] $pyArgs
-            Invoke-Checked (Join-Path $Venv 'Scripts\python.exe') @('-m', 'pip', 'install', '--upgrade', '--quiet', '--disable-pip-version-check', $Spec)
+            $pipArgs = @('-m', 'pip', 'install', '--upgrade', '--quiet', '--disable-pip-version-check')
+            # Una rama o un commit traen la misma version que lo instalado: sin
+            # --force-reinstall, pip lo da por instalado y no trae el commit nuevo.
+            if ($FromGit) { $pipArgs += '--force-reinstall' }
+            Invoke-Checked (Join-Path $Venv 'Scripts\python.exe') ($pipArgs + @($Spec))
             $BinDir = Join-Path $Venv 'Scripts'
         }
     } finally {

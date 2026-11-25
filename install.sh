@@ -232,6 +232,7 @@ remote_spec() {
     fi
     echo "Installing $DIST from $EXO_REPO_URL at $REF..."
     SPEC="$DIST$EXTRAS @ git+$EXO_REPO_URL@$REF"
+    FROM_GIT=1
 }
 
 # Agrega la línea del PATH a un archivo de inicio del shell, una sola vez. Anota
@@ -293,6 +294,7 @@ main() {
     fi
     DATA_DIR=$(data_dir)
     TMP=""
+    FROM_GIT=0
     trap cleanup EXIT
     trap 'exit 130' INT TERM
 
@@ -330,7 +332,14 @@ main() {
             echo "Could not create the venv: install the python3-venv package or install uv." >&2
             exit 1
         fi
-        "$VENV/bin/python" -m pip install --upgrade --quiet --disable-pip-version-check "$SPEC"
+        # Una rama o un commit traen la misma versión que lo instalado: sin
+        # --force-reinstall, pip lo da por instalado y no trae el commit nuevo. Va sin
+        # comillas para que, vacía, no pase un argumento vacío.
+        FORCE=""
+        if [ "$FROM_GIT" = 1 ]; then
+            FORCE=--force-reinstall
+        fi
+        "$VENV/bin/python" -m pip install --upgrade --quiet --disable-pip-version-check $FORCE "$SPEC"
         mkdir -p "$BIN_DIR"
         ln -sf "$VENV/bin/exo" "$LINK"
     fi

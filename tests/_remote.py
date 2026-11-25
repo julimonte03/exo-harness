@@ -15,7 +15,8 @@ Sirve por http en 127.0.0.1, sin salir de la máquina:
   raw.githubusercontent.com (texto en UTF-8).
 
 El mismo repo se usa también por `file://` (`Remote.file_url`). La foto incluye los
-cambios sin commitear, así los tests prueban lo que hay en disco.
+cambios sin commitear, así los tests prueban lo que hay en disco. `Remote.commit` le
+agrega un commit a una rama, para probar que volver a instalarla trae el commit nuevo.
 """
 
 from __future__ import annotations
@@ -55,6 +56,8 @@ class Remote:
     # Adónde redirige el wheel de REDIRECT_TAG: si un cliente siguiera el salto, la
     # conexión se rechaza enseguida, sin colgarse ni llegar a nada real.
     redirect_to: str = ""
+    # El repo de trabajo del que sale el remoto: `commit` agrega ahí y publica.
+    work: Path | None = None
 
     @property
     def url(self) -> str:
@@ -75,6 +78,33 @@ class Remote:
     def git_fetched(self) -> bool:
         """Si alguien clonó el repo por http (git pide primero `info/refs`)."""
         return any(path.startswith(f"{self.path}/info/refs") for path in self.requests)
+
+    def commit(self, branch: str, files: dict[str, str]) -> None:
+        """Agrega un commit con `files` (ruta relativa -> texto) a `branch`, que sale de
+        `main` si no existe, y lo publica en el remoto. `main` y los tags no cambian."""
+        assert self.work is not None, "Remote.commit needs the work repo of build()"
+        env = _git_env(self.work.parent)
+        exists = subprocess.run(
+            ["git", "rev-parse", "--verify", "-q", f"refs/heads/{branch}"],
+            cwd=self.work,
+            env=env,
+            capture_output=True,
+            check=False,
+        )
+        if exists.returncode == 0:
+            _git(self.work, env, "checkout", "-q", branch)
+        else:
+            _git(self.work, env, "checkout", "-q", "-b", branch, "main")
+        for rel, text in files.items():
+            target = self.work / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(text, encoding="utf-8", newline="\n")
+        _git(self.work, env, "add", "--", *files)
+        _git(self.work, env, "commit", "-q", "--no-verify", "-m", f"cambio en {branch}")
+        _git(self.work, env, "checkout", "-q", "main")
+        bare = self.root / OWNER / NAME
+        _git(self.work, env, "push", "-q", str(bare), branch)
+        _git(bare, env, "update-server-info")
 
 
 class _Server(http.server.ThreadingHTTPServer):
@@ -201,7 +231,7 @@ def build(base: Path, repo: Path, version: str) -> Remote:
     raw.mkdir()
     for script in SCRIPTS:
         shutil.copy2(repo / script, raw / script)
-    return Remote(root=root, tag=tag, wheel=wheel.name, latest=tag)
+    return Remote(root=root, tag=tag, wheel=wheel.name, latest=tag, work=snap)
 
 
 @contextmanager
