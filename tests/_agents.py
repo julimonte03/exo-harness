@@ -138,10 +138,14 @@ def copilot_home(target: Path, env: Mapping[str, str], home: Path) -> Path:
 # `shell(git:*)` permitido, `git --no-pager log` igual queda denegado en una corrida sin
 # persona (verificado en F8, también con `shell(git --no-pager:*)`). El pager va apagado por
 # entorno y el pedido lo avisa.
+# Tampoco aprueba (F8, escenario Tier 3): comandos encadenados con `;`, scripts de PowerShell
+# con variables, bucles o pipelines, ni un rango de git con `..` (lo toma como una ruta).
 COPILOT_NOTE = (
-    "\n\nShell note for this unattended run: run git with the subcommand first (`git diff`, "
-    "`git log`), never with options before it such as `git --no-pager`; the pager is already "
-    "off (GIT_PAGER=cat), and a command with options before the subcommand is denied."
+    "\n\nShell note for this unattended run: only single, simple commands are approved: "
+    "`exo ...`, `python ...`, and git with the subcommand first (`git diff main HEAD`, "
+    "`git log -3`), never `git --no-pager` or a `..`/`...` range; the pager is already off "
+    "(GIT_PAGER=cat). PowerShell variables, loops, pipelines and commands chained with `;` "
+    "are denied. Read and write files with your file tools, and pass JSON to exo as '@file'."
 )
 
 
