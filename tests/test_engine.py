@@ -274,12 +274,18 @@ def test_ruta_que_pasa_por_un_link_es_conflicto(tmp_path: Path, make_dir_link) -
 
 
 def test_cambio_solo_del_lock(tmp_path: Path) -> None:
+    """F8R1-10: el lock también es un archivo gestionado: cambiarlo solo saca snapshot."""
     _apply(tmp_path, _ops())
+    before = lock.lock_path(tmp_path).read_bytes()
     snaps = snapshots.list_snapshots(tmp_path)
     result = engine.apply(tmp_path, _ops(), agents=["claude-code", "copilot"], packs=["core"])
-    assert result.lock_changed and result.snapshot is None
+    assert result.lock_changed and result.snapshot is not None
     assert lock.read(tmp_path).agents == ["claude-code", "copilot"]
-    assert snapshots.list_snapshots(tmp_path) == snaps
+    assert len(snapshots.list_snapshots(tmp_path)) == len(snaps) + 1
+    archive = snapshots.read_archive(
+        (tmp_path / _meta.PROJECT_DIR / "backups" / result.snapshot).read_bytes()
+    )
+    assert archive.files[f"{_meta.PROJECT_DIR}/{lock.FILENAME}"][0] == before
 
 
 def test_merge_duplicates() -> None:

@@ -273,6 +273,20 @@ def test_un_esquema_2_de_prueba_migra_al_leer_y_se_guarda_al_escribir(
     assert lock.read(tmp_path).files == data.files
 
 
+def test_un_paso_que_falla_es_un_lock_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """F8R1-10: los comandos atrapan `LockError`, no un `KeyError` de un lock raro."""
+
+    def broken(raw: dict) -> dict:
+        return {**raw, "files": [entry["missing"] for entry in raw["files"]], "schema": 2}
+
+    monkeypatch.setattr(lock, "SCHEMA", 2)
+    monkeypatch.setattr(lock, "MIGRATIONS", {1: broken})
+    _write_raw(tmp_path, V1)
+    with pytest.raises(LockError, match="schema 1 to 2") as info:
+        lock.read(tmp_path)
+    assert "backups list" in str(info.value)
+
+
 def test_sin_el_paso_que_falta_no_se_adivina(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(lock, "SCHEMA", 3)
     monkeypatch.setattr(lock, "MIGRATIONS", {1: _v1_to_v2})

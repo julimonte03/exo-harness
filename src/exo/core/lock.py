@@ -184,7 +184,14 @@ def _migrate(raw: dict[str, Any], path: Path) -> dict[str, Any]:
         step = MIGRATIONS.get(schema)
         if step is None:
             raise LockError(f"{path}: no migration from schema {schema} to {schema + 1}")
-        raw = step(raw)
+        try:
+            raw = step(raw)
+        except Exception as exc:  # noqa: BLE001 - un lock raro no es un traceback (F8R1-10)
+            raise LockError(
+                f"{path}: the migration from schema {schema} to {schema + 1} failed ({exc!r}); "
+                f"restore the project from a snapshot (`{_meta.NAME} backups list`, then "
+                f"`{_meta.NAME} restore <name>`)"
+            ) from exc
         schema += 1
     return raw
 

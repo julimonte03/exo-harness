@@ -534,9 +534,11 @@ def apply(
         return result
     affected = {op.path for op in writes} | {e.path for e in removals} | set(extra_writes)
     affected |= {made.path for made, _ in undo}
+    # El lock es un archivo gestionado más: un cambio solo del lock (la versión que lo
+    # escribió, una migración) también saca snapshot (invariante 4, F8R1-10).
+    if result.lock_changed:
+        affected.add(_LOCK_REL)
     if affected:
-        if result.lock_changed:
-            affected.add(_LOCK_REL)
         result.snapshot = snapshots.snapshot(project, sorted(affected)).name
     try:
         for entry in removals:
