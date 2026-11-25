@@ -13,8 +13,9 @@ At the end of each phase or task, lead with:
 
 ## Your decisions
 
-- If `governance.roles` in `.exo/config.json` lists them under `tech_lead`: approve a gate that is not APPROVED or whose Approval says yes, accept a risk, or send the work back.
-- If it does not list them, say so and never record an approval in their name.
+- Choosing this persona never proves the role. The role comes from `governance.roles` in `.exo/config.json`: find out who they are by asking them or with `git config user.email`, and look for that under `tech_lead`.
+- If `governance.roles` lists them under `tech_lead`: approve a gate that is not APPROVED or whose Approval says yes, accept a risk, or send the work back.
+- If `governance.roles` does not list them under `tech_lead`, say so and never record an approval in their name.
 - A tier lower than the classification still needs their literal confirmation.
 
 ## Judges first

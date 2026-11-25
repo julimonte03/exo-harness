@@ -141,7 +141,7 @@ def test_cada_rol_tiene_su_overlay_y_nada_mas() -> None:
 
 
 @pytest.mark.parametrize("role", persona.ROLES)
-def test_overlay_corto_con_sus_secciones_y_sin_relajar(role: str) -> None:
+def test_overlay_corto_con_sus_secciones_y_la_regla_de_no_relajar(role: str) -> None:
     text = (PERSONAS / f"{role}.md").read_text(encoding="utf-8")
     lines = text.splitlines()
     assert len(lines) <= persona.MAX_OVERLAY_LINES
@@ -152,6 +152,66 @@ def test_overlay_corto_con_sus_secciones_y_sin_relajar(role: str) -> None:
     # El overlay cambia qué se muestra y cómo, nunca qué se exige (ADR-0018).
     assert re.search(r"\brelax\b", never)
     assert "governance.roles" in text
+
+
+# Lo que "Your decisions" no puede darle a la persona: lo decide una regla o el `tech_lead`
+# (F8R3-3, F8R3-11). Cada patrón, con lo que delata.
+FORBIDDEN_DECISIONS = (
+    (
+        re.compile(r"\bfail\w*\b[^.;\n]*\b(?:becomes?|turns? into|stays?) (?:a|an open) followup", re.I),
+        "a failing test turned into a followup",
+    ),
+    (re.compile(r"\bwhether\b[^.;\n]*\bblocks?\b", re.I), "a choice of whether something blocks"),
+    (re.compile(r"\b(?:leav\w*|stays?|keep\w*) (?:it )?open\b", re.I), "a followup left undecided"),
+)
+# Aprobar, aceptar un riesgo o dispensar: solo con el rol, que sale de `governance.roles`.
+# "the approved design" no es una aprobación que se le da a la persona.
+APPROVAL = re.compile(
+    r"\b(?:approve|approves|approving|approval)\b|\baccept\w* (?:a|the) risk|\bwaiv(?:e|es|ing)\b",
+    re.I,
+)
+
+
+def _decisions(text: str) -> list[str]:
+    section = text.split("## Your decisions", 1)[1].split("\n## ", 1)[0]
+    return [line[2:] for line in section.splitlines() if line.startswith("- ")]
+
+
+@pytest.mark.parametrize("role", persona.ROLES)
+def test_las_decisiones_del_overlay_no_relajan_lo_que_exige_el_ciclo(role: str) -> None:
+    decisions = _decisions((PERSONAS / f"{role}.md").read_text(encoding="utf-8"))
+    assert decisions, f"{role}: Your decisions is empty"
+    for decision in decisions:
+        for pattern, why in FORBIDDEN_DECISIONS:
+            assert not pattern.search(decision), f"{role}: {why}: {decision}"
+        if APPROVAL.search(decision):
+            assert "governance.roles" in decision or "`tech_lead`" in decision, (
+                f"{role}: an approval not tied to the tech_lead role: {decision}"
+            )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "- Whether a failing or flaky test blocks the change or becomes a followup.",
+        "- Fixing a Low or Medium followup now or leaving it open.",
+        "- If it does not list them, say so and never record an approval in their name.",
+    ],
+)
+def test_los_detectores_de_decisiones_ven_las_frases_viejas(text: str) -> None:
+    """Las frases que tenían qa.md, dev.md y tech-lead.md antes de F8R3-3 y F8R3-1."""
+    [decision] = _decisions(f"## Your decisions\n\n{text}\n")
+    found = [why for pattern, why in FORBIDDEN_DECISIONS if pattern.search(decision)]
+    tied = "governance.roles" in decision or "`tech_lead`" in decision
+    assert found or (APPROVAL.search(decision) and not tied)
+
+
+def test_tech_lead_elegir_la_persona_no_prueba_el_rol() -> None:
+    """F8R3-20: el rol sale de `governance.roles`, y quién es la persona se averigua."""
+    text = (PERSONAS / "tech-lead.md").read_text(encoding="utf-8")
+    decisions = "\n".join(_decisions(text))
+    assert "never proves the role" in decisions
+    assert "governance.roles" in decisions and "git config user.email" in decisions
 
 
 def test_las_reglas_base_le_dicen_al_agente_como_leerlo() -> None:

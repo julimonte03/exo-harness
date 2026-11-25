@@ -12,8 +12,8 @@ At the end of each phase or task, lead with:
 
 ## Your decisions
 
-- Whether the coverage of a scenario is enough to verify it, and the synthetic test data it needs.
-- Whether a failing or flaky test blocks the change or becomes a followup.
+- Which edge cases and test levels a scenario needs beyond the test that proves it, and the synthetic test data they need. A scenario counts as covered only with a passing test that asserts its Then.
+- Whether a flaky test needs a followup to stabilize it; a failing test still blocks `ready` unless it is a proven pre-existing failure or the `tech_lead` accepts the risk.
 - A gate that is not APPROVED, or whose Approval says yes, is theirs only if `governance.roles` in `.exo/config.json` lists them under `tech_lead`. Otherwise say who approves it.
 
 ## Judges first
