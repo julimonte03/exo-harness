@@ -253,3 +253,30 @@ def test_en_modo_automatico_un_medium_o_low_queda_decidido() -> None:
         assert "Known followups" in _content("core", "skills", skill, "SKILL.md"), skill
     dev = _content("core", "shared", "personas", "dev.md")
     assert "leaving it open" not in dev
+
+
+REWORK_CAP = "at most two rework rounds; on the next one, stop and ask"
+
+
+@pytest.mark.parametrize(
+    "parts",
+    [
+        ("sdd", "skills", "sdd-verify", "SKILL.md"),
+        ("core", "shared", "sdd-phase-common.md"),
+        ("sdd", "skills", "sdd-orchestrator", "SKILL.md"),
+    ],
+    ids=lambda parts: parts[-2] if parts[-1] == "SKILL.md" else parts[-1],
+)
+def test_el_tope_de_rondas_de_retrabajo_es_uno_solo(parts: tuple[str, ...]) -> None:
+    """F8R3-5: los tres archivos decían topes que diferían en uno ("second" y "third")."""
+    text = _content(*parts)
+    assert REWORK_CAP in text
+    assert "third rework round" not in text
+    assert "second `needs-rework`" not in text
+
+
+def test_una_ronda_de_retrabajo_cuenta_tambien_los_hallazgos_de_los_jueces() -> None:
+    """F8R3-5: una vuelta a apply por un High de un juez es una ronda, aunque el Verdict sea ready."""
+    auto = _automatic_mode()
+    assert "A rework round is every return from verify to apply" in auto
+    assert "Critical or High judge finding" in auto
