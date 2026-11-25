@@ -334,6 +334,11 @@ def test_settled_sin_repo_o_con_dudas_dice_que_no(
         encoding="utf-8",
     )
     assert githooks.settled(tmp_path, cfg) is True
+    # F8R1-12: git saltea el BOM de un config escrito por un editor de Windows.
+    (tmp_path / ".git" / "config").write_bytes(
+        b"\xef\xbb\xbf" + f"[core]\n\thooksPath = {folder}\n".encode()
+    )
+    assert githooks.settled(tmp_path, cfg) is True
     monkeypatch.setenv("GIT_DIR", str(tmp_path / ".git"))
     assert githooks.settled(tmp_path, cfg) is False
 

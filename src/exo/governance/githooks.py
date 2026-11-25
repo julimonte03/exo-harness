@@ -212,7 +212,7 @@ def _local_hooks_path(config_file: Path) -> tuple[bool, str | None]:
     línea que no entiende, devuelve `(False, None)` y el llamador pregunta a git.
     """
     try:
-        text = config_file.read_text(encoding="utf-8")
+        text = config_file.read_text(encoding="utf-8-sig")  # git saltea el BOM, como acá
     except (OSError, UnicodeDecodeError):
         return False, None
     section, value = "", None
