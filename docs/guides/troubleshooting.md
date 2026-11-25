@@ -80,6 +80,9 @@ A newer exo no longer ships some skills or subagents, or renamed them (`exo upda
 **``the lock was written by exo 0.2.0; run `exo update` ``** (`exo doctor`, line `install`)
 You upgraded exo; the project still has the files of the previous version. Run `exo update` to see what changes, then `exo update --apply`.
 
+**``N active change(s) have a fitness-assessment.json from exo 1.0 (read with three tiers); `exo update --apply` migrates them``**
+exo 2.0 has three risk tiers instead of four: the old Tier 4 is now Tier 3, which always ends with `judgment-day`. The engine already reads those changes with the new tiers. `exo update --apply` rewrites their `fitness-assessment.json` (a Tier 4 becomes Tier 3 with `migrated_from: 4`), with a snapshot first. Archived changes are never rewritten.
+
 **`the lock was written by exo X, newer than this engine (Y): updating would take the project back to Y. Upgrade exo, or pass --force to do it anyway`** (`exo init`, `sync`, `update`, `add-agent` and `remove-agent`)
 A teammate installed the project with a newer exo. Upgrade yours (run the installer again); nothing was written. `--force` writes anyway and takes the project back to your version, removing what the newer one added. For the same lock, `exo doctor` and `exo status` say `upgrade exo`. If the lock also uses a newer schema, every command that reads it says `the lock uses schema N and this engine understands up to M (a newer exo wrote it); upgrade exo and retry`, and `--force` does not change that.
 
@@ -173,8 +176,11 @@ To turn the hooks off for a project, set `"githooks": false` under `governance` 
 
 ## exo check
 
-**``no fitness-assessment.json: ... the tier is unknown and Tier 4 rules apply; run `exo fitness classify --change <change>` ``**
+**``no fitness-assessment.json: ... the tier is unknown and Tier 3 rules apply; run `exo fitness classify --change <change>` ``**
 The change was never classified, so the strictest rules apply. Ask your agent to classify it (the `risk-tiering` skill) or run the command in the message.
+
+**`archived with a fitness-assessment.json from exo 1.0 (four tiers): checked by structure only ...`** (warning)
+The change was archived before exo 2.0. `exo check` still checks its record, its artifacts and speclint, but not the gates or the `judgment-day` that the three-tier rules added, because they did not exist when it was archived. Nothing to do.
 
 **`Tier N requires <artifact>`**
 The change's tier requires an artifact it does not have yet (for example `test-spec.md` from Tier 2). Run the missing phase, for example with `/sdd-continue`.

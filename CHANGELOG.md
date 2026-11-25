@@ -5,6 +5,24 @@ All notable changes to `exo` (distributed as `exo-harness`) are documented in th
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Toward 2.0.0: capabilities of the agent, models per tier, second opinion and three risk tiers.
+
+### Changed
+
+- **BREAKING: three risk tiers instead of four** (ADR-0019). The old Tier 4 is merged into Tier 3, which keeps every control it had:
+  - `security_data_sensitivity`, `reversibility` or `regulatory_compliance_impact` at 3 (FM-01 to FM-03) give Tier 3, and so do missing or unreadable evidence (FM-00) and a missing assessment.
+  - Every Tier 3 change requires `judgment-day` before archive and a verify in fresh context, whatever rule decided the tier.
+  - The ceremonies are `minimal`, `light` and `full`, one per tier.
+  - The default gates of Tier 3 are the union of the old Tier 3 and Tier 4 lists: `contract_check`, `code_review`, `security_review`, `threat_model` and `secure_coding_check`.
+  - `exo fitness classify` and the change commands never write a Tier 4 again. `governance.gates` accepts only the tiers 1 to 3.
+- The project config moves to schema 4. Reading a schema 3 config merges its `governance.gates` lists `"3"` and `"4"` into `"3"`, keeping their order and your custom gates, and drops `"4"`. `exo update --apply` saves it migrated.
+- `fitness-assessment.json` moves to schema 2, with an optional `migrated_from`. `exo update --apply` migrates the active changes in the same transaction and snapshot as the rest: a Tier 4 becomes Tier 3 with `migrated_from: 4`, and a Tier 3 adopts the new rules. `exo sync` and `exo init` only report them.
+- A Tier 4 written by exo 1.0 is read as Tier 3 everywhere (`exo change status`, `exo status`, `exo check`), without rewriting the file.
+- `exo check` validates an archived change whose assessment is from exo 1.0 by structure only (record, artifacts and speclint), without the gates and `judgment-day` of the new rules, and says so in a warning.
+- Skills, subagents and contracts describe three tiers.
+
 ## [1.0.0] - 2026-11-25
 
 Milestone M4: stack packs, the rest of the skill catalog, safe updates between engine versions, installation from GitHub with one command, and a security review of the engine itself.
