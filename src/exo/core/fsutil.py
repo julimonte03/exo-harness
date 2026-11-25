@@ -135,7 +135,10 @@ def write_atomic(
             fh.write(data)
             fh.flush()
             os.fsync(fh.fileno())
-        os.chmod(tmp, mode)
+        # Best-effort: vfat y exFAT rechazan chmod (EPERM) y el archivo se escribe igual;
+        # `exo doctor` avisa si la carpeta de datos quedó abierta (F8R1-7).
+        with contextlib.suppress(PermissionError):
+            os.chmod(tmp, mode)
         _replace_with_retry(tmp, os_target)
     except BaseException:
         # En Windows no se puede borrar un archivo de solo lectura: el temporal ya

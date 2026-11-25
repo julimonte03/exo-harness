@@ -104,3 +104,71 @@ def test_doctor_avisa_si_la_carpeta_de_datos_la_leen_otros(
 def test_doctor_sin_carpeta_de_datos(data_dir: Path, tmp_path: Path) -> None:
     check = {c.name: c for c in doctor.run_checks(tmp_path)}["data-dir"]
     assert check.status in ("info", "ok")
+
+
+@POSIX
+def test_backups_de_desinstalacion_en_0700_y_0600(
+    data_dir: Path, tmp_path: Path, synthetic_content: Path
+) -> None:
+    """F8R1-17: el backup tiene el contenido de `.exo/` del proyecto."""
+    project = tmp_path / "p"
+    project.mkdir()
+    previous = os.umask(0o022)
+    try:
+        assert main(["init", "--project", str(project), "--agents", "generic", "--yes"]) == 0
+        assert main(["uninstall", "--project", str(project), "--yes"]) == 0
+    finally:
+        os.umask(previous)
+    folder = data_dir / "uninstall-backups"
+    [backup] = list(folder.iterdir())
+    assert _mode(data_dir) == 0o700 and _mode(folder) == 0o700
+    assert _mode(backup) == 0o600
+
+
+@POSIX
+def test_model_pull_crea_la_carpeta_de_datos_privada(data_dir: Path) -> None:
+    """F8R1-9: la descarga de un modelo crea la carpeta de datos si falta."""
+    from exo.memory import embeddings
+
+    previous = os.umask(0o022)
+    try:
+        partial = embeddings.staged(embeddings.model_path("static", "acme/modelo"))
+    finally:
+        os.umask(previous)
+    assert _mode(data_dir) == 0o700
+    assert _mode(partial.parent) == 0o700 and _mode(partial.parent.parent) == 0o700
+
+
+def _sin_chmod(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Un filesystem que rechaza chmod, como vfat o exFAT montados sin `quiet`."""
+
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise PermissionError(1, "Operation not permitted")
+
+    monkeypatch.setattr(os, "chmod", refuse)
+
+
+def test_sin_chmod_la_persona_la_aprobacion_y_el_backup_igual_se_escriben(
+    data_dir: Path, tmp_path: Path, synthetic_content: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """F8R1-7: los permisos privados son best-effort; `exo doctor` avisa con `data-dir`."""
+    project = tmp_path / "p"
+    project.mkdir()
+    assert main(["init", "--project", str(project), "--agents", "generic", "--yes"]) == 0
+    _sin_chmod(monkeypatch)
+    assert persona.write("qa") is True and persona.read() == "qa"
+    assert approvals.approve(project, "echo hola") is True
+    assert main(["uninstall", "--project", str(project), "--yes"]) == 0
+    assert len(list((data_dir / "uninstall-backups").iterdir())) == 1
+
+
+@POSIX
+def test_sin_chmod_la_memoria_abre(data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = paths.memory_db_path()
+    db.connect(path).close()
+    os.chmod(path, 0o644)  # una base vieja: al abrirla se intenta cerrar
+    nested = data_dir / "otra" / paths.MEMORY_DB_NAME  # y una carpeta que falta
+    _sin_chmod(monkeypatch)
+    db.connect(path).close()
+    db.connect(nested).close()
+    assert nested.is_file()

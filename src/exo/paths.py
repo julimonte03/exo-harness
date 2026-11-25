@@ -6,6 +6,7 @@ con el mismo nombre.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import sys
 from pathlib import Path
@@ -25,7 +26,9 @@ def private_dir(path: Path) -> Path:
 
     No cambia los permisos de una carpeta que ya existe: puede no ser del motor (una
     `<ENV_PREFIX>DATA_DIR` elegida por la persona); `exo doctor` avisa si la de datos la
-    leen otros. En Windows, `%LOCALAPPDATA%` ya es por usuario.
+    leen otros. En Windows, `%LOCALAPPDATA%` ya es por usuario. Los permisos son
+    best-effort: un filesystem que rechaza chmod (vfat, exFAT) no frena nada, y
+    `exo doctor` lo avisa con `data-dir`.
     """
     path = Path(path)
     if os.name == "nt":
@@ -39,9 +42,10 @@ def private_dir(path: Path) -> Path:
     for folder in reversed(missing):
         try:
             os.mkdir(folder, PRIVATE_DIR)
-            os.chmod(folder, PRIVATE_DIR)  # el umask no recorta: queda exactamente 0700
         except FileExistsError:
-            pass
+            continue
+        with contextlib.suppress(OSError):
+            os.chmod(folder, PRIVATE_DIR)  # el umask no recorta: queda exactamente 0700
     return path
 
 

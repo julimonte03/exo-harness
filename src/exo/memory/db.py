@@ -13,7 +13,7 @@ import os
 import sqlite3
 import stat
 from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from pathlib import Path
 
 from exo import _meta, paths
@@ -72,6 +72,8 @@ def _private(path: Path) -> None:
 
     Se crea vacía en `PRIVATE_FILE` antes de abrirla: SQLite crea el `-wal` y el `-shm` con
     los permisos de la base. Una base vieja más abierta se cierra en la próxima apertura.
+    Es best-effort: en un filesystem que rechaza chmod (vfat, exFAT) la memoria abre igual,
+    y `exo doctor` avisa con `data-dir`.
     """
     if os.name == "nt":
         return
@@ -83,7 +85,8 @@ def _private(path: Path) -> None:
     for candidate in (path, Path(f"{path}-wal"), Path(f"{path}-shm")):
         try:
             if stat.S_IMODE(candidate.stat().st_mode) & 0o077:
-                os.chmod(candidate, paths.PRIVATE_FILE)
+                with suppress(OSError):
+                    os.chmod(candidate, paths.PRIVATE_FILE)
         except FileNotFoundError:
             continue
 
