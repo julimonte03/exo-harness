@@ -105,6 +105,8 @@ def gather(project: Path, info: installed.Status | None = None) -> View:
         role, role_error = persona.read(), None
     except persona.PersonaError as exc:
         role, role_error = None, str(exc)
+    except OSError as exc:
+        role, role_error = None, f"could not read {persona.file_path()}: {exc}"
     view = View(info, githooks.status(project), role, role_error, [])
     try:
         view.changes = _changes(project)

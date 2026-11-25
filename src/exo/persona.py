@@ -41,6 +41,18 @@ def _broken(target: Path, why: str) -> PersonaError:
     )
 
 
+def _newer(target: Path, schema: int) -> PersonaError:
+    """Un esquema más nuevo no es un archivo dañado: lo escribió otra versión del motor."""
+    return PersonaError(
+        f"{target} was written by a newer {_meta.NAME} (schema {schema}; this engine "
+        f"understands up to {SCHEMA}); upgrade {_meta.NAME} to use it"
+    )
+
+
+def _is_newer(schema: object) -> bool:
+    return isinstance(schema, int) and not isinstance(schema, bool) and schema > SCHEMA
+
+
 def read() -> str | None:
     """El rol guardado, o None si no hay. Un archivo dañado es un error accionable."""
     target = file_path()
@@ -54,6 +66,8 @@ def read() -> str | None:
         raise _broken(target, f"not valid JSON ({exc})") from exc
     if not isinstance(data, dict):
         raise _broken(target, "expected a JSON object")
+    if _is_newer(data.get("schema")):
+        raise _newer(target, data["schema"])
     if data.get("schema") != SCHEMA:
         raise _broken(target, f"unsupported schema {data.get('schema')!r} (expected {SCHEMA})")
     role = data.get("persona")
@@ -62,12 +76,24 @@ def read() -> str | None:
     return str(role)
 
 
+def _schema_on_disk(target: Path) -> object:
+    try:
+        data = json.loads(fsutil.read_bytes(target).decode("utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    return data.get("schema") if isinstance(data, dict) else None
+
+
 def write(role: str) -> bool:
-    """Guarda el rol. Devuelve si escribió (idempotente: el mismo rol no reescribe)."""
+    """Guarda el rol. Devuelve si escribió (idempotente: el mismo rol no reescribe). No pisa
+    el archivo de un motor más nuevo; uno dañado, sí."""
     if role not in ROLES:
         raise PersonaError(f"unknown role {role!r} (valid: {', '.join(ROLES)})")
     data = json.dumps({"schema": SCHEMA, "persona": role}, indent=2) + "\n"
     target = file_path()
+    on_disk = _schema_on_disk(target)
+    if _is_newer(on_disk):
+        raise _newer(target, on_disk)  # type: ignore[arg-type]
     paths.private_dir(target.parent)
     return fsutil.write_if_changed(target, data.encode("utf-8"), mode=paths.PRIVATE_FILE)
 

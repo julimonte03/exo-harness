@@ -7,6 +7,7 @@ from pathlib import Path
 
 from exo import _meta, persona
 from exo.commands._output import emit_json, error
+from exo.core import lock
 
 
 def register(sub: argparse._SubParsersAction) -> None:
@@ -37,6 +38,8 @@ def register(sub: argparse._SubParsersAction) -> None:
 def _set(args: argparse.Namespace) -> int:
     try:
         changed = persona.write(args.role)
+    except persona.PersonaError as exc:
+        return error(str(exc))
     except OSError as exc:
         return error(f"could not save the persona in {persona.file_path()}: {exc}")
     print(f"persona {'set to' if changed else 'is already'} {args.role}")
@@ -48,8 +51,12 @@ def _show(args: argparse.Namespace) -> int:
         role = persona.read()
     except persona.PersonaError as exc:
         return error(str(exc))
+    except OSError as exc:
+        return error(f"could not read {persona.file_path()}: {exc}")
     overlay = persona.overlay_path(role) if role else None
     installed = bool(overlay) and (args.project / Path(*overlay.parts)).is_file()
+    # Sin lock, `sync` no tiene qué sincronizar: primero hay que instalar el motor.
+    fix = "sync" if lock.lock_path(args.project).is_file() else "init"
     if args.json:
         emit_json(
             {
@@ -66,7 +73,7 @@ def _show(args: argparse.Namespace) -> int:
     if installed:
         print(f"overlay: {overlay}")
     else:
-        print(f"overlay: {overlay} is not installed in this project; run `{_meta.NAME} sync`")
+        print(f"overlay: {overlay} is not installed in this project; run `{_meta.NAME} {fix}`")
     return 0
 
 

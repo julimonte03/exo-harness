@@ -79,6 +79,18 @@ def test_changes_con_gates_y_followups(project: Path, capsys: pytest.CaptureFixt
     assert "followups: 1 open" in detail
 
 
+def test_persona_ilegible_no_corta_la_vista(
+    project: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """F8R1-14: un `persona.json` que no se puede leer se muestra como aviso."""
+    from exo import persona
+
+    persona.file_path().mkdir(parents=True)  # una carpeta: leerla da OSError
+    out = _status(project, capsys)
+    [line] = [line for line in out.splitlines() if line.startswith("persona:")]
+    assert "warning" in line and persona.FILE_NAME in line
+
+
 def test_lock_de_otra_version_sugiere_update(
     project: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:

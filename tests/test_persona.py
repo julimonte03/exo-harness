@@ -66,6 +66,9 @@ def test_set_show_clear(data_dir: Path, tmp_path: Path, capsys: pytest.CaptureFi
 def test_show_dice_si_el_overlay_esta_instalado(
     data_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    from exo.core import lock
+
+    lock.write(tmp_path, lock.Lock(_meta.VERSION))  # instalado, pero sin el overlay
     assert main(["persona", "set", "tech-lead"]) == 0
     capsys.readouterr()
     assert main(["persona", "show", "--project", str(tmp_path)]) == 0
@@ -117,7 +120,7 @@ def test_rol_desconocido_es_error_de_uso(data_dir: Path, capsys: pytest.CaptureF
     "raw",
     [
         b"{no es json",
-        b'{"schema": 99, "persona": "qa"}',
+        b'{"schema": 0, "persona": "qa"}',
         b'{"schema": 1, "persona": "admin"}',
         b'["qa"]',
     ],
@@ -133,6 +136,42 @@ def test_archivo_invalido_da_error_accionable(
     # clear sirve justamente para salir de ese estado.
     assert main(["persona", "clear"]) == 0
     assert not (data_dir / persona.FILE_NAME).exists()
+
+
+def test_un_persona_json_de_un_exo_mas_nuevo_no_esta_danado(
+    data_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """F8R1-13: un esquema más nuevo lo escribió otra versión; borrarlo perdería el dato."""
+    data_dir.mkdir()
+    newer = b'{"schema": 99, "persona": "qa", "extra": true}'
+    (data_dir / persona.FILE_NAME).write_bytes(newer)
+    assert main(["persona", "show", "--project", str(tmp_path)]) == 1
+    err = capsys.readouterr().err
+    assert "newer" in err and f"upgrade {_meta.NAME}" in err
+    assert "persona clear" not in err
+    assert main(["persona", "set", "dev"]) == 1  # tampoco lo pisa
+    assert "newer" in capsys.readouterr().err
+    assert (data_dir / persona.FILE_NAME).read_bytes() == newer
+
+
+def test_persona_ilegible_es_un_error_accionable(
+    data_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """F8R1-14: un `persona.json` que no se puede leer (aquí, una carpeta) no rompe el CLI."""
+    (data_dir / persona.FILE_NAME).mkdir(parents=True)
+    assert main(["persona", "show", "--project", str(tmp_path)]) == 1
+    assert persona.FILE_NAME in capsys.readouterr().err
+
+
+def test_show_fuera_de_un_proyecto_sugiere_init(
+    data_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """F8R1-14: sin lock, `sync` no sirve: hay que instalar el motor."""
+    assert main(["persona", "set", "qa"]) == 0
+    capsys.readouterr()
+    assert main(["persona", "show", "--project", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert f"`{_meta.NAME} init`" in out and "sync" not in out
 
 
 def test_cada_rol_tiene_su_overlay_y_nada_mas() -> None:
