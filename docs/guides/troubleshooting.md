@@ -72,7 +72,7 @@ You (or someone) edited a file that exo generates. exo writes nothing and exits 
 A file exo would generate already exists and is yours. `--force` never overwrites your files: move or rename yours and run the command again.
 
 **``orphaned: N files that this content no longer ships were kept (your agents may still use them); delete them with `exo sync --prune` ``**
-A newer exo no longer ships some skills or subagents, or renamed them (`exo update` shows a rename as such, for example `review` to `pre-commit-review`). They stay until you delete them with `exo sync --prune` or `exo update --apply --prune`.
+A newer exo no longer ships some skills or subagents, or renamed them (`exo update` shows a rename as such, for example `review` to `pre-commit-review`). They stay until you delete them with `exo sync --prune` or `exo update --apply --prune`. If they are in a folder that none of the project's agents reads, for example `.agents/skills/` after `exo remove-agent`, the message says so instead (`no agent of this project reads .agents/skills/`): nothing uses them.
 
 **``the lock was written by exo 0.2.0; run `exo update` ``** (`exo doctor`, line `install`)
 You upgraded exo; the project still has the files of the previous version. Run `exo update` to see what changes, then `exo update --apply`.

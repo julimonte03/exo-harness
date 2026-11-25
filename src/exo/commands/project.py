@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from exo import _meta, content, packs
-from exo.adapters import KNOWN_AGENTS, detect
+from exo.adapters import KNOWN_AGENTS, base, detect
 from exo.commands._output import emit_json, error, usage_error
 from exo.core import config, tickets
 from exo.installer import engine, project, stack, update, wizard
@@ -174,6 +174,29 @@ def _held(result: engine.Result) -> list[str]:
     return [f"kept: {line}" for line in _grouped(held, {})]
 
 
+_AGENT_FOLDERS = (base.CLAUDE_SKILLS, base.AGENTS_SKILLS, base.CLAUDE_AGENTS)
+
+
+def _orphans_reason(orphans: list[engine.Action], agents: list[str]) -> str:
+    """Por qué se conservan las huérfanas. Las de una carpeta que ningún agente del proyecto
+    lee (`.agents/skills/` después de `remove-agent`, por ejemplo) no las usa nadie (F8R1-15)."""
+    targets = tuple(agents)
+    read = set(base.skills_dirs(targets))
+    if set(targets) & base.CLAUDE_DIR_AGENTS:
+        read.add(base.CLAUDE_AGENTS)
+    unread: dict[str, int] = {}
+    for orphan in orphans:
+        folder = next((f for f in _AGENT_FOLDERS if orphan.path.startswith(f + "/")), None)
+        if folder is not None and folder not in read:
+            unread[folder] = unread.get(folder, 0) + 1
+    if not unread:
+        return "your agents may still use them"
+    where = ", ".join(f"{folder}/" for folder in sorted(unread))
+    if sum(unread.values()) == len(orphans):
+        return f"no agent of this project reads {where}"
+    return f"{sum(unread.values())} of them are in {where}, which no agent of this project reads"
+
+
 def _grouped(
     actions: list[engine.Action], renamed: dict[str, str], *, word: str = "renamed to"
 ) -> list[str]:
@@ -262,9 +285,10 @@ def _report(
         done = "would be applied" if args.dry_run else "was applied"
         print(f"the rest {done}; fix the ones marked 'unresolved' by hand and retry.")
     if result.orphans:
+        why = _orphans_reason(result.orphans, list(extra.get("agents") or []))
         print(
             f"orphaned: {len(result.orphans)} files that this content no longer ships were kept "
-            f"(your agents may still use them); delete them with `{_meta.NAME} sync --prune`"
+            f"({why}); delete them with `{_meta.NAME} sync --prune`"
         )
     return code
 
@@ -507,8 +531,9 @@ def _update_report(result: update.UpdateResult, args: argparse.Namespace) -> int
     if found.unresolved:
         print("fix the ones marked 'unresolved' by hand and retry.")
     if found.orphans:
+        why = _orphans_reason(found.orphans, result.sync.agents)
         print(
-            f"orphaned: {len(found.orphans)} files kept (your agents may still use them); "
+            f"orphaned: {len(found.orphans)} files kept ({why}); "
             f"delete them with `{_meta.NAME} update --apply --prune`"
         )
     return code

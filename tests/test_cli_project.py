@@ -483,6 +483,7 @@ def test_sync_informa_las_huerfanas_y_solo_las_borra_con_prune(
     assert f"`{_meta.NAME} sync --prune`" in out
     assert "remove\t" not in out
     assert (tmp_path / HELLO / "SKILL.md").is_file()
+    assert "(your agents may still use them)" in out
     assert main(["sync", "--project", str(tmp_path), "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["orphans"] == [f"{HELLO}/SKILL.md", f"{HELLO}/references/guide.md"]
@@ -536,6 +537,14 @@ def test_remove_agent_no_borra_huerfanas_ajenas(
     assert (tmp_path / HELLO / "SKILL.md").is_file()
     assert f"orphan\t{HELLO}/ (2 files)" in out
     assert "orphan\t.agents/skills/hello-exo/ (2 files)" in out
+    # F8R1-15: ningún agente que queda lee `.agents/skills/`: no "may still use them".
+    [line] = [line for line in out.splitlines() if line.startswith("orphaned:")]
+    assert "2 of them are in .agents/skills/, which no agent of this project reads" in line
+    shutil.rmtree(tmp_path / HELLO)
+    assert main(["sync", "--project", str(tmp_path)]) == 0
+    [line] = [line for line in capsys.readouterr().out.splitlines() if line.startswith("orphaned:")]
+    assert "no agent of this project reads .agents/skills/" in line
+    assert "may still use" not in line
 
 
 def test_force_dry_run_con_algo_sin_resolver_no_dice_que_aplico(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
