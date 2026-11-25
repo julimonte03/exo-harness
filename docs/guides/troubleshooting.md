@@ -181,14 +181,26 @@ In CI this usually means a shallow clone. Fetch the full history (`fetch-depth: 
 
 ## Publishing gates
 
-**`review.publish_command is not approved on this machine:`** followed by the command
-`exo gate publish` runs `review.publish_command` from the project's config in a shell, once per gate, and the config can come from someone else's branch. So it runs only after you approve that exact command on your machine. Read it; if you trust it, answer yes when `exo gate publish` asks in a terminal, or approve exactly that text with `exo gate publish --approve-command '<the command>'`. A different command, even by one space, asks again. The approval is kept in your user data folder, never in the repo, and an agent should ask you to run it rather than approve it itself.
+**`review.publish_command is not approved on this machine for <project>:`** followed by the command and the project files it names
+`exo gate publish` runs `review.publish_command` from the project's config in a shell, once per gate, and the config and the scripts can come from someone else's branch. So it runs only after you approve it on your machine, for that project. The approval covers the exact text of the command and the current content of the project files it names (such as `scripts/publish-gate.sh`). Read the command and those files; if you trust them, answer yes when `exo gate publish` asks in a terminal, or approve exactly that text with `exo gate publish --approve-command '<the command>'`. A different command (even by one space), another project or a change to one of those files asks again. The approval is kept in your user data folder, never in the repo, and an agent should ask you to run it rather than approve it itself.
+
+**`review.publish_command was approved on this machine for <project>, but files it names changed since: <files>`**
+Someone changed a script the command runs, for example a branch you checked out. Read the files the message lists before you approve the command again.
+
+**`An earlier exo approved this text for every project and without the files it runs; approve it again.`**
+An earlier version of exo approved only the text of the command, for every project. Approve it again in each project; the file of approvals is then rewritten in the new format.
 
 **`--approve-command does not match review.publish_command; nothing was approved or run.`**
-The text you passed is not the command in the config; the message prints the configured one. Approve only the command you read. In CI, this is what protects the pipeline: a branch that changes `review.publish_command` no longer matches the command the pipeline approves, and nothing runs.
+The text you passed is not the command in the config; the message prints the configured one. Approve only the command you read. In CI, this stops a branch that changes `review.publish_command`: it no longer matches the command the pipeline approves, and nothing runs. It does not stop a branch that changes the script the command runs, or the pipeline itself: publish from a pipeline whose definition and scripts come from a trusted ref (section D of `.exo/shared/ci-and-review.md`).
+
+**`--approve-command was given, but review.publish_command is not set in .exo/config.json`**
+There is no command to approve. Without one, `exo gate publish` prints the texts; set it with `exo init --publish-command "<command>"` or in the config.
 
 **`.../approved-commands.json: not valid JSON (...); delete it to approve the commands again`**
 The file of approved commands in your user data folder is damaged. Delete it and approve the command again.
+
+**`.../approved-commands.json was written by a newer exo (schema N; ...); upgrade exo to use its approvals`**
+A newer exo on this machine saved approvals in a format this one does not read. Upgrade exo (run the installer again); the file is left as it is.
 
 ## Memory
 
