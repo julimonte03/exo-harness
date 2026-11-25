@@ -1,10 +1,14 @@
-"""Clasificación de riesgo de un cambio (tier 1–4), pura y determinista.
+"""Clasificación de riesgo de un cambio (tier 1–3), pura y determinista.
 
 Port de §4.8 del reporte (`la referencia privada (§4)`):
 siete dimensiones con valores 0–3 y reglas FM-xx. La primera regla que
 coincide, en el orden de `RULES`, decide el tier. La evidencia faltante o
-ilegible da Tier 4 por la regla `FM-00` (fail-safe de §6.3; definición propia
+ilegible da Tier 3 por la regla `FM-00` (fail-safe de §6.3; definición propia
 porque el reporte no le da número).
+
+Tres tiers desde D-52 (ADR-0019): el Tier 4 de la 1.0 se fundió en el 3, que
+tiene siempre `judgment-day`. Un 4 leído de un assessment viejo es un 3
+(`LEGACY_TIERS`, lectura tolerante); nada nuevo se escribe con 4.
 
 La tabla también vive en
 `content/packs/sdd/skills/risk-tiering/references/classification-rules.md` y un
@@ -27,9 +31,12 @@ DIMENSIONS = (
     "test_maturity_gap",
     "regulatory_compliance_impact",
 )
-CEREMONIES = {1: "minimal", 2: "light", 3: "full", 4: "full"}
+TIERS = (1, 2, 3)
+CEREMONIES = {1: "minimal", 2: "light", 3: "full"}
+# Tier de la 1.0 -> tier actual, para leer lo escrito antes de D-52 sin reescribirlo.
+LEGACY_TIERS = {4: 3}
 FAILSAFE_RULE = "FM-00"
-FAILSAFE_TIER = 4
+FAILSAFE_TIER = 3
 FAILSAFE_CONDITION = "missing or unreadable evidence"
 _MIN, _MAX = 0, 3
 
@@ -52,11 +59,11 @@ def _at_least(count: int, value: int) -> Callable[[Mapping[str, int]], bool]:
 
 
 RULES: tuple[Rule, ...] = (
-    Rule("FM-01", 4, "security_data_sensitivity == 3", _equals_three("security_data_sensitivity")),
-    Rule("FM-02", 4, "reversibility == 3", _equals_three("reversibility")),
+    Rule("FM-01", 3, "security_data_sensitivity == 3", _equals_three("security_data_sensitivity")),
+    Rule("FM-02", 3, "reversibility == 3", _equals_three("reversibility")),
     Rule(
         "FM-03",
-        4,
+        3,
         "regulatory_compliance_impact == 3",
         _equals_three("regulatory_compliance_impact"),
     ),
@@ -99,7 +106,7 @@ def _decision(
     evidence: dict[str, int] | None,
     errors: tuple[str, ...] = (),
 ) -> FitnessDecision:
-    return FitnessDecision(tier, rule, matched, CEREMONIES[tier], tier == 4, evidence, errors)
+    return FitnessDecision(tier, rule, matched, CEREMONIES[tier], tier == 3, evidence, errors)
 
 
 def parse_evidence(raw: Any) -> tuple[dict[str, int] | None, list[str]]:
@@ -142,13 +149,23 @@ def classify_json(text: str) -> FitnessDecision:
 
 
 def _check_tier(value: Any) -> int:
-    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 4:
-        raise ValueError(f"invalid tier: {value!r} (must be 1, 2, 3 or 4)")
+    if isinstance(value, bool) or not isinstance(value, int) or value not in TIERS:
+        raise ValueError(f"invalid tier: {value!r} (must be 1, 2 or 3)")
     return value
 
 
+def legacy_tier(value: Any) -> int | None:
+    """El tier actual de un tier de la 1.0 (un 4 es 3), o None si no es uno de ellos."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return LEGACY_TIERS.get(value)
+
+
 def normalize_tier(value: Any) -> int:
-    """Tier desconocido o ilegible es Tier 4 (fail-safe)."""
+    """Un tier de la 1.0 se lee como el actual; uno desconocido o ilegible es Tier 3 (fail-safe)."""
+    legacy = legacy_tier(value)
+    if legacy is not None:
+        return legacy
     try:
         return _check_tier(value)
     except ValueError:

@@ -18,14 +18,14 @@ from exo.sdd import changes, fitness
 
 
 def register(sub: argparse._SubParsersAction) -> None:
-    group = sub.add_parser("fitness", help="risk classification (tier 1–4)")
+    group = sub.add_parser("fitness", help="risk classification (tier 1–3)")
     group.set_defaults(handler=lambda _args: (group.print_help(), 0)[1])
     actions = group.add_subparsers(dest="fitness_command", metavar="<action>")
     classify = actions.add_parser(
         "classify",
         help="compute the tier from the 7 dimensions",
         description=(
-            "Missing or unreadable evidence gives Tier 4 (rule FM-00). With --change, the result "
+            "Missing or unreadable evidence gives Tier 3 (rule FM-00). With --change, the result "
             "is recorded in the change's fitness-assessment.json: raising the tier is automatic, "
             "lowering it needs --confirm-downgrade with the person's exact words."
         ),
@@ -117,8 +117,9 @@ def run(args: argparse.Namespace) -> int:
         elif assessment.comparison == "initial":
             print(f"recorded in {assessment.path}")
         else:
+            previous = assessment.previous
             print(
                 f"recorded in {assessment.path} ({assessment.comparison} from Tier "
-                f"{assessment.previous if assessment.previous is not None else 4})"
+                f"{previous if previous is not None else fitness.FAILSAFE_TIER})"
             )
     return 0

@@ -18,14 +18,14 @@ Each dimension is an integer from 0 to 3.
 
 ## Rules
 
-They are evaluated in this order and **the first match wins**. Missing or unreadable evidence is not compensated: it gives Tier 4.
+They are evaluated in this order and **the first match wins**. Missing or unreadable evidence is not compensated: it gives Tier 3.
 
 | Rule | Condition | Tier | Notes |
 |---|---|---|---|
-| FM-00 | `missing or unreadable evidence` | 4 | Invalid JSON, missing or unknown dimension, value not an integer or outside 0–3 |
-| FM-01 | `security_data_sensitivity == 3` | 4 | Hard floor, not compensable |
-| FM-02 | `reversibility == 3` | 4 | Hard floor |
-| FM-03 | `regulatory_compliance_impact == 3` | 4 | Hard floor |
+| FM-00 | `missing or unreadable evidence` | 3 | Invalid JSON, missing or unknown dimension, value not an integer or outside 0–3 |
+| FM-01 | `security_data_sensitivity == 3` | 3 | Floor, not compensable |
+| FM-02 | `reversibility == 3` | 3 | Floor, not compensable |
+| FM-03 | `regulatory_compliance_impact == 3` | 3 | Floor, not compensable |
 | FM-10 | `component_criticality == 3` | 3 | Floor |
 | FM-11 | `blast_radius == 3` | 3 | Floor |
 | FM-12 | `files_modules_footprint == 3` | 3 | Floor |
@@ -35,14 +35,16 @@ They are evaluated in this order and **the first match wins**. Missing or unread
 
 ## Tier → ceremony
 
+The rule that decided the tier (FM-01, FM-10…) is recorded in `fitness-assessment.json`.
+
+
 | Tier | Ceremony | Judgment Day |
 |---|---|---|
 | 1 | `minimal` | no |
 | 2 | `light` | no |
-| 3 | `full` | no |
-| 4 | `full` + fresh-context verification | yes, mandatory |
+| 3 | `full` + fresh-context verification | yes, always |
 
 ## Tier changes
 
-- An unknown or unreadable tier is treated as Tier 4.
+- An unknown or unreadable tier is treated as Tier 3. A Tier 4 recorded before engine 2.0 is read as Tier 3.
 - Only the orchestrator reclassifies: an **upgrade** is automatic and a **downgrade** requires literal human confirmation.
