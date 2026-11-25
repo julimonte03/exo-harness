@@ -55,6 +55,9 @@ class SyncResult:
     renamed: dict[str, str] = field(default_factory=dict)
     # (esquema en disco, esquema actual) si la config se migró al leerla.
     config_migration: tuple[int, int] | None = None
+    # `fitness-assessment.json` de changes activos que siguen en el esquema de la 1.0 (D-52):
+    # `update` los migra en la misma transacción; los demás comandos solo avisan.
+    assessments: list[str] = field(default_factory=list)
 
 
 def normalize_agents(agents: Iterable[str]) -> tuple[str, ...]:
@@ -182,6 +185,9 @@ def sync(
     if asked or (save_migrated and migrated is not None):
         # Con el fin de línea, la sangría y el orden del archivo de la persona (F8R1-18).
         extra[config_rel] = config.dumps(normalized, like=config.current_bytes(project))
+    assessments = _legacy_assessments(project)
+    if save_migrated:
+        extra.update(assessments)
     ctx = Context(project, bundle, targets, normalized, claude_md="always" if claude_md else "auto")
     ops = adapters.plan_all(ctx)
     result = engine.apply(
@@ -211,11 +217,41 @@ def sync(
             f"{config_rel} is still on schema {migrated} (read as {config.CURRENT_SCHEMA}); "
             f"`{_meta.NAME} update --apply` saves it migrated"
         )
-    written = result.applied and bool(extra)
+    if assessments and not save_migrated:
+        notes.append(
+            f"{len(assessments)} active change(s) have a fitness-assessment.json from "
+            f"{_meta.NAME} 1.0 (read with three tiers); `{_meta.NAME} update --apply` migrates them"
+        )
+    written = result.applied and config_rel in extra
     migration = (migrated, config.CURRENT_SCHEMA) if migrated is not None else None
     return SyncResult(
-        result, list(targets), list(bundle.packs), notes, written, renamed, migration
+        result,
+        list(targets),
+        list(bundle.packs),
+        notes,
+        written,
+        renamed,
+        migration,
+        sorted(assessments),
     )
+
+
+def _legacy_assessments(project: Path) -> dict[str, bytes]:
+    """Los assessments de changes activos que hay que migrar a tres tiers (D-52).
+
+    Los archivados no se tocan: se leen con tolerancia. Un assessment que no se
+    puede leer tampoco: lo informa `exo check`.
+    """
+    from exo.sdd import changes, observability
+
+    found: dict[str, bytes] = {}
+    for change in observability.find_changes(project, include_archived=False):
+        rel = f"{change.path}/{changes.ASSESSMENT}"
+        data = changes.read_assessment_file(project / rel)
+        migrated = changes.migrate_assessment(data)
+        if migrated is not None:
+            found[rel] = changes.dump_assessment(migrated)
+    return found
 
 
 def _dropped(root: Path, ctx: Context, ops: list[Op], previous: lock.Lock | None) -> set[Unit]:
