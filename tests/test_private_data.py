@@ -56,9 +56,9 @@ def test_private_dir_en_0700_sin_tocar_lo_que_ya_existe(tmp_path: Path) -> None:
 
 
 @POSIX
-def test_persona_y_aprobaciones_en_0600(data_dir: Path) -> None:
+def test_persona_y_aprobaciones_en_0600(data_dir: Path, tmp_path: Path) -> None:
     persona.write("qa")
-    approvals.approve("echo hola")
+    approvals.approve(tmp_path, "echo hola")
     assert _mode(data_dir) == 0o700
     assert _mode(data_dir / persona.FILE_NAME) == 0o600
     assert _mode(data_dir / approvals.FILE_NAME) == 0o600

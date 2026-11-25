@@ -129,7 +129,7 @@ def test_criterio_4_el_comando_propio_se_llama_una_vez_por_gate(tmp_path: Path) 
     cfg = config.defaults()
     cfg["review"]["publish_command"] = f'"{Path(sys.executable).as_posix()}" "{script.as_posix()}"'
     config.save(tmp_path, cfg)
-    results = gates.publish(tmp_path, "add-login", approve=True)
+    results = gates.publish(tmp_path, "add-login", approve=cfg["review"]["publish_command"])
     assert [r.status for r in results] == ["sent", "sent"]
     lines = log.read_text().splitlines()
     assert lines == [
@@ -232,7 +232,10 @@ def test_en_una_terminal_pregunta(
     argv = ["gate", "publish", "--change", "add-login", "--project", str(tmp_path)]
     assert main(argv) == code
     assert marker.exists() is ran
-    assert asked and command in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert asked and command in out
+    # Muestra también los archivos del proyecto que nombra el comando: la aprobación los cubre.
+    assert "marca.py" in out.split(command, 1)[1]
 
 
 def test_aprobaciones_ilegibles(tmp_path: Path) -> None:
@@ -243,7 +246,220 @@ def test_aprobaciones_ilegibles(tmp_path: Path) -> None:
     folder.mkdir(parents=True)
     (folder / approvals.FILE_NAME).write_text("{roto", encoding="utf-8")
     with pytest.raises(approvals.ApprovalError, match=approvals.FILE_NAME):
-        approvals.is_approved("echo hola")
+        approvals.check(tmp_path, "echo hola")
+
+
+# -- la aprobación cubre el proyecto y los archivos que corre (F8R1-1) ------------------------
+
+
+def _relative_marker(project_dir: Path) -> tuple[str, Path, Path]:
+    """Un comando que corre un script del proyecto por su ruta relativa."""
+    marker = project_dir / "corrio.txt"
+    script = project_dir / "scripts" / "publicar.py"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text(
+        f"import pathlib\npathlib.Path({str(marker)!r}).write_text('si')\n", encoding="utf-8"
+    )
+    return f'"{Path(sys.executable).as_posix()}" scripts/publicar.py', marker, script
+
+
+def _configure(project_dir: Path, command: str | None) -> None:
+    cfg = config.defaults()
+    cfg["review"]["publish_command"] = command
+    config.save(project_dir, cfg)
+
+
+def test_un_archivo_que_corre_el_comando_y_cambio_vuelve_a_pedir(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _change(tmp_path, {"gates/code_review.md": gate("code_review")})
+    command, marker, script = _relative_marker(tmp_path)
+    _configure(tmp_path, command)
+    argv = ["gate", "publish", "--change", "add-login", "--project", str(tmp_path)]
+    assert main(argv) == 1
+    err = capsys.readouterr().err
+    assert "scripts/publicar.py" in err  # sin TTY también dice qué cubre la aprobación
+    assert main([*argv, "--approve-command", command]) == 0
+    assert marker.exists()
+    marker.unlink()
+    assert main(argv) == 0  # sin cambios, no vuelve a preguntar
+    assert marker.exists()
+    marker.unlink()
+
+    # La rama cambia el script: el texto del comando es el mismo, pero lo que corre no.
+    script.write_text(script.read_text(encoding="utf-8") + "# otro\n", encoding="utf-8")
+    capsys.readouterr()
+    assert main(argv) == 1
+    err = capsys.readouterr().err
+    assert "changed" in err and "scripts/publicar.py" in err
+    assert not marker.exists()
+    assert main([*argv, "--approve-command", command]) == 0
+    assert marker.exists()
+
+
+def test_la_aprobacion_queda_atada_al_proyecto(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    first, second = tmp_path / "uno", tmp_path / "dos"
+    command, marker = _marker_command(tmp_path)  # el script queda fuera de los dos proyectos
+    for root in (first, second):
+        root.mkdir()
+        _change(root, {"gates/code_review.md": gate("code_review")})
+        _configure(root, command)
+    publish = ["gate", "publish", "--change", "add-login", "--project"]
+    assert main([*publish, str(first), "--approve-command", command]) == 0
+    assert marker.exists()
+    marker.unlink()
+    capsys.readouterr()
+    # El mismo texto en otro repo de la máquina no está aprobado.
+    assert main([*publish, str(second)]) == 1
+    assert str(second.resolve()) in capsys.readouterr().err
+    assert not marker.exists()
+    assert main([*publish, str(first)]) == 0
+
+
+def test_lo_que_cubre_la_aprobacion(tmp_path: Path) -> None:
+    from exo.governance import approvals
+
+    for rel in ("scripts/publish-gate.sh", "body.md", "tools/run.py", "notes/a b.sh"):
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text("echo\n", encoding="utf-8")
+    (tmp_path / "carpeta").mkdir()
+    outside = tmp_path.parent / f"{tmp_path.name}-afuera.sh"
+    outside.write_text("echo\n", encoding="utf-8")
+    command = (
+        f'sh scripts/publish-gate.sh && "{(tmp_path / "tools" / "run.py").as_posix()}" '
+        f"--body=body.md carpeta 'notes/a b.sh' {outside.as_posix()} missing.sh|cat"
+    )
+    covered = approvals.covered_files(tmp_path, command)
+    assert sorted(covered) == ["body.md", "notes/a b.sh", "scripts/publish-gate.sh", "tools/run.py"]
+    assert approvals.covered_files(tmp_path, "gh pr comment 1 --body-file x") == {}
+    # Comillas sin cerrar: se parte por espacios.
+    assert list(approvals.covered_files(tmp_path, "sh scripts/publish-gate.sh '")) == [
+        "scripts/publish-gate.sh"
+    ]
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="rutas de cmd")
+def test_lo_que_cubre_la_aprobacion_con_barras_de_windows(tmp_path: Path) -> None:
+    from exo.governance import approvals
+
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "publish.cmd").write_text("@echo off\n", encoding="utf-8")
+    assert list(approvals.covered_files(tmp_path, r"cmd /c scripts\publish.cmd")) == [
+        "scripts/publish.cmd"
+    ]
+
+
+def test_aprobaciones_de_una_version_anterior(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """El esquema 1 guardaba solo el SHA256 del texto: no dice para qué proyecto ni qué archivos,
+    así que no alcanza. Se toma como no aprobado y se vuelve a pedir; al aprobar se reescribe."""
+    import hashlib
+
+    from exo import paths
+    from exo.governance import approvals
+
+    _change(tmp_path, {"gates/code_review.md": gate("code_review")})
+    command, marker = _marker_command(tmp_path)
+    _configure(tmp_path, command)
+    folder = Path(os.environ[paths.ENV_DATA_DIR])
+    folder.mkdir(parents=True)
+    old = {
+        "schema": 1,
+        "commands": {
+            hashlib.sha256(command.encode("utf-8")).hexdigest(): {
+                "command": command,
+                "approved_at": "2026-11-20T10:00:00+00:00",
+            }
+        },
+    }
+    (folder / approvals.FILE_NAME).write_text(json.dumps(old), encoding="utf-8")
+    argv = ["gate", "publish", "--change", "add-login", "--project", str(tmp_path)]
+    assert main(argv) == 1
+    err = capsys.readouterr().err
+    assert "earlier" in err and "--approve-command" in err
+    assert not marker.exists()
+    assert main([*argv, "--approve-command", command]) == 0
+    assert marker.exists()
+    saved = json.loads((folder / approvals.FILE_NAME).read_text(encoding="utf-8"))
+    assert saved["schema"] == approvals.SCHEMA
+    assert [e["command"] for e in saved["approvals"].values()] == [command]
+
+
+def test_aprobaciones_de_un_exo_mas_nuevo(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from exo import paths
+    from exo.governance import approvals
+
+    _change(tmp_path, {"gates/code_review.md": gate("code_review")})
+    command, marker = _marker_command(tmp_path)
+    _configure(tmp_path, command)
+    folder = Path(os.environ[paths.ENV_DATA_DIR])
+    folder.mkdir(parents=True)
+    newer = b'{"schema": 99, "approvals": {}}'
+    (folder / approvals.FILE_NAME).write_bytes(newer)
+    argv = ["gate", "publish", "--change", "add-login", "--project", str(tmp_path)]
+    for extra in ([], ["--approve-command", command]):
+        assert main([*argv, *extra]) == 1
+        err = capsys.readouterr().err
+        assert "newer" in err and "upgrade exo" in err.lower()
+        assert "delete" not in err
+    assert (folder / approvals.FILE_NAME).read_bytes() == newer  # no se pisa
+    assert not marker.exists()
+
+
+def test_approve_command_sin_publish_command(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _change(tmp_path, {"gates/code_review.md": gate("code_review")})
+    argv = ["gate", "publish", "--change", "add-login", "--project", str(tmp_path)]
+    assert main([*argv, "--approve-command", "sh publish.sh"]) == 1
+    err = capsys.readouterr().err
+    assert "None" not in err
+    assert "review.publish_command is not set" in err
+
+
+def test_gate_publish_lee_la_config_una_vez(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _change(tmp_path, {"gates/code_review.md": gate("code_review")})
+    command, marker = _marker_command(tmp_path)
+    _configure(tmp_path, command)
+    callers: list[str] = []
+    real = config.load
+
+    def spy(project: Path) -> config.LoadResult:
+        callers.append(sys._getframe(1).f_globals["__name__"])
+        return real(project)
+
+    monkeypatch.setattr(config, "load", spy)
+    argv = ["gate", "publish", "--change", "add-login", "--project", str(tmp_path)]
+    assert main([*argv, "--approve-command", command]) == 0
+    assert marker.exists()
+    # El texto que se compara es el que corre: una sola lectura, en gates.publish.
+    assert callers.count("exo.governance.gates") == 1
+    assert "exo.commands.gate" not in callers
+    # gates.publish aprueba solo el texto que coincide con la config que leyó.
+    with pytest.raises(gates.CommandMismatch, match="does not match"):
+        gates.publish(tmp_path, "add-login", approve=command + " --otro")
+
+
+def test_codeowners_suma_lo_que_corre_publish_command(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "publish-gate.sh").write_text("#!/bin/sh\n", encoding="utf-8")
+    cfg = config.defaults()
+    cfg["governance"]["roles"]["tech_lead"] = ["@ana"]
+    cfg["review"]["publish_command"] = "sh scripts/publish-gate.sh && sh scripts/missing.sh"
+    config.save(tmp_path, cfg)
+    assert main(["codeowners", "--project", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert "/scripts/publish-gate.sh @ana" in out
+    assert "missing.sh" not in out
 
 
 def test_sin_comando_se_imprime(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

@@ -94,28 +94,59 @@ def collect(project: Path, change: str) -> list[GateText]:
 
 
 class CommandNotApproved(GateError):
-    """El `publish_command` de la config no está aprobado en esta máquina (TM-21)."""
+    """El `publish_command` de la config no está aprobado en esta máquina para este proyecto,
+    o cambió un archivo que corre (TM-20, TM-21)."""
 
-    def __init__(self, command: str) -> None:
-        super().__init__(approvals.explain(command))
-        self.command = command
+    def __init__(self, decision: approvals.Decision) -> None:
+        super().__init__(approvals.explain(decision))
+        self.decision = decision
+        self.command = decision.command
+
+
+class CommandMismatch(GateError):
+    """El texto que la persona aprobó no es el `publish_command` de la config (M-1)."""
+
+
+def _check_approval(command: str | None, approve: str) -> None:
+    if not command:
+        raise GateError(
+            f"--approve-command was given, but review.publish_command is not set in "
+            f"{_meta.PROJECT_DIR}/{config.FILENAME}: there is nothing to approve or run. Without "
+            f"it, `{_meta.NAME} gate publish` prints the texts; set it with `{_meta.NAME} init "
+            '--publish-command "<command>"` or in the config'
+        )
+    if approve != command:
+        raise CommandMismatch(
+            "--approve-command does not match review.publish_command; nothing was approved "
+            f"or run. The configured command is:\n  {command}"
+        )
 
 
 def publish(
-    project: Path, change: str, *, dry_run: bool = False, approve: bool = False
+    project: Path, change: str, *, dry_run: bool = False, approve: str | None = None
 ) -> list[Published]:
     """Publica o imprime los gates. El comando corre solo si está aprobado en esta máquina
-    (`approve` lo aprueba antes); si no, `CommandNotApproved` y no se ejecuta nada."""
+    para este proyecto; si no, `CommandNotApproved` y no se ejecuta nada.
+
+    `approve` es el texto que la persona aprobó (`--approve-command`, o el que vio en la
+    terminal): se aprueba solo si coincide con el de la config, que se lee una sola vez acá,
+    así lo que se compara es lo que corre (`CommandMismatch` si no)."""
     project = Path(project)
     texts = collect(project, change)
     command = config.load(project).config["review"]["publish_command"]
-    if dry_run or not command:
+    if dry_run:
+        return [Published(t.name, "printed", "", t.body, t.path) for t in texts]
+    if approve is not None:
+        _check_approval(command, approve)
+    if not command:
         return [Published(t.name, "printed", "", t.body, t.path) for t in texts]
     if texts:
-        if approve:
-            approvals.approve(command)
-        elif not approvals.is_approved(command):
-            raise CommandNotApproved(command)
+        if approve is not None:
+            approvals.approve(project, command)
+        else:
+            decision = approvals.check(project, command)
+            if not decision.approved:
+                raise CommandNotApproved(decision)
     results: list[Published] = []
     for text in texts:
         handle, body_path = tempfile.mkstemp(prefix=f"{_meta.NAME}-gate-", suffix=".md")
