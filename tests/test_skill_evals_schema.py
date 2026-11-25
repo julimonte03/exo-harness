@@ -214,6 +214,34 @@ def test_el_entorno_aisla_la_config_global_de_git(tmp_path: Path) -> None:
     assert env["GIT_CONFIG_NOSYSTEM"] == "1"
 
 
+def _cubre(allowed: str, rule: str) -> bool:
+    """Si alguna regla `Tool(prefijo:*)` de `allowed` cubre `rule` (`Tool(prefijo resto:*)`)."""
+    tool, _, arg = rule.partition("(")
+    for item in allowed.split():
+        name, _, prefix = item.partition("(")
+        if name == tool and prefix.endswith(":*)"):
+            base = prefix[: -len(":*)")]
+            if arg == prefix or arg.startswith(base + " "):
+                return True
+    return False
+
+
+def test_el_permiso_del_proyecto_no_suma_tools_a_las_corridas() -> None:
+    """F8R2-20: `--setting-sources project,local` carga `.claude/settings.json`, con el
+    `permissions.allow` que escribe exo. Sea que Claude Code lo aplique o no en `-p`, no
+    suma nada: cada regla está dentro de las tools de los evals y de los escenarios."""
+    from exo.adapters import claude_code
+
+    import _agents as agents
+    from test_skill_evals import TOOLS
+
+    assert claude_code.PERMISSIONS
+    for allowed in (TOOLS, agents.claude_tools(python=False)):
+        assert [r for r in claude_code.PERMISSIONS if not _cubre(allowed, r)] == []
+    assert not _cubre("Bash(git:*)", "Bash(exo change:*)")
+    assert not _cubre("Bash(exo:*)", "Bash(exotic:*)")
+
+
 def _git_en(env: dict[str, str], *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["git", *args], env=env, capture_output=True, text=True, timeout=60, check=False
