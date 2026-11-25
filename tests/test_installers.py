@@ -504,7 +504,8 @@ def test_install_ps1_con_la_salida_redirigida(
 ) -> None:
     """`... *> install.log`: con la salida redirigida, PowerShell 5.1 convierte el stderr de
     uv o de pip (su progreso) en errores, y el 'Stop' del script cortaba la instalación
-    (lo encontró el checklist cronometrado de F8)."""
+    (lo encontró el checklist cronometrado de F8). Lo mismo con `uv tool uninstall` en el
+    desinstalador (F8R2-2)."""
     env = {**_remote_env(tmp_path, remoto.url, no_uv=no_uv), "EXO_INSTALL_NO_PATH": "1"}
     log = tmp_path / "install.log"
     script = f"& ([scriptblock]::Create((irm '{remoto.raw('install.ps1')}'))) *> '{log}'"
@@ -513,6 +514,13 @@ def test_install_ps1_con_la_salida_redirigida(
     bin_dir = tmp_path / "datos" / "venv" / "Scripts" if no_uv else tmp_path / "uv-bin"
     exe = bin_dir / f"{_meta.NAME}.exe"
     assert _run([str(exe), "--version"], env).stdout.strip() == f"{_meta.NAME} {_meta.VERSION}"
+    log = tmp_path / "uninstall.log"
+    script = f"& ([scriptblock]::Create((irm '{remoto.raw('uninstall.ps1')}'))) *> '{log}'"
+    result = _exec([*PS, "-Command", script], env)
+    output = log.read_text(encoding="utf-16", errors="replace")
+    assert result.returncode == 0, output
+    assert f"Uninstalled {_meta.DIST_NAME}" in output
+    assert not exe.exists()
 
 
 @WINDOWS_ONLY

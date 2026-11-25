@@ -44,6 +44,25 @@ param([switch]$NoPath)
         }
     }
 
+    function Invoke-Checked {
+        # Corre un ejecutable y manda su codigo de salida, como en install.ps1. Con la
+        # salida redirigida (`*> uninstall.log`), PowerShell 5.1 convierte su stderr (lo
+        # que informa `uv tool uninstall`) en errores, y con 'Stop' cortaria una
+        # desinstalacion que salio bien.
+        param([string]$Exe, [string[]]$Arguments, [string]$Failure = '')
+        $previous = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            & $Exe @Arguments
+        } finally {
+            $ErrorActionPreference = $previous
+        }
+        if ($LASTEXITCODE -ne 0) {
+            if ($Failure) { throw $Failure }
+            throw "Failed: $Exe $($Arguments -join ' ')"
+        }
+    }
+
     function Test-SameDir {
         param([string]$Entry, [string]$Dir)
         $expanded = [Environment]::ExpandEnvironmentVariables($Entry).TrimEnd('\')
@@ -79,8 +98,7 @@ param([switch]$NoPath)
     if ($uv -and $env:EXO_INSTALL_NO_UV -ne '1') {
         $tools = Get-NativeOutput $uv.Source @('tool', 'list')
         if ($tools -match "(?m)^$([regex]::Escape($Dist))\b") {
-            & $uv.Source tool uninstall $Dist
-            if ($LASTEXITCODE -ne 0) { throw "uv tool uninstall $Dist failed" }
+            Invoke-Checked $uv.Source @('tool', 'uninstall', $Dist) "uv tool uninstall $Dist failed; check the output above."
             $removed = $true
         }
     }
