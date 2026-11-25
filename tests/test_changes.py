@@ -400,3 +400,26 @@ def test_reclasificar_un_migrado_conserva_migrated_from(tmp_path: Path) -> None:
     assert (result.previous, result.comparison, result.written) == (3, "same", True)
     data = _assessment(tmp_path, created.path)
     assert (data["schema"], data["tier"], data["migrated_from"]) == (2, 3, 4)
+
+
+def test_reclasificar_igual_un_esquema_1_lo_pasa_al_esquema_2(tmp_path: Path) -> None:
+    """Revisión F9: un assessment del esquema 1 no queda en él por reclasificarse igual."""
+    created = changes.new_change(tmp_path, "add-login", now=NOW)
+    changes.record_assessment(tmp_path, "add-login", LOW, now=NOW)
+    path = tmp_path / created.path / changes.ASSESSMENT
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["schema"] = 1
+    path.write_text(json.dumps(data), encoding="utf-8")
+    result = changes.record_assessment(tmp_path, "add-login", LOW, now=LATER)
+    assert (result.comparison, result.written) == ("same", True)
+    assert _assessment(tmp_path, created.path)["schema"] == 2
+
+
+def test_reclasificar_un_tier_4_sin_migrar_registra_migrated_from(tmp_path: Path) -> None:
+    created = changes.new_change(tmp_path, "add-login", now=NOW)
+    (tmp_path / created.path / changes.ASSESSMENT).write_text(json.dumps(_legacy(4)), encoding="utf-8")
+    high = {**LOW, "reversibility": 3}
+    result = changes.record_assessment(tmp_path, "add-login", high, now=LATER)
+    assert (result.previous, result.comparison) == (3, "same")
+    data = _assessment(tmp_path, created.path)
+    assert (data["schema"], data["tier"], data["migrated_from"]) == (2, 3, 4)

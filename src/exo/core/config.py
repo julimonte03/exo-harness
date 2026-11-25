@@ -252,7 +252,13 @@ def _gates(value: Any, path: str, col: _Collector, default: Any) -> Any:
     names = _text_list(_GATE, "must be a gate name in snake_case, such as code_review")
     for tier, gates in value.items():
         if str(tier) not in TIERS:
-            col.invalid_value(_join(path, str(tier)), "tiers are 1, 2 and 3", "ignored")
+            message = "tiers are 1, 2 and 3"
+            if str(tier) == "4":
+                message += (
+                    " (Tier 4 merged into Tier 3 in schema 4: move these gates to \"3\" "
+                    "as a list of gate names)"
+                )
+            col.invalid_value(_join(path, str(tier)), message, "ignored")
             continue
         out[str(tier)] = names(gates, _join(path, str(tier)), col, default[str(tier)])
     return out

@@ -456,8 +456,11 @@ def record_assessment(
                 '--confirm-downgrade "<their exact words>"'
             )
     payload = decision.to_dict()
-    unchanged = old is not None and {k: old.get(k) for k in payload} == json.loads(
-        json.dumps(payload)
+    # Un assessment de otro esquema se reescribe aunque la decisión sea la misma (D-52).
+    unchanged = (
+        old is not None
+        and old.get("schema") == ASSESSMENT_SCHEMA
+        and {k: old.get(k) for k in payload} == json.loads(json.dumps(payload))
     )
     if comparison == "same" and unchanged:
         return Assessment(decision.tier, previous, comparison, False, rel, decision)
@@ -479,5 +482,8 @@ def record_assessment(
     }
     if old is not None and "migrated_from" in old:
         data["migrated_from"] = old["migrated_from"]
+    elif old is not None and old.get("schema", 1) == 1 and fitness.legacy_tier(old.get("tier")):
+        # Un Tier 4 de la 1.0 sin migrar que se reclasifica: queda dicho de dónde venía.
+        data["migrated_from"] = old["tier"]
     fsutil.write_atomic(path, _dump(data))
     return Assessment(decision.tier, previous, comparison, True, rel, decision)

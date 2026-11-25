@@ -46,5 +46,5 @@ The rule that decided the tier (FM-01, FM-10…) is recorded in `fitness-assessm
 
 ## Tier changes
 
-- An unknown or unreadable tier is treated as Tier 3. A Tier 4 recorded before engine 2.0 is read as Tier 3.
+- An unknown or unreadable tier is treated as Tier 3. A Tier 4 recorded by engine 1.0 is read as Tier 3.
 - Only the orchestrator reclassifies: an **upgrade** is automatic and a **downgrade** requires literal human confirmation.

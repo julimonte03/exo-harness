@@ -274,3 +274,16 @@ def test_change_state_incluye_el_tier(tmp_path: Path) -> None:
     (folder / "fitness-assessment.json").write_text(json.dumps({"tier": 5}), encoding="utf-8")
     pagos = observability.change_state(tmp_path, "PROJ-11-pagos")
     assert (pagos["tier"], pagos["tier_source"]) == (3, "unreadable")
+
+
+def test_un_tier_4_en_el_esquema_2_es_ilegible(tmp_path: Path) -> None:
+    """Revisión F9: la lectura tolerante es solo para lo que escribió la 1.0 (esquema 1)."""
+    folder = tmp_path / "c"
+    folder.mkdir()
+    path = folder / "fitness-assessment.json"
+    path.write_text(json.dumps({"schema": 2, "tier": 4}), encoding="utf-8")
+    assert observability.tier_of(folder) == (3, "unreadable")
+    path.write_text(json.dumps({"schema": 1, "tier": 4}), encoding="utf-8")
+    assert observability.tier_of(folder) == (3, "assessment")
+    path.write_text(json.dumps({"schema": True, "tier": 4}), encoding="utf-8")
+    assert observability.tier_of(folder) == (3, "unreadable")

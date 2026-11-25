@@ -283,3 +283,50 @@ def test_archivado_del_esquema_actual_exige_gates_y_judgment_day(tmp_path: Path)
     messages = _findings(check.check(tmp_path, names=["viejo"]))
     assert any("judgment-day" in m for m in messages)
     assert any("security_review" in m for m in messages)
+
+
+def test_archivado_sin_campo_schema_no_es_de_la_1_0(tmp_path: Path) -> None:
+    """Revisión F9: sin `"schema": 1` explícito no hay validación solo por estructura."""
+    target = _legacy_archived(tmp_path, schema=1)
+    path = target / changes.ASSESSMENT
+    data = json.loads(path.read_text(encoding="utf-8"))
+    del data["schema"]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    messages = _findings(check.check(tmp_path, names=["viejo"]))
+    assert any("judgment-day" in m for m in messages)
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="requiere git")
+def test_base_un_archivado_nuevo_con_schema_1_pasa_por_las_reglas_nuevas(tmp_path: Path) -> None:
+    """Revisión F9: un PR que agrega un archivado con `schema: 1` no se saltea los gates."""
+    _git(tmp_path, "init", "-q")
+    _git(tmp_path, "config", "user.email", "test@example.com")
+    _git(tmp_path, "config", "user.name", "Test")
+    (tmp_path / "README.md").write_text("x\n", encoding="utf-8")
+    _git(tmp_path, "add", "-A")
+    _git(tmp_path, "commit", "-q", "-m", "base")
+    _legacy_archived(tmp_path, schema=1)
+    result = check.check(tmp_path, base="HEAD")
+    assert not result.ok
+    messages = _findings(result)
+    assert any("judgment-day" in m for m in messages)
+    assert not any("checked by structure only" in m for m in _findings(result, "warning"))
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="requiere git")
+def test_base_un_archivado_de_la_1_0_que_ya_estaba_se_valida_por_estructura(tmp_path: Path) -> None:
+    _git(tmp_path, "init", "-q")
+    _git(tmp_path, "config", "user.email", "test@example.com")
+    _git(tmp_path, "config", "user.name", "Test")
+    target = _legacy_archived(tmp_path, schema=1)
+    _git(tmp_path, "add", "-A")
+    _git(tmp_path, "commit", "-q", "-m", "archivado con la 1.0")
+    (target / "proposal.md").write_text(PROPOSAL + "\nTypo fixed.\n", encoding="utf-8")
+    result = check.check(tmp_path, base="HEAD")
+    assert [c.name for c in result.changes] == ["viejo"]
+    assert result.ok, _findings(result)
+    assert any("checked by structure only" in m for m in _findings(result, "warning"))
+    # Si el PR toca el assessment, deja de ser el de la 1.0.
+    path = target / changes.ASSESSMENT
+    path.write_bytes(path.read_bytes() + b"\n")
+    assert not check.check(tmp_path, base="HEAD").ok

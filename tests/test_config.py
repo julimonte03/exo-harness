@@ -400,3 +400,10 @@ def test_migracion_3_a_4_deja_lo_invalido_para_la_validacion(tmp_path: Path) -> 
     assert any(p.startswith("governance.gates.3") for p in config.load(tmp_path).invalid)
     _write(tmp_path, _gates_v3([]))
     assert any(p.startswith("governance.gates") for p in config.load(tmp_path).invalid)
+
+
+def test_una_clave_4_en_el_esquema_4_explica_que_hacer(tmp_path: Path) -> None:
+    _write(tmp_path, {"schema": 4, "governance": {"gates": {"4": ["pentest"]}}})
+    result = config.load(tmp_path)
+    [problem] = [p for p in result.invalid if p.startswith("governance.gates.4")]
+    assert 'move these gates to "3"' in problem

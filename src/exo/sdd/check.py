@@ -341,7 +341,11 @@ def _readiness(
 
 
 def _check_change(
-    project: Path, change: observability.Change, cfg: dict | None = None, fast: bool = False
+    project: Path,
+    change: observability.Change,
+    cfg: dict | None = None,
+    fast: bool = False,
+    fork: str | None = None,
 ) -> ChangeCheck:
     folder = project / change.path
     tier = changes.read_tier(folder)
@@ -385,24 +389,52 @@ def _check_change(
                 "(D-27); otherwise write the delta",
             )
         )
-    legacy = (
-        change.archived
-        and source == "assessment"
-        and changes.assessment_schema(folder) == LEGACY_ASSESSMENT_SCHEMA
-    )
+    legacy = source == "assessment" and _legacy_archived(project, change, fork)
     if legacy:
         item.findings.append(
             Finding(
                 "warning",
                 change.path,
                 0,
-                "archived with a fitness-assessment.json from exo 1.0 (four tiers): checked by "
-                "structure only, without the gates and judgment-day of the three-tier rules",
+                f"archived with a fitness-assessment.json from {_meta.NAME} 1.0 (four tiers): "
+                "checked by structure only, without the gates and judgment-day of the "
+                "three-tier rules",
             )
         )
     if cfg is not None:
         item.findings += _readiness(project, change, effective, cfg, legacy)
     return item
+
+
+def _legacy_archived(project: Path, change: observability.Change, fork: str | None) -> bool:
+    """Un change archivado con la 1.0: se valida solo por estructura (D-52).
+
+    Su assessment dice `"schema": 1` de forma explícita (la 1.0 siempre lo escribía).
+    Con `--base` (`fork`), además, ese archivo ya estaba archivado en el punto de
+    partida, en la misma ruta y con los mismos bytes: un archivado nuevo del diff
+    nunca es de la 1.0, aunque diga `schema: 1`, así que pasa por las reglas nuevas.
+    """
+    if not change.archived:
+        return False
+    rel = f"{change.path}/{changes.ASSESSMENT}"
+    path = project / rel
+    data = changes.read_assessment_file(path)
+    schema = data.get("schema") if data is not None else None
+    if isinstance(schema, bool) or schema != LEGACY_ASSESSMENT_SCHEMA:
+        return False
+    if fork is None:
+        return True
+    return _show(project, fork, rel) == fsutil.read_bytes(path)
+
+
+def _show(project: Path, commit: str, rel: str) -> bytes | None:
+    """Los bytes de `rel` en `commit`, o None si no está (o git no lo puede leer)."""
+    command = ["git", "-C", str(project), "show", f"{commit}:{rel}"]
+    try:
+        result = subprocess.run(command, capture_output=True, timeout=_GIT_TIMEOUT, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return result.stdout if result.returncode == 0 else None
 
 
 def _scan_diff(project: Path, fork: str, cfg: dict, head: str | None = None) -> list[Finding]:
@@ -451,8 +483,9 @@ def check(
         for problem in loaded.invalid
     ]
     # Con `--base` el diff se escanea siempre: no depende de la persistencia ni de `--change`.
-    if base is not None:
-        result.diff = _scan_diff(project, fork_point(project, base, head or "HEAD"), cfg, head)
+    fork = fork_point(project, base, head or "HEAD") if base is not None else None
+    if fork is not None:
+        result.diff = _scan_diff(project, fork, cfg, head)
     persistence = loaded.config["sdd"]["persistence"]
     if persistence in NO_DISK:
         result.notes.append(
@@ -481,7 +514,7 @@ def check(
     else:
         selected = active
     for change in selected:
-        result.changes.append(_check_change(project, change, cfg, fast))
+        result.changes.append(_check_change(project, change, cfg, fast, fork))
     if fast:
         return result
     for path in cap_files:

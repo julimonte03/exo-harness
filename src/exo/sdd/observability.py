@@ -258,7 +258,8 @@ def tier_of(folder: Path) -> tuple[int, str]:
         return FAILSAFE_TIER, "missing"
     data = _read_json(path, [])
     tier = data.get("tier") if isinstance(data, dict) else None
-    legacy = fitness.legacy_tier(tier)
+    schema = data.get("schema", 1) if isinstance(data, dict) else None
+    legacy = fitness.legacy_tier(tier) if schema == 1 and schema is not True else None
     if legacy is not None:
         return legacy, "assessment"
     if isinstance(tier, bool) or not isinstance(tier, int) or tier not in fitness.TIERS:
