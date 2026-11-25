@@ -4,8 +4,8 @@
 - Subagentes en `.claude/agents/`.
 - Permiso para ejecutar sin preguntar los subcomandos del motor que las skills corren
   solas (`permissions.allow` de `.claude/settings.json`, por Bash y por PowerShell),
-  porque las tools se usan por terminal (ADR-0005). Claude Code aplica estas reglas
-  recién cuando el usuario acepta la confianza del workspace. Lo que cambia la
+  porque las tools se usan por terminal (ADR-0005). En una sesión interactiva, Claude
+  Code las aplica al aceptar la confianza del workspace; en `-p` no se verificó. Lo que cambia la
   instalación, borra o exporta memoria, o ejecuta un comando configurado
   (`gate publish`) queda afuera: lo aprueba la persona (threat model, TM-21).
 - `CLAUDE.md`: Claude Code ≥ 2.1.281 lee `AGENTS.md` si no hay `CLAUDE.md`, así

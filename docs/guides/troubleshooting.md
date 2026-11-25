@@ -52,6 +52,9 @@ Windows blocks scripts by default. Run it with `powershell -ExecutionPolicy Bypa
 
 ## The `exo` on your PATH
 
+**`Warning: another exo comes first on your PATH: <path>.`** (installers)
+Another program called `exo` is earlier on your `PATH`, so typing `exo` runs it instead of this engine. The installer did not touch it. Put the folder the installer printed before it on the `PATH`, or call exo by the full path it printed. `exo doctor` shows the same warning.
+
 **`` `exo` is not on the PATH; activate the environment or reinstall the engine ``** (`exo doctor`, line `path`)
 Your shell does not find exo. Open a new terminal, activate the virtual environment you installed it in, or run the installer again.
 
