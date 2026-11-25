@@ -48,7 +48,22 @@ The agent drives exo through the terminal (`exo change status --json`, `exo chec
 
 ### Non-interactive runs (`copilot -p`)
 
-With `-p` and `--no-ask-user` there is nobody to approve a command, so Copilot runs only what its `--allow-tool` rules cover and denies the rest. With Copilot CLI 1.0.114, `--allow-tool 'shell(exo:*)' --allow-tool 'shell(git:*)'` did **not** cover:
+With `-p` and `--no-ask-user` there is nobody to approve a command, so Copilot runs only what its `--allow-tool` rules cover and denies the rest.
+
+**Allow exo by subcommand, never as a whole.** A rule for every `exo` command, such as `shell(exo:*)`, also lets the agent run `exo init --publish-command '<command>'` and then `exo gate publish --approve-command '<command>'` without asking: a prompt injection in a file the agent reads (code under review, a ticket, a page) could make it run any command on your machine. Allow only the subcommands that exo lets Claude Code run without asking ([What runs without asking](claude-code.md#what-runs-without-asking)), with one `--allow-tool` rule each:
+
+```text
+shell(exo change:*)     shell(exo check:*)      shell(exo speclint:*)   shell(exo specs:*)
+shell(exo fitness:*)    shell(exo discover:*)   shell(exo skills:*)     shell(exo doctor:*)
+shell(exo status:*)     shell(exo validate:*)   shell(exo p0:*)         shell(exo codeowners:*)
+shell(exo hook:*)       shell(exo version:*)    shell(exo persona show:*)
+shell(exo mem save:*)   shell(exo mem search:*) shell(exo mem get:*)    shell(exo mem list:*)
+shell(exo mem context:*) shell(exo mem session:*) shell(exo mem stats:*)
+```
+
+For example, `copilot -p "<request>" --no-ask-user --allow-tool 'shell(exo change:*)' --allow-tool 'shell(exo check:*)' ...`. This syntax is not verified with every version: check your Copilot version's rule syntax ([Copilot CLI reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-programmatic-reference)) before you rely on it. If your version does not match a rule with two words, a command it does not cover is denied and the run stops, which fails safe. Keep `shell(exo:*)` for a throwaway sandbox, such as a container or a temporary clone with no credentials and nothing you need, and never use it in a repository or on a machine you care about.
+
+With Copilot CLI 1.0.114, rules such as `shell(exo:*)` and `shell(git:*)` did **not** cover:
 - commands chained with `;`, and PowerShell scripts with variables, loops or pipelines;
 - git with options before the subcommand, such as `git --no-pager log` (also with a `shell(git --no-pager:*)` rule);
 - a git range such as `git diff main...HEAD`, which Copilot reads as a path.

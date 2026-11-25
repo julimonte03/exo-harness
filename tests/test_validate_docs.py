@@ -312,3 +312,14 @@ def test_los_links_a_archivos_del_repo_existen() -> None:
                     broken.append(f"{path.relative_to(REPO).as_posix()}: {target}")
     assert broken == []
     assert checked > 10
+
+
+def test_la_guia_de_copilot_permite_los_subcomandos_del_permiso_de_claude_code() -> None:
+    """F8R3-6: `shell(exo:*)` reabre TM-21; la guía da una regla por subcomando, las mismas
+    que el adaptador de Claude Code deja correr sin preguntar."""
+    from exo.adapters import claude_code
+
+    text = (REPO / "docs" / "guides" / "copilot.md").read_text(encoding="utf-8")
+    rules = set(re.findall(rf"shell\({NAME} ([a-z][a-z0-9 ]*?):\*\)", text))
+    assert rules == set(claude_code.AGENT_COMMANDS)
+    assert "throwaway sandbox" in text and "check your Copilot version's rule syntax" in text
