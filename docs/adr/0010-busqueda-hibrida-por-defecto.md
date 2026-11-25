@@ -6,7 +6,7 @@
 
 ## Contexto
 
-El plan de F3 deja que el default del backend (D-07) y de los embeddings (D-08) lo decida un experimento, con una regla fijada antes de correrlo. La regla quedó congelada en el commit `f6699a7`, antes de la corrida.
+El plan de F3 deja que el default del backend (D-07) y de los embeddings (D-08) lo decida un experimento, con una regla fijada antes de correrlo. La regla quedó congelada en el commit `b8dc9b7`, antes de la corrida.
 
 Por ADR-0009 se comparó `lexical` contra `hybrid-sqlite` con dos modelos multilingües, sin Qdrant y sin Ollama (no está instalado en la máquina del experimento):
 - `static`: model2vec `minishlab/potion-multilingual-128M`;

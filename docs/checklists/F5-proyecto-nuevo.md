@@ -36,7 +36,7 @@ Verifica, con un agente real, que un proyecto nuevo queda gobernado desde el pri
 
 | Verificación | Esperado | Resultado |
 |---|---|---|
-| Instalación | `exo init` instala `core`, `sdd`, `quality` y `security`, activa los hooks y el commit de adopción pasa el `pre-commit` | OK, después de un arreglo. La primera vez el `pre-commit` bloqueó `.exo/lock.json`: un hash sha256 tenía una tira de dígitos que pasaba Luhn y el detector de tarjetas la tomó. Se corrigió el detector (`b067f84`), con su test |
+| Instalación | `exo init` instala `core`, `sdd`, `quality` y `security`, activa los hooks y el commit de adopción pasa el `pre-commit` | OK, después de un arreglo. La primera vez el `pre-commit` bloqueó `.exo/lock.json`: un hash sha256 tenía una tira de dígitos que pasaba Luhn y el detector de tarjetas la tomó. Se corrigió el detector (`33691ba`), con su test |
 | P0 en el proyecto | `exo p0` da `PASSED (3/3)` | OK |
 | Ticket | Rama y commits con el ticket confirmado, como footer `Refs:` | OK: rama `feat/PROJ-7-add-version-option`, y los 4 commits llevan `Refs: PROJ-7` |
 | Hooks | Cada commit pasa por `commit-msg` y `pre-commit`, sin `--no-verify` | OK: los 4 commits pasaron. El agente además corrió `review` antes de cada commit |
