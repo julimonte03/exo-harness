@@ -620,6 +620,52 @@ def test_uninstall_ps1_carpeta_de_datos_con_corchetes(tmp_path: Path) -> None:
     assert (other / "ajeno.txt").read_text(encoding="utf-8") == "no es del motor\n"
 
 
+def _uv_falso(tmp_path: Path) -> tuple[Path, Path]:
+    """Una carpeta con un `uv.cmd` cuyo `uv tool list` muestra otra herramienta,
+    `exo-harness-x`, y que anota en el log que devuelve cualquier otro comando."""
+    folder = tmp_path / "uv-falso"
+    folder.mkdir()
+    log = tmp_path / "uv.log"
+    (folder / "uv.cmd").write_text(
+        "@echo off\r\n"
+        'if "%1"=="tool" if "%2"=="list" (\r\n'
+        "  echo exo-harness-x v1.0.0\r\n"
+        "  echo - exo-x.exe\r\n"
+        "  exit /b 0\r\n"
+        ")\r\n"
+        f'echo %*>>"{log}"\r\n'
+        "exit /b 0\r\n",
+        encoding="ascii",
+        newline="",
+    )
+    return folder, log
+
+
+@WINDOWS_ONLY
+def test_uninstall_ps1_no_desinstala_otra_herramienta_de_uv(tmp_path: Path) -> None:
+    """`uv tool list` con `exo-harness-x` no es el motor: no se desinstala (F8R2-18)."""
+    folder, log = _uv_falso(tmp_path)
+    env = {**_env(tmp_path, no_uv=False), "EXO_INSTALL_NO_PATH": "1"}
+    env["PATH"] = f"{folder}{os.pathsep}{env['PATH']}"
+    result = _run([*PS, "-File", str(REPO / "uninstall.ps1")], env)
+    assert "was not installed" in result.stdout
+    assert not log.exists(), log.read_text(encoding="utf-8", errors="replace")
+
+
+@WINDOWS_ONLY
+def test_uninstall_ps1_con_path_entry_vacio(tmp_path: Path, path_key: str) -> None:
+    """Un `path-entry.txt` vacío no corta la desinstalación ni toca el PATH (F8R2-18)."""
+    data = tmp_path / "datos"
+    data.mkdir()
+    (data / "path-entry.txt").write_bytes(b"")
+    env = {**_env(tmp_path, no_uv=True), "EXO_INSTALL_ENV_SUBKEY": path_key}
+    original = _user_path(path_key)
+    result = _run([*PS, "-File", str(REPO / "uninstall.ps1")], env)
+    assert "was not installed" in result.stdout
+    assert not (data / "path-entry.txt").exists()
+    assert _user_path(path_key) == original
+
+
 @WINDOWS_ONLY
 def test_install_ps1_remoto_carpeta_de_datos_con_corchetes(
     tmp_path: Path, path_key: str, remoto: _remote.Remote

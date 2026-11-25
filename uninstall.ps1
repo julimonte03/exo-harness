@@ -97,7 +97,8 @@ param([switch]$NoPath)
     $removed = $false
     if ($uv -and $env:EXO_INSTALL_NO_UV -ne '1') {
         $tools = Get-NativeOutput $uv.Source @('tool', 'list')
-        if ($tools -match "(?m)^$([regex]::Escape($Dist))\b") {
+        # El nombre y un espacio antes de la version: con \b, `exo-harness-x` tambien calzaba.
+        if ($tools -match "(?m)^$([regex]::Escape($Dist))\s") {
             Invoke-Checked $uv.Source @('tool', 'uninstall', $Dist) "uv tool uninstall $Dist failed; check the output above."
             $removed = $true
         }
@@ -112,12 +113,16 @@ param([switch]$NoPath)
     }
 
     if (-not $NoPath -and (Test-Path -LiteralPath $PathMarker)) {
-        $added = (Get-Content -LiteralPath $PathMarker -Raw).Trim()
-        $leftovers = if (Test-Path -LiteralPath $added) { @(Get-ChildItem -LiteralPath $added -Force) } else { @() }
-        if ($added -and $leftovers.Count -eq 0) {
-            Remove-PathEntry $added
-        } elseif ($added) {
-            Write-Host "Keeping $added on the PATH: it holds other tools."
+        # Un archivo vacio no da '' sino nada (tampoco con [string]), y Test-Path no
+        # acepta una ruta vacia.
+        $added = ('' + (Get-Content -LiteralPath $PathMarker -Raw)).Trim()
+        if ($added) {
+            $leftovers = if (Test-Path -LiteralPath $added) { @(Get-ChildItem -LiteralPath $added -Force) } else { @() }
+            if ($leftovers.Count -eq 0) {
+                Remove-PathEntry $added
+            } else {
+                Write-Host "Keeping $added on the PATH: it holds other tools."
+            }
         }
         Remove-Item -LiteralPath $PathMarker -Force
     }
