@@ -426,7 +426,11 @@ def _path_sin_curl(tmp_path: Path) -> tuple[str, Path]:
             link = bin_dir / entry.name
             if entry.name == "curl" or os.path.lexists(link):
                 continue
-            if entry.is_file() and os.access(entry.path, os.X_OK):
+            try:  # en macOS hay entradas de /usr/sbin que ni se pueden examinar
+                executable = entry.is_file() and os.access(entry.path, os.X_OK)
+            except OSError:
+                continue
+            if executable:
                 link.symlink_to(entry.path)
     return str(bin_dir), log
 
