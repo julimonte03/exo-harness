@@ -437,6 +437,26 @@ def test_install_sh_remoto_redireccion_a_otro_protocolo_no_instala(
     assert not (tmp_path / "datos" / "venv").exists()
 
 
+@POSIX_ONLY
+@pytest.mark.parametrize("no_uv", _modes(), ids=_mode_id)
+def test_install_sh_remoto_git_no_sigue_una_redireccion_a_otro_protocolo(
+    tmp_path: Path, no_uv: bool, remoto: _remote.Remote
+) -> None:
+    """git (desde uv o desde pip) sigue redirecciones a cualquier protocolo: el instalador le
+    pasa GIT_ALLOW_PROTOCOL con el de EXO_REPO_URL, y el salto a https se rechaza (F8R2-5).
+    Sin eso, git lo seguía y la conexión se rechazaba."""
+    if no_uv and not _venv_works():
+        pytest.skip("este Python no trae ensurepip (falta python3-venv)")
+    env = {
+        **_remote_env(tmp_path, remoto.redirect_repo_url, no_uv=no_uv, ref="main"),
+        "EXO_INSTALL_NO_PATH": "1",
+    }
+    result = _exec(["sh", "-s"], env, _script("install.sh"))
+    assert result.returncode != 0
+    assert remoto.redirect_repo_fetched()
+    assert _dice(result, 'Protocol "https"'), result.stdout + result.stderr
+
+
 def _path_sin_curl(tmp_path: Path) -> tuple[str, Path]:
     """Un PATH con los programas del de esta sesión, menos curl, y un wget falso que anota
     cada llamada en el archivo que devuelve y falla."""
@@ -638,6 +658,40 @@ def test_install_ps1_remoto_redireccion_a_otro_protocolo_no_instala(
     assert wheel in remoto.requests
     assert not remoto.git_fetched()
     assert not (tmp_path / "datos" / "venv").exists()
+
+
+@WINDOWS_ONLY
+@pytest.mark.parametrize("no_uv", _modes(), ids=_mode_id)
+def test_install_ps1_remoto_git_no_sigue_una_redireccion_a_otro_protocolo(
+    tmp_path: Path, no_uv: bool, remoto: _remote.Remote
+) -> None:
+    """git (desde uv o desde pip) sigue redirecciones a cualquier protocolo: el instalador le
+    pasa GIT_ALLOW_PROTOCOL con el de EXO_REPO_URL, y el salto a https se rechaza (F8R2-5).
+    Sin eso, git lo seguía y la conexión se rechazaba."""
+    env = {
+        **_remote_env(tmp_path, remoto.redirect_repo_url, no_uv=no_uv, ref="main"),
+        "EXO_INSTALL_NO_PATH": "1",
+    }
+    result = _exec(_irm_iex(remoto.raw("install.ps1")), env)
+    assert result.returncode != 0
+    assert remoto.redirect_repo_fetched()
+    assert _dice(result, 'Protocol "https"'), result.stdout + result.stderr
+
+
+@WINDOWS_ONLY
+def test_install_ps1_remoto_no_deja_git_allow_protocol_en_la_sesion(
+    tmp_path: Path, remoto: _remote.Remote
+) -> None:
+    """Por pipe corre en la sesión de quien lo invoca: GIT_ALLOW_PROTOCOL vuelve a como estaba."""
+    no_uv = not shutil.which("uv")
+    env = {
+        **_remote_env(tmp_path, remoto.file_url, no_uv=no_uv, ref="main"),
+        "EXO_INSTALL_NO_PATH": "1",
+        "GIT_ALLOW_PROTOCOL": "file:https",
+    }
+    script = f"irm '{remoto.raw('install.ps1')}' | iex; \"after=$env:GIT_ALLOW_PROTOCOL\""
+    result = _run([*PS, "-Command", script], env)
+    assert "after=file:https" in result.stdout
 
 
 def _carpeta_ajena(tmp_path: Path) -> Path:

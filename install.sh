@@ -233,6 +233,15 @@ remote_spec() {
     echo "Installing $DIST from $EXO_REPO_URL at $REF..."
     SPEC="$DIST$EXTRAS @ git+$EXO_REPO_URL@$REF"
     FROM_GIT=1
+    # El git que corren uv y pip sigue redirecciones a cualquier protocolo, también a
+    # http: solo el de EXO_REPO_URL, como en fetch, más file, porque uv clona desde su
+    # caché local (una redirección por http no lleva a file). La variable le gana a
+    # protocol.allow de la config de git.
+    GIT_ALLOW_PROTOCOL=$SCHEME
+    if [ "$SCHEME" != file ]; then
+        GIT_ALLOW_PROTOCOL="$SCHEME:file"
+    fi
+    export GIT_ALLOW_PROTOCOL
 }
 
 # Agrega la línea del PATH a un archivo de inicio del shell, una sola vez. Anota

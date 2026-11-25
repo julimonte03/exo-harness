@@ -290,6 +290,7 @@ param(
     $UseUv = [bool]($uv -and $env:EXO_INSTALL_NO_UV -ne '1')
     $Downloads = $null
     $FromGit = $false
+    $PreviousAllow = $env:GIT_ALLOW_PROTOCOL
     try {
         # Un clon tiene el motor al lado del script. Por pipe no hay script en disco
         # ($PSScriptRoot vacio), y un install.ps1 bajado suelto no tiene el clon al lado.
@@ -325,6 +326,12 @@ param(
                 $gitUrl = $RepoUrl -replace '^file:///([A-Za-z]):', 'file:///$1%3A'
                 $Spec = "$Dist$Extras @ git+$gitUrl@$Ref"
                 $FromGit = $true
+                # El git que corren uv y pip sigue redirecciones a cualquier protocolo,
+                # tambien a http: solo el de EXO_REPO_URL, como en Save-Url, mas file,
+                # porque uv clona desde su cache local (una redireccion por http no lleva a
+                # file). La variable le gana a protocol.allow de la config de git, y se
+                # restaura en finally.
+                $env:GIT_ALLOW_PROTOCOL = if ($Scheme -eq 'file') { 'file' } else { "${Scheme}:file" }
             }
         }
 
@@ -348,6 +355,9 @@ param(
         }
     } finally {
         if ($Downloads) { Remove-Item -LiteralPath $Downloads -Recurse -Force -ErrorAction SilentlyContinue }
+        # Por pipe corre en la sesion de quien lo invoca: la variable vuelve a como estaba
+        # ($null la borra).
+        if ($FromGit) { $env:GIT_ALLOW_PROTOCOL = $PreviousAllow }
     }
 
     # -LiteralPath: con -Path, un [, ] o * de EXO_DATA_DIR se lee como comodin.

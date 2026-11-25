@@ -11,6 +11,8 @@ Sirve por http en 127.0.0.1, sin salir de la máquina:
   también es un tag de git, trae el wheel sin `SHA256SUMS`. En `REDIRECT_TAG` el
   `SHA256SUMS` está y el wheel redirige (302) a otro protocolo: a `https://` en un
   puerto de 127.0.0.1 que rechaza las conexiones (`Remote.redirect_to`);
+- `/<owner>/<REDIRECT_REPO>/...`: todo redirige a `Remote.redirect_to`, también lo que
+  pide git (`info/refs`): un clon que siguiera el salto cambiaría de protocolo;
 - `/raw/<script>`: los instaladores del árbol de trabajo, como
   raw.githubusercontent.com (texto en UTF-8).
 
@@ -40,7 +42,8 @@ NAME = "exo-harness"
 BAD_TAG = "v0.0.0-bad"
 NO_SUMS_TAG = "v0.0.0-nosums"
 REDIRECT_TAG = "v0.0.0-redirect"
-SCRIPTS = ("install.sh", "install.ps1", "uninstall.sh", "uninstall.ps1")
+REDIRECT_REPO = f"{NAME}-redirige"
+SCRIPTS =("install.sh", "install.ps1", "uninstall.sh", "uninstall.ps1")
 
 
 @dataclass
@@ -71,6 +74,16 @@ class Remote:
     @property
     def file_url(self) -> str:
         return (self.root / OWNER / NAME).as_uri()
+
+    @property
+    def redirect_repo_url(self) -> str:
+        """Un repo en el que todo redirige a otro protocolo (`redirect_to`)."""
+        return f"http://127.0.0.1:{self.port}/{OWNER}/{REDIRECT_REPO}"
+
+    def redirect_repo_fetched(self) -> bool:
+        """Si git pidió el repo que redirige (`info/refs`)."""
+        prefix = f"/{OWNER}/{REDIRECT_REPO}/info/refs"
+        return any(path.startswith(prefix) for path in self.requests)
 
     def raw(self, script: str) -> str:
         return f"http://127.0.0.1:{self.port}/raw/{script}"
@@ -125,6 +138,9 @@ class _Handler(http.server.SimpleHTTPRequestHandler):
             return
         redirected = f"{remote.path}/releases/download/{REDIRECT_TAG}/"
         if self.path.startswith(redirected) and not self.path.endswith("/SHA256SUMS"):
+            self._redirect(remote.redirect_to + self.path)
+            return
+        if self.path.startswith(f"/{OWNER}/{REDIRECT_REPO}/"):
             self._redirect(remote.redirect_to + self.path)
             return
         super().do_GET()
