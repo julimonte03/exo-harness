@@ -175,3 +175,40 @@ def test_un_subcomando_importa_solo_su_modulo(
     assert module is None or f"exo.commands.{module}" in loaded
     assert not loaded & others
     assert not {m for m in loaded if m.startswith(absent)}
+
+
+def test_un_sync_que_corre_tampoco_carga_la_memoria_ni_el_validador(
+    tmp_path: Path, synthetic_content: Path
+) -> None:
+    """F8R1-16: no solo `--help`: un `sync` de verdad sobre un proyecto sintético, que
+    planifica, compara con el lock y mira los hooks."""
+    from exo import commands, content
+    from exo.cli import main
+
+    project = tmp_path / "p"
+    project.mkdir()
+    assert main(["init", "--project", str(project), "--agents", "claude-code", "--yes"]) == 0
+    src = str(Path(_meta.__file__).resolve().parents[1])
+    done = subprocess.run(
+        [sys.executable, "-c", _LOADED, "sync", "--project", str(project)],
+        capture_output=True,
+        text=True,
+        check=True,
+        env={**os.environ, "PYTHONPATH": src, content.ENV_VAR: str(synthetic_content)},
+    )
+    assert "no changes" in done.stdout, done.stdout + done.stderr
+    loaded = set(done.stdout.strip().splitlines()[-1].split())
+    assert "exo.commands.project" in loaded and "exo.installer.engine" in loaded
+    assert not loaded & {f"exo.commands.{m}" for m in commands.MODULES if m != "project"}
+    # Lo mismo que con `--help`: `hosts` y `stack` traen `memory.projects` y `discovery.files`,
+    # que son chicos; la base de la memoria, el validador y el chequeo del ciclo, no.
+    heavy = (
+        "exo.memory.store",
+        "exo.memory.db",
+        "exo.validate",
+        "exo.sdd.check",
+        "exo.sdd.speclint",
+        "exo.sdd.record",
+        "exo.discovery.inventory",
+    )
+    assert not {m for m in loaded if m.startswith(heavy)}
