@@ -46,6 +46,15 @@ The agent drives exo through the terminal (`exo change status --json`, `exo chec
 
 **Trust.** Copilot CLI loads a project's MCP servers only in a folder you trust, and VS Code only in a trusted workspace. Without the MCP server, exo needs no trust settings in Copilot.
 
+### Non-interactive runs (`copilot -p`)
+
+With `-p` and `--no-ask-user` there is nobody to approve a command, so Copilot runs only what its `--allow-tool` rules cover and denies the rest. With Copilot CLI 1.0.114, `--allow-tool 'shell(exo:*)' --allow-tool 'shell(git:*)'` did **not** cover:
+- commands chained with `;`, and PowerShell scripts with variables, loops or pipelines;
+- git with options before the subcommand, such as `git --no-pager log` (also with a `shell(git --no-pager:*)` rule);
+- a git range such as `git diff main...HEAD`, which Copilot reads as a path.
+
+In an unattended run, tell the agent in the request to run single, simple commands, to read and write files with its file tools and to pass JSON to exo as `'@file'`, and set `GIT_PAGER=cat`. A decision that belongs to a person (accepting a risk as the `tech_lead`, for example) still stops the cycle, as it should. In an interactive session Copilot simply asks.
+
 ## The optional MCP server
 
 The CLI is the main interface. To expose the same functions as MCP tools:

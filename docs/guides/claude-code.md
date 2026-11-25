@@ -35,11 +35,21 @@ Claude Code applies a project's permissions only after you accept the workspace 
 
 ## What runs without asking
 
-<!-- TODO(F8): lista final de permisos -->
+The permission in `.claude/settings.json` covers the `exo` commands that the skills run on their own: the ones that read, check and record. exo adds one `Bash(exo <command>:*)` item and one `PowerShell(exo <command>:*)` item for each of these:
 
-The permission in `.claude/settings.json` covers the `exo` commands that the skills run on their own: the ones that read, check and record, such as `exo change`, `exo check`, `exo speclint`, `exo status`, `exo doctor`, `exo discover`, `exo mem search` and `exo mem save`.
+| Group | Commands |
+|---|---|
+| Changes and specs | `exo change`, `exo fitness`, `exo speclint`, `exo specs`, `exo check` |
+| Adoption | `exo discover` |
+| Project state | `exo status`, `exo doctor`, `exo skills`, `exo validate`, `exo p0`, `exo codeowners`, `exo hook`, `exo version`, `exo persona show` |
+| Memory | `exo mem save`, `exo mem search`, `exo mem get`, `exo mem list`, `exo mem context`, `exo mem session`, `exo mem stats` |
 
-The commands that change the installation (`exo init`, `exo sync`, `exo update`, `exo uninstall`, `exo restore`), delete, reindex or export memory, or run a command from the project's config (`exo gate publish`) are left out: Claude Code asks you before running them. That is on purpose: a prompt injection in a file the agent reads cannot rewrite the project's config or run a configured command without you seeing it.
+Everything else asks you first:
+- the commands that change the installation: `exo init`, `exo sync`, `exo update`, `exo uninstall`, `exo restore`, `exo add-agent`, `exo remove-agent`, `exo inject`, `exo registry`;
+- `exo gate publish`, which runs the command in the project's config;
+- the memory commands that delete, reindex, export or import, and `exo persona set|clear`.
+
+That is on purpose: a prompt injection in a file the agent reads cannot rewrite the project's config or run a configured command without you seeing it. `exo gate publish` also runs the configured command only after you approve its exact text on your machine (see [`ci-and-review.md`](../../content/packs/core/shared/ci-and-review.md), section D). Projects installed with an older exo had `Bash(exo:*)`; `exo sync` replaces it with this list.
 
 ## Working with it
 
