@@ -7,8 +7,9 @@ agente: corre solo si la persona lo aprobó en esta máquina. La aprobación que
 1. la raíz resuelta del proyecto: el mismo texto en otro repo vuelve a preguntar;
 2. el texto exacto del comando: un espacio de más vuelve a preguntar;
 3. el SHA256 de cada archivo del proyecto que nombra el comando (los tokens que resuelven
-   a un archivo dentro de la raíz, como `scripts/publish-gate.sh`): una rama que cambia el
-   script que corre vuelve a preguntar, y el mensaje dice cuál cambió.
+   a un archivo dentro de la raíz, como `scripts/publish-gate.sh`, y en Windows también
+   `<palabra>.cmd` y las demás de PATHEXT, que `cmd` busca primero en la raíz): una rama que
+   cambia o planta el script que corre vuelve a preguntar, y el mensaje dice cuál.
 
 No cubre lo que esos archivos leen a su vez (un script que hace `source` de otro): por eso el
 contrato `ci-and-review` recomienda un comando que no ejecute archivos de la rama.
@@ -107,20 +108,32 @@ def _inside(candidate: Path, root: Path) -> str | None:
     return None
 
 
+def _with_extensions(token: str) -> list[str]:
+    """En Windows, `cmd` busca `gh` primero en la carpeta actual (la raíz del proyecto) como
+    `gh.com`, `gh.exe`, `gh.bat`, `gh.cmd`... (PATHEXT): un programa que plantó la rama corre
+    antes que el del PATH. Esos nombres también se cubren; en POSIX, `sh` no mira ahí."""
+    if os.name != "nt" or Path(token).suffix:
+        return [token]
+    pathext = os.environ.get("PATHEXT") or ".COM;.EXE;.BAT;.CMD"
+    extensions = [ext.lower() for ext in pathext.split(";") if ext.startswith(".")]
+    return [token, *(token + ext for ext in extensions)]
+
+
 def covered_files(project: Path, command: str) -> dict[str, Path]:
     """Los archivos del proyecto que nombra el comando: ruta relativa (POSIX) -> ruta."""
     root = _root(project)
     found: dict[str, Path] = {}
-    for token in _tokens(command):
-        try:
-            candidate = Path(token)
-            if not candidate.is_absolute():
-                candidate = root / candidate
-            rel = _inside(candidate, root)
-            if rel is not None and rel not in found and candidate.is_file():
-                found[rel] = candidate
-        except (OSError, ValueError):
-            continue
+    for word in _tokens(command):
+        for token in _with_extensions(word):
+            try:
+                candidate = Path(token)
+                if not candidate.is_absolute():
+                    candidate = root / candidate
+                rel = _inside(candidate, root)
+                if rel is not None and rel not in found and candidate.is_file():
+                    found[rel] = candidate
+            except (OSError, ValueError):
+                continue
     return dict(sorted(found.items()))
 
 

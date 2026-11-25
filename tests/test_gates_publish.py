@@ -351,6 +351,30 @@ def test_lo_que_cubre_la_aprobacion_con_barras_de_windows(tmp_path: Path) -> Non
     ]
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="cmd busca primero en la carpeta actual")
+def test_en_windows_un_programa_plantado_en_el_proyecto_vuelve_a_pedir(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`cmd` corre `gh.cmd` de la raíz del proyecto antes que el `gh` del PATH: la aprobación
+    cubre también esos archivos, así que una rama que planta uno vuelve a preguntar."""
+    from exo.governance import approvals
+
+    _change(tmp_path, {"gates/code_review.md": gate("code_review")})
+    marker = tmp_path / "corrio.txt"
+    command = 'gh pr comment 1 --body-file "%EXO_GATE_BODY%"'
+    _configure(tmp_path, command)
+    assert approvals.covered_files(tmp_path, command) == {}
+    argv = ["gate", "publish", "--change", "add-login", "--project", str(tmp_path)]
+    assert approvals.approve(tmp_path, command) is True
+    (tmp_path / "gh.cmd").write_text(f"@echo si> {marker}\n", encoding="utf-8")
+    assert list(approvals.covered_files(tmp_path, command)) == ["gh.cmd"]
+    capsys.readouterr()
+    assert main(argv) == 1
+    err = capsys.readouterr().err
+    assert "changed since: gh.cmd" in err
+    assert not marker.exists()
+
+
 def test_aprobaciones_de_una_version_anterior(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
