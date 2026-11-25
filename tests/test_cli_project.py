@@ -234,6 +234,27 @@ def test_config_rota_aborta_sin_tocar_nada(tmp_path: Path, broken: str, capsys: 
     assert tree(tmp_path) == before
 
 
+def test_config_de_un_exo_mas_nuevo_pide_actualizar(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """F8R1-8: no es una config rota que haya que arreglar: la escribió un motor más nuevo."""
+    _init(tmp_path)
+    config.config_path(tmp_path).write_text('{"schema": 99}', encoding="utf-8")
+    before = tree(tmp_path)
+    capsys.readouterr()
+    for argv in (["sync"], ["update"], ["init", "--yes"], ["add-agent", "cursor"]):
+        assert main([*argv, "--project", str(tmp_path)]) == 1
+        err = capsys.readouterr().err
+        assert "config.json was written by a newer exo" in err, argv
+        assert "upgrade exo" in err.lower() and "Fix it" not in err
+    assert tree(tmp_path) == before
+    # Los comandos que solo leen siguen con los defaults, y lo dicen sin contradecirse.
+    warning = " ".join(config.load(tmp_path).warnings)
+    assert "newer" in warning and "upgrade exo" in warning.lower()
+    with pytest.raises(config.ConfigError, match="newer"):
+        config.save(tmp_path, config.defaults())
+
+
 def test_config_invalida_por_flags_no_escribe_nada(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert _init(tmp_path, "--ticket-pattern", "(") == 2
     assert "not a valid regular expression" in capsys.readouterr().err

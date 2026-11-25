@@ -68,6 +68,16 @@ class LoadResult:
     invalid: list[str] = field(default_factory=list)  # campos que volvieron a su default
     # El esquema del archivo, si se migró al leerlo: `exo update --apply` lo guarda migrado.
     migrated_from: int | None = None
+    # El esquema del archivo, si lo escribió un motor más nuevo (`fallback` también es True).
+    newer_schema: int | None = None
+
+
+def newer_message(schema: int) -> str:
+    """Una config de un esquema más nuevo no está rota: la escribió otra versión del motor."""
+    return (
+        f"{_meta.PROJECT_DIR}/{FILENAME} was written by a newer {_meta.NAME} (schema {schema}; "
+        f"this engine understands up to {CURRENT_SCHEMA}); upgrade {_meta.NAME} and retry"
+    )
 
 
 def defaults() -> dict[str, Any]:
@@ -410,8 +420,9 @@ def _migrate(raw: dict[str, Any]) -> tuple[dict[str, Any] | None, list[str]]:
     if schema > CURRENT_SCHEMA:
         return None, [
             *warnings,
-            f"schema: unknown schema {schema} (this engine understands up to "
-            f"{CURRENT_SCHEMA}); using the defaults. Update {_meta.NAME}.",
+            f"schema: schema {schema} was written by a newer {_meta.NAME} (this engine "
+            f"understands up to {CURRENT_SCHEMA}); using the defaults until you upgrade "
+            f"{_meta.NAME}",
         ]
     original = schema
     while schema < CURRENT_SCHEMA:
@@ -450,7 +461,9 @@ def load(project: Path) -> LoadResult:
         return _fallback(path, "the root must be a JSON object")
     migrated, warnings = _migrate(raw)
     if migrated is None:
-        return LoadResult(defaults(), warnings, path, fallback=True)
+        schema = raw.get("schema")
+        newer = schema if isinstance(schema, int) and schema > CURRENT_SCHEMA else None
+        return LoadResult(defaults(), warnings, path, fallback=True, newer_schema=newer)
     cfg, field_warnings, invalid = validate(migrated)
     original = raw.get("schema", 1)
     return LoadResult(
@@ -473,10 +486,7 @@ def save(project: Path, cfg: dict[str, Any]) -> bool:
         raise ConfigError("the config has invalid values: " + " | ".join(invalid))
     on_disk = _schema_on_disk(project)
     if on_disk is not None and on_disk > CURRENT_SCHEMA:
-        raise ConfigError(
-            f"the config on disk uses schema {on_disk} and this engine understands up to "
-            f"{CURRENT_SCHEMA}; not overwriting it. Update {_meta.NAME}."
-        )
+        raise ConfigError(f"{newer_message(on_disk)} (it was not overwritten)")
     return fsutil.write_if_changed(config_path(project), dumps(normalized))
 
 

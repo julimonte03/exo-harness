@@ -10,7 +10,8 @@ con tres diferencias:
 - **Config:** si se migró al leerla, se guarda migrada, en la misma transacción y con
   el mismo snapshot que el resto.
 
-Un lock escrito por un motor más nuevo no se lleva hacia atrás sin `force`.
+Un lock escrito por un motor más nuevo no se lleva hacia atrás sin `force`: lo frena
+`project.sync`, igual que en `init`, `sync`, `add-agent` y `remove-agent`.
 """
 
 from __future__ import annotations
@@ -63,12 +64,7 @@ def update(
             f"the engine is not installed in {root}; run `{_meta.NAME} init`"
         )
     written_by = previous.engine_version or None
-    if written_by and lock.newer_than_engine(written_by) and not force:
-        raise project.ProjectError(
-            f"the lock was written by {_meta.NAME} {written_by}, newer than this engine "
-            f"({_meta.VERSION}): updating would take the project back to {_meta.VERSION}. "
-            f"Upgrade {_meta.NAME}, or pass --force to do it anyway"
-        )
+    # `project.sync` se niega a llevar hacia atrás un lock más nuevo sin `force`.
     result = project.sync(
         root,
         force=force,

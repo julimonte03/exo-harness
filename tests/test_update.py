@@ -226,6 +226,46 @@ def test_un_lock_de_un_motor_mas_nuevo_no_se_lleva_hacia_atras(
     assert lock.read(tmp_path).engine_version == _meta.VERSION
 
 
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["sync"],
+        ["sync", "--dry-run"],
+        ["add-agent", "copilot"],
+        ["remove-agent", "claude-code"],
+        ["init", "--yes"],
+    ],
+)
+def test_ningun_comando_lleva_hacia_atras_un_lock_mas_nuevo(
+    tmp_path: Path, synthetic_content: Path, capsys: pytest.CaptureFixture[str], argv: list[str]
+) -> None:
+    """F8R1-2: `sync`, `init`, `add-agent` y `remove-agent` también se niegan sin `--force`."""
+    assert main(["init", "--project", str(tmp_path), "--agents", "claude-code", "--yes"]) == 0
+    data = lock.read(tmp_path)
+    data.engine_version = "9.0.0"
+    lock.write(tmp_path, data)
+    before = tree(tmp_path)
+    capsys.readouterr()
+    assert main([*argv, "--project", str(tmp_path)]) == 1
+    err = capsys.readouterr().err
+    assert f"written by {_meta.NAME} 9.0.0" in err and f"upgrade {_meta.NAME}" in err.lower()
+    assert tree(tmp_path) == before
+    if "--dry-run" not in argv:
+        assert main([*argv, "--project", str(tmp_path), "--force"]) == 0
+        assert lock.read(tmp_path).engine_version == _meta.VERSION
+
+
+def test_uninstall_no_mira_la_version_del_lock(
+    tmp_path: Path, synthetic_content: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(["init", "--project", str(tmp_path), "--agents", "claude-code", "--yes"]) == 0
+    data = lock.read(tmp_path)
+    data.engine_version = "9.0.0"
+    lock.write(tmp_path, data)
+    assert main(["uninstall", "--project", str(tmp_path), "--yes"]) == 0
+    assert not (tmp_path / _meta.PROJECT_DIR / lock.FILENAME).exists()
+
+
 def test_sin_cambios_no_escribe_ni_crea_snapshot(
     tmp_path: Path, synthetic_content: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

@@ -76,6 +76,8 @@ def _base_config(project: Path) -> tuple[config.LoadResult, dict[str, Any], list
     se borraría lo de los agentes. Si falta y el motor está instalado, agentes y packs
     salen del lock, por la misma razón."""
     loaded = config.load(project)
+    if loaded.newer_schema is not None:
+        raise ProjectError(config.newer_message(loaded.newer_schema))
     if loaded.fallback or loaded.invalid:
         problems = " | ".join(loaded.invalid or loaded.warnings)
         raise ProjectError(
@@ -93,6 +95,17 @@ def _base_config(project: Path) -> tuple[config.LoadResult, dict[str, Any], list
                 "using the agents and packs from the lock"
             )
     return loaded, cfg, notes
+
+
+def refuse_newer_lock(previous: lock.Lock) -> None:
+    """ProjectError si el lock lo escribió un motor más nuevo que este."""
+    written_by = previous.engine_version
+    if written_by and lock.newer_than_engine(written_by):
+        raise ProjectError(
+            f"the lock was written by {_meta.NAME} {written_by}, newer than this engine "
+            f"({_meta.VERSION}): updating would take the project back to {_meta.VERSION}. "
+            f"Upgrade {_meta.NAME}, or pass --force to do it anyway"
+        )
 
 
 def current_agents(project: Path) -> list[str] | None:
@@ -121,8 +134,15 @@ def sync(
     save_migrated: bool = False,
 ) -> SyncResult:
     """`partial` y `save_migrated` son de `exo update`: aplicar lo que no choca con lo
-    editado, y guardar la config si se migró al leerla."""
+    editado, y guardar la config si se migró al leerla.
+
+    Un lock escrito por un motor más nuevo no se lleva hacia atrás sin `force`: se
+    borrarían los archivos que trae esa versión y su marca (F8R1-2). Vale para `init`,
+    `sync`, `update`, `add-agent` y `remove-agent`; `uninstall` no pasa por acá."""
     project = Path(project).resolve()
+    previous = lock.read(project)
+    if previous is not None and not force:
+        refuse_newer_lock(previous)
     loaded, cfg, base_notes = _base_config(project)
     explicit = agents is not None or packs is not None or mcp is not None or tickets is not None
     if agents is not None:
@@ -163,7 +183,6 @@ def sync(
         extra[config_rel] = config.dumps(normalized)
     ctx = Context(project, bundle, targets, normalized, claude_md="always" if claude_md else "auto")
     ops = adapters.plan_all(ctx)
-    previous = lock.read(project)
     result = engine.apply(
         project,
         ops,

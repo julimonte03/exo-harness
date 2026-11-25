@@ -77,8 +77,11 @@ A newer exo no longer ships some skills or subagents, or renamed them (`exo upda
 **``the lock was written by exo 0.2.0; run `exo update` ``** (`exo doctor`, line `install`)
 You upgraded exo; the project still has the files of the previous version. Run `exo update` to see what changes, then `exo update --apply`.
 
-**`the lock was written by exo X, newer than this engine (Y): updating would take the project back to Y. Upgrade exo, or pass --force to do it anyway`**
-A teammate installed the project with a newer exo. Upgrade yours (run the installer again). The same situation in other commands reads `the lock uses schema N and this engine understands up to M (a newer exo wrote it); upgrade exo and retry`, or, for the config, `the config on disk uses schema N and this engine understands up to M; not overwriting it.`
+**`the lock was written by exo X, newer than this engine (Y): updating would take the project back to Y. Upgrade exo, or pass --force to do it anyway`** (`exo init`, `sync`, `update`, `add-agent` and `remove-agent`)
+A teammate installed the project with a newer exo. Upgrade yours (run the installer again); nothing was written. `--force` writes anyway and takes the project back to your version, removing what the newer one added. For the same lock, `exo doctor` and `exo status` say `upgrade exo`. If the lock also uses a newer schema, every command that reads it says `the lock uses schema N and this engine understands up to M (a newer exo wrote it); upgrade exo and retry`, and `--force` does not change that.
+
+**`.exo/config.json was written by a newer exo (schema N; this engine understands up to M); upgrade exo and retry`** (`exo init`, `sync`, `update`, `add-agent` and `remove-agent`)
+A newer exo saved the project's config. Upgrade yours; nothing was written, and `--force` does not change that. Commands that only read the config, such as `exo doctor`, use the defaults until you upgrade, and say so.
 
 **`.exo/config.json cannot be used (...). Fix it and retry: with the defaults, your agents' files would be removed.`**
 The config has invalid JSON or invalid values. exo stops instead of guessing. Fix what the message lists in parentheses, or restore the file from git.
