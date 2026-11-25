@@ -323,3 +323,58 @@ def test_la_guia_de_copilot_permite_los_subcomandos_del_permiso_de_claude_code()
     rules = set(re.findall(rf"shell\({NAME} ([a-z][a-z0-9 ]*?):\*\)", text))
     assert rules == set(claude_code.AGENT_COMMANDS)
     assert "throwaway sandbox" in text and "check your Copilot version's rule syntax" in text
+
+
+def _leaves(parser, prefix: str = "") -> dict[str, bool]:
+    """Cada comando hoja del CLI y si acepta `--json`."""
+    import argparse
+
+    groups = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
+    if not groups:
+        return {prefix: "--json" in parser._option_string_actions}
+    found: dict[str, bool] = {}
+    for name, sub in groups[0].choices.items():
+        found.update(_leaves(sub, f"{prefix} {name}".strip()))
+    return found
+
+
+def _without_json(leaves: dict[str, bool]) -> set[str]:
+    """Los que no aceptan `--json`; un grupo entero sin `--json` se nombra por el grupo."""
+    without = {name for name, has_json in leaves.items() if not has_json}
+    named = set()
+    for name in without:
+        group = name.split()[0]
+        siblings = [n for n in leaves if n.split()[0] == group]
+        named.add(group if " " in name and set(siblings) <= without else name)
+    return named
+
+
+def test_troubleshooting_nombra_los_comandos_sin_json() -> None:
+    """F8R3-15: decía "Every command takes `--json`", y varios comandos lo rechazan."""
+    from exo.cli import build_parser
+
+    text = (REPO / "docs" / "guides" / "troubleshooting.md").read_text(encoding="utf-8")
+    sentence = text.split("Most commands take `--json` (", 1)[1].split(")", 1)[0]
+    named = set(re.findall(rf"`{NAME} ([a-z][a-z0-9 -]*)`", sentence))
+    assert named == _without_json(_leaves(build_parser()))
+
+
+def test_quick_start_describe_las_preguntas_de_init() -> None:
+    """F8R3-18: con un patrón hay una cuarta pregunta, y en la confirmación Enter cancela."""
+    from exo.installer import wizard
+
+    asked: list[str] = []
+    accepted = wizard.confirm(
+        ["create AGENTS.md"], ask=lambda p: asked.append(p) or "", out=lambda _line: None
+    )
+    assert accepted is False  # Enter
+    text = (REPO / "QUICK-START.md").read_text(encoding="utf-8")
+    assert f"`{asked[0].rstrip(': ')}`" in text and "Enter cancels" in text
+    assert "a fourth when you give a ticket pattern" in text and "Example ticket ID" in text
+
+
+def test_readme_dice_como_prender_la_busqueda_hibrida() -> None:
+    """F8R3-16: sin `mem reindex --provider local`, el modelo bajado no indexa nada."""
+    memory = (REPO / "README.md").read_text(encoding="utf-8").split("## Memory", 1)[1]
+    memory = memory.split("\n## ", 1)[0]
+    assert f"{NAME} mem model pull" in memory and f"{NAME} mem reindex --provider local" in memory

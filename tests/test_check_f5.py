@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -256,6 +257,19 @@ def test_cli_fast_y_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> 
     assert main(["check", "--project", str(tmp_path), "--json"]) == 1
     payload = json.loads(capsys.readouterr().out)
     assert payload["config"] == [] and payload["diff"] == []
+
+
+def test_el_ejemplo_de_github_actions_del_contrato_es_seguro() -> None:
+    """F8R3-19: la expresión va por `env:`, nunca dentro de `run:`, y las actions se fijan por SHA."""
+    from test_workflows import run_blocks
+
+    contract = Path(__file__).resolve().parents[1] / "content/packs/core/shared/ci-and-review.md"
+    section = contract.read_text(encoding="utf-8").split("### GitHub Actions", 1)[1]
+    example = section.split("```yaml", 1)[1].split("```", 1)[0]
+    runs = run_blocks(example)
+    assert runs and not [text for _, text in runs if "${{" in text]
+    uses = re.findall(r"uses:\s*([^#\n]*?)\s*(?:#|$)", example, re.MULTILINE)
+    assert uses and all(re.search(r"@(?:[0-9a-f]{40}|<full commit SHA>)$", ref) for ref in uses)
 
 
 @pytest.mark.skipif(shutil.which("git") is None, reason="requiere git")

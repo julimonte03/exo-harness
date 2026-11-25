@@ -28,13 +28,14 @@ git init
 exo init
 ```
 
-`exo init` asks three things, each with a default you accept with Enter:
+`exo init` asks three things, each with a default you accept with Enter, and a fourth when you give a ticket pattern:
 
 1. **Agents:** the ones it detected (by environment, files in the repo and executables on the `PATH`). Known: `claude-code`, `copilot`, `cursor`, `codex`, `gemini`, `devin` and `generic`.
 2. **Packs:** the ones it suggests for the stack. An empty repo gets `core` and `sdd`; the [README](README.md#packs) lists the rest.
-3. **Ticket pattern:** a regular expression for your ticket IDs (for example `[A-Z][A-Z0-9]*-\d+` for `PROJ-123`, or `#\d+`), or empty if you do not use tickets.
+3. **Ticket pattern:** a regular expression for your ticket IDs (for example `[A-Z][A-Z0-9]*-\d+` for `PROJ-123`, or `#\d+`), or empty, the default, if you do not use tickets.
+4. **Example ticket ID,** only with a pattern: one ID that matches it. For a suggested pattern the default is its example (`PROJ-123`); for your own pattern, type one.
 
-Then it shows the plan and asks before writing. Without questions:
+Then it shows the files it would write and asks `Continue? [y/N]`. Answer `y` to write them: Enter cancels. Without questions:
 
 ```sh
 exo init --agents claude-code --yes

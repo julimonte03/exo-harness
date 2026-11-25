@@ -7,7 +7,7 @@ exo doctor
 exo status
 ```
 
-Every command takes `--json`, and `exo <command> --help` lists its options. Below are the messages you are most likely to see, as exo prints them, with the fix.
+Most commands take `--json` (all but `exo codeowners`, `exo persona set`, `exo persona clear`, `exo backups pin`, `exo backups unpin`, `exo hook` and `exo mcp`), and `exo <command> --help` lists its options. Below are the messages you are most likely to see, as exo prints them, with the fix.
 
 ## Installing exo
 

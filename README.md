@@ -164,7 +164,7 @@ Files you edited by hand are kept and reported; `--force` overwrites them. Skill
 
 ## Memory
 
-`exo mem` is a memory owned by each user: one SQLite database in the user data folder, shared by all your projects and scoped by project. The agent reads it at the start of a session (`exo mem context`), searches it before solving something (`exo mem search`) and saves decisions, fixes and discoveries (`exo mem save`). Search is lexical out of the box; hybrid search needs the `[vector]` extra and a local model (`exo mem model pull`). Nothing leaves your machine unless you allow a remote provider. On Linux and macOS exo creates the data folder readable only by you, and `exo doctor` warns if other users can read it. Never store secrets or personal data in it.
+`exo mem` is a memory owned by each user: one SQLite database in the user data folder, shared by all your projects and scoped by project. The agent reads it at the start of a session (`exo mem context`), searches it before solving something (`exo mem search`) and saves decisions, fixes and discoveries (`exo mem save`). Search is lexical out of the box; hybrid search needs the `[vector]` extra, a local model (`exo mem model pull`) and an index built with it (`exo mem reindex --provider local`). Nothing leaves your machine unless you allow a remote provider. On Linux and macOS exo creates the data folder readable only by you, and `exo doctor` warns if other users can read it. Never store secrets or personal data in it.
 
 ## Remove it
 

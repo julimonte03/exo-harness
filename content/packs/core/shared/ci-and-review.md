@@ -35,15 +35,20 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@<full commit SHA> # v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@<full commit SHA> # v5
         with:
           python-version: "3.12"
       - run: pip install "exo-harness @ git+<engine repository URL>@<release tag>"
-      - run: exo check --base "origin/${{ github.base_ref }}"
+      - run: exo check --base "origin/$BASE_REF"
+        env:
+          BASE_REF: ${{ github.base_ref }}
 ```
+
+- **Pin each action to a full commit SHA**, the one of the release you reviewed, with its tag in a comment: a tag like `v4` can be moved to other code, and the pipeline would run it without a review. Dependabot or Renovate can propose the updates.
+- **Pass the branch name through `env:`,** never with `${{ }}` inside `run:`: the expression is pasted into the script before the shell runs it, so a branch name with shell syntax in it would run as a command.
 
 ### Azure Pipelines [Not verified]
 
