@@ -161,8 +161,15 @@ def _sections(text: str) -> list[_Section]:
     return sections
 
 
+# Secciones que una plantilla sumó después de un release: si faltan, el artefacto sigue
+# valiendo (un change archivado con un motor viejo no rompe `exo check` tras `exo update`);
+# si están, no pueden quedar vacías.
+OPTIONAL_SECTIONS: dict[str, tuple[str, ...]] = {"pr": ("Known followups",)}
+
+
 def _required(template: str) -> list[str]:
-    return [s.title for s in _sections(template_text(template))]
+    optional = {_norm(t) for t in OPTIONAL_SECTIONS.get(template, ())}
+    return [s.title for s in _sections(template_text(template)) if _norm(s.title) not in optional]
 
 
 def _find(sections: list[_Section], title: str) -> _Section | None:
@@ -178,6 +185,10 @@ def _check_structure(sections: list[_Section], template: str, errors: list[Issue
         if section is None:
             errors.append(Issue(1, f"missing section '## {title}'"))
         elif not section.text().strip():
+            errors.append(Issue(section.line, f"section '{section.title}' is empty"))
+    for title in OPTIONAL_SECTIONS.get(template, ()):
+        section = _find(sections, title)
+        if section is not None and not section.text().strip():
             errors.append(Issue(section.line, f"section '{section.title}' is empty"))
 
 
