@@ -96,16 +96,33 @@ clone_dir() {
 
 # Solo https. file:// y http a 127.0.0.1 o localhost no salen de la máquina: sirven
 # para un espejo local y para los tests. Sin @ (credenciales o un host disfrazado),
-# ni ? o # que cambien la URL. Deja en SCHEME el protocolo permitido para bajar.
+# ni ? o # que cambien la URL, y el puerto de loopback solo con dígitos (con un glob,
+# `127.0.0.1:1.example.com` pasaba). Sin las barras finales, como install.ps1. Deja en
+# SCHEME el protocolo permitido para bajar.
 check_repo_url() {
+    while :; do
+        case "$EXO_REPO_URL" in
+            */) EXO_REPO_URL=${EXO_REPO_URL%/} ;;
+            *) break ;;
+        esac
+    done
     case "$EXO_REPO_URL" in
         *[!A-Za-z0-9._~:/%+-]*) die "EXO_REPO_URL has characters that are not allowed: $EXO_REPO_URL" ;;
     esac
     case "$EXO_REPO_URL" in
         https://?*) SCHEME=https ;;
         file:///?*) SCHEME=file ;;
-        http://127.0.0.1/?* | http://127.0.0.1:[0-9]*/?* | http://localhost/?* | http://localhost:[0-9]*/?*)
-            SCHEME=http ;;
+        http://127.0.0.1/?* | http://localhost/?*) SCHEME=http ;;
+        http://127.0.0.1:* | http://localhost:*)
+            rest=${EXO_REPO_URL#http://*:}
+            port=${rest%%/*}
+            case "$port" in
+                '' | *[!0-9]*) die "EXO_REPO_URL must be an https:// URL (got: $EXO_REPO_URL)." ;;
+            esac
+            case "$rest" in
+                "$port"/?*) SCHEME=http ;;
+                *) die "EXO_REPO_URL must be an https:// URL (got: $EXO_REPO_URL)." ;;
+            esac ;;
         *) die "EXO_REPO_URL must be an https:// URL (got: $EXO_REPO_URL)." ;;
     esac
 }
@@ -194,15 +211,23 @@ verified_wheel() {
     WHEEL="$TMP/$name"
 }
 
-# Qué instalar cuando no hay clon (por pipe). Deja el requisito en SPEC.
-remote_spec() {
-    check_repo_url
+# curl o wget, solo cuando el script baja algo: con uv y EXO_REF no baja nada.
+need_downloader() {
     if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
         die "curl or wget is required to install from $EXO_REPO_URL."
     fi
+}
+
+# Qué instalar cuando no hay clon (por pipe). Deja el requisito en SPEC.
+remote_spec() {
+    check_repo_url
     if [ -n "${EXO_REF:-}" ]; then
         REF=$EXO_REF
+    elif [ "$SCHEME" = file ]; then
+        # Un espejo local no tiene la redirección de releases/latest que da GitHub.
+        die "EXO_REPO_URL is a local mirror ($EXO_REPO_URL), which has no latest release to look up: set EXO_REF to a tag or a branch."
     else
+        need_downloader
         REF=$(latest_ref)
     fi
     check_ref "$REF"
@@ -211,6 +236,7 @@ remote_spec() {
     # dígito, como los tags que publica release.yml) no pasa a git si su SHA256SUMS
     # no baja: sería instalar sin checksum lo que se pidió verificado.
     if [ "$USE_UV" = 0 ]; then
+        need_downloader
         TMP=$(mktemp -d 2>/dev/null || mktemp -d -t "$DIST")
         SUMS="$EXO_REPO_URL/releases/download/$REF/SHA256SUMS"
         if fetch "$SUMS" "$TMP/SHA256SUMS" 2>"$TMP/fetch.log"; then

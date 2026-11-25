@@ -302,6 +302,10 @@ param(
             $Scheme = Get-RepoScheme $RepoUrl
             # PowerShell 5.1 en Windows viejos no ofrece TLS 1.2, que GitHub exige.
             [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+            # Un espejo local no tiene la redireccion de releases/latest que da GitHub.
+            if (-not $env:EXO_REF -and $Scheme -eq 'file') {
+                throw "EXO_REPO_URL is a local mirror ($RepoUrl), which has no latest release to look up: set EXO_REF to a tag or a branch."
+            }
             $Ref = if ($env:EXO_REF) { $env:EXO_REF } else { Get-LatestRef }
             Assert-Ref $Ref
             $Spec = $null

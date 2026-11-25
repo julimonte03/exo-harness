@@ -45,6 +45,10 @@ INSECURE_URLS = [
     "http://127.0.0.1.example.com/owner/exo-harness",
     "http://127.0.0.1:80@example.com/owner/exo-harness",
     "https://example.com/owner/exo-harness?x=1",
+    # El puerto de loopback, solo dígitos (F8R2-13).
+    "http://127.0.0.1:1.example.com/owner/exo-harness",
+    "http://localhost:8080.example.com/owner/exo-harness",
+    "http://127.0.0.1:/owner/exo-harness",
 ]
 # Refs que cambiarían la URL o el requisito de pip.
 BAD_REFS = ["main;touch pwned", "--upload-pack=touch pwned", "v1..v2", "a b", "x@{1}", "main#egg=other"]
@@ -457,21 +461,22 @@ def test_install_sh_remoto_git_no_sigue_una_redireccion_a_otro_protocolo(
     assert _dice(result, 'Protocol "https"'), result.stdout + result.stderr
 
 
-def _path_sin_curl(tmp_path: Path) -> tuple[str, Path]:
+def _path_sin_curl(tmp_path: Path, *, wget: bool = True) -> tuple[str, Path]:
     """Un PATH con los programas del de esta sesión, menos curl, y un wget falso que anota
-    cada llamada en el archivo que devuelve y falla."""
+    cada llamada en el archivo que devuelve y falla. Con `wget=False`, tampoco hay wget."""
     bin_dir = tmp_path / "sin-curl"
     bin_dir.mkdir()
     log = tmp_path / "wget.log"
-    wget = bin_dir / "wget"
-    wget.write_text(f'#!/bin/sh\necho "$*" >> "{log}"\nexit 1\n', encoding="utf-8")
-    wget.chmod(0o755)
+    if wget:
+        fake = bin_dir / "wget"
+        fake.write_text(f'#!/bin/sh\necho "$*" >> "{log}"\nexit 1\n', encoding="utf-8")
+        fake.chmod(0o755)
     for folder in os.environ.get("PATH", "").split(os.pathsep):
         if not os.path.isdir(folder):
             continue
         for entry in os.scandir(folder):
             link = bin_dir / entry.name
-            if entry.name == "curl" or os.path.lexists(link):
+            if entry.name in ("curl", "wget") or os.path.lexists(link):
                 continue
             try:  # en macOS hay entradas de /usr/sbin que ni se pueden examinar
                 executable = entry.is_file() and os.access(entry.path, os.X_OK)
@@ -493,6 +498,41 @@ def test_install_sh_remoto_https_sin_curl_no_baja_con_wget(tmp_path: Path) -> No
     assert "curl is required" in result.stderr
     assert "Cannot verify release v1.0.0" in result.stderr
     assert not log.exists()
+
+
+@pytest.mark.skipif(sys.platform == "win32" or not shutil.which("uv"), reason="install.sh con uv")
+def test_install_sh_remoto_con_uv_y_exo_ref_no_pide_curl_ni_wget(tmp_path: Path) -> None:
+    """Con uv y EXO_REF el script no baja nada: no exige curl ni wget (F8R2-19). El espejo no
+    existe, así que falla después, en uv."""
+    path, _ = _path_sin_curl(tmp_path, wget=False)
+    url = (tmp_path / "no-existe" / "exo-harness").as_uri()
+    env = {**_remote_env(tmp_path, url, no_uv=False, ref="main"), "PATH": path, "EXO_INSTALL_NO_PATH": "1"}
+    result = _exec(["sh", "-s"], env, _script("install.sh"))
+    assert "curl or wget" not in result.stderr
+    assert f"Installing exo-harness from {url} at main..." in result.stdout
+    assert result.returncode != 0
+
+
+@POSIX_ONLY
+def test_install_sh_remoto_espejo_file_sin_exo_ref(tmp_path: Path, remoto: _remote.Remote) -> None:
+    """Un espejo file:// no tiene `releases/latest`: el error pide EXO_REF, no la conexión (F8R2-19)."""
+    env = _remote_env(tmp_path, remoto.file_url, no_uv=True)
+    result = _exec(["sh", "-s"], env, _script("install.sh"))
+    assert result.returncode == 1
+    assert "set EXO_REF" in result.stderr
+    assert "Check the connection" not in result.stderr
+    assert not (tmp_path / "datos").exists()
+
+
+@POSIX_ONLY
+def test_install_sh_remoto_url_con_barra_final(tmp_path: Path, remoto: _remote.Remote) -> None:
+    """Una barra al final de EXO_REPO_URL se quita, como en install.ps1 (F8R2-13)."""
+    env = _remote_env(tmp_path, remoto.url + "/", no_uv=True, ref=_remote.BAD_TAG)
+    result = _exec(["sh", "-s"], env, _script("install.sh"))
+    assert result.returncode == 1
+    assert f"Checksum mismatch for {remoto.wheel}" in result.stderr
+    assert f"{remoto.path}/releases/download/{_remote.BAD_TAG}/SHA256SUMS" in remoto.requests
+    assert not any("//" in path for path in remoto.requests)
 
 
 @POSIX_ONLY
@@ -609,6 +649,17 @@ def test_install_ps1_remoto_rama_reinstala_el_commit_nuevo(tmp_path: Path, remot
     remoto.commit(branch, {_MARCA: "dos\n"})
     _run(_irm_iex(remoto.raw("install.ps1")), env)
     assert _marca_instalada(venv) == "dos\n"
+
+
+@WINDOWS_ONLY
+def test_install_ps1_remoto_espejo_file_sin_exo_ref(tmp_path: Path, remoto: _remote.Remote) -> None:
+    """Un espejo file:// no tiene `releases/latest`: el error pide EXO_REF, no la conexión (F8R2-19)."""
+    env = {**_remote_env(tmp_path, remoto.file_url, no_uv=True), "EXO_INSTALL_NO_PATH": "1"}
+    result = _exec(_irm_iex(remoto.raw("install.ps1")), env)
+    assert result.returncode != 0
+    assert _dice(result, "set EXO_REF")
+    assert not _dice(result, "Check the connection")
+    assert not (tmp_path / "datos").exists()
 
 
 @WINDOWS_ONLY
