@@ -2,13 +2,13 @@
 
 - **Estado:** Aceptada
 - **Fecha:** 2026-10-30
-- **Decisión:** D-23 (`docs/plan/04-DECISIONES.md`)
+- **Decisión:** D-23
 
 ## Contexto
 
-El plan supone que los agentes usan las funciones del motor a través de un servidor MCP (`exo mcp`), con cuatro grupos de tools: skills, observabilidad SDD, memoria y discovery (`docs/plan/02-ARQUITECTURA.md` §2.10).
+El plan supone que los agentes usan las funciones del motor a través de un servidor MCP (`exo mcp`), con cuatro grupos de tools: skills, observabilidad SDD, memoria y discovery.
 
-En la prueba de F0 (`docs/spikes/agent-probe.md`), Claude Code respondió `MCP server blocked by enterprise policy`: la organización solo permite servidores MCP de una lista. Además, la verificación de agentes (`docs/agent-matrix.md`) mostró que la config MCP cambia en cada agente. Codex y Gemini solo la cargan en carpetas confiables, y el cloud agent de Copilot la toma de los settings del repo, no de un archivo.
+En la prueba de F0, Claude Code no cargó el servidor MCP del proyecto: una política administrada puede permitir solo los servidores MCP de una lista. Además, la verificación de agentes (`docs/agent-matrix.md`) mostró que la config MCP cambia en cada agente. Codex y Gemini solo la cargan en carpetas confiables, y el cloud agent de Copilot la toma de los settings del repo, no de un archivo.
 
 ## Decisión
 
@@ -34,7 +34,7 @@ En la prueba de F0 (`docs/spikes/agent-probe.md`), Claude Code respondió `MCP s
   - `exo doctor` verifica que `exo` esté en el `PATH`.
   - **A verificar:** que la política de la organización no bloquee también los hooks ni esas reglas de permiso.
   - **Resultado de F2:**
-    - Claude Code recibe `Bash(exo:*)` y `PowerShell(exo:*)`. Las reglas aplican recién cuando el workspace es confiable; `exo doctor` lo avisa (`docs/checklists/F2-agentes.md`).
+    - Claude Code recibe `Bash(exo:*)` y `PowerShell(exo:*)`. Las reglas aplican recién cuando el workspace es confiable; `exo doctor` lo avisa.
     - **Actualizado en F8 (threat model, TM-21):** el permiso ya no es `exo:*`, sino un ítem por subcomando de los que las skills corren solas (`AGENT_COMMANDS` en `src/exo/adapters/claude_code.py`). Con `exo:*`, un agente con prompt injection podía reescribir `review.publish_command` con `exo init --publish-command` y ejecutarlo con `exo gate publish` sin preguntar. Lo que cambia la instalación, borra o exporta memoria, o ejecuta un comando configurado lo aprueba la persona. `exo sync` reemplaza el permiso viejo en los proyectos instalados.
     - En Copilot queda diferido: no se verificó una regla de permiso a nivel de proyecto que Copilot lea, y la licencia todavía no está confirmada. Hasta entonces, Copilot puede pedir confirmación para ejecutar `exo`. Se revisa con el checklist manual de F2.
 - **F3:**

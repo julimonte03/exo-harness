@@ -1,10 +1,8 @@
 """Clasificación de riesgo de un cambio (tier 1–3), pura y determinista.
 
-Port de §4.8 del reporte (`la referencia privada (§4)`):
-siete dimensiones con valores 0–3 y reglas FM-xx. La primera regla que
+Siete dimensiones con valores 0–3 y reglas FM-xx. La primera regla que
 coincide, en el orden de `RULES`, decide el tier. La evidencia faltante o
-ilegible da Tier 3 por la regla `FM-00` (fail-safe de §6.3; definición propia
-porque el reporte no le da número).
+ilegible da Tier 3 por la regla `FM-00` (fail-safe).
 
 Tres tiers desde D-52 (ADR-0019): el Tier 4 de la 1.0 se fundió en el 3, que
 tiene siempre `judgment-day`. Un 4 leído de un assessment viejo es un 3

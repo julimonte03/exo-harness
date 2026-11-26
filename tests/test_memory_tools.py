@@ -44,7 +44,7 @@ def call(ctx: registry.Context, name: str, **args):
     return registry.call(name, args, ctx)
 
 
-def test_criterio_8_los_15_nombres_del_reporte() -> None:
+def test_criterio_8_los_15_nombres() -> None:
     names = [t.name for t in registry.TOOLS if t.name.startswith("mem_")]
     assert names == MEMORY_TOOLS
     for name in MEMORY_TOOLS:

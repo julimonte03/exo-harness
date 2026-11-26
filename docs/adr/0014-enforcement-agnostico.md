@@ -2,16 +2,16 @@
 
 - **Estado:** Aceptada
 - **Fecha:** 2026-11-15
-- **Decisiones:** D-12, D-21, D-29, D-30, D-31 y D-32 (`docs/plan/04-DECISIONES.md`)
+- **Decisiones:** D-12, D-21, D-29, D-30, D-31 y D-32
 
 ## Contexto
 
-El reporte reconoce que casi todo dependía de que el agente cumpliera (§12.2): solo la guarda de memoria (S1) y la validación de entradas (S2) estaban en código. F5 tiene que pasar lo verificable a controles que funcionen con cualquier agente o sin agente.
+Casi todo dependía de que el agente cumpliera: solo la guarda de memoria (S1) y la validación de entradas (S2) estaban en código. F5 tiene que pasar lo verificable a controles que funcionen con cualquier agente o sin agente.
 
 El plan de F5 traía piezas atadas a productos o a una organización:
 - plantillas de GitHub Actions y GitLab CI;
 - publicación de gates con `gh` y `glab`;
-- un perfil de datos de la organización de origen (`legacy-profile`);
+- un perfil de datos por organización (`legacy-profile`);
 - hooks de agente.
 
 ADR-0008 ya había señalado Azure DevOps. El dueño pidió que el motor sea agnóstico, igual que con los tickets (ADR-0012).
@@ -44,7 +44,7 @@ ADR-0008 ya había señalado Azure DevOps. El dueño pidió que el motor sea agn
 - **Secretos y credenciales:** siempre activos, nivel Crítico.
 - **Datos personales:** detectores genéricos, nivel Restringido. Por defecto, tarjetas (Luhn) e IBAN (mod 97), que validan dígito.
 - **Documentos de un país** (CUIT, DNI, CPF, NIF, SSN), email y teléfono: opcionales.
-- **La matriz de niveles por destino** es definición propia, porque el reporte solo trae los niveles. Restringido se bloquea salvo waiver; Crítico se prohíbe siempre.
+- **La matriz de niveles por destino** es definición propia. Restringido se bloquea salvo waiver; Crítico se prohíbe siempre.
 - Sale el perfil `legacy-profile`.
 
 **Sin hooks de agente** (D-31): la política de la organización los bloquea en Claude Code (`allowManagedHooksOnly`, D-25), y los git hooks y la CI cubren lo mismo para cualquier agente.

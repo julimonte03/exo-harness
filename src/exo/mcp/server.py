@@ -1,7 +1,7 @@
 """Servidor MCP por stdio, opcional (ADR-0005).
 
 JSON-RPC 2.0, un mensaje por línea. stdout queda reservado al protocolo y los
-logs van a stderr (invariante 9 de `docs/plan/02-ARQUITECTURA.md` §2.13). Los
+logs van a stderr (invariante 9 del motor). Los
 errores de dominio (por ejemplo una entrada que no pasa S2) vuelven como
 resultado con `isError: true`; los errores JSON-RPC son solo para fallas de
 protocolo. Las tools salen de `exo.tools.registry`, las mismas que usa el CLI.

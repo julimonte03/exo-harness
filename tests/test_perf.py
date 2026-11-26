@@ -1,6 +1,6 @@
 """Metas de rendimiento de F8 (marker `perf`; corre en la suite normal y en la CI).
 
-Las metas (`docs/plan/fases/F8-endurecimiento-y-distribucion.md`, Rendimiento):
+Las metas de rendimiento de la v1.0:
 - `exo init` en menos de 10 s;
 - `exo sync` sin cambios en menos de 1 s;
 - `exo discover inventory` sobre 50 mil líneas en menos de 30 s, y `structure`, el paso

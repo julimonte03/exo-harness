@@ -1,7 +1,7 @@
 """Render de `<PROJECT_DIR>/skill-registry.md` a partir del frontmatter de las skills.
 
 El frontmatter es la fuente de verdad de `name` y `description` (invariante 6
-de `docs/plan/02-ARQUITECTURA.md` §2.13). El render es determinista: ordenado
+del motor). El render es determinista: ordenado
 por nombre, una línea por skill.
 """
 

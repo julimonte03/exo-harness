@@ -2,11 +2,11 @@
 
 - **Estado:** Aceptada
 - **Fecha:** 2026-11-13
-- **Decisiones:** D-12 (parcial), D-20, D-24 y D-25 (`docs/plan/04-DECISIONES.md`)
+- **Decisiones:** D-12 (parcial), D-20, D-24 y D-25
 
 ## Contexto
 
-El plan de F3 (`docs/plan/fases/F3-memoria-v2.md`) proponía cuatro cosas:
+El plan de F3 proponía cuatro cosas:
 - un guard S1 con perfiles de organización (`legacy-profile`) que rechaza secretos y PII al guardar y los redacta al exportar;
 - un backend Qdrant en servidor para experimentar memoria de equipo;
 - hooks de sesión en Claude Code y Copilot;

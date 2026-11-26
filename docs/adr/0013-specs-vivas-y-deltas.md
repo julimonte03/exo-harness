@@ -2,7 +2,7 @@
 
 - **Estado:** Aceptada
 - **Fecha:** 2026-11-14
-- **Decisión:** D-11 (`docs/plan/04-DECISIONES.md`), con D-27 para los artefactos por tier
+- **Decisión:** D-11, con D-27 para los artefactos por tier
 
 ## Contexto
 
@@ -10,7 +10,7 @@ D-11 decidió tener specs vivas:
 - `specs/capabilities/<capacidad>/spec.md` es la fuente de verdad del comportamiento vigente.
 - Cada cambio escribe un delta y `sdd-archive` lo integra.
 
-Ni el plan ni el reporte fijan el formato, y la integración tiene que ser determinista (`exo specs merge`).
+El plan no fija el formato, y la integración tiene que ser determinista (`exo specs merge`).
 
 El `spec.md` que valida speclint desde F1 tiene `## Requirements` (ítems `FR-n`) y `## Scenarios` (`### S-n`) separados. Ese formato no sirve para integrar por ID, porque los escenarios de un requisito quedan lejos del requisito.
 

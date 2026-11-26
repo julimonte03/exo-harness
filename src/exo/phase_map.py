@@ -1,4 +1,4 @@
-"""Mapa fase → skills del ciclo SDD (§6.4 del reporte), leído de su contrato.
+"""Mapa fase → skills del ciclo SDD, leído de su contrato.
 
 El mapa vive en `packs/core/shared/phase-skill-map.md` y se instala como
 contrato compartido. Tiene dos tablas que el motor lee:
@@ -52,7 +52,7 @@ class PhaseMap:
 
 
 def note(pack: str, skill: str) -> str:
-    """El texto exacto que el agente dice cuando una skill falta (§2.5 del reporte)."""
+    """El texto exacto que el agente dice cuando una skill falta."""
     return NOTE.format(pack=pack, skill=skill)
 
 

@@ -1,4 +1,4 @@
-"""Wizard interactivo de `exo init` (`docs/plan/02-ARQUITECTURA.md` §2.9).
+"""Wizard interactivo de `exo init`.
 
 Pasos: agentes detectados (preseleccionados para confirmar), packs sugeridos
 por el stack, patrón de los IDs de ticket con su ejemplo (ADR-0012), y resumen

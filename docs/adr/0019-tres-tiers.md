@@ -2,12 +2,12 @@
 
 - **Estado:** Aceptada
 - **Fecha:** 2026-11-25. El dueño la decidió el 2026-11-22 y la completó el 2026-11-25.
-- **Decisiones:** D-52 (`docs/plan/04-DECISIONES.md`); paquete `docs/plan/paquete-capacidades.md`, §3.1
-- **Reemplaza en parte:** D-27 (lo que toca a los Tiers 3 y 4) y el contrato de "tiers 1–4" que `01-VISION-Y-ALCANCE.md` conservaba del reporte (§4.8 y §6.3).
+- **Decisiones:** D-52
+- **Reemplaza en parte:** D-27 (lo que toca a los Tiers 3 y 4) y el contrato de "tiers 1–4" de la v1.0.
 
 ## Contexto
 
-El ciclo SDD tiene cuatro tiers, tomados del reporte:
+El ciclo SDD tiene cuatro tiers:
 - **Clasificación:** FM-01, FM-02 y FM-03 (seguridad o datos, reversibilidad e impacto regulatorio en 3) dan Tier 4, y la evidencia faltante o ilegible (FM-00) también.
 - **Ceremonias:** son tres (`minimal`, `light`, `full`, `full`) para cuatro tiers.
 - **Lo que distingue al Tier 4 del 3** es solo `judgment-day` y el gate `secure_coding_check`. `classification-rules.md` lo marcaba como "piso duro" frente a "piso".
@@ -79,4 +79,4 @@ Todos los tiers exigen un `ai-usage-record.json` válido. Hay una ceremonia por 
 - **Cambia la salida de `exo fitness` y `exo check`:** el tier va de 1 a 3, `judgment_day` es verdadero en el Tier 3 y los mensajes dicen otra cosa. Por eso la versión mayor.
 - **El contenido instalado cambia en unos 73 archivos** (`risk-tiering`, el orquestador, `phase-skill-map.md`, `judgment-day`, los jueces, los contratos y `AGENTS.base.md`). Llega a los proyectos con `exo update`.
 - **El escenario `agent_e2e` del Tier 3** tiene que retomar la corrida con la aprobación de la persona en `judgment-day`, porque la skill nunca aprueba por ella en una corrida desatendida.
-- **La implementación es F9** (`docs/plan/fases/F9-tres-tiers.md`).
+- **La implementación es F9.**

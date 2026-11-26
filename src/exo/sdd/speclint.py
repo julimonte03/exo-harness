@@ -1,6 +1,6 @@
 """Lint de artefactos SDD contra sus plantillas (`exo/sdd/templates/`).
 
-Tipos (§4.1 del reporte, más los de ADR-0013 y ADR-0016): `functional` (proposal.md),
+Tipos (con los de ADR-0013 y ADR-0016): `functional` (proposal.md),
 `delta` (el spec.md de un change), `capability` (la spec viva de una capacidad,
 `capabilities/<cap>/spec.md`), `technical` (design.md), `canvas` (el Canvas REASONS
 del overlay SPDD), `test-spec`, `verify-record` y `pr`. Las secciones `##` de cada

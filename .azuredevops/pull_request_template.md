@@ -4,7 +4,7 @@
 
 ## Fase
 
-<!-- F<n> — <nombre> (docs/plan/fases/F<n>-*.md). Un PR = una fase o una parte de ella. -->
+<!-- F<n> — <nombre>. Un PR = una fase o una parte de ella. -->
 
 ## Tareas cubiertas
 
@@ -15,8 +15,6 @@
 | # | Criterio | Comando ejecutado | Resultado |
 |---|---|---|---|
 | 1 | … | `…` | OK / NOK + detalle |
-
-<!-- Al cerrar la fase, copiar esta tabla a docs/plan/PROGRESO.md. -->
 
 ## Decisiones y desvíos
 

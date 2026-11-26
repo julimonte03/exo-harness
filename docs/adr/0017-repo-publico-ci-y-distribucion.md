@@ -2,7 +2,7 @@
 
 - **Estado:** Aceptada
 - **Fecha:** 2026-11-19
-- **Decisiones:** D-22, D-45, D-46 y D-48 (`docs/plan/04-DECISIONES.md`)
+- **Decisiones:** D-22, D-45, D-46 y D-48
 - **Reemplaza en parte:** ADR-0008. Sale la CI del motor en Azure Pipelines; lo demás de ADR-0008 ya lo había generalizado ADR-0014 (D-30).
 
 ## Contexto
@@ -15,12 +15,7 @@ F8 lleva el motor a la v1.0, que tiene que poder instalarse con un comando y est
 
 - **Público, en GitHub:** `https://github.com/julimonte03/exo-harness` (D-22).
 - **Primer push:** `main` y las ramas de fase se subieron al empezar F8; los tags y los releases salen al cierre.
-- **Limpieza previa (D-46):** antes del primer push se reescribió toda la historia con `git filter-repo`:
-  - el autor pasó al noreply de GitHub del dueño;
-  - `docs/referencia/` salió de la historia (queda en local, ignorada por git);
-  - toda mención de la organización de origen o de sus herramientas pasó a un término genérico.
-
-  Los hashes anteriores a la reescritura no existen en el remoto. El respaldo previo quedó fuera del repo, en la máquina del dueño.
+- **Autoría:** los commits usan el noreply de GitHub del dueño.
 
 ### CI (D-45)
 

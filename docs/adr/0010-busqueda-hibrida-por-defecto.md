@@ -2,7 +2,7 @@
 
 - **Estado:** Aceptada
 - **Fecha:** 2026-11-13
-- **Decisiones:** D-07 y D-08 (`docs/plan/04-DECISIONES.md`)
+- **Decisiones:** D-07 y D-08
 
 ## Contexto
 

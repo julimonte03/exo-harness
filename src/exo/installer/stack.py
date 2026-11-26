@@ -1,4 +1,4 @@
-"""Detección del stack del proyecto para sugerir packs (port de `StackSignals` de curate).
+"""Detección del stack del proyecto para sugerir packs.
 
 Lee solo manifiestos conocidos y nunca contenido que pueda tener secretos. Los
 packs sugeridos que todavía no existen en el contenido se informan como

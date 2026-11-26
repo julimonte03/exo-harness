@@ -1,4 +1,4 @@
-"""Validación de entradas antes de tocar el filesystem (control S2, §5.2 del reporte).
+"""Validación de entradas antes de tocar el filesystem (control S2).
 
 La usan por igual el CLI y el servidor MCP: toda tool valida sus argumentos acá
 antes de leer nada. Los errores son `InputError`, que el servidor MCP devuelve

@@ -2,7 +2,7 @@
 
 - **Estado:** Aceptada. Los defaults de la sección «Defaults revisables» se confirman o ajustan en F13.
 - **Fecha:** 2026-11-25. El dueño la decidió el 2026-11-22.
-- **Decisiones:** D-53, D-54 y D-55 (`docs/plan/04-DECISIONES.md`); paquete `docs/plan/paquete-capacidades.md`, §3.2 a §3.5
+- **Decisiones:** D-53, D-54 y D-55
 
 ## Contexto
 
@@ -10,7 +10,7 @@
   - Hoy las skills suponen qué hay, o lo prueban una vez (`content/packs/core/shared/agent-capabilities.md`).
   - El `capabilities()` de los adaptadores existe, pero nadie lo llama.
 - **Modelo único.** Todas las fases corren con el modelo de la sesión. La selección de modelo por niveles se diseñó antes de la versión actual del plan y nunca entró.
-- **Retrabajo.** En el escenario Tier 3 de F8, Claude Code pasó cuatro rondas de verify en `needs-rework` antes del arreglo de convergencia (`docs/checklists/F8-v1.md`). Una consulta temprana, en el enfoque y al terminar `apply`, podría evitar parte de ese retrabajo.
+- **Retrabajo.** En el escenario Tier 3 de F8, Claude Code pasó cuatro rondas de verify en `needs-rework` antes del arreglo de convergencia. Una consulta temprana, en el enfoque y al terminar `apply`, podría evitar parte de ese retrabajo.
 - **Restricciones que no cambian:**
   - exo no llama a modelos ni a APIs de IA (invariante 11);
   - sin hooks de agente (D-31);

@@ -1,6 +1,6 @@
 """Motor de operaciones: compara lo que piden los adaptadores con el lock y lo aplica.
 
-Flujo (`docs/plan/fases/F2-adaptadores-e-instalador.md`):
+Flujo:
 
 1. Unifica las operaciones repetidas entre adaptadores.
 2. Compara cada unidad con el lock y con el disco: alta, cambio, sin cambios,

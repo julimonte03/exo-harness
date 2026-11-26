@@ -1,6 +1,6 @@
 """`exo p0`: el gate de regresión mínima (D-32, ADR-0014).
 
-Port, redefinido, del `_verify_p0.py` del reporte. S1 (la guarda de memoria) ya no
+Controles P0 del motor. S1 (la guarda de memoria) ya no
 existe (ADR-0009), así que P0 corre tres regresiones:
 
 1. el escáner de secretos y datos personales sobre un dataset sintético;

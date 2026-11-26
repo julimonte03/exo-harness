@@ -1,6 +1,6 @@
 """Validador del contenido canónico (`exo validate`).
 
-Reglas de §10.5 del reporte, adaptadas al plan (`docs/plan/fases/F1-nucleo.md`):
+Reglas:
 
 - Manifiestos de pack: nombre kebab-case igual a la carpeta, semver,
   descripción; `requires` existentes y sin ciclos.

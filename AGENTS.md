@@ -1,6 +1,6 @@
 # AGENTS.md — Desarrollo del motor `exo`
 
-Este repo construye un motor de desarrollo gobernado por proyecto y agnóstico de agente. El plan vive en `docs/plan/` y manda sobre todo lo demás. La transcripción del sistema original es privada: vive solo en local, en `docs/referencia/` (ignorada por git, D-46), y nunca se sube. Es referencia, no especificación; si contradice al plan, gana el plan.
+Este repo construye un motor de desarrollo gobernado por proyecto y agnóstico de agente. El plan de desarrollo vive en `docs/plan/`, solo en local (no se versiona), y manda sobre todo lo demás.
 
 **Nombre:** el plan usa `arnes` como nombre de trabajo; el motor se llama `exo` (D-01, `docs/adr/0001-nombre-y-layout.md`). Donde el plan dice `arnes`, `.arnes/`, `ARNES_` o `arnes-`, leé `exo`, `.exo/`, `EXO_` y `exo-`.
 
@@ -8,7 +8,7 @@ Este repo construye un motor de desarrollo gobernado por proyecto y agnóstico d
 
 - Leé `docs/plan/PROGRESO.md` para saber cuál es la fase activa y trabajá **solo** dentro de esa fase (`docs/plan/fases/F<n>-*.md`).
 - Si una tarea requiere una decisión que no está en `docs/plan/04-DECISIONES.md`, no la inventes: agregala como `D-xx` con opciones y recomendación, y preguntá.
-- No inventes comportamiento que la referencia marca como `[No verificado]`.
+- No inventes comportamiento que la documentación marca como `[No verificado]`.
 
 ## Invariantes (no negociables)
 

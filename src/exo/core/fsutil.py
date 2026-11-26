@@ -1,6 +1,6 @@
 """Escritura atómica, hashes y saneo de rutas.
 
-Invariantes 2 y 3 de `docs/plan/02-ARQUITECTURA.md` §2.13: idempotencia por
+Invariantes 2 y 3 del motor: idempotencia por
 SHA256 y escrituras atómicas (temporal en el mismo directorio + `os.replace`).
 Todo se escribe en binario, para copiar skills byte a byte y conservar los
 fines de línea del humano.

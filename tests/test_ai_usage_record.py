@@ -1,4 +1,4 @@
-"""Esquema del AI Usage Record (§7.7 del reporte, adaptado: ticket_key, sin playbook)."""
+"""Esquema del AI Usage Record (ticket_key, sin playbook)."""
 
 from __future__ import annotations
 

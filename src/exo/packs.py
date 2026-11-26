@@ -2,8 +2,8 @@
 
 Cada pack vive en `packs/<nombre>/` con un `pack.json`:
 `{name, version, description, requires, optional}`. `requires` se instala en
-cascada; `optional` habilita referencias a skills de otro pack sin instalarlo
-(`docs/plan/02-ARQUITECTURA.md` §2.5). Las carpetas que empiezan con `_` son de
+cascada; `optional` habilita referencias a skills de otro pack sin instalarlo.
+Las carpetas que empiezan con `_` son de
 soporte y no se tratan como packs ni skills.
 """
 

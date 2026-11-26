@@ -59,7 +59,7 @@ AGENT_COMMANDS = (
     "mem stats",
 )
 # En Windows, Claude Code puede ejecutar por su herramienta de PowerShell además de Bash
-# (verificado en docs/checklists/F2-agentes.md).
+# (verificado a mano con Claude Code en Windows).
 PERMISSIONS = tuple(
     f"{tool}({_meta.NAME} {command}:*)"
     for tool in ("Bash", "PowerShell")
